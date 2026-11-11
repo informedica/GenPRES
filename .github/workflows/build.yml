@@ -77,6 +77,13 @@ jobs:
       # source files only, so it needs no build and runs before the tests for fast feedback.
       run: dotnet fsi scripts/CheckDependencyRule.fsx
 
+    - name: Check code style
+      # Static analysis of the layout and comment rules Fantomas does not enforce (issue #1665):
+      # blank lines between declarations, /// on public symbols, plain or XML doc blocks, comment
+      # width. Parses the source only, so it needs no build. Findings present at adoption are in
+      # scripts/CheckCodeStyle.baseline.tsv; a new finding or a stale baseline entry fails the step.
+      run: dotnet fsi scripts/CheckCodeStyle.fsx
+
     - name: Check project graph is current
       # The dependency diagram in ARCHITECTURE.md is generated from the .fsproj files and the ring
       # map; fails when a project or reference changed without `dotnet fsi scripts/ProjectGraph.fsx --write`.

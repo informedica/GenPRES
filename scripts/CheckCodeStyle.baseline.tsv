@@ -1,0 +1,1675 @@
+# Findings of scripts/CheckCodeStyle.fsx present when the check was adopted (issue #1665).
+# Rule, file and key, tab separated. Fix a finding and run --prune-baseline to delete its line.
+# Never add a line: a new finding is fixed, not baselined.
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.adj
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.cmp
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.cnc
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.cnt
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.continuous
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.discontinuous
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.dos
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.frq
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.itm
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.once
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.onceTimed
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.orb
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.ord
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.ptm
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.ptmAdj
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.qtyAdj
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.rte
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.rteAdj
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.sch
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.timed
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.tme
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.tot
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.Literals.totAdj
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.contOnly
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.contTimedOnceTimed
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.discContTimed
+BLANK-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	Informedica.GenOrder.Lib.EquationMapping.discTimed
+BLANK-001	src/Informedica.GenORDER.Lib/Medication.fs	Informedica.GenOrder.Lib.Medication.ProductComponent.create
+BLANK-001	src/Informedica.GenORDER.Lib/Order.fs	Informedica.GenOrder.Lib.Order.OrderType.map
+BLANK-001	src/Informedica.GenORDER.Lib/Order.fs	Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderQuantityToString
+BLANK-001	src/Informedica.GenORDER.Lib/Order.fs	Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.dto
+BLANK-001	src/Informedica.GenORDER.Lib/OrderContext.fs	Informedica.GenOrder.Lib.OrderContext.Command
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Dto.dto
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Dto.fromDto
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.isNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.setConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.setMaxValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.setMedianValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.setMinValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Frequency.setNthValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.toValueUnitString
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.apply
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.applyOnlyMaxConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.hasMaxConstraint
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.isNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.isSolved
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.isWithinConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.setNearestValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.setNthValue
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.setToNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.toValueUnitMarkdown
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.toValueUnitString
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.toValueUnitStringList
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.RateAdjust.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Time.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Total.hasConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Total.isNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Total.isSolved
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Total.isWithinConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.Total.setToNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.apply
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.isSolved
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.isWithinConstraints
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.setToNonZeroPositive
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.toValueUnitMarkdown
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.toValueUnitString
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.toValueUnitStringList
+BLANK-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	Informedica.GenOrder.Lib.OrderVariable.decrease
+BLANK-001	src/Informedica.GenORDER.Lib/Patient.fs	Informedica.GenOrder.Lib.Patient.Access
+BLANK-001	src/Informedica.GenORDER.Lib/Patient.fs	Informedica.GenOrder.Lib.Patient.Optics.ageAgeList
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.ComponentSelection
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.DilutionLimit
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.DoseLimit
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.Patient
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.PrescriptionRule
+BLANK-001	src/Informedica.GenORDER.Lib/Types.fs	Informedica.GenOrder.Lib.Types.Rate
+BLANK-001	src/Informedica.GenORDER.Lib/Utils.fs	Informedica.GenOrder.Lib.WrappedString.Name.addWith
+BLANK-001	src/Informedica.GenORDER.Lib/Utils.fs	Informedica.GenOrder.Lib.WrappedString.Name.toString
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.Dto
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.create
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.createProd
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.createSum
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.toDto
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.toString
+BLANK-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	Informedica.GenSolver.Lib.SolverLogging.noOp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Types.fs	Informedica.GenSolver.Lib.Types.Events
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.MAX_BIGINT
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.MAX_CALC_COUNT
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.PRUNE
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.one
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.three
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.two
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.|Mul|Div|Add|Sub|
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Dto.withName
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsAdd
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsDiv
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsMult
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsSubtr
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtLessMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtLessMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createIncrProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxExclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxInclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinExclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinInclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createValsProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.map
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.isMinIncr
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.setNearestValue
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.BSA
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Count
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Distance
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Energy
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Height
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.InterNatUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Mass
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Molar
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.NoGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Time
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Volume
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Weight
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.BSAUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.DistanceUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.EnergyUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.HeightUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.InternationalUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.MassUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.MolarUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.TimeUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.Unit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.VolumeUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.WeightUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.BSA.m2
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.BSA.nM2
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.nTimes
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.times
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.toCount
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.Constants.CentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.Constants.MilliMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.centimeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.meter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.millimeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nCentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nMilliMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.toDistance
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.Constants.KiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.calorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.kiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.nKiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.General.general
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.Constants.CentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.centiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.meter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.nCentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.nMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.Constants.IU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.Constants.MilliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.iu
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.mIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.milliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nMIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nMilliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.Gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.MicroGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.MilliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.NanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.kiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.microGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.milliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nKiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nMicroGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nMilliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nNanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.Constants.MicroMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.Constants.MilliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.microMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.milliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.mole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMicroMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMilliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Day
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Hour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Minute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Month
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Second
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Week
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.day
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.hour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.minute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.month
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nDay
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nHour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nMinute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nMonth
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nSecond
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nWeek
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nYear
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.second
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.week
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.year
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.DeciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.Droplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.MicroLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.MilliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.deciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.droplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.dropletSetDropsPerMl
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.dropletWithDropsPerMl
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.liter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.microLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.milliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nDeciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nDroplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nMicroLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nMilliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.Constants.Gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.kiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.nGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.nKiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngShortWithoutGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.dto
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.dutch
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDto
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.contains
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.eqsGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getGroupUnits
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getGroups
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getUnitCombinations
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.numDenom
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.toString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.toStringDutch
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.unitToGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.centi
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.day
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.deci
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.hour
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.kilo
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.micro
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.milli
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.minute
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.month
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.nano
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.one
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.second
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.toBase
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.toUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.week
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.year
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_DivideQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsEqualsGreater
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterEqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessEqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_MinusQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_PlusQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.applyToValue
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.count
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.createCombiUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.gtZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.gteZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.minus
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.opFromString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.per
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.plus
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.stZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.steZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.times
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toBaseValue
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalDutchShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngShortWithoutGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.unitToReadableDutchStringWithWrappers
+COMMENT-002	src/Informedica.GenORDER.Lib/Order.fs	/// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
+COMMENT-002	src/Informedica.GenORDER.Lib/Order.fs	/// <returns>The order with values, or the order before the values that could not be solved, with the messages.</returns>
+COMMENT-002	src/Informedica.GenORDER.Lib/OrderContext.fs	// Component Quantity property commands (cmp = component, ntimes = number of times to adjust, useCalc = use calculated increment)
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>MinIncr</c>: a minimum with the domain consisting of multiples of one increment</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>MinIncrMax</c>: a minimum with a domain of multiples of an increment with a maximum</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>NonZeroNoneNegative</c>: any positive rational number greater than zero</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns IncrMax (Increment (ValueUnit ([|2N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|4N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns MinIncr (Minimum.MinIncl (ValueUnit ([|4N|], Mass (Gram 1N))), Increment (ValueUnit ([|2N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns MinMax (Minimum.MinIncl (ValueUnit ([|3N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|5N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the <c>ValueUnit</c> is empty</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyMaximumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyMinimumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyValueSetException">When the <c>ValueSet</c> is empty</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// let incrs = [2N;20N;50N;100N;500N] |> List.map (fun i -> Increment.create ( [| i |] |> ValueUnit.create Units.Mass.gram))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// let vs = [| 1N; 2N; 3N; 4N; 5N; 6N; 7N; 8N; 9N; 10N |] |> ValueUnit.create Units.Mass.gram |> ValueSet.create
+COMMENT-002	src/Informedica.GenUNITS.Lib/Combine.fs	/// Distance (Meter 2N) |> times (Distance (Meter 3N)) = CombiUnit (Distance (Meter 2N), OpTimes, Distance (Meter 3N))
+COMMENT-002	src/Informedica.GenUNITS.Lib/Parser.fs	/// "mg/kg[Weight]" |> run parseUnit -> Success: CombiUnit (Mass (MilliGram 1N), OpPer, Weight (WeightKiloGram 1N)) <br/>
+COMMENT-002	src/Informedica.GenUNITS.Lib/Units.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
+COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
+COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// calc true (+) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) =
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	module Informedica.GenOrder.Lib.Filter
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	module Informedica.GenOrder.Lib.TextBlock
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Components
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Diluent
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Diluents
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.DoseRuleComponents
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.DoseType
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.DoseTypes
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Form
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Forms
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Generic
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Generics
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Indication
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Indications
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.PickedProducts
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Route
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.Filter.Dto.Dto.Routes
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.TextBlock.Dto.Dto.Kind
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	record field Informedica.GenOrder.Lib.TextBlock.Dto.Dto.Text
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	type Informedica.GenOrder.Lib.Canonical.BigRationalConverter
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	type Informedica.GenOrder.Lib.Filter.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	type Informedica.GenOrder.Lib.TextBlock.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Canonical.deserialize
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Canonical.serialize
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Canonical.settings
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.DoseTypeDto.toString
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.DtoResult.sequence
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Filter.Dto.componentSelectionBack
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Filter.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Filter.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.Nested.required
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.OrderCategoryDto.fromString
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.TextBlock.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Dtos.fs	value or function Informedica.GenOrder.Lib.TextBlock.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	module Informedica.GenOrder.Lib.EquationMapping
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	module Informedica.GenOrder.Lib.EquationMapping.Literals
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.adj
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.cmp
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.cnc
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.cnt
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.continuous
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.discontinuous
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.dos
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.frq
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.itm
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.once
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.onceTimed
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.orb
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.ord
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.ptm
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.ptmAdj
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.qty
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.qtyAdj
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.rte
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.rteAdj
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.sch
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.timed
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.tme
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.tot
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.Literals.totAdj
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.allDoseTypes
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.contOnly
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.contTimedOnceTimed
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.discContTimed
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.discTimed
+DOC-001	src/Informedica.GenORDER.Lib/EquationMapping.fs	value or function Informedica.GenOrder.Lib.EquationMapping.equations
+DOC-001	src/Informedica.GenORDER.Lib/Exceptions.fs	module Informedica.GenOrder.Lib.Exceptions
+DOC-001	src/Informedica.GenORDER.Lib/Exceptions.fs	value or function Informedica.GenOrder.Lib.Exceptions.toString
+DOC-001	src/Informedica.GenORDER.Lib/Formulary.fs	module Informedica.GenOrder.Lib.Formulary
+DOC-001	src/Informedica.GenORDER.Lib/Formulary.fs	value or function Informedica.GenOrder.Lib.Formulary.getDilutionRules
+DOC-001	src/Informedica.GenORDER.Lib/Formulary.fs	value or function Informedica.GenOrder.Lib.Formulary.getDoseRules
+DOC-001	src/Informedica.GenORDER.Lib/Logging.fs	module Informedica.GenOrder.Lib.Logging
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	module Informedica.GenOrder.Lib.Medication
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	module Informedica.GenOrder.Lib.Medication.ProductComponent
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	module Informedica.GenOrder.Lib.Medication.SubstanceItem
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.DilutionLimit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Divisible
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Form
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Products
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Quantities
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ComponentDto.Substances
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DilutionLimitDto.Concentration
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DilutionLimitDto.Quantities
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DilutionLimitDto.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DilutionLimitDto.QuantityAdj
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.AdjustUnit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.DoseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.PerTime
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.PerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.QuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.Rate
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.DoseLimitDto.RateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Adjust
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Components
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Div
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.DoseCount
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Frequencies
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Id
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.OrderType
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Quantities
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Route
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.Dto.Time
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.LimitDto.Inclusive
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.LimitDto.Unit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.LimitDto.Value
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.MinMaxDto.Max
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.MinMaxDto.Min
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ProductDto.FormQuantities
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ProductDto.Id
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ProductDto.Strengths
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.StrengthDto.Strength
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.StrengthDto.Substance
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.SubstanceDto.Concentrations
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.SubstanceDto.DilutionLimit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.SubstanceDto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.SubstanceDto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.SubstanceDto.Quantities
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ValueDto.Unit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	property Informedica.GenOrder.Lib.Medication.Dto.ValueDto.Value
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.componentFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.componentToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.dilutionLimitFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.dilutionLimitToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.doseLimitFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.doseLimitToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.limitFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.limitToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.minMaxFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.minMaxToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.numberFromText
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.numberOptFromText
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.numberOptToText
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.numbersToText
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.orderTypeFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.parseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.productFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.productToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.strengthFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.strengthToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.substanceFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.substanceToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.unitOptFromText
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.valueFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.valueOptFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.valueOptToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.Dto.valueToDto
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.ProductComponent.create
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.SubstanceItem.create
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.productComponent
+DOC-001	src/Informedica.GenORDER.Lib/Medication.fs	value or function Informedica.GenOrder.Lib.Medication.substanceItem
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.OrderPropertyChange
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.OrderType
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Orderable.Component.Print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Orderable.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Orderable.Item.Print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Orderable.Print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Schedule
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.Schedule.Print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	module Informedica.GenOrder.Lib.Order.ValueCaps
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Adjust
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Duration
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Id
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Orderable
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Route
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Schedule
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Start
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Dto.Dto.Stop
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.ComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Form
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Id
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Items
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.OrderCount
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.OrderQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.OrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.OrderableCount
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.OrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto.Products
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.ProductDto.FormQuantities
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.ProductDto.Id
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.ProductDto.Strengths
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.StrengthDto.Strength
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.StrengthDto.Substance
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.PerTime
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.PerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.QuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.Rate
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.RateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.Total
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dose.Dto.Dto.TotalAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.Components
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.DoseCount
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.OrderCount
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.OrderQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto.OrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.ComponentConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.ComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.Dose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.OrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto.OrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.Frequency
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.IsContinuous
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.IsDiscontinuous
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.IsOnce
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.IsOnceTimed
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.IsTimed
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	property Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto.Time
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Equation
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Orderable.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Orderable.Name
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	type Informedica.GenOrder.Lib.Order.Schedule.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.cleanDose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.setToContinuous
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.setToDiscontinuous
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.setToOnce
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.setToOnceTimed
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.setToTimed
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Dto.toString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.apply
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.applyToComponents
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.applyToFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.applyToItems
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.applyToTime
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderPropertyChange.proc
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderType.map
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.OrderType.toString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.productFromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.productToDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDosePerTimeToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentDoseRateToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderCountTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderCountToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderCountToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableConcentrationTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableConcentrationToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableConcentrationToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableCountTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableCountToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableCountToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentOrderableQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.componentQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.concentrationTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.countTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.Print.quantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.applyToAllItems
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.applyToItem
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.applyToItems
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.hasItem
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.isDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.isItemsDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.isSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.pickNearestHigherElseLower
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Component.setDoseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeAdjustConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.dosePerTimeToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityAdjustConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateAdjustConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseRateToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.Print.doseTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.isPerTimeWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.isQuantityWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.isRateWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.isWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.setNthValue
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dose.setPercValue
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.componentQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.concentrationTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemComponentConcentrationTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemComponentConcentrationToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemComponentConcentrationToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemComponentQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemComponentQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeToAdjustString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDosePerTimeToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemDoseRateToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemOrderableConcentrationTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemOrderableConcentrationToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemOrderableConcentrationToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemOrderableQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.itemOrderableQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.orderableQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.Print.quantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.isDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.isSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Item.setDoseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.countTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.dosePerTimeToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateAdjustTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateAdjustToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateAdjustToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.doseRateToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderCountTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderCountToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderCountToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderableQuantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderableQuantityToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.orderableQuantityToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.Print.quantityTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.applyToAllComponents
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.applyToComponent
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.applyToComponents
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.hasComponent
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.hasMaxDoseQuantityConstraint
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.isComponentsDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.isDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.isItemsDoseSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.isSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.setDoseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Orderable.toStringWithConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.printOrderTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.printOrderToTableFormat
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.printPrep
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.textBlockIsEmpty
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.textBlockWithParens
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.unwrap
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Print.wrap
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.frequencyTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.frequencyToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.frequencyToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.prescriptionTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.prescriptionToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.prescriptionToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.timeTo
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.timeToMd
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.Print.timeToString
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.applyToFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.applyToTime
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.getFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.getTime
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.hasFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.hasTime
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.isFrequencySolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.isFrequencyWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.isSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.isTimeSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.Schedule.isTimeWithinConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.applyCalculatedConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.calcMinMax
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.checkOrderDose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.doseHasValues
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.doseIsSolved
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.hasNormDose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.hasValues
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.logOrder
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.pickNearestHigherElseLowerComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.print
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.printTable
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.setCalculatedConstraints
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.setDoseUnit
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.setMedianDoseValue
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.solveNormDose
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.toConsoleTable
+DOC-001	src/Informedica.GenORDER.Lib/Order.fs	value or function Informedica.GenOrder.Lib.Order.toConsoleTableString
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	module Informedica.GenOrder.Lib.FilterHelpers
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	module Informedica.GenOrder.Lib.OrderContext
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	module Informedica.GenOrder.Lib.OrderContext.Command
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	module Informedica.GenOrder.Lib.OrderContext.Helpers
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	module Informedica.GenOrder.Lib.OrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderContext.Dto.Dto.Argumentation
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderContext.Dto.Dto.Filter
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderContext.Dto.Dto.Patient
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderContext.Dto.Dto.Scenarios
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Access
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Administration
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Component
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Components
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Diluent
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Diluents
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.DoseType
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.FitsOnlyWithoutDivisible
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Form
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Indication
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Item
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Items
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.No
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.NotRecalculated
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Order
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Preparation
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Prescription
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.ProductsIds
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.RenalRule
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.Route
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.RulesNoLongerApply
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.UseAdjust
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	record field Informedica.GenOrder.Lib.OrderScenario.Dto.Dto.UseRenalRule
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	type Informedica.GenOrder.Lib.OrderContext.Command
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	type Informedica.GenOrder.Lib.OrderContext.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	type Informedica.GenOrder.Lib.OrderScenario.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.DecreaseComponentQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.DecreaseOrderableDoseQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.DecreaseOrderableDoseRateProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.DecreaseScheduleFrequencyProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.IncreaseComponentQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.IncreaseOrderableDoseQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.IncreaseOrderableDoseRateProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.IncreaseScheduleFrequencyProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.ReloadResources
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.ResetOrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SelectOrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMaxComponentQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMaxOrderableDoseQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMaxOrderableDoseRateProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMaxScheduleFrequencyProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMedianComponentQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMedianOrderableDoseQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMedianOrderableDoseRateProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMedianScheduleFrequencyProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMinComponentQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMinOrderableDoseQuantityProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMinOrderableDoseRateProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.SetMinScheduleFrequencyProperty
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.UpdateOrderContext
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	union case Informedica.GenOrder.Lib.OrderContext.Command.UpdateOrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.FilterHelpers.getPrescriptionRules
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Command.get
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Command.toString
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Helpers.changeRuleProductsDivisible
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Helpers.printOrder
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.Helpers.processEvaluationResults
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.applyToOrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.logOrderContext
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.reloadResources
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.setFilter
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.setFilterForm
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.setFilterGeneric
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.setFilterIndication
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.setFilterRoute
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.toString
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderContext.updateFilterIfOneScenario
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderScenario.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderScenario.create
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderScenario.replace
+DOC-001	src/Informedica.GenORDER.Lib/OrderContext.fs	value or function Informedica.GenOrder.Lib.OrderScenario.setOrderTableFormat
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	module Informedica.GenOrder.Lib.OrderLogging
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.logOrderEventError
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.logOrderException
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.logOrderWarning
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.printOrderEqs
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.printOrderEvent
+DOC-001	src/Informedica.GenORDER.Lib/OrderLogging.fs	value or function Informedica.GenOrder.Lib.OrderLogging.printOrderException
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.NutritionRuleSet
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.OrderPlan
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.OrderPlanVersion
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.PlanContext
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.Signer
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	module Informedica.GenOrder.Lib.Signer.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlan.Dto.Dto.Contexts
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlan.Dto.Dto.Filtered
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlan.Dto.Dto.Patient
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlan.Dto.Dto.Totals
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.Base
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.EhrData
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.Id
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.No
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.PatientId
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.Plan
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.SignedAt
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.SignedBy
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto.Verified
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.PlanContext.Dto.Dto.Category
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.PlanContext.Dto.Dto.Context
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.PlanContext.Dto.Dto.Id
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.PlanContext.Dto.Dto.LinkedTo
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.PlanContext.Dto.Dto.Totals
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.Signer.Dto.Dto.DisplayName
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	record field Informedica.GenOrder.Lib.Signer.Dto.Dto.UserId
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	type Informedica.GenOrder.Lib.OrderPlan.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	type Informedica.GenOrder.Lib.OrderPlanVersion.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	type Informedica.GenOrder.Lib.PlanContext.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	type Informedica.GenOrder.Lib.Signer.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.OrderPlan.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.OrderPlanVersion.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.OrderPlanVersion.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.PlanContext.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.PlanContext.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.Signer.Dto.fromDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderPlan.fs	value or function Informedica.GenOrder.Lib.Signer.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.ActionFailure
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.Choice
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.OrderAction
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.OrderCondition
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.OrderEffect
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.OrderVariableReference
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.SetBackTo
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	module Informedica.GenOrder.Lib.OrderProcessor.SetCommand
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.CanSetNormDose
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.DoseIsSolved
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.HasValues
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.IsConstraintsNotApplied
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.OrderIsSolved
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.OrderState.PrescriptionKind
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.Step.Guard
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.Step.Name
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	record field Informedica.GenOrder.Lib.OrderProcessor.Step.Run
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	type Informedica.GenOrder.Lib.OrderProcessor.GenSolverExceptionMsg
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	type Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	union case Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind.PKContinuous
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	union case Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind.PKDiscontinuous
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	union case Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind.PKOnce
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	union case Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind.PKOnceTimed
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	union case Informedica.GenOrder.Lib.OrderProcessor.PrescriptionKind.PKTimed
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	value or function Informedica.GenOrder.Lib.OrderProcessor.printState
+DOC-001	src/Informedica.GenORDER.Lib/OrderProcessor.fs	value or function Informedica.GenOrder.Lib.OrderProcessor.|NoConstraintsApplied|NoValues|HasValues|DoseSolved|
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	module Informedica.GenOrder.Lib.OrderVariable.Constraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	module Informedica.GenOrder.Lib.OrderVariable.Dto
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	module Informedica.GenOrder.Lib.OrderVariable.Rate
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	module Informedica.GenOrder.Lib.ValueUnit.Units
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	module Informedica.GenOrder.Lib.Variable
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	property Informedica.GenOrder.Lib.OrderVariable.Dto.Dto.Calculated
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	property Informedica.GenOrder.Lib.OrderVariable.Dto.Dto.Constraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	property Informedica.GenOrder.Lib.OrderVariable.Dto.Dto.Level
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	property Informedica.GenOrder.Lib.OrderVariable.Dto.Dto.Name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	property Informedica.GenOrder.Lib.OrderVariable.Dto.Dto.Variable
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	type Informedica.GenOrder.Lib.OrderVariable.Dto.Level
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	union case Informedica.GenOrder.Lib.OrderVariable.Dto.Level.IsAlert
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	union case Informedica.GenOrder.Lib.OrderVariable.Dto.Level.IsCaution
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	union case Informedica.GenOrder.Lib.OrderVariable.Dto.Level.IsNormal
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	union case Informedica.GenOrder.Lib.OrderVariable.Dto.Level.IsWarning
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Concentration.hasConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Concentration.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Constraints.fromValueRange
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Count.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Frequency.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTime.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTime.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.hasNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.setNearestValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.setNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.PerTimeAdjust.toString
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.applyOnlyMinIncrConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.convertFirstUnit
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.hasConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Quantity.pickNearestHigherElseLower
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.hasConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.hasNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.QuantityAdjust.setNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Rate.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Rate.hasConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Rate.isNonZeroPositive
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Rate.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.RateAdjust.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.RateAdjust.hasNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.RateAdjust.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.RateAdjust.setNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Time.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Total.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.Total.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.applyOnlyMaxConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.hasConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.TotalAdjust.name
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.applyCalculatedConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.decrease
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.getNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.increase
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.pickNearestHigherElseLower
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.setCalculatedConstraints
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.setNormValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.setNthValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.OrderVariable.setPercValue
+DOC-001	src/Informedica.GenORDER.Lib/OrderVariable.fs	value or function Informedica.GenOrder.Lib.ValueUnit.Units.noUnit
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	module Informedica.GenOrder.Lib.Patient
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	module Informedica.GenOrder.Lib.Patient.Optics
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	type Informedica.GenOrder.Lib.Patient.Access
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	type Informedica.GenOrder.Lib.Patient.Optics.Age
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	type Informedica.GenOrder.Lib.Patient.Optics.Height
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	type Informedica.GenOrder.Lib.Patient.Optics.Weight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	type Informedica.GenOrder.Lib.Patient.Patient
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Age.Days
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Age.Months
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Age.Weeks
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Age.Years
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Height.Centimeter
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Height.Meter
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Weight.Gram
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	union case Informedica.GenOrder.Lib.Patient.Optics.Weight.Kilogram
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.Optics.ageAgeList
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.Optics.vuHeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.Optics.vuWeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.adult
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.child
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.getAge
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.getDepartment
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.getGender
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.getHeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.getWeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.infant
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.newBorn
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.premature
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setAge
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setDepartment
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setGender
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setGestAge
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setHeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.setWeight
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.teenager
+DOC-001	src/Informedica.GenORDER.Lib/Patient.fs	value or function Informedica.GenOrder.Lib.Patient.toddler
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	module Informedica.GenOrder.Lib.Totals
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.BenzylAlcohol
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.BoricAcid
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Calcium
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Carbohydrate
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Chloride
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Energy
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Ethanol
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Fat
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Iron
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Magnesium
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Phosphate
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Potassium
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Propyleenglycol
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Protein
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Sodium
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.VitaminD
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	record field Informedica.GenOrder.Lib.Totals.Dto.Dto.Volume
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	type Informedica.GenOrder.Lib.Totals.CoreNeed
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	type Informedica.GenOrder.Lib.Totals.Dto.Dto
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	value or function Informedica.GenOrder.Lib.Totals.Dto.toDto
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	value or function Informedica.GenOrder.Lib.Totals.calc
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	value or function Informedica.GenOrder.Lib.Totals.getDosePerTime
+DOC-001	src/Informedica.GenORDER.Lib/Totals.fs	value or function Informedica.GenOrder.Lib.Totals.isVolume
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	module Informedica.GenOrder.Lib.Types
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	module Informedica.GenOrder.Lib.Types.Events
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	module Informedica.GenOrder.Lib.Types.Exceptions
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	module Informedica.GenOrder.Lib.Types.Logging
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	type Informedica.GenOrder.Lib.Types.TextBlock
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ComponentInStock
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.DecreaseComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.DecreaseOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.DecreaseOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.DecreaseScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.IncreaseComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.IncreaseOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.IncreaseOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.IncreaseScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcComponentDoseQuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDosePerTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDosePerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDoseQuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemDoseRateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcItemOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.ReCalcScheduleTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMaxComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMaxOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMaxOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMaxScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMedianComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMedianOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMedianOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMedianScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMinComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMinOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMinOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetMinScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthComponentDoseQuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemComponentConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDosePerTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDosePerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDoseQuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemDoseRateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthItemOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthOrderableDoseQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthOrderableDoseRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetNthScheduleTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ChangePropertyCommand.SetOrderableDoseQuantityPerc
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Choice.Max
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Choice.Median
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Choice.Min
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Concentration.Concentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Count.Count
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.PerTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.PerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.QuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.Rate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.RateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.Total
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.DoseProperty.TotalAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.EquationMapping.ProductMapping
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.EquationMapping.SumMapping
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.GenFormErrors
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.MedicationCreated
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.MinIncrMaxToValues
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderIncreaseQuantityIncrement
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderScenario
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderScenarioWithNameValue
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderSolveConstraintsFinished
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderSolveConstraintsStarted
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderSolveFinished
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.OrderSolveStarted
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Events.Event.SolverReplaceUnit
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Exceptions.Message.OrderCouldNotBeCreated
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Exceptions.Message.OrderCouldNotBeSolved
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Components
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Diluent
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.DoseType
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Form
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Generic
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Indication
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.FilterField.Route
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Frequency.Frequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Id.Id
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Logging.OrderMessage.OrderEventMessage
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Logging.OrderMessage.OrderException
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.NutritionCategory.ElectrolyteGlucose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralSupplement
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.NutritionCategory.Lipid
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.NutritionCategory.TPN
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCategory.Medication
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.CalcMinMax
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.CalcValues
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.ChangeProperty
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.IncreaseIncrements
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.ReCalcValues
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderCommand.SolveOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderEquation.OrderProductEquation
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderEquation.OrderSumEquation
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ComponentDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ComponentOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ComponentOrderableCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ItemComponentConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ItemComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ItemDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ItemOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ItemOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.OrderAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.OrderableDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.OrderableDoseCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.OrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderPropertyChange.ScheduleTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.AnyOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.ContinuousOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.DiscontinuousOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.OnceOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.OnceTimedOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.ProcessOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderType.TimedOrder
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentOrderCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentOrderQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentOrderableCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ItemComponentConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ItemComponentQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ItemDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ItemOrderableConcentration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ItemOrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderDuration
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderableDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderableDoseCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderableOrderCount
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderableOrderQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.OrderableQuantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ScheduleFrequency
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.OrderVariableReference.ScheduleTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.PerTime.PerTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.PerTimeAdjust.PerTimeAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Quantity.Quantity
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.QuantityAdjust.QuantityAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Rate.Rate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.RateAdjust.RateAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.RateList.WithRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.RateList.WithoutRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.RateSelection.OfferRates
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.RateSelection.SelectMedianRate
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.ComponentOrderableQuantityStep
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.OrderableDoseQuantityPercentile
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.OrderableDoseQuantityStep
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.OrderableDoseRateStep
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.ReCalcDose
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.ReCalcPerTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.ReCalcTime
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Recipe.ScheduleFrequencyStep
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Schedule.Continuous
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Schedule.Once
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Schedule.OnceTimed
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.SolveMode.MinMax
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.SolveMode.Values
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.StartStop.Start
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.StartStop.StartStop
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.StepIncrement.Calculated
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.StepIncrement.Defined
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.TextBlock.Alert
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.TextBlock.Caution
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.TextBlock.Valid
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.TextBlock.Warning
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Time.Time
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.Total.Total
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.TotalAdjust.TotalAdjust
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ValueCap.Default
+DOC-001	src/Informedica.GenORDER.Lib/Types.fs	union case Informedica.GenOrder.Lib.Types.ValueCap.Larger
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	module Informedica.GenOrder.Lib.Utils
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	module Informedica.GenOrder.Lib.Utils.Constants
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	module Informedica.GenOrder.Lib.Utils.MinMax
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	module Informedica.GenOrder.Lib.Utils.Web
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	value or function Informedica.GenOrder.Lib.Utils.Constants.GENPRES_URL_ID
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	value or function Informedica.GenOrder.Lib.WrappedString.Name.addWith
+DOC-001	src/Informedica.GenORDER.Lib/Utils.fs	value or function Informedica.GenOrder.Lib.WrappedString.Name.concatWith
+DOC-001	src/Informedica.GenSOLVER.Lib/Constraint.fs	module Informedica.GenSolver.Lib.Constraint
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	module Informedica.GenSolver.Lib.Equation.Dto
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	module Informedica.GenSolver.Lib.Equation.SolveResult
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	record field Informedica.GenSolver.Lib.Equation.Dto.Dto.IsProdEq
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	record field Informedica.GenSolver.Lib.Equation.Dto.Dto.Vars
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	type Informedica.GenSolver.Lib.Equation.Dto.VariableDto
+DOC-001	src/Informedica.GenSOLVER.Lib/Exceptions.fs	module Informedica.GenSolver.Lib.Exceptions
+DOC-001	src/Informedica.GenSOLVER.Lib/Logging.fs	module Informedica.GenSolver.Lib.Logger
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	module Informedica.GenSolver.Lib.SolverLogging
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.logSolverException
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.logSolverWarning
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.printException
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.printSolverEvent
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Events
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Exceptions
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Logging
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Constraint.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Constraint.Property
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Variable.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Variable.Values
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Events.Event
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Exceptions.Message
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Logging.SolverMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Equation.ProductEquation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Equation.SumEquation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstrainedSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstraintApplied
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstraintSortOrder
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationCouldNotBeSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationFinishedCalculation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationFinishedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationStartCalculation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationStartedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverFinishedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverLoopedQue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverStartSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ConstraintVariableNotFound
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationDuplicateVariables
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationEmptyVariableList
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationSumUnitMismatch
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.NameLongerThan1000
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.NameNullOrWhiteSpaceException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverErrored
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverInvalidEquations
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverTooManyLoops
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.UnexpectedException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeBoundaryOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeBoundaryShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeEmptyIncrement
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeEmptyValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMaxOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMaxShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinLargerThanMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinMaxException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeNotAValidOperator
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueSetOverflow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.VariableCannotCalcVariables
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.VariableCannotSetValueRange
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Increment.Increment
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Logging.SolverMessage.ExceptionMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Logging.SolverMessage.SolverEventMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Maximum.MaxExcl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Maximum.MaxIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Minimum.MinExcl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Minimum.MinIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Name.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.IncrProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.MaxProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.MinProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.ValsProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Changed
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Errored
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Unchanged
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Incr
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.IncrMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Max
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Min
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinIncr
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinIncrMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.NonZeroPositive
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Unrestricted
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.ValSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueSet.ValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.Constants
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.Parallel
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.ValueUnit
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	value or function Informedica.GenSolver.Lib.Utils.Parallel.maxDepth
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	value or function Informedica.GenSolver.Lib.Utils.Parallel.totalWorders
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Dto.Tests
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Increment
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Maximum
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Property
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.IncrOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.IsNonZeroPositive
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MaxIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MaxOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MinIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MinOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.ValsOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.dto
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.isUnr
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.withName
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtLessMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.toString
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtLessMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createIncrProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxExclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxInclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinExclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinInclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createValsProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getIncr
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getMin
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.mapValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.toString
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.toValueRange
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet.apply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.isSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.isSubSetOf
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.minIsMultipleOf
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.eqsUnitGroup
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.raiseExc
+DOC-001	src/Informedica.GenUNITS.Lib/Api.fs	module Informedica.GenUnits.Lib.Api
+DOC-001	src/Informedica.GenUNITS.Lib/Combine.fs	module Informedica.GenUnits.Lib.Combine
+DOC-001	src/Informedica.GenUNITS.Lib/Core.fs	module Informedica.GenUnits.Lib.Core
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	module Informedica.GenUnits.Lib.Group
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	module Informedica.GenUnits.Lib.Group.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.BSAGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.CombiGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.CountGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.DistanceGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.EnergyGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.GeneralGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.HeightGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.InterNatUnitGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.MassGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.MolarGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.NoGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.TimeGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.VolumeGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.WeightGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.ZeroGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.General
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.InterNatUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.NoGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.toStringDutch
+DOC-001	src/Informedica.GenUNITS.Lib/Parser.fs	module Informedica.GenUnits.Lib.Parser
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	module Informedica.GenUnits.Lib.Types
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.BSAUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.CountUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.DistanceUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.EnergyUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.HeightUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.InternationalUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.MassUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.MolarUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.Operator
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.TimeUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.VolumeUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.WeightUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.BSAUnit.M2
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.CountUnit.Times
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.MilliMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.EnergyUnit.Calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.EnergyUnit.KiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.HeightUnit.HeightCentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.HeightUnit.HeightMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.IU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.MIU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.MilliIU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.MicroGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.MilliGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.NanoGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.MicroMole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.MilliMole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.Mole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpMinus
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpPer
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpPlus
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpTimes
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Day
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Hour
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Minute
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Month
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Second
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Week
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Year
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.CombiUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.General
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.International
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.NoUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.DeciLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.Liter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.MicroLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.MilliLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.WeightUnit.WeightGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.WeightUnit.WeightKiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.BSA.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Count.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Distance.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Energy.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.General
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Height.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.InterNational
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.InterNational.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Mass.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Molar.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Time.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Volume.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Weight.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.Dut
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.DutchPlural
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.Eng
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.EngPlural
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Abbreviation
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Group
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Name
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Synonyms
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Language
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Localization
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.UnitDetails
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Verbal
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Localization.Dutch
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Localization.English
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Verbal.Long
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Verbal.Short
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.BSA.Constants.M2
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Count.Constants.Times
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.MilliMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.Constants.Calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.Constants.KiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.kiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.nCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.nKiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.toEnergy
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Height.Constants.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Height.Constants.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.IU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.MIU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.MilliIU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.MicroGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.MilliGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.NanoGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.MicroMole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.MilliMole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.Mole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Day
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Hour
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Minute
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Month
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Second
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Week
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Year
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.DeciLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.Droplet
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.Liter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.MicroLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.MilliLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Weight.Constants.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Weight.Constants.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.hasGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.nUnit
+DOC-001	src/Informedica.GenUNITS.Lib/UnitsParse.fs	module Informedica.GenUnits.Lib.UnitsParse
+DOC-001	src/Informedica.GenUNITS.Lib/UnitsParse.fs	value or function Informedica.GenUnits.Lib.UnitsParse.groupIsGeneralOrNone
+DOC-001	src/Informedica.GenUNITS.Lib/Utils.fs	module Informedica.GenUnits.Lib.Array
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Addition
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Division
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_EqualsEqualsGreater
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_EqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_GreaterEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_GreaterQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_LessEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_LessQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Multiply
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Subtraction
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Multipliers
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Operators
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Group
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Json
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Language
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Short
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Value
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	type Informedica.GenUnits.Lib.ValueUnit.Dto.Dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	union case Informedica.GenUnits.Lib.ValueUnit.ValueUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.dutch
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.english
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.fromDto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchLong
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchShort
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishLong
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishShort
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.contains
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.eqsGroup
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getGroupUnits
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getGroups
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getUnitCombinations
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.numDenom
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.toString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.toStringDutch
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.unitToGroup
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.centi
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.day
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.deci
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.hour
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.kilo
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.micro
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.milli
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.minute
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.month
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.nano
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.one
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.second
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.week
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.year
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.zero
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_DivideQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_MinusQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_MultiplyQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_PlusQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.count
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.createCombiUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.hasNoUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.hasZeroUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.minus
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.opFromString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.opToStr
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.per
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.pickIndices
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.pickNearestHigherElseLower
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.plus
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.times
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.toToken

@@ -153,6 +153,8 @@
 # the FAKE build script's sources; Build.fsproj stays in the root so bare `dotnet run` finds it
 !/build/
 !/scripts/
+# the findings baseline of scripts/CheckCodeStyle.fsx
+!/scripts/CheckCodeStyle.baseline.tsv
 !/src/
 
 # Add data folders
