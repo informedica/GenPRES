@@ -969,7 +969,7 @@ module RuleFixtures =
 
     /// The dose rules the loader builds from the rows, with the suppository to attach.
     let rules (rows: DoseRuleData[]) =
-        DoseRuleLoader.fromData routeMapping [||] [| suppository |] rows |> fst
+        DoseRuleLoader.fromData routeMapping [||] [| suppository |] [||] rows |> fst
 
     /// A second row beside the first: the same suppository, for pain, at most 20 mg/kg, so its rule
     /// needs a weight. The first row, for a fever at most 100 mg, needs none.
@@ -1175,9 +1175,142 @@ type UndilutedVancomycin() =
 
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
-            DoseRuleLoader.fromData routeMapping [||] [| vial |] [| row |] |> fst
+            DoseRuleLoader.fromData routeMapping [||] [| vial |] [||] [| row |] |> fst
         member _.GetDilutionRules() = [| dilutionRule |]
         member _.GetRouteMappings() = routeMapping
+
+
+/// The electrolyte and glucose mixture as the production sheet holds it: a dose rule without dose values
+/// for no department, 3 to 16 kg, and a dilution rule for ICK from a weight in grams that limits both
+/// components per kg.
+module Electrolytes =
+
+    open Informedica.GenCore.Lib.Ranges
+
+    let mL = Units.Volume.milliLiter
+    let kg = Units.Weight.kiloGram
+    let gram = Units.Weight.gram
+
+
+    let routeMapping: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+        |]
+
+
+    let product generic =
+        { Product.create generic "vloeistof" "INTRAVENEUS" [| generic |] with
+            FormQuantities = 10N |> ValueUnit.singleWithUnit mL
+        }
+
+
+    /// A row of the electrolyte and glucose mixture, 3 to 16 kg, without dose values, for no department.
+    let row cmp : DoseRuleData =
+        let r = RuleFixtures.row ""
+
+        { r with
+            Generic = { r.Generic with Name = "electrolyt/glucose mengsel" }
+            Indication = "Parenterale suppletie"
+            Route = "INTRAVENEUS"
+            Patient =
+                { r.Patient with
+                    MinWeight = Some 3000N
+                    MaxWeight = Some 16000N
+                }
+            ScheduleData =
+                { r.ScheduleData with
+                    DoseType = "timed"
+                    Freqs = [| 1N |]
+                    FreqUnit = "dag"
+                    MinTime = Some 20N
+                    MaxTime = Some 24N
+                    TimeUnit = "uur"
+                    AdjustUnit = "kg"
+                    DoseLimitData =
+                        { r.ScheduleData.DoseLimitData with
+                            Component = cmp
+                            Substance = ""
+                            DoseUnit = "mL"
+                            MaxQty = None
+                        }
+                }
+        }
+
+
+    let perKg max =
+        MinMax.createInclIncl
+            (0N |> ValueUnit.singleWithUnit (mL |> ValueUnit.per kg))
+            (max |> ValueUnit.singleWithUnit (mL |> ValueUnit.per kg))
+
+
+    /// The dilution rule for ICK, from minWeight to 16 kg, in grams: at most 6 and 2 mL per kg.
+    let dilutionRule minWeight : DilutionRule =
+        let limit u = ValueUnit.singleWithUnit u >> Limit.inclusive >> Some
+
+        {
+            Generic = "electrolyt/glucose mengsel"
+            Form = None
+            Route = "INTRAVENEUS"
+            Indication = Some "Parenterale suppletie"
+            DoseType = NoDoseType
+            PatientCategory =
+                { PatientCategory.empty with
+                    Department = Some "ICK"
+                    Weight =
+                        MinMax.create
+                            (minWeight |> limit gram)
+                            (16000N |> ValueUnit.singleWithUnit gram |> Limit.exclusive |> Some)
+                }
+            Dose = MinMax.empty
+            Diluents = [||]
+            Div = None
+            Volumes = None
+            Volume = MinMax.empty
+            VolumeAdjust = MinMax.empty
+            DripRate = MinMax.empty
+            DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
+            DilutionLimits =
+                [|
+                    { DilutionLimit.limit with
+                        DilutionLimitTarget = ComponentLimitTarget "NaCl 3%"
+                        QuantityAdj = perKg 6N
+                    }
+                    { DilutionLimit.limit with
+                        DilutionLimitTarget = ComponentLimitTarget "KCl 7,4%"
+                        QuantityAdj = perKg 2N
+                    }
+                |]
+        }
+
+
+    /// A patient of a year old in the department, with a weight in kg.
+    let patient department weightKg =
+        { Patient.patient with
+            Department = Some department
+            Age = 365N |> ValueUnit.singleWithUnit Units.Time.day |> Some
+            Weight = weightKg * 1000N |> ValueUnit.singleWithUnit gram |> Some
+        }
+
+
+/// The electrolyte and glucose mixture with a dilution rule for ICK from minWeight grams, and the products
+/// given.
+type ElectrolyteRules(minWeight, products) =
+    inherit NoRules()
+
+    let dilutionRules = [| Electrolytes.dilutionRule minWeight |]
+
+    interface Resources.IResourceProvider with
+        member _.GetDoseRules() =
+            [| Electrolytes.row "NaCl 3%"; Electrolytes.row "KCl 7,4%" |]
+            |> DoseRuleLoader.fromData Electrolytes.routeMapping [||] products dilutionRules
+            |> fst
+
+        member _.GetDilutionRules() = dilutionRules
+        member _.GetRouteMappings() = Electrolytes.routeMapping
+        member _.GetDepartments() = Resources.Departments.ofNamed [ Some "ICK"; Some "NEO" ]
 
 
 /// A nutrition context narrowed to its rule set as the server narrows it: the rule set from the rows of the
@@ -1212,6 +1345,7 @@ let ruleSetDiscoveryTests =
                         RuleFixtures.routeMapping
                         [||]
                         [| product "voedsel"; product "paracetamol" |]
+                        [||]
                         data
                     |> fst
                     |> RulesOf
@@ -2338,6 +2472,7 @@ module RefusedFixtures =
             RuleFixtures.routeMapping
             [||]
             [| product "paracetamol"; product "ibuprofen" |]
+            [||]
             [|
                 rowOf "paracetamol" "koorts" "start"
                 rowOf "paracetamol" "koorts" "onderhoud"
@@ -3574,5 +3709,90 @@ let totalsOverTests =
                 |> OrderPlan.recalculate [| volume |]
                 |> _.Totals
                 |> Expect.equal "the suppository alone" Totals.empty
+            }
+        ]
+
+
+/// The refusal of a context whose dose rule has no limits and gets them from a dilution rule.
+let refusalWithoutLimitsTests =
+    let picked provider (pat: Patient) : OrderContext =
+        let ctx = OrderContext.create OrderLogging.noOp provider pat
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indication = Some "Parenterale suppletie"
+                    Generic = Some "electrolyt/glucose mengsel"
+                }
+        }
+
+    let products = [| Electrolytes.product "NaCl 3%"; Electrolytes.product "KCl 7,4%" |]
+
+    let refusal minWeight pat =
+        let provider = ElectrolyteRules(minWeight, products)
+        pat |> picked provider |> OrderContext.refusal provider
+
+    testList
+        "the refusal of a dose rule without limits"
+        [
+            test "the rule loads and a 5 kg ICK patient gets it" {
+                let provider = ElectrolyteRules(3000N, products)
+
+                (provider :> Resources.IResourceProvider).GetDoseRules()
+                |> Expect.hasLength "the kept rule" 1
+
+                { Filter.doseFilter with Patient = Electrolytes.patient "ICK" 5N }
+                |> Api.filterPrescriptionRules provider
+                |> Result.map Array.length
+                |> Expect.equal "one prescription rule" (Ok 1)
+            }
+
+            test "outside ICK no dose rule is there for the picks" {
+                Electrolytes.patient "NEO" 5N
+                |> refusal 3000N
+                |> Expect.equal "no dose rules" Refusal.NoDoseRules
+            }
+
+            test "in ICK, below the weight of the dilution rule, no dose rule is there for the patient" {
+                Electrolytes.patient "ICK" 5N
+                |> refusal 7000N
+                |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
+            }
+
+            test "a rule without limits whose products are missing answers NoProducts, as a rule with limits" {
+                let provider = ElectrolyteRules(3000N, [||])
+
+                (provider :> Resources.IResourceProvider).GetDoseRules()
+                |> Expect.hasLength "the kept rule, without products" 1
+
+                Electrolytes.patient "ICK" 5N
+                |> picked provider
+                |> OrderContext.refusal provider
+                |> Expect.equal "no products" Refusal.NoProducts
+            }
+
+            test "a rule without limits whose products have no reconstitution for the patient answers NoProducts" {
+                // powders that need reconstitution, with no reconstitution for any department
+                let powder generic =
+                    { Electrolytes.product generic with
+                        RequiresReconstitution = true
+                        Reconstitution = [||]
+                    }
+
+                let provider = ElectrolyteRules(3000N, [| powder "NaCl 3%"; powder "KCl 7,4%" |])
+
+                (provider :> Resources.IResourceProvider).GetDoseRules()
+                |> Expect.hasLength "the kept rule, with its powders" 1
+
+                Electrolytes.patient "ICK" 5N
+                |> picked provider
+                |> OrderContext.refusal provider
+                |> Expect.equal "no products" Refusal.NoProducts
+            }
+
+            test "in ICK, above the weight of the dose rule, the reason stays NoDoseRulesForPatient" {
+                Electrolytes.patient "ICK" 20N
+                |> refusal 3000N
+                |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
             }
         ]

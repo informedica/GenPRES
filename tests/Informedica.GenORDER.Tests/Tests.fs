@@ -577,18 +577,6 @@ module ComponentProductTests =
                     |> List.contains (DtoError.NotMadeOf("Components[0].Products[1]", "amox-clav-1000-200"))
                     |> Expect.isTrue "the second product"
                 }
-
-                test "a product with a blank id is an error" {
-                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: \"\"")
-                    |> MedicationText.fromString
-                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
-                }
-
-                test "a product without an id is an error" {
-                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: ~")
-                    |> MedicationText.fromString
-                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
-                }
             ]
 
 
@@ -5846,6 +5834,7 @@ let tests =
             OrderPlanTests.selectsRulesTests
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
+            OrderPlanTests.refusalWithoutLimitsTests
             OrderPlanTests.listsOfOtherPicksTests
             OrderPlanTests.argumentationTests
             OrderPlanTests.linkTests

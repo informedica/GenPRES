@@ -1208,6 +1208,7 @@ module Pipeline =
         let prods = Config.provider.GetProducts()
         let routeMapping = Config.provider.GetRouteMappings()
         let formRoutes = Config.provider.GetFormRoutes()
+        let dilutionRules = Config.provider.GetDilutionRules()
 
         // Serialise the extracted rules to the canonical Pass-4 TSV and run that
         // through the v2 GenFORM build chain (parseDoseRuleData -> addProducts ->
@@ -1221,7 +1222,7 @@ module Pipeline =
             |> Array.map _.Split('\t')
 
         Informedica.GenForm.Lib.DoseRuleData.parseDoseRuleData matrix
-        |> Result.map (DoseRuleLoader.fromData routeMapping formRoutes prods >> fst)
+        |> Result.map (DoseRuleLoader.fromData routeMapping formRoutes prods dilutionRules >> fst)
 
 
     /// End-to-end: free text → `DoseRuleExtractionResult` via Ollama →

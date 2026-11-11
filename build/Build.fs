@@ -1,4 +1,5 @@
 open System.Text.RegularExpressions
+open System.Xml.Linq
 
 open Fake.Core
 open Fake.IO
@@ -405,17 +406,20 @@ Target.create
     )
 
 
-// Every test project in the solution, in the order the solution lists them. Read from
+// Every project in the solution, in the order the solution lists them. Read from
 // GenPRES.sln rather than kept as a list here, because a list here would rot: the
 // debugTests.sh this replaced carried nine projects and had silently fallen six behind.
 // `scripts/DependencyRule.fsx` reads the solution the same way, for the same reason.
-let testProjects () =
+let solutionProjects () =
     File.readAsString sln
     |> fun text -> Regex.Matches(text, "\"([^\"]+\\.fsproj)\"")
     |> Seq.map (fun m -> m.Groups[1].Value.Replace('\\', '/'))
-    |> Seq.filter (fun path -> path.StartsWith "tests/")
     |> Seq.distinct
     |> List.ofSeq
+
+
+let testProjects () =
+    solutionProjects () |> List.filter (fun path -> path.StartsWith "tests/")
 
 
 // Runs each test assembly on its own, with Expecto's own runner rather than `dotnet test`:
@@ -459,6 +463,141 @@ Target.create "Localization" (fun _ -> run dotnet [ "fsi"; "scripts/CheckLocaliz
 // summary ServerTests prints. It used to start the Vite dev server after the tests, which
 // never returns, so the target ran the tests and then hung; nothing could call it.
 Target.create "TestHeadless" (fun _ -> run dotnet [ "test"; sln; "--no-build"; "--no-restore" ] ".")
+
+
+let coveragePath = Path.getFullName "coverage"
+
+
+type AssemblyCoverage =
+    {
+        Assembly: string
+        LinesCovered: int
+        Lines: int
+        BranchesCovered: int
+        Branches: int
+    }
+
+
+// Line and branch coverage of the assemblies whose name satisfies includes, from a cobertura report.
+// A source line occurs once per method and class it is compiled into (an inline function compiles
+// twice); it counts once, as covered when any occurrence was hit, with the branches of its best
+// covered occurrence. The method-level copies are read too, as class-level lines can lack branches.
+let coverageByAssembly includes (reportPath: string) =
+    let attr (n: string) (e: XElement) = e.Attribute n |> Option.ofObj |> Option.map _.Value
+
+    let branches line =
+        match attr "condition-coverage" line with
+        | Some cc ->
+            // The attribute reads "50% (1/2)".
+            let m = Regex.Match(cc, @"\((\d+)/(\d+)\)")
+            int m.Groups[1].Value, int m.Groups[2].Value
+        | None -> 0, 0
+
+    let ofPackage (pkg: XElement) =
+        let lines =
+            pkg.Descendants "class"
+            |> Seq.collect (fun cls ->
+                cls.Descendants "line"
+                |> Seq.map (fun line -> (attr "filename" cls, attr "number" line), line)
+            )
+            |> Seq.groupBy fst
+            |> Seq.map (fun (_, occurrences) ->
+                let occurrences = occurrences |> Seq.map snd
+                let hit = occurrences |> Seq.exists (fun line -> attr "hits" line <> Some "0")
+                hit, occurrences |> Seq.map branches |> Seq.max
+            )
+            |> List.ofSeq
+
+        {
+            Assembly = (attr "name" pkg).Value
+            LinesCovered = lines |> List.filter fst |> List.length
+            Lines = lines.Length
+            BranchesCovered = lines |> List.sumBy (snd >> fst)
+            Branches = lines |> List.sumBy (snd >> snd)
+        }
+
+    XDocument.Load(reportPath).Descendants "package"
+    |> Seq.filter (attr "name" >> Option.exists includes)
+    |> Seq.map ofPackage
+    |> List.ofSeq
+
+
+// Runs the suite once with the Code Coverage collector and prints line and branch coverage per GenPRES
+// assembly, also written to coverage/summary.md. A src project that no test loads is absent from the
+// report, so it is listed below the table.
+Target.create
+    "Coverage"
+    (fun _ ->
+        Shell.cleanDir coveragePath
+
+        run
+            dotnet
+            [
+                "test"
+                sln
+                "--no-build"
+                "--no-restore"
+                "--collect"
+                "Code Coverage;Format=cobertura"
+                "--results-directory"
+                coveragePath
+            ]
+            "."
+
+        let reports =
+            System.IO.Directory.GetFiles(coveragePath, "*.cobertura.xml", System.IO.SearchOption.AllDirectories)
+
+        // dotnet test merges the runs of a solution into one report; more than one would split the figures per run.
+        match reports with
+        | [| report |] ->
+            let isGenPres (name: string) = name.StartsWith "Informedica." && not (name.EndsWith ".Tests")
+
+            let rows = coverageByAssembly isGenPres report |> List.sortBy _.Assembly
+
+            let total =
+                {
+                    Assembly = "Total"
+                    LinesCovered = rows |> List.sumBy _.LinesCovered
+                    Lines = rows |> List.sumBy _.Lines
+                    BranchesCovered = rows |> List.sumBy _.BranchesCovered
+                    Branches = rows |> List.sumBy _.Branches
+                }
+
+            let pct covered total =
+                if total = 0 then
+                    "-"
+                else
+                    $"%.1f{100.0 * float covered / float total}"
+
+            let row r =
+                $"| %s{r.Assembly} | %i{r.LinesCovered}/%i{r.Lines} | %s{pct r.LinesCovered r.Lines} | %s{pct r.BranchesCovered r.Branches} |"
+
+            let measured = rows |> List.map _.Assembly |> Set.ofList
+
+            let unmeasured =
+                solutionProjects ()
+                |> List.filter (fun path -> path.StartsWith "src/")
+                |> List.map System.IO.Path.GetFileNameWithoutExtension
+                |> List.filter (measured.Contains >> not)
+                |> List.sort
+
+            let table =
+                [
+                    "| Assembly | Lines | Line % | Branch % |"
+                    "|---|---|---|---|"
+                    yield! rows |> List.map row
+                    row total
+                    ""
+                    match unmeasured with
+                    | [] -> ()
+                    | names -> $"""Not loaded by any test, so not measured: %s{String.concat ", " names}."""
+                ]
+
+            table |> List.iter (printfn "%s")
+            File.writeNew (Path.combine coveragePath "summary.md") table
+            Trace.logfn "\nReport: %s" report
+        | _ -> invalidOp $"Expected one merged cobertura report under %s{coveragePath}, found %i{reports.Length}."
+    )
 
 
 Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
@@ -630,6 +769,7 @@ let dependencies =
         "RestoreClient" ==> "Run"
 
         "Build" ==> "TestHeadless"
+        "Build" ==> "Coverage"
 
         "Build" ==> "ServerTests"
         "Build" ==> "CheckVersions"

@@ -1634,10 +1634,33 @@ Scenarios: {scenarios}
             Refusal.NoProducts
 
 
+    /// The dose rules applying to the department of the patient, or the default department:
+    /// every rule with limits, and a dose rule without limits only when a dilution rule for the
+    /// department limits every component of it.
+    let applyingToDepartment provider pat drs =
+        let routeMapping = Api.getRouteMapping provider
+        let department = (pat |> Api.withDefaultDepartment provider).Department
+
+        let dilutionRules =
+            Api.getDilutionRules provider
+            |> Array.filter (fun dilRule ->
+                department
+                |> PatientCategory.departmentMatches dilRule.PatientCategory.Department
+            )
+
+        drs
+        |> Array.filter (fun dr ->
+            dr |> DoseRule.hasNoLimits |> not
+            || dr |> DilutionRule.anyLimitsDoseRule routeMapping dilutionRules
+        )
+
+
     /// The refusal for the context, read from the provider's dose rules: the picks in the
     /// patient's department, then the picks with the patient as the rules match it, then whether
     /// each prescription rule for the picks needs a measurement the patient lacks. For a child
-    /// without a weight no rule covers the patient.
+    /// without a weight no rule covers the patient. A dose rule without limits counts for the picks
+    /// only when a dilution rule of the department limits it, and for the patient only when a dilution
+    /// rule for the patient limits it, or when it has no products, which answers NoProducts.
     let refusal provider (ctx: OrderContext) =
         // the department alone, so that a rule of the patient's ward counts as one for the picks
         let forPicks =
@@ -1645,16 +1668,38 @@ Scenarios: {scenarios}
             |> Api.filterDoseRules
                 provider
                 { filterPicks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
+            |> applyingToDepartment provider ctx.Patient
 
         if ctx.Patient |> selectsRules then
             let filter = { filterPicks ctx with Patient = ctx |> matchedPatient }
-            let forPatient = forPicks |> Api.filterDoseRules provider filter
 
-            filter
-            |> Api.filterPrescriptionRules provider
-            |> Result.defaultValue [||]
-            |> measurementMissing filter.Patient
-            |> refusalOf forPicks forPatient
+            let prs = filter |> Api.filterPrescriptionRules provider |> Result.defaultValue [||]
+
+            let prescribedIds = prs |> Array.map _.DoseRule.Id |> Set.ofArray
+
+            // the products the lookup prescribes from: reconstituted for the patient, as the lookup does
+            let hasNoProducts dr =
+                let pat = filter.Patient |> Api.withDefaultDepartment provider
+
+                dr
+                |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location pat.Department
+                |> fst
+                |> _.ComponentLimits
+                |> Array.collect _.Products
+                |> Array.isEmpty
+
+            // the prescription rules keep a rule without limits only with a dilution rule of the patient
+            // that limits it; a rule without products they drop before that, which answers NoProducts
+            let forPatient =
+                forPicks
+                |> Api.filterDoseRules provider filter
+                |> Array.filter (fun dr ->
+                    dr |> DoseRule.hasNoLimits |> not
+                    || prescribedIds.Contains dr.Id
+                    || dr |> hasNoProducts
+                )
+
+            prs |> measurementMissing filter.Patient |> refusalOf forPicks forPatient
         else
             refusalOf forPicks [||] false
 

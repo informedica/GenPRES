@@ -268,6 +268,44 @@ module PrescriptionRule =
             |> Array.filter (fun cl -> optional |> Array.contains cl.Name |> not || selected |> List.contains cl.Name)
 
 
+    /// The names of the components of the dose rule without a limit or a substance limit that holds a
+    /// value.
+    let componentNamesWithoutLimits (dr: DoseRule) =
+        dr.ComponentLimits
+        |> Array.filter DoseRule.componentHasNoLimits
+        |> Array.map _.Name
+
+
+    /// Whether the dilution rule, adjusted to the patient, limits the component: a dilution limit of
+    /// the component with a maximum quantity or a list of quantities. A quantity per kg is in the
+    /// quantity only when the patient has a weight. A minimum alone leaves the component unbounded.
+    /// Only the first dilution limit of the component counts, since that is the one the order takes.
+    let limitsComponent (dilRule: DilutionRule) name =
+        dilRule
+        |> DilutionRule.componentLimit name
+        |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
+
+
+    /// The prescription rule with only the dilution rules that limit every component without a limit,
+    /// with a dose count of at least 1; none when no dilution rule is left. Each dilution rule gives
+    /// its own scenario, so a dilution rule that does not limit those components would give an order
+    /// with a component without any limit. A rule whose components all have a limit is kept as it is.
+    let withLimitingDilutionRules (pr: PrescriptionRule) =
+        match pr.DoseRule |> componentNamesWithoutLimits with
+        | [||] -> Some pr
+        | names ->
+            let limiting =
+                pr.DilutionRules
+                |> Array.filter (fun dilRule ->
+                    dilRule |> DilutionRule.hasDoseCountOfAtLeastOne
+                    && names |> Array.forall (limitsComponent dilRule)
+                )
+
+            match limiting with
+            | [||] -> None
+            | dilRules -> Some { pr with DilutionRules = dilRules }
+
+
     /// The prescription rules for the filter; isAdditive decides the components a selection can leave
     /// out, see isAdditiveComponent.
     let filter
@@ -391,6 +429,9 @@ module PrescriptionRule =
                     }
                 )
         )
+        // This step comes last, after the dilution rules are adjusted to the patient. The renal rules
+        // change only substance limits, so a component without a limit still has none after them.
+        |> Array.choose withLimitingDilutionRules
         |> Ok
 
 

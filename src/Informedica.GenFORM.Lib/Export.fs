@@ -286,10 +286,19 @@ module Analyze =
         |> List.forall Option.isNone
 
     /// <summary>
-    /// surviving rows of any dataset = valid rows (forward keeps them), minus
-    /// empty-limit no-substance rows (forward keeps them but they reverse to nothing).
+    /// surviving rows of any dataset = valid rows (loading keeps them), minus
+    /// empty-limit no-substance rows (loading drops them), except the rows of a dose
+    /// rule that loading keeps without limits, because a dilution rule limits it. A row
+    /// belongs to the dose rule whose DataId is its RuleId; a sheet row has no RuleId,
+    /// so it is computed.
     /// </summary>
-    let surviving (data: DoseRuleData[]) =
+    let surviving (doseRules: DoseRule[]) (data: DoseRuleData[]) =
+        let ruleIdsWithoutLimits =
+            doseRules
+            |> Array.filter DoseRule.hasNoLimits
+            |> Array.map _.DataId
+            |> Set.ofArray
+
         data
         |> Array.filter (fun d -> DoseRuleData.validateData d |> List.isEmpty)
         |> Array.filter (fun d ->
@@ -297,6 +306,7 @@ module Analyze =
                 d.ScheduleData.DoseLimitData.Substance |> String.isNullOrWhiteSpace
                 && allLimitsEmpty d
             )
+            || ruleIdsWithoutLimits.Contains (d |> DoseRuleData.setDataHashIds).RuleId
         )
 
     let trunc n (s: string) = if s.Length > n then s[.. n - 1] + "…" else s
@@ -367,8 +377,8 @@ module Analyze =
     /// <param name="input">The dose rule data rows to round-trip and check.</param>
     /// <returns>The <c>PassResult</c> with statistics and the generated dataset.</returns>
     let runPass (forward: DoseRuleData[] -> DoseRule[]) (label: string) (input: DoseRuleData[]) : PassResult =
-        let survivingInput = surviving input
         let fwd = input |> forward
+        let survivingInput = surviving fwd input
         let generated = fwd |> Array.collect DoseRule.toData |> Array.distinctBy rowKey
         let genById = generated |> Array.groupBy idKey |> Map.ofArray
 
@@ -432,7 +442,12 @@ module Export =
     /// <param name="data">The dose rule data rows to rebuild into dose rules.</param>
     /// <returns>The forward-built dose rules (loader warnings discarded).</returns>
     let forward (provider: Resources.IResourceProvider) data =
-        DoseRuleLoader.fromData (provider.GetRouteMappings()) (provider.GetFormRoutes()) (provider.GetProducts()) data
+        DoseRuleLoader.fromData
+            (provider.GetRouteMappings())
+            (provider.GetFormRoutes())
+            (provider.GetProducts())
+            (provider.GetDilutionRules())
+            data
         |> fst
 
     /// <summary>

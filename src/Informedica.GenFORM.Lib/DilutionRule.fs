@@ -373,6 +373,70 @@ module DilutionRule =
         && PatientCategory.canShare dilRule.PatientCategory dr.PatientCategory
 
 
+    /// Whether the dose count of the dilution rule is at least 1, so that the dose is at most the
+    /// preparation: a dose fraction, when the rule gives one, of at most 1. Without a dose fraction
+    /// the order builder sets the dose count to 1.
+    let hasDoseCountOfAtLeastOne (dilRule: DilutionRule) =
+        [ dilRule.DoseFraction.Min; dilRule.DoseFraction.Max ]
+        |> List.choose id
+        |> List.forall (Limit.getValueUnit >> ValueUnit.getValue >> Array.forall (fun v -> v <= 1N))
+
+
+    /// The first dilution limit of the component, the one the order takes.
+    let componentLimit name (dilRule: DilutionRule) =
+        dilRule.DilutionLimits
+        |> Array.tryFind (fun dl ->
+            match dl.DilutionLimitTarget with
+            | ComponentLimitTarget c -> c |> String.equalsCapInsens name
+            | _ -> false
+        )
+
+
+    /// Whether the dilution rule can limit the component for some patient: its first dilution limit of
+    /// the component has a maximum quantity, a maximum quantity per kg or a list of quantities.
+    let canLimitComponent (dilRule: DilutionRule) name =
+        dilRule
+        |> componentLimit name
+        |> Option.exists (fun dl ->
+            dl.Quantity.Max |> Option.isSome
+            || dl.QuantityAdj.Max |> Option.isSome
+            || dl.Quantities |> Option.isSome
+        )
+
+
+    /// Whether a dilution rule that applies to the dose rule limits every component of it, with a dose
+    /// count of at least 1.
+    let anyLimitsDoseRule routeMapping (dilutionRules: DilutionRule[]) (dr: DoseRule) =
+        let names = dr.ComponentLimits |> Array.map _.Name
+
+        dilutionRules
+        |> Array.exists (fun dilRule ->
+            dilRule |> canMeetDoseRule routeMapping dr
+            && dilRule |> hasDoseCountOfAtLeastOne
+            && names |> Array.forall (canLimitComponent dilRule)
+        )
+
+
+    /// One warning per dose rule without limits that a dilution rule applies to, while no dilution
+    /// rule limits every component of it, so loading leaves it out.
+    let unlimitedDoseRules routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
+        doseRules
+        |> Array.filter (fun dr ->
+            dr |> DoseRule.hasNoLimits
+            && rules |> Array.exists (canMeetDoseRule routeMapping dr)
+            && dr |> anyLimitsDoseRule routeMapping rules |> not
+        )
+        |> Array.map (fun dr ->
+            let names = dr.ComponentLimits |> Array.map _.Name |> String.concat ", "
+
+            $"%s{dr |> DoseRule.label}: no limits, and no dilution rule limits every component (%s{names}), "
+            + "so the dose rule is left out"
+        )
+        |> Array.toList
+        |> List.distinct
+        |> List.map Warning
+
+
     /// One warning per pair of dilution rules that apply to the same dose rule and can meet the
     /// same patient of that dose rule. Ranges that overlap pair by pair share a value, so comparing
     /// each pair of the three rules is enough. Each rule gives its own scenario, so the user has to choose between them, and
