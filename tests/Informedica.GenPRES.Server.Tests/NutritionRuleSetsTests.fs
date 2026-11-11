@@ -39,6 +39,7 @@ module Fixtures =
             OrderPlanTests.RuleFixtures.routeMapping
             [||]
             [| product "voedsel"; product "paracetamol" |]
+            [||]
             data
         |> fst
 

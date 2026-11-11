@@ -83,7 +83,10 @@ module DoseRuleLoader =
         )
 
 
-    let fromData routeMapping formRoutes prods (data: DoseRuleData[]) =
+    /// The dose rules of the rows, with the warnings. A dose rule without any limit is kept when a
+    /// dilution rule that applies to it limits every component; when a dilution rule applies but does
+    /// not, it is left out with a warning.
+    let fromData routeMapping formRoutes prods (dilutionRules: DilutionRule[]) (data: DoseRuleData[]) =
         // get the validated dose rule data from data
         // and the warnings
         let data, warnings =
@@ -132,43 +135,30 @@ module DoseRuleLoader =
 
         let head = warm |> Array.collect (DoseRule.mapToDoseRule >> Array.map addFormLimits)
 
-        tail
-        |> Array.chunkBySize Parallel.totalWorders
-        // map each grouped dose rule data to mapToDoseRule
-        // that will expand for all available product forms
-        // and form unit groups
-        |> Array.map (fun grps ->
-            async {
-                let rules = grps |> Array.collect DoseRule.mapToDoseRule |> Array.map addFormLimits
-                return rules
-            }
-        )
-        |> Async.Parallel
-        |> Async.RunSynchronously
-        |> Array.collect id
-        |> Array.append head
+        let rules =
+            tail
+            |> Array.chunkBySize Parallel.totalWorders
+            // map each grouped dose rule data to mapToDoseRule
+            // that will expand for all available product forms
+            // and form unit groups
+            |> Array.map (fun grps ->
+                async {
+                    let rules = grps |> Array.collect DoseRule.mapToDoseRule |> Array.map addFormLimits
+                    return rules
+                }
+            )
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> Array.collect id
+            |> Array.append head
+
+        rules
         // drop dose rules left with no meaningful limits (a row that passes
-        // validateData but carries no dose values yields an empty dose rule)
-        |> DoseRule.removeEmptyLimits,
-        [ warnings; unitWarnings; dedupWarnings ]
-        |> Array.concat
-        |> Array.map Warning
-        |> Array.toList
-
-
-    /// <summary>
-    /// Impure adapter: loads DoseRuleData via the <c>getData</c> thunk and delegates
-    /// to the pure <c>fromData</c>, carrying the product warnings.
-    /// Kept for existing callers/tests.
-    /// </summary>
-    let get getData routeMapping formRoutes prods = getData () |> fromData routeMapping formRoutes prods
-
-
-    /// Build a GetDoseRules-shaped function from a custom data source.
-    /// getData reads DoseRuleData rows from path (e.g. a Pass-4 TSV).
-    /// The result matches the ResourceConfig.GetDoseRules field shape exactly:
-    /// DoseRuleData[] -> RouteMapping[] -> FormRoute[] -> ProductComponent[] ->
-    /// (DoseRule[] * Message list). The leading DoseRuleData[] (the
-    /// resources-loaded rows) is ignored here because this adapter reads its
-    /// rows from path instead.
-    let getFromGetData getData path = fun (_: DoseRuleData[]) -> get (fun () -> getData path)
+        // validateData but carries no dose values yields an empty dose rule), but keep a dose rule
+        // without limits that a dilution rule limits
+        |> DoseRule.removeEmptyLimits (DilutionRule.anyLimitsDoseRule routeMapping dilutionRules),
+        ([ warnings; unitWarnings; dedupWarnings ]
+         |> Array.concat
+         |> Array.map Warning
+         |> Array.toList)
+        @ (dilutionRules |> DilutionRule.unlimitedDoseRules routeMapping rules)
