@@ -935,33 +935,6 @@ module Medication =
         )
 
 
-    /// Converts the fraction of the preparation that makes up one dose into the number of doses
-    /// in the preparation. A higher fraction is fewer doses, so the minimum of the dose count comes
-    /// from the maximum of the fraction and the maximum from the minimum. Without a maximum
-    /// fraction, and with a minimum fraction of at most 1, the maximum fraction is 1, the whole
-    /// preparation, so the dose count is at least 1. Without a minimum fraction the dose count has
-    /// no maximum. A fraction of 0 counts as no fraction, and without either fraction the dose
-    /// count is empty.
-    let doseFractionToDoseCount (doseFraction: MinMax) =
-        let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
-        let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
-
-        match doseFraction.Min |> DilutionRule.nonZeroLimit, doseFraction.Max |> DilutionRule.nonZeroLimit with
-        | None, None -> MinMax.empty
-        | min, max ->
-            let max =
-                match min, max with
-                // a minimum fraction above 1 with a maximum of 1 would be an empty range
-                | Some lim, None when lim |> Limit.getValue |> Option.exists (fun v -> v > 1N) -> None
-                | _, None -> Some Limit.one
-                | _, Some _ -> max
-
-            { MinMax.empty with
-                Min = max |> Option.map limitReciprocal
-                Max = min |> Option.map limitReciprocal
-            }
-
-
     /// Add an optional dilution rule to a medication order
     let addDilutionRule logger (pat: Patient) dilRule med =
         match dilRule with
@@ -981,7 +954,7 @@ module Medication =
                     else
                         dilRule.Volumes
                 Div = dilRule.Div
-                DoseCount = dilRule.DoseFraction |> doseFractionToDoseCount
+                DoseCount = dilRule |> DilutionRule.doseCountRange
                 Components =
                     let ps =
                         med.Components

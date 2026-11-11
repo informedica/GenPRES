@@ -539,6 +539,7 @@ module Resources =
                 // - a diluent that is also a component of a dose rule the dilution rule applies to
                 // - a diluent whose Formulary product is not marked IsDiluent
                 // - a dilution rule with a diluent row but no diluent
+                // - a dose rule and a dilution rule whose ranges for a component no order can meet
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,
                 deriveWith (fun r ->
@@ -559,6 +560,8 @@ module Resources =
                        |> DilutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.dilutionRules
                        |> DilutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.dilutionRules
+                       |> DilutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                 )
 
                 // G-Standaard dose rules served as a function-valued resource: the

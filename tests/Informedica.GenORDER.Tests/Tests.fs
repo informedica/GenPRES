@@ -5296,9 +5296,6 @@ module SolutionDoseCountTests =
     let incl n = n |> times |> Limit.inclusive |> Some
 
 
-    let excl n = n |> times |> Limit.exclusive |> Some
-
-
     let fraction min max =
         { MinMax.empty with
             Min = min
@@ -5359,103 +5356,6 @@ module SolutionDoseCountTests =
         testList
             "the dose fraction of a dilution rule as the dose count"
             [
-                testList
-                    "doseFractionToDoseCount"
-                    [
-                        test "0.5 to 0.5, half the preparation, is a dose count of exactly 2" {
-                            fraction (incl (1N / 2N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 2" (fraction (incl 2N) (incl 2N))
-                        }
-
-                        test "2 to 2, twice the preparation, is a dose count of exactly 1/2" {
-                            fraction (incl 2N) (incl 2N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1/2" (fraction (incl (1N / 2N)) (incl (1N / 2N)))
-                        }
-
-                        test "1 to 1 is a dose count of exactly 1" {
-                            fraction (incl 1N) (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
-                        }
-
-                        test "an empty minimum and a maximum of 1 is a dose count of at least 1 without a maximum" {
-                            fraction None (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
-                        }
-
-                        test "0.25 to 0.5 is a dose count of 2 to 4" {
-                            fraction (incl (1N / 4N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "2 to 4" (fraction (incl 2N) (incl 4N))
-                        }
-
-                        test "an exclusive limit stays exclusive on the other side" {
-                            fraction (excl (1N / 4N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "2 to below 4" (fraction (incl 2N) (excl 4N))
-                        }
-
-                        test "empty columns are an empty dose count" {
-                            MinMax.empty
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "empty" MinMax.empty
-                        }
-
-                        test "a minimum of 0.5 and an empty maximum is a dose count of 1 to 2" {
-                            fraction (incl (1N / 2N)) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
-                        }
-
-                        test "an empty minimum and a maximum of 0.5 is a dose count of at least 2" {
-                            fraction None (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 2" (fraction (incl 2N) None)
-                        }
-
-                        test "a minimum of 0 gives no maximum" {
-                            fraction (incl 0N) (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
-                        }
-
-                        test "a maximum of 0 counts as empty, so the dose count is at least 1" {
-                            fraction (incl (1N / 2N)) (incl 0N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
-                        }
-
-                        test "both 0 are an empty dose count" {
-                            fraction (incl 0N) (incl 0N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "empty" MinMax.empty
-                        }
-
-                        test "a minimum of 2 and an empty maximum is a dose count of at most 1/2 without a minimum" {
-                            fraction (incl 2N) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at most 1/2" (fraction None (incl (1N / 2N)))
-                        }
-
-                        test "a minimum of 1 and an empty maximum is a dose count of exactly 1" {
-                            fraction (incl 1N) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
-                        }
-
-                        // the minimum comes from the default of 1 and the maximum from 1 / 0.5
-                        test "both limits of the dose count have the unit times" {
-                            let count = fraction (incl (1N / 2N)) None |> Medication.doseFractionToDoseCount
-                            let unitOf = Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
-
-                            (count.Min |> unitOf, count.Max |> unitOf)
-                            |> Expect.equal "times" (Some Units.Count.times, Some Units.Count.times)
-                        }
-                    ]
-
                 testList
                     "addDilutionRule"
                     [
