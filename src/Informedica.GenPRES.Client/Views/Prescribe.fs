@@ -447,13 +447,34 @@ module Prescribe =
                     </React.Fragment>
                     """
 
+                let actions =
+                    Components.ActionBar.View
+                        {|
+                            actions =
+                                [|
+                                    {|
+                                        label = Edit |> getTerm "bewerken"
+                                        kind = Components.ActionBar.Kind.Secondary
+                                        onClick = handleEditClick
+                                        disabled = false
+                                        icon = Some Mui.Icons.CalculateIcon
+                                    |}
+                                    {|
+                                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                                        kind = Components.ActionBar.Kind.Primary
+                                        onClick = prescribe
+                                        disabled = prescribeDisabled
+                                        icon = Some Mui.Icons.Add
+                                    |}
+                                |]
+                        |}
+
                 JSX.jsx
                     $"""
                 import React from 'react';
                 import Card from '@mui/material/Card';
                 import CardActions from '@mui/material/CardActions';
                 import CardContent from '@mui/material/CardContent';
-                import Button from '@mui/material/Button';
                 import Typography from '@mui/material/Typography';
                 import Box from '@mui/material/Box';
                 import List from '@mui/material/List';
@@ -470,17 +491,7 @@ module Prescribe =
                             {content}
                         </CardContent>
                         <CardActions>
-                            <Button
-                                size="small"
-                                onClick={handleEditClick}
-                                startIcon={Mui.Icons.CalculateIcon}
-                            >{Edit |> getTerm "bewerken"}</Button>
-                            <Button
-                                size="small"
-                                disabled={prescribeDisabled}
-                                onClick={prescribe}
-                                startIcon={Mui.Icons.Add}
-                            >Voorschrijven</Button>
+                            {actions}
                         </CardActions>
                     </Card>
                 </Box>
