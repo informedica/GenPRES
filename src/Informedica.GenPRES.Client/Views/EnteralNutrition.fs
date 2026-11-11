@@ -115,10 +115,10 @@ module EnteralNutrition =
         """
 
 
-    /// One offer of a feeding: its name with the switch that turns it on, and while it is on the frequency,
-    /// the dose and the dose per time in the columns of the feeding's fields. It shows no filter: the link
-    /// rule decides its composition, its indication and its dose type, and a nutrition slot has no form to
-    /// pick.
+    /// One offer of a feeding that is on: its name with the bin that turns it off, the frequency, the
+    /// dose and the dose per time in the columns of the feeding's fields. It shows no filter: the link
+    /// rule decides its composition, its indication and its dose type, and a nutrition slot has no form
+    /// to pick.
     [<JSX.Component>]
     let private OfferView
         (props:
@@ -145,41 +145,101 @@ module EnteralNutrition =
                 |}
 
         let counting = React.useContext Global.counting
-        let held = props.busy || counting.Counting
+        let waiting = props.busy || counting.Counting
 
-        let isOn = props.offer.Switch = OrderContextMachine.OfferSwitch.On
+        let bin =
+            Components.RemoveIconButton.View
+                {|
+                    onRemove =
+                        fun () ->
+                            props.nutrition.TurnOffer(props.slotId, props.index, OrderContextMachine.OfferSwitch.Off)
+                    busy = waiting
+                |}
 
-        let handleSwitch _ =
-            props.offer.Switch
-            |> OrderContextMachine.OfferSwitch.flip
-            |> fun switch -> props.nutrition.TurnOffer(props.slotId, props.index, switch)
+        let nameSx =
+            {|
+                display = "flex"
+                alignItems = "center"
+                minHeight = 40
+            |}
 
-        let name = OrderContextText.offerName props.offer.Context
-
-        let switchLabel =
+        let nameWithBin =
             JSX.jsx
                 $"""
-            import FormControlLabel from '@mui/material/FormControlLabel';
-            import Switch from '@mui/material/Switch';
+            import Box from '@mui/material/Box';
+            import Typography from '@mui/material/Typography';
 
-            <FormControlLabel
-                control={{<Switch checked={isOn} disabled={held} onChange={handleSwitch} />}}
-                label={name}
-            />
+            <Box sx={nameSx}>
+                <Typography>{OrderContextText.offerName props.offer.Context}</Typography>
+                {bin}
+            </Box>
             """
 
-        // while it is on, the supplement's fields stand in the columns of the feeding's fields
-        if isOn then
-            JSX.jsx
-                $"""
-            import Stack from '@mui/material/Stack';
-            <Stack direction="column" spacing={1}>
-                {slot.ScenarioNotice}
-                {fieldRow switchLabel slot.FrequencyControl slot.DoseQuantityControl slot.DosePerTimeAdjustDisplay}
-            </Stack>
-            """
-        else
-            switchLabel
+        JSX.jsx
+            $"""
+        import Stack from '@mui/material/Stack';
+        <Stack direction="column" spacing={1}>
+            {slot.ScenarioNotice}
+            {fieldRow nameWithBin slot.FrequencyControl slot.DoseQuantityControl slot.DosePerTimeAdjustDisplay}
+        </Stack>
+        """
+
+
+    /// The button that adds a supplement: it opens a menu of the offers that are off, by name, and a pick
+    /// turns that offer on. The menu hangs from the box around the button.
+    [<JSX.Component>]
+    let private AddOfferMenu
+        (props:
+            {|
+                label: string
+                // the offers that are off, each with its index among the offers of the slot
+                offers: (int * string)[]
+                onPick: int -> unit
+                disabled: bool
+            |})
+        =
+        let anchor = React.useElementRef ()
+        let isOpen, setOpen = React.useState false
+
+        let handleClose _ = setOpen false
+
+        let pick index _ =
+            setOpen false
+            props.onPick index
+
+        let items =
+            props.offers
+            |> Array.map (fun (index, name) ->
+                JSX.jsx
+                    $"""
+                import MenuItem from '@mui/material/MenuItem';
+                <MenuItem key={index} onClick={pick index}>{name}</MenuItem>
+                """
+            )
+
+        let addButton =
+            Components.AddButton.View
+                {|
+                    label = props.label
+                    onClick = fun () -> setOpen true
+                    disabled = props.disabled
+                |}
+
+        JSX.jsx
+            $"""
+        import React from 'react';
+        import Box from '@mui/material/Box';
+        import Menu from '@mui/material/Menu';
+
+        <React.Fragment>
+            <Box component="span" ref={anchor}>
+                {addButton}
+            </Box>
+            <Menu anchorEl={anchor.current} open={isOpen} onClose={handleClose}>
+                {items |> unbox<seq<ReactElement>> |> React.Fragment}
+            </Menu>
+        </React.Fragment>
+        """
 
 
     /// One feeding: its name with a bin beside it, the filters, the frequency, the dose and the dose per
@@ -197,8 +257,10 @@ module EnteralNutrition =
                 onRemove: (unit -> unit) option
                 // the order into the plan; none while the slot cannot be prescribed
                 onPrescribe: (unit -> unit) option
-                // the offers of the feeding, each with its switch
+                // the offers of the feeding that are on
                 offers: JSX.Element[]
+                // the button with the menu of the offers that are off; none while every offer is on
+                addOffer: JSX.Element option
                 busy: bool
             |})
         =
@@ -225,7 +287,7 @@ module EnteralNutrition =
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
         let offersHeading =
-            if props.offers |> Array.isEmpty then
+            if props.offers |> Array.isEmpty && props.addOffer.IsNone then
                 null
             else
                 Components.SectionHeading.View
@@ -243,6 +305,7 @@ module EnteralNutrition =
                 {slot.RateControl}
                 {offersHeading}
                 {props.offers |> unbox<seq<ReactElement>> |> React.Fragment}
+                {props.addOffer |> Option.defaultValue null}
                 {prescribeBar getTerm slot.ResetAction props.onPrescribe}
             </Stack>
             """
@@ -267,7 +330,7 @@ module EnteralNutrition =
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
         let counting = React.useContext Global.counting
-        let held = props.busy || counting.Counting
+        let waiting = props.busy || counting.Counting
 
         let removeButton =
             match props.onRemove with
@@ -276,7 +339,7 @@ module EnteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = held
+                        busy = waiting
                     |}
             | None -> null
 
@@ -328,7 +391,7 @@ module EnteralNutrition =
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
         let counting = React.useContext Global.counting
-        let held = props.busy || counting.Counting
+        let waiting = props.busy || counting.Counting
 
         let slotsShown =
             props.slots
@@ -339,20 +402,50 @@ module EnteralNutrition =
         let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
             let busy = props.busy || slot.Prescribing
 
-            let offers =
+            // each offer with its place among the offers of the slot, which keys its state
+            let offersOn, offersOff =
                 slot.Offers
-                |> Array.mapi (fun index offer ->
-                    OfferView
-                        {|
-                            offer = offer
-                            index = index
-                            slotId = slot.Id
-                            nutrition = props.nutrition
-                            plan = plan
-                            localizationTerms = props.localizationTerms
-                            busy = busy
-                        |}
+                |> Array.indexed
+                |> Array.partition (fun (_, offer) -> offer.Switch = OrderContextMachine.OfferSwitch.On)
+
+            let offers =
+                offersOn
+                |> Array.map (fun (index, offer) ->
+                    let view =
+                        OfferView
+                            {|
+                                offer = offer
+                                index = index
+                                slotId = slot.Id
+                                nutrition = props.nutrition
+                                plan = plan
+                                localizationTerms = props.localizationTerms
+                                busy = busy
+                            |}
+
+                    JSX.jsx
+                        $"""
+                    import React from 'react';
+                    <React.Fragment key={index}>{view}</React.Fragment>
+                    """
                 )
+
+            let addOffer =
+                if offersOff |> Array.isEmpty then
+                    None
+                else
+                    AddOfferMenu
+                        {|
+                            label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
+                            offers =
+                                offersOff
+                                |> Array.map (fun (index, offer) -> index, OrderContextText.offerName offer.Context)
+                            onPick =
+                                fun index ->
+                                    props.nutrition.TurnOffer(slot.Id, index, OrderContextMachine.OfferSwitch.On)
+                            disabled = busy || waiting
+                        |}
+                    |> Some
 
             SlotView
                 {|
@@ -362,8 +455,9 @@ module EnteralNutrition =
                     planRestore = fun () -> props.nutrition.SlotRestore slot.Id
                     localizationTerms = props.localizationTerms
                     onRemove = Some(fun () -> props.nutrition.RemoveSlot slot.Id)
-                    onPrescribe = slot |> prescribeOf props.nutrition props.planChanging held
+                    onPrescribe = slot |> prescribeOf props.nutrition props.planChanging waiting
                     offers = offers
+                    addOffer = addOffer
                     busy = busy
                 |}
 
@@ -374,7 +468,7 @@ module EnteralNutrition =
                 {|
                     label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
                     onClick = fun () -> props.nutrition.StartSlot NutritionCategory.EnteralFeeding
-                    disabled = held
+                    disabled = waiting
                 |}
 
         let summary =
