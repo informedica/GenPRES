@@ -2009,20 +2009,21 @@ Scenarios: {scenarios}
         }
 
 
-    /// The totals over the orders, for the age and weight of the patient.
+    /// The totals over the orders, for the age, weight and gestational age of the patient.
     let totalsFor (totalsData: TotalsData[]) (pat: Patient) orders =
         let wght = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
-        orders |> Totals.getTotals totalsData pat.Age wght
+        orders |> Totals.getTotals totalsData pat.Age wght pat.GestAge
 
 
-    /// The totals over the orders of the context's scenarios, for the age and weight of the patient.
+    /// The totals over the orders of the context's scenarios, for the age, weight and gestational age
+    /// of the patient.
     let contextTotalsFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
         ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData pat
 
 
-    /// The totals over the orders of the context's scenarios, for its patient's age and
-    /// weight.
+    /// The totals over the orders of the context's scenarios, for its patient's age, weight and
+    /// gestational age.
     let contextTotals totalsData (ctx: OrderContext) = ctx |> contextTotalsFor totalsData ctx.Patient
 
 

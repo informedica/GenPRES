@@ -228,6 +228,8 @@ module Pipeline =
                                 MaxAge = None
                                 MinWeight = None
                                 MaxWeight = None
+                                MinGestAge = None
+                                MaxGestAge = None
                                 Unit = Some Units.Volume.milliLiter
                                 Adj = Some Units.Weight.kiloGram
                                 TimeUnit = Some Units.Time.day
@@ -246,7 +248,7 @@ module Pipeline =
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
-                    let result = Totals.getTotals syntheticTotals None None [| ord |]
+                    let result = Totals.getTotals syntheticTotals None None None [| ord |]
 
                     result.Volume |> Expect.isNone "no weight -> no volume total"
                 }

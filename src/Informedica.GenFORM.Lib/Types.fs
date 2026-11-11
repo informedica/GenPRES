@@ -899,7 +899,7 @@ module Types =
 
 
         /// <summary>
-        /// Reference intake-totals row: per patient age/weight category, the
+        /// Reference intake-totals row: per patient age, weight and gestational age category, the
         /// unit/time-unit and per-time min/max limits used to compute and annotate
         /// aggregated intake (volume, energy, etc.). Loaded from the "Totals" sheet
         /// by <c>Mapping.getTotals</c> and consumed by
@@ -919,6 +919,9 @@ module Types =
                 /// weight bounds in GRAMS
                 MinWeight: BigRational option
                 MaxWeight: BigRational option
+                /// sheet columns "MinGestAge" and "MaxGestAge": gestational age bounds in DAYS
+                MinGestAge: BigRational option
+                MaxGestAge: BigRational option
                 Unit: Unit option
                 /// sheet column "Adj": the patient adjustment unit (kg, m2)
                 Adj: Unit option

@@ -29,6 +29,8 @@ module Reference =
             MaxAge = None
             MinWeight = None
             MaxWeight = None
+            MinGestAge = None
+            MaxGestAge = None
             Unit = Some unt
             Adj = Some Units.Weight.kiloGram
             TimeUnit = Some Units.Time.day
@@ -184,7 +186,7 @@ let order (med: Medication) =
 /// The totals of the given orders, by the name of the field that holds each. A field without
 /// a value is left out, so that a total that appears where there was none fails too.
 let totalsOf (ords: Order[]) =
-    let t = ords |> Totals.getTotals Reference.all None (Some Reference.weight)
+    let t = ords |> Totals.getTotals Reference.all None (Some Reference.weight) None
 
     [
         "Volume", t.Volume

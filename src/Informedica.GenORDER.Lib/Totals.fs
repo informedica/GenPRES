@@ -9,6 +9,14 @@ module Totals =
     open Informedica.GenOrder.Lib
     open Informedica.GenSolver.Lib.Variable.Operators
 
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreGestationalAgeNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
+    module MinMax = Informedica.GenForm.Lib.Utils.MinMax
+
+    type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
+
 
     /// No totals: what a plan and a context start with, before an evaluation computes them.
     let empty: Totals =
@@ -124,100 +132,113 @@ module Totals =
             )
 
 
-    let getTotals
-        (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[])
-        (age: Informedica.GenUnits.Lib.ValueUnit option)
-        (wght: Informedica.GenUnits.Lib.ValueUnit option)
-        (ords: Order[])
-        : Totals
-        =
-        let calc = calc ords wght
+    /// The gestational age the Totals rows are chosen by, from the age in days and the gestational
+    /// age given: the one given, or term when it may be left out. None when the gestational age is
+    /// needed and not given, as GenCORE sets the need from the age.
+    let gestAgeOrTerm age gestAge =
+        match gestAge with
+        | Some ga -> Some ga
+        | None ->
+            match
+                age
+                |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
+                |> CoreGestationalAgeNeed.ofAge
+            with
+            | CoreNeed.RequiredGestationalAge -> None
+            | CoreNeed.OptionalGestationalAge
+            | CoreNeed.NoGestationalAge -> CoreAgeWeeksDays.term |> CoreAgeWeeksDays.toValueUnit |> Some
 
-        let totals =
-            totals
-            |> Array.filter (fun t ->
-                if wght.IsNone then
-                    true
-                else
-                    let w =
-                        wght.Value
-                        |> ValueUnit.convertTo Units.Weight.gram
-                        |> ValueUnit.getValue
-                        |> Array.head
 
-                    match t.MinWeight, t.MaxWeight with
-                    | Some min, Some max -> min <= w && w < max
-                    | Some min, None -> min <= w
-                    | None, Some max -> max > w
-                    | None, None -> true
-            )
-            |> Array.filter (fun t ->
-                if age.IsNone then
-                    true
-                else
-                    let a =
-                        age.Value
-                        |> ValueUnit.convertTo Units.Time.day
-                        |> ValueUnit.getValue
-                        |> Array.head
+    /// The bounds of a row in a unit: from the minimum, below the maximum.
+    let fromTupleInclExcl =
+        MinMax.fromTuple Informedica.GenCore.Lib.Ranges.Inclusive Informedica.GenCore.Lib.Ranges.Exclusive
 
-                    match t.MinAge, t.MaxAge with
-                    | Some min, Some max -> min <= a && a < max
-                    | Some min, None -> min <= a
-                    | None, Some max -> max > a
-                    | None, None -> true
-            )
 
-        let calculated =
-            totals
-            |> Array.collect (fun t ->
-                match t.Unit, t.TimeUnit with
-                | Some fu, Some tu -> calc t.Name fu tu
-                | _ -> [||]
-            )
+    /// Whether a Totals row has no patient bounds: no age, weight or gestational age.
+    let isForEveryPatient (t: Informedica.GenForm.Lib.Types.Data.TotalsData) =
+        [ t.MinAge; t.MaxAge; t.MinWeight; t.MaxWeight; t.MinGestAge; t.MaxGestAge ]
+        |> List.forall Option.isNone
 
-        let get n =
-            calculated
-            |> Array.tryFind (fst >> String.equalsCapInsens n)
-            |> Option.map (fun (n, var) ->
-                let s =
-                    var
-                    |> Informedica.GenSolver.Lib.Variable.getValueRange
-                    |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
 
-                match totals |> Array.tryFind (fun t -> t.Name |> String.equalsCapInsens n) with
-                | None -> s
-                | Some tot ->
-                    match tot.MinPerTimeAdj, tot.MaxPerTimeAdj with
-                    | Some minAdj, Some maxAdj ->
-                        let norm = $"{minAdj |> BigRational.toDouble} - {maxAdj |> BigRational.toDouble}"
-                        s + $" ({norm})"
-                    | None, Some maxAdj ->
-                        let norm = $"{maxAdj |> BigRational.toDouble}"
-                        s + $" (max {norm})"
-                    | _ -> s
+    /// Whether a Totals row applies to a patient with this age, weight and gestational age. An age or
+    /// weight that is not known does not limit the rows. A preterm patient matches no row without
+    /// gestational age bounds, unless the row has no patient bounds at all, as the dose rules do.
+    let appliesTo age wght gestAge (t: Informedica.GenForm.Lib.Types.Data.TotalsData) =
+        // MinMax.inRange fails a missing value against bounds; a missing age or weight passes here
+        let within u bounds vu =
+            vu
+            |> Option.map (Some >> MinMax.inRange (bounds |> fromTupleInclExcl (Some u)))
+            |> Option.defaultValue true
 
-            )
+        let hasGestAgeBounds = t.MinGestAge.IsSome || t.MaxGestAge.IsSome
 
-        {
-            Volume = get "volume"
-            Energy = get "energie"
-            Protein = get "eiwit"
-            Carbohydrate = get "koolhydraat"
-            Fat = get "vet"
-            Sodium = get "natrium"
-            Potassium = get "kalium"
-            Chloride = get "chloor"
-            Calcium = get "calcium"
-            Phosphate = get "fosfaat"
-            Magnesium = get "magnesium"
-            Iron = get "ijzer"
-            VitaminD = get "VitD"
-            Ethanol = get "ethanol"
-            Propyleenglycol = get "propyleenglycol"
-            BenzylAlcohol = get "benzylalcohol"
-            BoricAcid = get "boorzuur"
-        }
+        wght |> within Units.Weight.gram (t.MinWeight, t.MaxWeight)
+        && age |> within Units.Time.day (t.MinAge, t.MaxAge)
+        && Some gestAge |> within Units.Time.day (t.MinGestAge, t.MaxGestAge)
+        && (t |> isForEveryPatient
+            || hasGestAgeBounds
+            || gestAge |> CoreAgeWeeksDays.isPretermValue |> not)
+
+
+    /// The totals of the orders, against the Totals rows for the age, weight and gestational age of
+    /// the patient. No totals when the gestational age is needed and not given.
+    let getTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) age wght gestAge ords =
+        match gestAgeOrTerm age gestAge with
+        | None -> empty
+        | Some gestAge ->
+            let calc = calc ords wght
+            let totals = totals |> Array.filter (appliesTo age wght gestAge)
+
+            let calculated =
+                totals
+                |> Array.collect (fun t ->
+                    match t.Unit, t.TimeUnit with
+                    | Some fu, Some tu -> calc t.Name fu tu
+                    | _ -> [||]
+                )
+
+            let get n =
+                calculated
+                |> Array.tryFind (fst >> String.equalsCapInsens n)
+                |> Option.map (fun (n, var) ->
+                    let s =
+                        var
+                        |> Informedica.GenSolver.Lib.Variable.getValueRange
+                        |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
+
+                    match totals |> Array.tryFind (fun t -> t.Name |> String.equalsCapInsens n) with
+                    | None -> s
+                    | Some tot ->
+                        match tot.MinPerTimeAdj, tot.MaxPerTimeAdj with
+                        | Some minAdj, Some maxAdj ->
+                            let norm = $"{minAdj |> BigRational.toDouble} - {maxAdj |> BigRational.toDouble}"
+                            s + $" ({norm})"
+                        | None, Some maxAdj ->
+                            let norm = $"{maxAdj |> BigRational.toDouble}"
+                            s + $" (max {norm})"
+                        | _ -> s
+
+                )
+
+            {
+                Volume = get "volume"
+                Energy = get "energie"
+                Protein = get "eiwit"
+                Carbohydrate = get "koolhydraat"
+                Fat = get "vet"
+                Sodium = get "natrium"
+                Potassium = get "kalium"
+                Chloride = get "chloor"
+                Calcium = get "calcium"
+                Phosphate = get "fosfaat"
+                Magnesium = get "magnesium"
+                Iron = get "ijzer"
+                VitaminD = get "VitD"
+                Ethanol = get "ethanol"
+                Propyleenglycol = get "propyleenglycol"
+                BenzylAlcohol = get "benzylalcohol"
+                BoricAcid = get "boorzuur"
+            }
 
 
     /// The serializable shape of the totals: the same string option fields, its own type.

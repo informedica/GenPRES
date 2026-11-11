@@ -1077,6 +1077,8 @@ module DoseRuleToDataTests =
                     "MaxAge"
                     "MinWeight"
                     "MaxWeight"
+                    "MinGestAge"
+                    "MaxGestAge"
                     "Unit"
                     "Adj"
                     "TimeUnit"
@@ -1266,6 +1268,30 @@ module DoseRuleToDataTests =
                                             $"%s{name}.%s{col} is declared optional but the parser requires it"
                                     }
                             ]
+
+                    test "Totals reads the gestational age bounds" {
+                        let cells =
+                            Map
+                                [
+                                    "Name", "volume"
+                                    "MinAge", "4"
+                                    "MaxAge", "5"
+                                    "MinGestAge", "259"
+                                    "MaxGestAge", ""
+                                    "Unit", "mL"
+                                    "Adj", "kg"
+                                    "TimeUnit", "dag"
+                                    "MinPerTimeAdj", "60"
+                                    "MaxPerTimeAdj", "100"
+                                ]
+
+                        let get c = cells |> Map.tryFind c |> Option.defaultValue ""
+
+                        let parsed = Mapping.totalsRow get (fun _ -> None)
+
+                        (parsed.MinGestAge, parsed.MaxGestAge)
+                        |> Expect.equal "259 days to no maximum" (Some 259N, None)
+                    }
                 ]
 
 
