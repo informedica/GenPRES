@@ -487,9 +487,15 @@ module Medication =
             }
 
 
-        let valueOptFromDto path dto =
+        let valueOptFromDto path (dto: ValueDto) =
             if isNull dto then
                 Ok None
+            // the empty value, of a placeholder product, is written without numbers or a unit
+            else if
+                dto.Value |> DtoResult.orEmpty |> Array.isEmpty
+                && dto.Unit |> String.isNullOrWhiteSpace
+            then
+                Ok(Some ValueUnit.empty)
             else
                 dto |> valueFromDto path |> Result.map Some
 
@@ -619,18 +625,13 @@ module Medication =
 
         let productFromDto path (dto: ProductDto) =
             validation {
-                let! id =
-                    if dto.Id |> String.isNullOrWhiteSpace then
-                        Error [ DtoError.Missing $"%s{path}.Id" ]
-                    else
-                        Ok dto.Id
-
-                and! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
+                // a placeholder product, made when no product matches, has no id
+                let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
                 and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
 
                 return
                     {
-                        Id = id
+                        Id = dto.Id |> DtoResult.orBlank
                         FormQuantities = qts
                         Strengths = strengths
                     }
