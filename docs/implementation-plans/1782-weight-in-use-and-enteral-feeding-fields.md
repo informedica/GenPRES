@@ -1,8 +1,9 @@
-# Implementation plan for issues #1782 and #1760
+# Implementation plan for issues #1782, #1760 and #1192
 
 The patient summary shows the weight and height the doses are calculated with, the enteral
-feeding slot shows its supplements in the columns of the feeding, only those that are on, and a
-long select list opens on its selected value (#1760). Drafted 2026-11-11. Line numbers are from `master` at `24ae4e27`.
+feeding slot shows its supplements in the columns of the feeding, only those that are on, a
+long select list opens on its selected value (#1760), and the action buttons of the scenario card
+in the prescribe view follow the action bar of the other pages (#1192). Drafted 2026-11-11. Line numbers are from `master` at `24ae4e27`.
 
 - [Problem description](#problem-description)
 - [What the code does today](#what-the-code-does-today)
@@ -30,6 +31,9 @@ height entered, Nutrilon Standaard 2 as the enteral feeding and Fantomalt pdr tu
   of the patient panel shows it most clearly: about 240 values from 0.4 to 100 kg, and with 25 kg
   chosen the list opens on 0.4 kg. The list should open with the selected value, or the value the
   placeholder stands for, in view, in every `SimpleSelect`.
+- The action buttons are not alike from page to page (#1192). In the scenario card of the prescribe
+  view, "Bewerken" and "Voorschrijven" are two text buttons side by side on the left, while the
+  nutrition slot ends in a bar with Reset on the left and a contained Voorschrijven on the right.
 
 ## What the code does today
 
@@ -84,6 +88,21 @@ Not yet known is which case fails (a chosen value, a placeholder value, or both)
 and why the focus does not scroll; the controlled `open` with the enter transition of the menu, or
 the explicit `autoFocus` on every item, are candidates.
 
+### The action buttons
+
+- `Components.ActionBar` (`Components/ActionBar.fs`) draws a row of actions by kind: `Primary`
+  completes the task, contained and on the right; `Secondary` discards or steps back, outlined and
+  on the left; `Destructive` removes, text in the error colour and set apart. Every button is as
+  wide as its label. `NutritionSlot.prescribeBar` (`Views/NutritionSlot.fs:71`) uses it, with
+  Voorschrijven as `Primary`.
+- The scenario card of the prescribe view ends in a MUI `CardActions` with two raw `Button`s, both
+  `size="small"` and without a variant (`Views/Prescribe.fs:432-445`): "Bewerken" with
+  `handleEditClick` (`:333`), and "Voorschrijven" with `prescribe` (`:314`), disabled by
+  `prescribeDisabled` (`:330`). The label "Voorschrijven" is a literal; the term `Prescribe`
+  exists and the nutrition slot uses it.
+- Other pages also draw their action buttons by hand (disclaimer, formulary, parenteralia,
+  interactions, session gate, settings, sign dialog). They stay for #1192.
+
 ### The dose per kg
 
 The dose per kg is shown with `fixPrecision 3`, three significant digits (`Views/NutritionSlot.fs:987`),
@@ -98,18 +117,26 @@ Taken 2026-11-11 by the maintainer.
 |---|---|
 | Where the weight and height in use are shown | In the summary line. The fields keep their placeholder. |
 | The summary text without a measurement | "Gewicht: geschat 11 kg (8 - 12 kg)": the word for an estimate first, then the value in use, then the range. The height the same. A measured value stays as it is shown now. |
-| The supplements | Only the supplements that are on are listed, each with its fields; a picker, "Supplement toevoegen", turns one on. |
-| Turning a supplement off | A remove button beside its name, as the feeding slot has; the supplement goes back into the picker. |
+| The supplements | Only the supplements that are on are listed, each with its fields; a button, "Supplement toevoegen", opens a menu of the supplements that are off, and a pick from it turns one on. |
+| Turning a supplement off | A remove button beside its name, as the feeding slot has; the supplement goes back into the menu. |
 | The precision of the dose per kg | No change: `fixPrecision 3`, as the order view. The item is dropped from #1782. |
 | The heading of a feeding slot | The name of the chosen feeding, for example Nutrilon Standaard 2; the category term while no feeding is chosen. The remove button stays. |
+| The action buttons in this plan | Only the scenario card of the prescribe view; the other pages stay for #1192. |
+| The kinds of the scenario card actions | Voorschrijven is `Primary`, on the right; Bewerken is `Secondary`, on the left. |
 
 ## Approaches considered
 
 - The weight and height in use: in the summary line, in the fields as a value marked as an
   estimate, in both, or as a notice on the nutrition page. The summary line was chosen.
-- The supplements: only those that are on with a picker for the others, those that are on first
-  with the others in a fold, or all switches with those that are on sorted first. The picker was
+- The supplements: only those that are on with a way to add the others, those that are on first
+  with the others in a fold, or all switches with those that are on sorted first. The first was
   chosen.
+- Adding a supplement: a `Components.PickField`, a button with a menu, or a `PickField` for two or
+  more with a button for a single one. A `PickField` with one option shows it as chosen and
+  disabled (`PickPolicy.offer`, `Client.Core/Policies/PickPolicy.fs:58-63`), and read-only when it
+  can be cleared (`Components/PickField.fs:86-90`), so the last supplement that is off could not be
+  added. The button with a menu was chosen: it works the same for one supplement as for many, and
+  `PickField` and `PickPolicy` stay as they are.
 - Turning a supplement off: a remove button, or its switch kept on the row. The remove button was
   chosen, as the feeding slot has one.
 - The heading of a feeding slot: the name of the feeding, a number per feeding, or no text beside
@@ -132,10 +159,19 @@ the existing tests in `tests/Informedica.GenPRES.Client.Core.Tests/Models/Patien
 - The measured row of `SlotView` becomes a function of its first item, so the feeding row passes
   the composition and a supplement row passes the supplement's name with its remove button. Both
   rows then share the columns and the narrow-slot stacking.
-- The slot lists only the offers whose switch is `On`. Below them a `Components.PickField` with the
-  label "Supplement toevoegen" offers the names of the offers that are `Off`
-  (`OrderContextText.offerName`); a pick sends `TurnOffer(slotId, index, On)`, the remove button
-  `TurnOffer(slotId, index, Off)`. The picker is not shown when no offer is off.
+- The slot lists only the offers whose switch is `On`. Below them a `Components.AddButton` with the
+  label "Supplement toevoegen" opens a MUI `Menu` of the names of the offers that are `Off`
+  (`OrderContextText.offerName`), as `Components/TitleBar.fs` and `Components/Localization.fs` open
+  one; a pick sends `TurnOffer(slotId, index, On)`, the remove button `TurnOffer(slotId, index, Off)`.
+  The button is not shown when no offer is off.
+
+### The scenario card actions (view code)
+
+The `CardActions` of the scenario card become a `Components.ActionBar.View` with Bewerken as
+`Secondary` and Voorschrijven as `Primary`, each keeping its handler, its icon and, for
+Voorschrijven, its disabled state. Voorschrijven takes its label from the term `Prescribe`. The
+doc comment of `Kind.Secondary` widens from "discards or steps back" to an action that does not
+complete the task, so that it covers an edit.
 
 ## Open points
 
@@ -147,8 +183,9 @@ the existing tests in `tests/Informedica.GenPRES.Client.Core.Tests/Models/Patien
 
 ## Confidence
 
-High for steps 1 to 3: they change one text function and one view, with the machinery to turn an
-offer on and off already in place. Low for step 4 until the cause is found.
+High for steps 1 to 3 and 5: they change one text function and two views, with the machinery to
+turn an offer on and off and the action bar already in place. Low for step 4 until the cause is
+found.
 
 ## Steps
 
@@ -158,11 +195,13 @@ One pull request at a time, each merged before the next.
    the tests moved to `PatientTextTests.fs`.
 2. **The feeding slot heading and the supplement columns** (`feat(ui)`): the heading from the
    chosen feeding, and the measured row shared by the feeding and its supplements.
-3. **The supplement picker** (`feat(ui)`): only the supplements that are on, each with a remove
-   button, and the picker for the others.
+3. **Adding a supplement** (`feat(ui)`): only the supplements that are on, each with a remove
+   button, and the button with the menu of the others.
 4. **The select list opens on its value** (`fix(client)`, #1760): reproduce the problem in the
    running client, settle the cause, then fix it in `Components/SimpleSelect.fs`, so that every
    select that uses it opens with the selected or placeholder value in view.
+5. **The scenario card actions** (`feat(ui)`, #1192): the action bar in the scenario card of the
+   prescribe view, as above.
 
 ## Verification
 
@@ -170,7 +209,11 @@ One pull request at a time, each merged before the next.
   a measured value with and without a range, for the weight and the height.
 - Steps 2 and 3: the scenario of the issue on the nutrition page in the running app, with a wide and
   a narrow window: the supplement fields under the feeding fields, a supplement turned on from the
-  picker and off with its remove button, and the slot heading before and after the feeding is chosen.
+  menu and off with its remove button, the last supplement that is off added from a menu with one
+  name, and the slot heading before and after the feeding is chosen.
 - Step 4: in the running client, on a desktop window and a phone-sized one, the weight and height
   lists open on a chosen value and on an estimated placeholder value, at the start, the middle and
   the end of the list, and a short list behaves as before.
+- Step 5: in the running client, the scenario card shows Bewerken outlined on the left and
+  Voorschrijven contained on the right, both work as before, Voorschrijven is disabled while the
+  order is in the plan or the plan is busy, and the label follows the language setting.
