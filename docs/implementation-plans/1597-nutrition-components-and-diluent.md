@@ -115,7 +115,7 @@ DilutionRules rows for a nutrition generic.
 | Keeping the chosen quantities after a toggle or a diluent choice | In scope. The order is rebuilt from the rules. When the previous preparation is solved, every component quantity holding a single value, those quantities are set again: a component by name, and the previous diluent's on the new diluent, where the new order allows them. Only component quantities: the rate and the doses follow, and an item is never set again, since its quantity follows from the strength of its product, which a new diluent changes. The glucose is limited in mL/kg only, so keeping the mL of a stronger glucose gives more glucose; that is accepted. |
 | The glucose maximum of Samenstelling B to E | The DilutionRules range is accepted as the limit, also where its maximum is higher than today. |
 | NICU mix | As Samenstelling B to E: `gluc 10%` leaves the dose rule components and becomes the diluent, limited by a `diluent` row. The maintainer edits the sheet. |
-| `glycine buffer` | The maintainer marks it `IsDiluent` in the Formulary. |
+| `glycine buffer` | The maintainer marks it `IsDiluent` in the Formulary, beside `IsSolvent`: epoprostenol uses it as both. |
 
 ## Open points
 
@@ -227,4 +227,19 @@ One pull request at a time, each merged before the next.
    - A checkbox sends `SetNthComponentsProperty` with the additives the order holds, the one switched
      added or removed. Migrated.
 7. **Sheets** (the maintainer): Samenstelling B to E and NICU mix as decided, with the `Diluents`
-   cell separated by `|` on every row; `glycine buffer` marked `IsDiluent`; the demo sheet.
+   cell separated by `|` on every row; `glycine buffer` marked `IsDiluent`; the demo sheet. Done on
+   2026-11-11, on the production and the demo sheet:
+   - Samenstelling B to E: the glucose component rows are deleted from the dose rules. Each
+     dilution rule has a `diluent` row with the mL/kg range of the protocol, and a `Diluents` cell
+     with the glucose of the protocol first, then every other strength.
+   - NICU mix and Primene: the limits follow the NICU TPN protocol v6, by gestational age (term
+     from 259 days), weight and day of life. The bag holds the fluid of the protocol minus the lipid,
+     which runs on its own line, and the diluent holds the bag minus the other components. `gluc 10%`
+     comes first in the `Diluents` cell. The term NICU mix rows named the `NICU mix` component
+     `gluc 10%`, and the Primene rows named `CaCl2 10%`, which the Formulary does not have. Both are
+     corrected.
+   - `glycine buffer` is marked `IsDiluent` and `IsSolvent`, since epoprostenol uses it as both.
+   - The demo sheet now has the `IsDiluent` and `IsAdditive` flags of production, and the
+     dilution rules of Samenstelling B to E, NICU mix and Primene, and the neonatal dose rules.
+   - Totals has neonatal rows below 2000 g only, by weight and day of life: the fluid volume and
+     the glucose in mg/kg/min. Totals cannot be limited by gestational age yet: #1774.
