@@ -44,6 +44,7 @@
     <Compile Include="Policies/PatientDraftPolicy.fs" />
     <Compile Include="Policies/PatientReadinessPolicy.fs" />
     <Compile Include="Policies/PickPolicy.fs" />
+    <Compile Include="Policies/CompositionPolicy.fs" />
     <Compile Include="Policies/StepPolicy.fs" />
     <Compile Include="Policies/DialogTabPolicy.fs" />
     <Compile Include="Policies/SeverityReasonPolicy.fs" />

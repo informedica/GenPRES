@@ -174,9 +174,6 @@ module Prescribe =
                 |> ViewHelpers.sendPick orderContextMsg picked
             | _ -> ()
 
-        let pickWith (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
-            pick (PickPolicy.command toCommand) options picked
-
         let filterPick field options picked = pick (PickPolicy.filterCommand field) options picked
 
         let indicationChange s = filterPick OrderContext.Indication _.Filter.Indications s
@@ -187,12 +184,7 @@ module Prescribe =
 
         let formChange s = filterPick OrderContext.Form _.Filter.Forms s
 
-        let diluentCommand n =
-            match n with
-            | Some n -> Api.OrderViewCommand.SetNthDiluentProperty n
-            | None -> Api.OrderViewCommand.ClearDiluentProperty
-
-        let diluentChange s = diluentCommand |> pickWith _.Filter.Diluents s
+        let diluentChange s = pick PickPolicy.diluentCommand _.Filter.Diluents s
 
         let componentsChange (cs: string[]) =
             match orderContext with

@@ -488,8 +488,6 @@ module NutritionSlot =
                 |}
         |}
 
-    let cmpSolutionSx = {| minWidth = 160 |}
-
     // stacked, the column headings are hidden, so the range carries its own caption
     let cmpRangeCaptionSx =
         {|
@@ -786,14 +784,66 @@ module NutritionSlot =
 
         let displayOrder = shownOrder
 
+        // the checkboxes and the diluent wait while the fields wait or the composition is locked
+        let compositionWaits = fieldsWait || isCompositionLocked
+
+        let diluentChange s =
+            PickPolicy.diluentCommand ctx.Filter.Diluents s
+            |> ViewHelpers.sendPick evaluate s
+
         let componentRows =
             match displayOrder with
             | Some ord ->
                 let cmps = ord.Orderable.Components
-                let lastIdx = cmps.Length - 1
+                let diluent = ctx.Scenarios |> Array.tryExactlyOne |> Option.bind _.Diluent
 
-                cmps
-                |> Array.mapi (fun i cmp ->
+                let rows =
+                    CompositionPolicy.rows
+                        ctx.Filter.DoseRuleComponents
+                        (cmps |> Array.map _.Name)
+                        ctx.Filter.Components
+                        diluent
+                        ctx.Filter.Diluents
+
+                let componentName color (name: string) =
+                    JSX.jsx
+                        $"""
+                    import Typography from '@mui/material/Typography';
+                    <Typography variant="body1" color={color}>{name}</Typography>
+                    """
+
+                let checkbox name inOrder =
+                    let toggle _ =
+                        CompositionPolicy.toggle ctx.Filter.Components rows name |> evaluate
+
+                    let color = if inOrder then "text.primary" else "text.disabled"
+
+                    JSX.jsx
+                        $"""
+                    import Stack from '@mui/material/Stack';
+                    import Checkbox from '@mui/material/Checkbox';
+                    <Stack direction="row" sx={alignCenterSx}>
+                        <Checkbox checked={inOrder} disabled={compositionWaits} onChange={toggle} />
+                        {componentName color name}
+                    </Stack>
+                    """
+
+                let diluentSelect name choices =
+                    Components.PickField.View
+                        {|
+                            label = Terms.Diluent |> getTerm "Verdunningsvorm"
+                            options = choices |> Array.map (fun s -> s, s)
+                            selected = Some name
+                            onChange = diluentChange
+                            clearable = false
+                            isLoading = false
+                            enabled = not compositionWaits
+                            shape = Components.PickField.Shape.Scroll
+                            placeholder = None
+                        |}
+
+                // a component of the order: its name or its choice, the quantity field and the range
+                let componentRow (cmp: Component) labelCell =
                     let qtyVals = cmp.OrderableQuantity |> ViewHelpers.ovarValsWithRange string 3
 
                     let nav =
@@ -832,50 +882,6 @@ module NutritionSlot =
                             (Some 400)
                             qtyVals
 
-                    // a component is in the mix once its quantity is chosen and above zero; a list of
-                    // values still to pick from does not include it
-                    let isIncluded =
-                        cmp.OrderableQuantity.Variable.Vals
-                        |> Option.exists (fun vu ->
-                            match vu.Value with
-                            | [| _, d |] -> d > 0m
-                            | _ -> false
-                        )
-
-                    let nameColor = if isIncluded then "text.primary" else "text.disabled"
-
-                    let name =
-                        JSX.jsx
-                            $"""
-                        import Typography from '@mui/material/Typography';
-                        <Typography variant="body1" color={nameColor}>{cmp.Name}</Typography>
-                        """
-
-                    // the first component is the composition and the last the solution: neither can be
-                    // left out; the checkbox and the solution choice are shown, not yet working
-                    let labelCell =
-                        if i = 0 then
-                            name
-                        elif i = lastIdx then
-                            JSX.jsx
-                                $"""
-                            import Select from '@mui/material/Select';
-                            import MenuItem from '@mui/material/MenuItem';
-                            <Select variant="standard" value={cmp.Name} disabled={true} sx={cmpSolutionSx}>
-                                <MenuItem value={cmp.Name}>{cmp.Name}</MenuItem>
-                            </Select>
-                            """
-                        else
-                            JSX.jsx
-                                $"""
-                            import Stack from '@mui/material/Stack';
-                            import Checkbox from '@mui/material/Checkbox';
-                            <Stack direction="row" sx={alignCenterSx}>
-                                <Checkbox checked={isIncluded} disabled={true} />
-                                {name}
-                            </Stack>
-                            """
-
                     // the range the solver calculated for the component's quantity, from the rules
                     // that bound it
                     let range, rangeCaption =
@@ -902,10 +908,39 @@ module NutritionSlot =
                         </Grid>
                         <Grid size={cmpRangeSize}>
                             <Typography variant="caption" color="text.secondary" sx={cmpRangeCaptionSx}>{rangeCaption}</Typography>
-                            <Typography variant="body1" color={nameColor}>{range}</Typography>
+                            <Typography variant="body1" color="text.primary">{range}</Typography>
                         </Grid>
                     </Grid>
                     """
+
+                // an additive the order does not hold: its checkbox and its name only
+                let leftOutRow labelCell =
+                    JSX.jsx
+                        $"""
+                    import Grid from '@mui/material/Grid';
+                    <Grid container spacing={{2}} sx={alignCenterSx}>
+                        <Grid size={cmpLabelSize}>
+                            {labelCell}
+                        </Grid>
+                    </Grid>
+                    """
+
+                let componentOf name = cmps |> Array.tryFind (fun c -> c.Name = name)
+
+                rows
+                |> Array.choose (
+                    function
+                    | CompositionPolicy.Row.Fixed name
+                    | CompositionPolicy.Row.Diluent(name, [||]) ->
+                        componentOf name
+                        |> Option.map (fun cmp -> componentRow cmp (componentName "text.primary" name))
+                    | CompositionPolicy.Row.Additive(name, true) ->
+                        componentOf name
+                        |> Option.map (fun cmp -> componentRow cmp (checkbox name true))
+                    | CompositionPolicy.Row.Additive(name, false) -> Some(leftOutRow (checkbox name false))
+                    | CompositionPolicy.Row.Diluent(name, choices) ->
+                        componentOf name
+                        |> Option.map (fun cmp -> componentRow cmp (diluentSelect name choices))
                 )
             | None -> [| null |]
 

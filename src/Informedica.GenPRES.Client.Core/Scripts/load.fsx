@@ -32,6 +32,7 @@
 #load "../Policies/PatientDraftPolicy.fs"
 #load "../Policies/PatientReadinessPolicy.fs"
 #load "../Policies/PickPolicy.fs"
+#load "../Policies/CompositionPolicy.fs"
 #load "../Policies/StepPolicy.fs"
 #load "../Policies/DialogTabPolicy.fs"
 #load "../Policies/SeverityReasonPolicy.fs"

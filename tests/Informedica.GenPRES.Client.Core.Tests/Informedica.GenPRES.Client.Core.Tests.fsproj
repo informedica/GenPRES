@@ -37,6 +37,7 @@
     <Compile Include="Policies/PatientDataSummaryPolicyTests.fs" />
     <Compile Include="Policies/PatientReadinessPolicyTests.fs" />
     <Compile Include="Policies/PickPolicyTests.fs" />
+    <Compile Include="Policies/CompositionPolicyTests.fs" />
     <Compile Include="Policies/StepPolicyTests.fs" />
     <Compile Include="Policies/DialogTabPolicyTests.fs" />
     <Compile Include="Policies/SeverityReasonPolicyTests.fs" />

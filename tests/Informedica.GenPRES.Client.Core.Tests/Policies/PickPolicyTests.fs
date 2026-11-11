@@ -144,22 +144,17 @@ module PickPolicyTests =
                 test "the NaCl 0.9% diluent picked is the diluent at position 1, emptied a clear" {
                     let diluents = [| "glucose 5%"; "NaCl 0.9%" |]
 
-                    let diluentCommand n =
-                        match n with
-                        | Some n -> Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty n
-                        | None -> Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty
-
-                    command diluentCommand diluents (Some "NaCl 0.9%")
+                    diluentCommand diluents (Some "NaCl 0.9%")
                     |> Expect.equal
                         "the second diluent"
                         (Some(Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 1))
 
-                    command diluentCommand diluents None
+                    diluentCommand diluents None
                     |> Expect.equal
                         "a clear"
                         (Some Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty)
 
-                    command diluentCommand diluents (Some "water") |> Expect.isNone "nothing"
+                    diluentCommand diluents (Some "water") |> Expect.isNone "nothing"
                 }
 
                 test "a form the list does not hold sends nothing" {

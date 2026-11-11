@@ -104,3 +104,14 @@ module PickPolicy =
             | None -> OrderViewCommand.ClearFilterProperty field
 
         command toCommand options picked
+
+
+    /// The command of a diluent pick: the position of the diluent in the options, or a clear of the diluent
+    /// emptied; none for a diluent the options do not hold.
+    let diluentCommand options picked =
+        let toCommand n =
+            match n with
+            | Some n -> OrderViewCommand.SetNthDiluentProperty n
+            | None -> OrderViewCommand.ClearDiluentProperty
+
+        command toCommand options picked
