@@ -2126,35 +2126,6 @@ module DoseRuleRoundtripTests =
         && subMap (schedLeaves orig) (schedLeaves gen)
         && Set.isSubset (freqSet orig) (freqSet gen)
 
-    let private allLimitsEmpty (d: DoseRuleData) =
-        let l = d.ScheduleData.DoseLimitData
-
-        [
-            l.MinQty
-            l.MaxQty
-            l.MinQtyAdj
-            l.MaxQtyAdj
-            l.MinPerTime
-            l.MaxPerTime
-            l.MinPerTimeAdj
-            l.MaxPerTimeAdj
-            l.MinRate
-            l.MaxRate
-            l.MinRateAdj
-            l.MaxRateAdj
-        ]
-        |> List.forall Option.isNone
-
-    let private surviving (rows: DoseRuleData[]) =
-        rows
-        |> Array.filter (fun d -> DoseRuleData.validateData d |> List.isEmpty)
-        |> Array.filter (fun d ->
-            not (
-                d.ScheduleData.DoseLimitData.Substance |> String.isNullOrWhiteSpace
-                && allLimitsEmpty d
-            )
-        )
-
     /// reverse-of-forward, deduped
     let private generate (rows: DoseRuleData[]) =
         rows |> forward |> Array.collect DoseRule.toData |> Array.distinctBy rowKey
@@ -2163,7 +2134,8 @@ module DoseRuleRoundtripTests =
     let private missing (input: DoseRuleData[]) (gen: DoseRuleData[]) =
         let byId = gen |> Array.groupBy idKey |> dict
 
-        surviving input
+        input
+        |> Analyze.surviving (forward input)
         |> Array.filter (fun o ->
             match byId.TryGetValue(idKey o) with
             | true, gs -> gs |> Array.exists (fun g -> containedIn g o) |> not
@@ -10735,6 +10707,51 @@ module Tests =
                         |> fst
                         |> Array.map DoseRule.hasNoLimits
                         |> Expect.equal "the kept rule first, as in the rows" [| true; false |]
+                    }
+
+                    test "a kept rule survives a round trip through its rows" {
+                        let rules = rowsWithoutLimits |> load [| limitsBoth |] |> fst
+
+                        rules
+                        |> Array.collect DoseRule.toData
+                        |> load [| limitsBoth |]
+                        |> fst
+                        |> Array.map (_.ComponentLimits >> Array.map _.Name)
+                        |> Expect.equal "the rule and both components" [| [| "NaCl 3%"; "KCl 7,4%" |] |]
+                    }
+
+                    test "the round-trip check counts the rows of a kept rule and finds them all" {
+                        let pass = rowsWithoutLimits |> Analyze.runPass (load [| limitsBoth |] >> fst) "kept"
+
+                        pass.SurvivingDataCount |> Expect.equal "both rows count" 2
+                        pass.Missing |> Expect.isEmpty "no row missing"
+                    }
+
+                    test "the round-trip check counts only the rows of the kept rule of a group" {
+                        // day 1 and day 2 form one group of rules; only day 1 has a dilution rule
+                        let onDay day (r: DoseRuleData) =
+                            { r with ScheduleData = { r.ScheduleData with DoseText = day } }
+                            |> DoseRuleData.setDataHashIds
+
+                        let rows =
+                            [|
+                                yield! rowsWithoutLimits |> Array.map (onDay "dag 1")
+                                yield! rowsWithoutLimits |> Array.map (onDay "dag 2")
+                            |]
+
+                        let dayOne = { limitsBoth with DoseType = Timed "dag 1" }
+
+                        let pass = rows |> Analyze.runPass (load [| dayOne |] >> fst) "day 1 kept"
+
+                        pass.ForwardDoseRuleCount |> Expect.equal "only day 1 loads" 1
+                        pass.SurvivingDataCount |> Expect.equal "the two rows of day 1 count" 2
+                        pass.Missing |> Expect.isEmpty "no row missing"
+                    }
+
+                    test "the round-trip check does not count the rows of a dropped rule" {
+                        let pass = rowsWithoutLimits |> Analyze.runPass (load [||] >> fst) "dropped"
+
+                        pass.SurvivingDataCount |> Expect.equal "no row counts" 0
                     }
 
                     test "a kept rule reaches a patient with a weight through the filter" {

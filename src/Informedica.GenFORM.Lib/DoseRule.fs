@@ -941,7 +941,8 @@ module DoseRule =
     /// Explode a DoseRule into its source data rows (inverse of mapToDoseRule).
     /// FormLimit is NOT emitted (it is derived from the external formRoutes table).
     /// A component limit with no substance limits emits one CmpBased row; a
-    /// component with substance limits emits one row per substance.
+    /// component with substance limits emits one row per substance. A component
+    /// without any limit emits one row without values.
     let toData (dr: DoseRule) : DoseRuleData[] =
         let gen = reverseGeneric dr.Generic
         let pat = reversePatient dr.PatientCategory
@@ -973,9 +974,11 @@ module DoseRule =
             // no substance limits -> use the component limit (CmpBased = true)
             // has substance limits -> use only the substance limits (CmpBased = false)
             if cl.SubstanceLimits |> Array.isEmpty then
-                match cl.Limit with
-                | Some l -> [| mkRow true cl.Name l |]
-                | None -> [||]
+                let l =
+                    cl.Limit
+                    |> Option.defaultValue { DoseLimit.limit with DoseLimitTarget = ComponentLimitTarget cl.Name }
+
+                [| mkRow true cl.Name l |]
             else
                 cl.SubstanceLimits |> Array.map (mkRow false cl.Name)
         )
