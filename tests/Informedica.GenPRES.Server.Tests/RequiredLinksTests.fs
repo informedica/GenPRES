@@ -73,7 +73,7 @@ module Fixtures =
             rowOf "week 1 13:00 uur"
             rowOf "week 1 18:00 uur"
         |]
-        |> DoseRuleLoader.fromData routes [||] [| tablet |]
+        |> DoseRuleLoader.fromData routes [||] [| tablet |] [||]
         |> fst
 
 
@@ -276,7 +276,7 @@ module TwoForms =
             rowOf "week 1 13:00 uur"
             rowOf "week 1 18:00 uur"
         |]
-        |> DoseRuleLoader.fromData routes [||] [| tablet; capsule |]
+        |> DoseRuleLoader.fromData routes [||] [| tablet; capsule |] [||]
         |> fst
 
 

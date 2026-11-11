@@ -155,8 +155,10 @@ Decisions of 2026-11-11, halcwb:
 5. The conflict warning is given only when no order can meet both the dose rule range and the
    dilution rule range of the same component. A dose rule limit that only
    narrows the dilution rule range, as in Samenstelling B to E today, gets no warning.
-6. A dilution limit of a component limits that component when it has a quantity, a quantity per kg
-   or a list of quantities.
+6. A dilution limit of a component limits that component when it has a maximum quantity, a maximum
+   quantity per kg or a list of quantities; a minimum alone leaves the component unbounded. Only the
+   first dilution limit of a component counts, since that is the one the order takes. Decided in the
+   reviews of step 1.
 7. A dilution limit per kg limits nothing for a patient without a weight. For such a patient a dose
    rule with components without a limit is dropped, unless another dilution limit of the same
    dilution rule limits them.
@@ -207,11 +209,12 @@ Decisions of 2026-11-11, halcwb:
   not depend on the dose rules. The other callers pass them as well (decision 11).
 - `fromData` decides with `DilutionRule.canMeetDoseRule` which dose rules without limits
   `DoseRule.removeEmptyLimits` keeps: those for which a dilution rule that matches limits every
-  component of the dose rule. It then keeps the
-  components without a limit as well, since an order makes its components from them.
+  component of the dose rule. It then keeps the components without a limit as well, since an order
+  makes its components from them.
 - A dilution rule limits a component when it has a dilution limit with `ComponentLimitTarget` of
-  that component name and a quantity, a quantity per kg or a list of quantities, and its dose count
-  is at least 1: `MaxPerc` empty or at most 1, and `MinPerc` empty or at most 1.
+  that component name and a maximum quantity, a maximum quantity per kg or a list of quantities,
+  only the first such limit counting, and its dose count is at least 1: `MaxPerc` empty or at most 1,
+  and `MinPerc` empty or at most 1.
 - A dose rule without limits that a dilution rule applies to, but that is still dropped, gives a
   warning that names the dose rule and the components without a limit.
 

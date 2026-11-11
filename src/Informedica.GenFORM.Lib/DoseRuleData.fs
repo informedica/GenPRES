@@ -634,10 +634,14 @@ module DoseRuleData =
         ]
 
 
-    /// A warning for a dose rule with an adjust unit and no per kg or per m2 value in any row.
+    /// A warning for a dose rule with an adjust unit, dose values, and no per kg or per m2 value in any
+    /// row. A rule without any dose value gets none: it has no value to compare the adjust unit with.
     let unitWarning (rows: DoseRuleData[]) =
         match rows |> Array.map adjustUnitOf |> Array.distinct with
-        | [| Some _ as u |] when rows |> Array.exists hasAdjustedValue |> not ->
+        | [| Some _ as u |] when
+            rows |> Array.exists (hasValueIn doseUnitColumns)
+            && rows |> Array.exists hasAdjustedValue |> not
+            ->
             let u = u |> DoseRule.adjStr
 
             $"%s{rows |> Array.head |> describe} has the adjust unit %s{u} but no per %s{u} value"

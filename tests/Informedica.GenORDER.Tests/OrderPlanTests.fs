@@ -969,7 +969,7 @@ module RuleFixtures =
 
     /// The dose rules the loader builds from the rows, with the suppository to attach.
     let rules (rows: DoseRuleData[]) =
-        DoseRuleLoader.fromData routeMapping [||] [| suppository |] rows |> fst
+        DoseRuleLoader.fromData routeMapping [||] [| suppository |] [||] rows |> fst
 
     /// A second row beside the first: the same suppository, for pain, at most 20 mg/kg, so its rule
     /// needs a weight. The first row, for a fever at most 100 mg, needs none.
@@ -1175,7 +1175,7 @@ type UndilutedVancomycin() =
 
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
-            DoseRuleLoader.fromData routeMapping [||] [| vial |] [| row |] |> fst
+            DoseRuleLoader.fromData routeMapping [||] [| vial |] [||] [| row |] |> fst
         member _.GetDilutionRules() = [| dilutionRule |]
         member _.GetRouteMappings() = routeMapping
 
@@ -1212,6 +1212,7 @@ let ruleSetDiscoveryTests =
                         RuleFixtures.routeMapping
                         [||]
                         [| product "voedsel"; product "paracetamol" |]
+                        [||]
                         data
                     |> fst
                     |> RulesOf
@@ -2338,6 +2339,7 @@ module RefusedFixtures =
             RuleFixtures.routeMapping
             [||]
             [| product "paracetamol"; product "ibuprofen" |]
+            [||]
             [|
                 rowOf "paracetamol" "koorts" "start"
                 rowOf "paracetamol" "koorts" "onderhoud"
