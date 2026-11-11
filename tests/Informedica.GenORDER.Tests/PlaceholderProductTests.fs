@@ -2,6 +2,7 @@
 /// back, and its order is refused.
 module PlaceholderProductTests
 
+open Informedica.Utils.Lib.BCL
 open Expecto
 open Expecto.Flip
 
@@ -108,6 +109,30 @@ let tests =
 
                     test "no numbers and no unit is the empty value" {
                         read [||] "" |> Expect.equal "empty" (Ok(Some ValueUnit.empty))
+                    }
+
+                    test "a null array with a unit is read as no numbers in that unit" {
+                        read null "kg"
+                        |> Expect.equal "kg without numbers" (Ok(Some(ValueUnit.create Units.Weight.kiloGram [||])))
+                    }
+
+                    test "a null array without a unit is the empty value" {
+                        read null "" |> Expect.equal "empty" (Ok(Some ValueUnit.empty))
+                    }
+
+                    test "a text with a null array is read, not thrown" {
+                        let text =
+                            Scenarios.amoxClavText
+                            |> String.replace "Adjust:\n  Value:\n    - \"14.5\"" "Adjust:\n  Value: null"
+
+                        text
+                        |> String.contains "Value: null"
+                        |> Expect.isTrue "the text has the null array"
+
+                        text
+                        |> MedicationText.fromString
+                        |> Result.map _.Adjust
+                        |> Expect.equal "kg without numbers" (Ok(Some(ValueUnit.create Units.Weight.kiloGram [||])))
                     }
 
                     test "numbers without a unit are refused" {

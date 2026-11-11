@@ -491,7 +491,10 @@ module Medication =
             if isNull dto then
                 Ok None
             // the empty value, of a placeholder product, is written without numbers or a unit
-            else if dto.Value |> Array.isEmpty && dto.Unit |> String.isNullOrWhiteSpace then
+            else if
+                dto.Value |> DtoResult.orEmpty |> Array.isEmpty
+                && dto.Unit |> String.isNullOrWhiteSpace
+            then
                 Ok(Some ValueUnit.empty)
             else
                 dto |> valueFromDto path |> Result.map Some
