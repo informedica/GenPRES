@@ -10422,6 +10422,23 @@ module Tests =
                                 |> Expect.isNone "dropped"
                             }
 
+                            test "only the first dilution limit of a component counts, as in the order" {
+                                let atLeast =
+                                    bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
+
+                                let minFirst =
+                                    dilutionRule
+                                        [|
+                                            dilutionLimit "NaCl 3%" atLeast MinMax.empty None
+                                            dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
+                                            dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
+                                        |]
+
+                                prescriptionRule withoutLimits [| minFirst |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
                             test "a quantity per kg that is not adjusted to a weight does not limit" {
                                 prescriptionRule withoutLimits [| limitsBothPerKg |]
                                 |> PrescriptionRule.withLimitingDilutionRules

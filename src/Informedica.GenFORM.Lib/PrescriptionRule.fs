@@ -287,14 +287,15 @@ module PrescriptionRule =
     /// Whether the dilution rule, adjusted to the patient, limits the component: a dilution limit of
     /// the component with a maximum quantity or a list of quantities. A quantity per kg is in the
     /// quantity only when the patient has a weight. A minimum alone leaves the component unbounded.
+    /// Only the first dilution limit of the component counts, since that is the one the order takes.
     let limitsComponent (dilRule: DilutionRule) name =
         dilRule.DilutionLimits
-        |> Array.exists (fun dl ->
+        |> Array.tryFind (fun dl ->
             match dl.DilutionLimitTarget with
-            | ComponentLimitTarget c when c |> String.equalsCapInsens name ->
-                dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome
+            | ComponentLimitTarget c -> c |> String.equalsCapInsens name
             | _ -> false
         )
+        |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
 
 
     /// The prescription rule with only the dilution rules that limit every component without a limit,
