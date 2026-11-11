@@ -3771,6 +3771,25 @@ let refusalWithoutLimitsTests =
                 |> Expect.equal "no products" Refusal.NoProducts
             }
 
+            test "a rule without limits whose products have no reconstitution for the patient answers NoProducts" {
+                // powders that need reconstitution, with no reconstitution for any department
+                let powder generic =
+                    { Electrolytes.product generic with
+                        RequiresReconstitution = true
+                        Reconstitution = [||]
+                    }
+
+                let provider = ElectrolyteRules(3000N, [| powder "NaCl 3%"; powder "KCl 7,4%" |])
+
+                (provider :> Resources.IResourceProvider).GetDoseRules()
+                |> Expect.hasLength "the kept rule, with its powders" 1
+
+                Electrolytes.patient "ICK" 5N
+                |> picked provider
+                |> OrderContext.refusal provider
+                |> Expect.equal "no products" Refusal.NoProducts
+            }
+
             test "in ICK, above the weight of the dose rule, the reason stays NoDoseRulesForPatient" {
                 Electrolytes.patient "ICK" 20N
                 |> refusal 3000N

@@ -1677,6 +1677,17 @@ Scenarios: {scenarios}
 
             let prescribedIds = prs |> Array.map _.DoseRule.Id |> Set.ofArray
 
+            // the products the lookup prescribes from: reconstituted for the patient, as the lookup does
+            let hasNoProducts dr =
+                let pat = filter.Patient |> Api.withDefaultDepartment provider
+
+                dr
+                |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location pat.Department
+                |> fst
+                |> _.ComponentLimits
+                |> Array.collect _.Products
+                |> Array.isEmpty
+
             // the prescription rules keep a rule without limits only with a dilution rule of the patient
             // that limits it; a rule without products they drop before that, which answers NoProducts
             let forPatient =
@@ -1685,7 +1696,7 @@ Scenarios: {scenarios}
                 |> Array.filter (fun dr ->
                     dr |> DoseRule.hasNoLimits |> not
                     || prescribedIds.Contains dr.Id
-                    || dr.ComponentLimits |> Array.collect _.Products |> Array.isEmpty
+                    || dr |> hasNoProducts
                 )
 
             prs |> measurementMissing filter.Patient |> refusalOf forPicks forPatient
