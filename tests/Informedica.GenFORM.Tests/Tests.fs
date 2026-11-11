@@ -10226,6 +10226,287 @@ module Tests =
                 ]
 
 
+    /// A dose rule with components without a limit, which only a dilution rule of the patient limits.
+    module LimitingDilutionRuleTests =
+
+        open RuleCheckTests
+
+
+        let kg = Units.Weight.kiloGram
+        let gram = Units.Weight.gram
+
+
+        let fraction min max = bounds (min |> Option.bind times) (max |> Option.bind times)
+
+
+        let componentLimit name limit : ComponentLimit =
+            {
+                Name = name
+                ProductIds = [||]
+                Limit = limit
+                Products = [| parenteral name |]
+                SubstanceLimits = [||]
+            }
+
+
+        let doseLimit name max =
+            { DoseLimit.limit with
+                DoseLimitTarget = ComponentLimitTarget name
+                DoseUnit = mL
+                Quantity = range mL 0N max
+            }
+
+
+        /// The electrolyte and glucose mixture as the production sheet holds it: a timed rule with
+        /// components without limits.
+        let doseRule components =
+            { ivDoseRule "electrolyt/glucose mengsel" (Solution "vloeistof") [||] with
+                Indication = "Parenterale suppletie"
+                PatientCategory = PatientCategory.empty
+                DoseType = Timed ""
+                ComponentLimits = components
+            }
+
+
+        let withoutLimits = doseRule [| componentLimit "NaCl 3%" None; componentLimit "KCl 7,4%" None |]
+
+
+        let dilutionLimit name quantity quantityAdj quantities =
+            { DilutionLimit.limit with
+                DilutionLimitTarget = ComponentLimitTarget name
+                Quantity = quantity
+                QuantityAdj = quantityAdj
+                Quantities = quantities
+            }
+
+
+        let dilutionRule limits =
+            { RuleCheckTests.dilutionRule "electrolyt/glucose mengsel" MinMax.empty with
+                DoseFraction = fraction None (Some 1N)
+                DilutionLimits = limits
+            }
+
+
+        /// A dilution rule that limits both components with a quantity.
+        let limitsBoth =
+            dilutionRule
+                [|
+                    dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
+                    dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
+                |]
+
+
+        /// A dilution rule that limits both components per kg only, as the production sheet does.
+        let limitsBothPerKg =
+            dilutionRule
+                [|
+                    dilutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
+                    dilutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
+                |]
+
+
+        let limitsNone = dilutionRule [||]
+
+
+        let prescriptionRule dr dilRules : PrescriptionRule =
+            {
+                Patient = Patient.patient
+                DoseRule = dr
+                DilutionRules = dilRules
+                RenalRules = [||]
+            }
+
+
+        let patient weight =
+            { Patient.patient with Weight = weight |> Option.map (fun w -> w * 1000N |> ValueUnit.singleWithUnit gram) }
+
+
+        let filterFor weight dilRules =
+            { Filter.doseFilter with Patient = patient weight }
+            |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] dilRules [||] ivRouteMapping
+
+
+        let tests =
+            testList
+                "a dose rule without limits"
+                [
+                    testList
+                        "withLimitingDilutionRules"
+                        [
+                            test "a rule whose components all have a limit is kept as it is" {
+                                let pr =
+                                    prescriptionRule
+                                        (doseRule [| componentLimit "NaCl 3%" (Some(doseLimit "NaCl 3%" 6N)) |])
+                                        [| limitsNone |]
+
+                                pr
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.equal "the same" (Some pr)
+                            }
+
+                            test "a component with only substance limits counts as limited" {
+                                let cl =
+                                    { componentLimit "NaCl 3%" None with
+                                        SubstanceLimits =
+                                            [|
+                                                { DoseLimit.limit with
+                                                    DoseLimitTarget = SubstanceLimitTarget "natrium"
+                                                }
+                                            |]
+                                    }
+
+                                let pr = prescriptionRule (doseRule [| cl |]) [||]
+
+                                pr
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.equal "the same" (Some pr)
+                            }
+
+                            test "a rule without limits and without a dilution rule is dropped" {
+                                prescriptionRule withoutLimits [||]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
+                            test "a rule without limits is kept with a dilution rule that limits every component" {
+                                prescriptionRule withoutLimits [| limitsBoth |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Option.map _.DilutionRules
+                                |> Expect.equal "the dilution rule" (Some [| limitsBoth |])
+                            }
+
+                            test "only the dilution rules that limit every component are kept" {
+                                prescriptionRule withoutLimits [| limitsNone; limitsBoth |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Option.map _.DilutionRules
+                                |> Expect.equal "the limiting dilution rule" (Some [| limitsBoth |])
+                            }
+
+                            test "a dilution rule that limits one of two components does not keep the rule" {
+                                let onlyNaCl =
+                                    dilutionRule [| dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None |]
+
+                                prescriptionRule withoutLimits [| onlyNaCl |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
+                            test "a list of quantities limits a component" {
+                                let qts = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some
+
+                                let listed =
+                                    dilutionRule
+                                        [|
+                                            dilutionLimit "NaCl 3%" MinMax.empty MinMax.empty qts
+                                            dilutionLimit "KCl 7,4%" MinMax.empty MinMax.empty qts
+                                        |]
+
+                                prescriptionRule withoutLimits [| listed |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isSome "kept"
+                            }
+
+                            test "a quantity with only a minimum does not limit" {
+                                let atLeast =
+                                    bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
+
+                                let minOnly =
+                                    dilutionRule
+                                        [|
+                                            dilutionLimit "NaCl 3%" atLeast MinMax.empty None
+                                            dilutionLimit "KCl 7,4%" atLeast MinMax.empty None
+                                        |]
+
+                                prescriptionRule withoutLimits [| minOnly |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
+                            test "only the first dilution limit of a component counts, as in the order" {
+                                let atLeast =
+                                    bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
+
+                                let minFirst =
+                                    dilutionRule
+                                        [|
+                                            dilutionLimit "NaCl 3%" atLeast MinMax.empty None
+                                            dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
+                                            dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
+                                        |]
+
+                                prescriptionRule withoutLimits [| minFirst |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
+                            test "a quantity per kg that is not adjusted to a weight does not limit" {
+                                prescriptionRule withoutLimits [| limitsBothPerKg |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isNone "dropped"
+                            }
+
+                            test "the component names match in any case" {
+                                let upper =
+                                    dilutionRule
+                                        [|
+                                            dilutionLimit "NACL 3%" (range mL 0N 60N) MinMax.empty None
+                                            dilutionLimit "kcl 7,4%" (range mL 0N 20N) MinMax.empty None
+                                        |]
+
+                                prescriptionRule withoutLimits [| upper |]
+                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> Expect.isSome "kept"
+                            }
+
+                            testList
+                                "the dose count"
+                                [
+                                    for min, max, kept in
+                                        [
+                                            None, None, true
+                                            None, Some 1N, true
+                                            Some 1N, Some 1N, true
+                                            Some(1N / 2N), Some 1N, true
+                                            Some 1N, None, true
+                                            None, Some 2N, false
+                                            Some 2N, None, false
+                                            Some 2N, Some 2N, false
+                                        ] do
+                                        test $"a dose fraction of %A{min} to %A{max} keeps the rule: %b{kept}" {
+                                            let dilRule = { limitsBoth with DoseFraction = fraction min max }
+
+                                            prescriptionRule withoutLimits [| dilRule |]
+                                            |> PrescriptionRule.withLimitingDilutionRules
+                                            |> Option.isSome
+                                            |> Expect.equal "kept" kept
+                                        }
+                                ]
+                        ]
+
+                    testList
+                        "filter"
+                        [
+                            test "a patient with a weight gets the rule with a dilution rule per kg" {
+                                filterFor (Some 10N) [| limitsBothPerKg |]
+                                |> Result.map (Array.map _.DilutionRules.Length)
+                                |> Expect.equal "one rule, one dilution rule" (Ok [| 1 |])
+                            }
+
+                            test "a patient without a weight does not get the rule with a dilution rule per kg" {
+                                filterFor None [| limitsBothPerKg |]
+                                |> Result.map Array.length
+                                |> Expect.equal "no rule" (Ok 0)
+                            }
+
+                            test "a patient does not get the rule without a dilution rule" {
+                                filterFor (Some 10N) [||]
+                                |> Result.map Array.length
+                                |> Expect.equal "no rule" (Ok 0)
+                            }
+                        ]
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -10264,4 +10545,5 @@ module Tests =
                 PrescribableTests.tests
                 RuleSetTests.tests
                 LinkRuleTests.tests
+                LimitingDilutionRuleTests.tests
             ]
