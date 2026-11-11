@@ -79,15 +79,19 @@ module EnteralNutrition =
                 ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
             |}
 
-        // a quantity field is as wide as its buttons and a readable value need
-        let fieldItemSx =
+        // every column keeps the least width of its widest form, whatever buttons its field shows, so that
+        // the rows of a feeding and its supplements get the same columns: frequency with its inner
+        // buttons, whether it is chosen from the dropdown or stepped; the dose with all its buttons; the
+        // dose per time without
+        let columnSx minWidth =
             {|
                 flex = "1 1 0%"
-                minWidth = "min-content"
+                minWidth = minWidth
             |}
 
-        // frequency keeps one width whether it is chosen from the dropdown or stepped
-        let frequencyItemSx = {| fieldItemSx with minWidth = Components.QuantityField.fieldWidthInnerSlots |}
+        let frequencyItemSx = columnSx Components.QuantityField.fieldWidthInnerSlots
+        let doseQuantityItemSx = columnSx Components.QuantityField.fieldWidth
+        let dosePerTimeItemSx = columnSx Components.QuantityField.fieldWidthWithoutSlots
 
         JSX.jsx
             $"""
@@ -100,10 +104,10 @@ module EnteralNutrition =
                 <Box sx={frequencyItemSx}>
                     {frequency}
                 </Box>
-                <Box sx={fieldItemSx}>
+                <Box sx={doseQuantityItemSx}>
                     {doseQuantity}
                 </Box>
-                <Box sx={fieldItemSx}>
+                <Box sx={dosePerTimeItemSx}>
                     {dosePerTime}
                 </Box>
             </Box>
