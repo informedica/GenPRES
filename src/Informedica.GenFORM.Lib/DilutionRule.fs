@@ -266,6 +266,31 @@ module DilutionRule =
         |> List.map Warning
 
 
+    /// One warning per component or substance that a dilution rule gives more than one dilution limit,
+    /// names compared case-insensitively. An order takes only the first of those dilution limits.
+    let repeatedTargets (rules: DilutionRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun dilRule ->
+            dilRule.DilutionLimits
+            |> Array.toList
+            |> List.groupBy (fun dl ->
+                match dl.DilutionLimitTarget with
+                | ComponentLimitTarget s -> "component", s |> String.toLower
+                | target -> "substance", target |> LimitTarget.toString |> String.toLower
+            )
+            |> List.filter (fun (_, dls) -> dls |> List.length > 1)
+            |> List.map (fun ((kind, _), dls) ->
+                let name = dls |> List.head |> _.DilutionLimitTarget |> LimitTarget.toString
+
+                $"%s{dilRule |> label}: %i{dls |> List.length} dilution limits for the %s{kind} %s{name}, "
+                + "an order takes only the first"
+            )
+        )
+        |> List.distinct
+        |> List.map Warning
+
+
     /// A limit, or nothing when the limit is 0, which counts as empty.
     let nonZeroLimit (lim: Limit option) =
         lim |> Option.filter (Limit.getValueUnit >> ValueUnit.isZero >> not)
