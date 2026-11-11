@@ -219,5 +219,12 @@ One pull request at a time, each merged before the next.
 6. **Client: the nutrition slot**: the rows from the main component, the optional components and
    the diluent; the checkboxes and the select through the existing commands; disabled while the
    composition is locked (`IntakePolicy.isCompositionLocked`) or the slot is busy.
+   - `CompositionPolicy` in Client.Core gives the rows from `Filter.DoseRuleComponents`, in the
+     order of the rule: each offered additive with a checkbox, checked when the order holds it, each
+     other component as its name, and the diluent last. An additive the order does not hold shows only
+     its checkbox and its name.
+   - The diluent is a select when the rule offers more than one, otherwise its name.
+   - A checkbox sends `SetNthComponentsProperty` with the additives the order holds, the one switched
+     added or removed. Migrated.
 7. **Sheets** (the maintainer): Samenstelling B to E and NICU mix as decided, with the `Diluents`
    cell separated by `|` on every row; `glycine buffer` marked `IsDiluent`; the demo sheet.
