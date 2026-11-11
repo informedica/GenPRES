@@ -160,8 +160,6 @@ type Terms =
     // the question before an edit taken as a new patient, when orders or a selection are lost
     | ``Patient New Dialog Title``
     | ``Patient New Dialog Text``
-    // the label before the patient id in the panel's summary
-    | ``Patient Id``
     // the department in force, and where it came from
     | ``Patient Department``
     | ``Patient Department Default``

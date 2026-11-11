@@ -4028,3 +4028,95 @@ let genderWordTests =
                 |> Flip.Expect.equal "no age" "Vrouw"
             }
         ]
+
+
+let weightEstimateText measured estimated p3 p97 =
+    PatientText.estimateText "geschat" PatientText.kilograms "kg" measured estimated p3 p97
+
+
+let heightEstimateText measured estimated p3 p97 =
+    PatientText.estimateText "geschat" float "cm" measured estimated p3 p97
+
+
+let grams (n: int) = n * 1<gram> |> Some
+let centimeters (n: int) = n * 1<cm> |> Some
+
+
+/// The Dutch row of the term for an estimate, as the Localization sheet has it.
+let estimatedTerm = [| [| "Patient Estimated"; "estimated"; "geschat"; ""; ""; ""; "" |] |]
+
+
+let patientWith weight height : Patient =
+    { Patient.empty with
+        Weight = weight
+        Height = height
+    }
+
+
+[<Tests>]
+let weightInUseTests =
+    testList
+        "PatientText, the weight and height in use"
+        [
+            test "an estimate without a measurement is the value in use, with its range" {
+                weightEstimateText None (grams 11000) (grams 8000) (grams 12000)
+                |> Flip.Expect.equal "geschat 11 kg (8 - 12 kg)" (Some "geschat 11 kg (8 - 12 kg)")
+            }
+
+            test "an estimate without a measurement and without a range is the value in use" {
+                weightEstimateText None (grams 11000) None None
+                |> Flip.Expect.equal "geschat 11 kg" (Some "geschat 11 kg")
+            }
+
+            test "a measured weight keeps the range after it" {
+                weightEstimateText (grams 10500) (grams 11000) (grams 8000) (grams 12000)
+                |> Flip.Expect.equal "geschat: (8 - 12 kg)" (Some "geschat: (8 - 12 kg)")
+            }
+
+            test "a measured weight without a range keeps the estimate after it" {
+                weightEstimateText (grams 10500) (grams 11000) None None
+                |> Flip.Expect.equal "geschat: (11 kg)" (Some "geschat: (11 kg)")
+            }
+
+            test "no estimate and no measurement gives no text" {
+                weightEstimateText None None None None |> Flip.Expect.isNone "nothing"
+            }
+
+            test "a weight keeps three significant digits" {
+                weightEstimateText None (grams 2450) (grams 1980) (grams 3210)
+                |> Flip.Expect.equal "2.45 kg" (Some "geschat 2.45 kg (1.98 - 3.21 kg)")
+            }
+
+            test "an estimated height without a measurement is the value in use, with its range" {
+                heightEstimateText None (centimeters 78) (centimeters 73) (centimeters 83)
+                |> Flip.Expect.equal "geschat 78 cm (73 - 83 cm)" (Some "geschat 78 cm (73 - 83 cm)")
+            }
+
+            test "a measured height keeps the range after it" {
+                heightEstimateText (centimeters 80) (centimeters 78) (centimeters 73) (centimeters 83)
+                |> Flip.Expect.equal "geschat: (73 - 83 cm)" (Some "geschat: (73 - 83 cm)")
+            }
+
+            test "the summary of a patient without measurements shows the estimated weight and height" {
+                let weight: Weight =
+                    {
+                        EstimatedP3 = grams 8000
+                        Estimated = grams 11000
+                        EstimatedP97 = grams 12000
+                        Measured = None
+                    }
+
+                let height: Height =
+                    {
+                        EstimatedP3 = centimeters 73
+                        Estimated = centimeters 78
+                        EstimatedP97 = centimeters 83
+                        Measured = None
+                    }
+
+                let text = patientWith weight height |> PatientText.toString estimatedTerm Dutch false
+
+                text |> Flip.Expect.stringContains "the weight" "geschat 11 kg (8 - 12 kg)"
+                text |> Flip.Expect.stringContains "the height" "geschat 78 cm (73 - 83 cm)"
+            }
+        ]
