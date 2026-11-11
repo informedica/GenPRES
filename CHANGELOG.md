@@ -1,5 +1,5 @@
 ---
-last_commit_released: badc37a36fcd9e9a2fffb056ca1bfb9b3811b05a
+last_commit_released: 34354d025708bd01f2f8438a1259da754e98da04
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,27 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.52 - 2026-11-11
+
+### 🚀 Features
+
+* *(client)* Switch additives and choose the diluent ([1dc10826](https://github.com/informedica/GenPRES/commit/1dc10826cbc2c2a497d3f6962dc5ed911760a6db))
+* *(genform)* Add the diluent of a dilution rule ([068fdc60](https://github.com/informedica/GenPRES/commit/068fdc609670f3ad3baef50207dc39fd710dd424))
+* *(genorder)* Switch only additives on and off ([20cb6cfa](https://github.com/informedica/GenPRES/commit/20cb6cfad5e35bec4ea0325fb594030b578d124c))
+* *(genorder)* Let a prescriber select no additive ([bed2ee56](https://github.com/informedica/GenPRES/commit/bed2ee569518d95a5ba84815ed03549c834d8646))
+* *(genorder)* Keep component quantities on a toggle ([8901077a](https://github.com/informedica/GenPRES/commit/8901077a5451cada9cdfeea66618bc1abd811046))
+* *(genorder)* Keep the dose rule components on the filter ([a5a51ab1](https://github.com/informedica/GenPRES/commit/a5a51ab13debad0af35912dade6ad5fd71e96c0e))
+
+### 🐞 Bug Fixes
+
+* *(client)* Wait for counted clicks before a composition pick ([d3d3256d](https://github.com/informedica/GenPRES/commit/d3d3256d5bbbbe5233515cab5b910946ddda774e))
+* *(genform)* Refuse a diluent clash whatever diluent is chosen ([983b6291](https://github.com/informedica/GenPRES/commit/983b6291c0c6212daf19c293e5765a2bccbe597c))
+* *(genorder)* Restore quantities on the server route ([0c2386fd](https://github.com/informedica/GenPRES/commit/0c2386fd9c302d46ee6500ba147e784e1163119f))
+* *(genorder)* Drop component options of another rule ([307b3abb](https://github.com/informedica/GenPRES/commit/307b3abb4a11de74e2cc1776c4e95b7f17445d46))
+* *(genorder)* Reset components on any changed seed pick ([a7bcf400](https://github.com/informedica/GenPRES/commit/a7bcf400ee897f7f237ad4412d7fa6985f5c00c7))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/badc37a36fcd9e9a2fffb056ca1bfb9b3811b05a..34354d025708bd01f2f8438a1259da754e98da04)</small></strong>
 
 ## 0.1.2-alpha.51 - 2026-11-10
 
