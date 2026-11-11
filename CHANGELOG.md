@@ -1,5 +1,5 @@
 ---
-last_commit_released: 34354d025708bd01f2f8438a1259da754e98da04
+last_commit_released: f1de12cbe91280be20d6385d5b473f88af35a1a4
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,35 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.53 - 2026-11-11
+
+### 🚀 Features
+
+* *(client)* Show the weight and height in use ([597a5670](https://github.com/informedica/GenPRES/commit/597a5670bd5b28c90da8a7bbaac53de48cd42173))
+* *(genform)* Keep only dilution rules that limit a component ([6888c364](https://github.com/informedica/GenPRES/commit/6888c3640078622fd25529f2ed424a28abbc6112))
+* *(genform)* Load dose rules whose dilution rule limits them ([b3595910](https://github.com/informedica/GenPRES/commit/b3595910dc4f3c4ba4e04d4aa6ec7e998c6c9f29))
+* *(genform)* Warn for dose and dilution ranges no order meets ([f00d9fc8](https://github.com/informedica/GenPRES/commit/f00d9fc88ddd2b05a85866be84a7053bad97b551))
+* *(genform)* Warn about repeated dilution limit targets ([94005dff](https://github.com/informedica/GenPRES/commit/94005dff9ee1a3b014bfedfd3105bce86e30ce44))
+* *(genorder)* Limit Totals rows by gestational age ([16c8b48f](https://github.com/informedica/GenPRES/commit/16c8b48ff5eb685ffcf734765c08e2f957b6f46e))
+* *(ui)* Line up supplement fields with the feeding fields ([fea8e897](https://github.com/informedica/GenPRES/commit/fea8e8971b621b33116aa10282fbc7bca4fe45ca))
+* *(ui)* Add supplements from a menu ([6956cb1d](https://github.com/informedica/GenPRES/commit/6956cb1d65e33ba8cccce2c7b1d84cfe31bb47b8))
+* *(ui)* Put the scenario card actions on the action bar ([ff018208](https://github.com/informedica/GenPRES/commit/ff0182084bce70eb7a50338300ec27e6dd6f3f6f))
+
+### 🐞 Bug Fixes
+
+* *(genform)* Check the first dilution limit of a component ([65dcb354](https://github.com/informedica/GenPRES/commit/65dcb3549a93d39a7aa2b7f9d2140da0eb98bfc0))
+* *(genform)* Keep dose rules without limits in the export ([a14c935b](https://github.com/informedica/GenPRES/commit/a14c935b3b36473baaca5563d0107a454fb49a1b))
+* *(genorder)* Read back a medication with a placeholder product ([be208c37](https://github.com/informedica/GenPRES/commit/be208c371f2a979df93385e6640d2f76f38c1fd2))
+* *(genorder)* Read a null value array without throwing ([cfacac21](https://github.com/informedica/GenPRES/commit/cfacac219fadda3ac8e5f8a172a42559995b6248))
+* *(genorder)* Give the right refusal for dose rules without limits ([383eb961](https://github.com/informedica/GenPRES/commit/383eb961919341d95c8a211240d47c6b66956d53))
+* *(genorder)* Check reconstituted products in the refusal ([12c9eb95](https://github.com/informedica/GenPRES/commit/12c9eb95ed2748af8e1732939caa07490577df95))
+* *(ui)* Give feeding and supplement rows the same column widths ([c302c41d](https://github.com/informedica/GenPRES/commit/c302c41db1c1150b8db9f98d96bd584bf9bad728))
+* *(ui)* Make the bin work from the keyboard ([e8ca7352](https://github.com/informedica/GenPRES/commit/e8ca73520ea3a9c1439be23f8dbf3bee18fb82b8))
+* *(ui)* Keep the dose in place under a notice ([4f6639b0](https://github.com/informedica/GenPRES/commit/4f6639b042f1dd9f72ea41a092bb3f4423758676))
+* *(ui)* Pad shorter order text lines to all columns ([725ed635](https://github.com/informedica/GenPRES/commit/725ed63511b0407f91999914f5101c66ec3a8df8))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/34354d025708bd01f2f8438a1259da754e98da04..f1de12cbe91280be20d6385d5b473f88af35a1a4)</small></strong>
 
 ## 0.1.2-alpha.52 - 2026-11-11
 
