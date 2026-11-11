@@ -20,6 +20,27 @@ module Prescribe =
         {|
             paddingTop = 1
             paddingRight = 2
+            whiteSpace = "normal"
+        |}
+
+
+    // a block of a line with more blocks keeps to one line: the empty last column would otherwise
+    // squeeze it to its narrowest
+    let private blockCellSx =
+        {|
+            paddingTop = 1
+            paddingRight = 2
+            whiteSpace = "nowrap"
+        |}
+
+
+    // the empty last column takes the width a notice adds, so the columns of the text stay as wide as
+    // their blocks: an automatic table layout shares the extra width of a spanning cell out over the
+    // columns it spans
+    let private fillerCellSx =
+        {|
+            width = "100%"
+            borderBottom = 0
         |}
 
 
@@ -35,26 +56,59 @@ module Prescribe =
 
     /// The rows of an order text, such as the prescription of a scenario, one table row per line and one
     /// cell per block; on a phone the blocks of a line run on as one. A line of a single block, such as
-    /// a notice below the prescription, spans all columns, so that its width does not set the width of
-    /// the first column of the other lines.
+    /// a notice below the prescription, spans all columns and an empty last column, so that its width
+    /// does not widen the columns of the other lines. That empty column is only there when a line has
+    /// more than one block; a line of fewer blocks than the others is padded with empty cells first.
     let textRows isMobile (text: TextBlock[][]) =
         let text = if isMobile then text |> TextBlockDisplay.flatten else text
 
         let columns = text |> Array.map Array.length |> Array.fold max 1
 
-        let cells row =
-            let span = if row |> Array.length = 1 then columns else 1
+        let filler =
+            JSX.jsx
+                $"""
+            import TableCell from '@mui/material/TableCell';
+            <TableCell key="filler" sx={fillerCellSx} />
+            """
 
-            row
-            |> Array.mapi (fun i cell ->
-                JSX.jsx
-                    $"""
+        let cells row =
+            let span, cellSx =
+                match row |> Array.length, columns with
+                | 1, 1 -> 1, textCellSx
+                | 1, _ -> columns + 1, textCellSx
+                | _ -> 1, blockCellSx
+
+            let blocks =
+                row
+                |> Array.mapi (fun i cell ->
+                    JSX.jsx
+                        $"""
                     import TableCell from '@mui/material/TableCell';
-                    <TableCell key={i} colSpan={span} sx={textCellSx}>
+                    <TableCell key={i} colSpan={span} sx={cellSx}>
                         {cell |> Mui.TypoGraphy.fromTextBlock}
                     </TableCell>
                     """
-            )
+                )
+
+            // a shorter line is padded to all columns, so its empty last column is the last column of
+            // the table and not one of the columns of the blocks
+            let padding =
+                Array.init
+                    (columns - (row |> Array.length))
+                    (fun i ->
+                        let key = $"pad-%i{i}"
+
+                        JSX.jsx
+                            $"""
+                    import TableCell from '@mui/material/TableCell';
+                    <TableCell key={key} sx={blockCellSx} />
+                    """
+                    )
+
+            if row |> Array.length > 1 then
+                Array.concat [ blocks; padding; [| filler |] ]
+            else
+                blocks
 
         text
         |> Array.mapi (fun i row ->
@@ -408,13 +462,34 @@ module Prescribe =
                     </React.Fragment>
                     """
 
+                let actions =
+                    Components.ActionBar.View
+                        {|
+                            actions =
+                                [|
+                                    {|
+                                        label = Edit |> getTerm "bewerken"
+                                        kind = Components.ActionBar.Kind.Secondary
+                                        onClick = handleEditClick
+                                        disabled = false
+                                        icon = Some Mui.Icons.CalculateIcon
+                                    |}
+                                    {|
+                                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                                        kind = Components.ActionBar.Kind.Primary
+                                        onClick = prescribe
+                                        disabled = prescribeDisabled
+                                        icon = Some Mui.Icons.Add
+                                    |}
+                                |]
+                        |}
+
                 JSX.jsx
                     $"""
                 import React from 'react';
                 import Card from '@mui/material/Card';
                 import CardActions from '@mui/material/CardActions';
                 import CardContent from '@mui/material/CardContent';
-                import Button from '@mui/material/Button';
                 import Typography from '@mui/material/Typography';
                 import Box from '@mui/material/Box';
                 import List from '@mui/material/List';
@@ -431,17 +506,7 @@ module Prescribe =
                             {content}
                         </CardContent>
                         <CardActions>
-                            <Button
-                                size="small"
-                                onClick={handleEditClick}
-                                startIcon={Mui.Icons.CalculateIcon}
-                            >{Edit |> getTerm "bewerken"}</Button>
-                            <Button
-                                size="small"
-                                disabled={prescribeDisabled}
-                                onClick={prescribe}
-                                startIcon={Mui.Icons.Add}
-                            >Voorschrijven</Button>
+                            {actions}
                         </CardActions>
                     </Card>
                 </Box>

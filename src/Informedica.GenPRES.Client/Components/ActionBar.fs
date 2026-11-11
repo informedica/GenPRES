@@ -3,7 +3,7 @@ namespace Components
 
 /// The buttons a page or a dialog ends in, placed by what they do rather than by hand: the
 /// action that completes the task is the prominent one and goes on the right; an action that
-/// discards or steps back is secondary and goes on the left; an action that destroys is set
+/// does not complete the task is secondary and goes on the left; an action that destroys is set
 /// apart from both. Every button is bounded, never full-width, so it is not where you click
 /// by default.
 module ActionBar =
@@ -18,8 +18,7 @@ module ActionBar =
     type Kind =
         /// Completes the task: OK, submit, sign, add to the plan. Contained, on the right.
         | Primary
-        /// Discards or steps back without completing: reset, cancel, close. Outlined, on the
-        /// left.
+        /// Does not complete the task: reset, cancel, close, edit. Outlined, on the left.
         | Secondary
         /// Removes something that exists: delete, remove from the plan. Text in the error
         /// colour, on the left and apart from the secondary actions.
