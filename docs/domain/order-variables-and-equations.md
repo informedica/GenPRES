@@ -581,7 +581,7 @@ The state holds:
 
 The variables without an equation (section 1.3) are not in the state.
 
-A program never changes the dose type, the equations, the defined constraints or the products; it moves the current ranges and the calculated constraints.
+A program never changes the dose type, the equations, the defined constraints or the products; it moves the current ranges and the calculated constraints. Only a patient data update replaces defined constraints after creation: the order takes the defined constraints of the order built again from the current rule, and the new adjust value.
 
 ### 5.2 The values
 
