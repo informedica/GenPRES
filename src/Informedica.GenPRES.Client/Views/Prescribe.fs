@@ -58,7 +58,7 @@ module Prescribe =
     /// cell per block; on a phone the blocks of a line run on as one. A line of a single block, such as
     /// a notice below the prescription, spans all columns and an empty last column, so that its width
     /// does not widen the columns of the other lines. That empty column is only there when a line has
-    /// more than one block.
+    /// more than one block; a line of fewer blocks than the others is padded with empty cells first.
     let textRows isMobile (text: TextBlock[][]) =
         let text = if isMobile then text |> TextBlockDisplay.flatten else text
 
@@ -90,8 +90,23 @@ module Prescribe =
                     """
                 )
 
+            // a shorter line is padded to all columns, so its empty last column is the last column of
+            // the table and not one of the columns of the blocks
+            let padding =
+                Array.init
+                    (columns - (row |> Array.length))
+                    (fun i ->
+                        let key = $"pad-%i{i}"
+
+                        JSX.jsx
+                            $"""
+                    import TableCell from '@mui/material/TableCell';
+                    <TableCell key={key} sx={blockCellSx} />
+                    """
+                    )
+
             if row |> Array.length > 1 then
-                Array.append blocks [| filler |]
+                Array.concat [ blocks; padding; [| filler |] ]
             else
                 blocks
 
