@@ -20,6 +20,27 @@ module Prescribe =
         {|
             paddingTop = 1
             paddingRight = 2
+            whiteSpace = "normal"
+        |}
+
+
+    // a block of a line with more blocks keeps to one line: the empty last column would otherwise
+    // squeeze it to its narrowest
+    let private blockCellSx =
+        {|
+            paddingTop = 1
+            paddingRight = 2
+            whiteSpace = "nowrap"
+        |}
+
+
+    // the empty last column takes the width a notice adds, so the columns of the text stay as wide as
+    // their blocks: an automatic table layout shares the extra width of a spanning cell out over the
+    // columns it spans
+    let private fillerCellSx =
+        {|
+            width = "100%"
+            borderBottom = 0
         |}
 
 
@@ -35,26 +56,44 @@ module Prescribe =
 
     /// The rows of an order text, such as the prescription of a scenario, one table row per line and one
     /// cell per block; on a phone the blocks of a line run on as one. A line of a single block, such as
-    /// a notice below the prescription, spans all columns, so that its width does not set the width of
-    /// the first column of the other lines.
+    /// a notice below the prescription, spans all columns and an empty last column, so that its width
+    /// does not widen the columns of the other lines. That empty column is only there when a line has
+    /// more than one block.
     let textRows isMobile (text: TextBlock[][]) =
         let text = if isMobile then text |> TextBlockDisplay.flatten else text
 
         let columns = text |> Array.map Array.length |> Array.fold max 1
 
-        let cells row =
-            let span = if row |> Array.length = 1 then columns else 1
+        let filler =
+            JSX.jsx
+                $"""
+            import TableCell from '@mui/material/TableCell';
+            <TableCell key="filler" sx={fillerCellSx} />
+            """
 
-            row
-            |> Array.mapi (fun i cell ->
-                JSX.jsx
-                    $"""
+        let cells row =
+            let span, cellSx =
+                match row |> Array.length, columns with
+                | 1, 1 -> 1, textCellSx
+                | 1, _ -> columns + 1, textCellSx
+                | _ -> 1, blockCellSx
+
+            let blocks =
+                row
+                |> Array.mapi (fun i cell ->
+                    JSX.jsx
+                        $"""
                     import TableCell from '@mui/material/TableCell';
-                    <TableCell key={i} colSpan={span} sx={textCellSx}>
+                    <TableCell key={i} colSpan={span} sx={cellSx}>
                         {cell |> Mui.TypoGraphy.fromTextBlock}
                     </TableCell>
                     """
-            )
+                )
+
+            if row |> Array.length > 1 then
+                Array.append blocks [| filler |]
+            else
+                blocks
 
         text
         |> Array.mapi (fun i row ->
