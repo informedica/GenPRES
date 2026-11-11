@@ -1174,6 +1174,16 @@ module Models =
                 }
 
 
+        /// The filter without the components of a dose rule: the additive options, the dose rule components
+        /// and the selection.
+        let withoutComponents (f: Filter) =
+            { f with
+                Components = [||]
+                DoseRuleComponents = [||]
+                SelectedComponents = ComponentSelection.AllComponents
+            }
+
+
         /// Whether any choice at all is still held.
         let anyChosen (f: Filter) =
             f.Indication.IsSome
@@ -1203,6 +1213,9 @@ module Models =
         /// When nothing is chosen anywhere afterwards, no options are kept either: a list
         /// narrowed by choices that are gone would offer a smaller world than there is, without
         /// saying so.
+        ///
+        /// Every choice here decides the dose rule, so a change also lets go of the components of the
+        /// dose rule: the additive options, the dose rule components and the selection.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
                 if not clearOwn then
@@ -1217,6 +1230,8 @@ module Models =
                 |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
                 |> fun f -> if clearOwn then f |> clearField field else f
                 |> write
+                // another dose rule has other components; the next scenario sets them again
+                |> withoutComponents
 
             let filter =
                 if filter |> anyChosen then
@@ -1528,29 +1543,23 @@ module Models =
         let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
             let f = ctx.Filter
             let same = gen = f.Generic && rte = f.Route && frm = f.Form
+            // the seed names the picks the filter holds, so the same dose rule
+            let samePicks = same && ind = f.Indication && dt = f.DoseType
 
             let write keep (ctx: OrderContext) =
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Indication = ind
-                            Generic = gen
-                            Route = rte
-                            Form = frm
-                            DoseType = dt
-                            Diluent = if keep then ctx.Filter.Diluent else None
-                            SelectedComponents =
-                                if keep then
-                                    ctx.Filter.SelectedComponents
-                                else
-                                    ComponentSelection.AllComponents
-                            PickedProducts =
-                                if same && ind = f.Indication && dt = f.DoseType then
-                                    f.PickedProducts
-                                else
-                                    [||]
-                        }
-                }
+                let filter =
+                    { ctx.Filter with
+                        Indication = ind
+                        Generic = gen
+                        Route = rte
+                        Form = frm
+                        DoseType = dt
+                        Diluent = if keep then ctx.Filter.Diluent else None
+                        PickedProducts = if samePicks then f.PickedProducts else [||]
+                    }
+
+                // another pick can name another dose rule, which has other components, whatever the seed keeps
+                { ctx with Filter = if samePicks then filter else filter |> withoutComponents }
 
             match source with
             | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }

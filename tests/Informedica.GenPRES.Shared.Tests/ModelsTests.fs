@@ -369,3 +369,92 @@ let gestationalAgeTests =
                 |> Expect.equal "missing" [ false; false; false; true; false ]
             }
         ]
+
+
+/// A choice that decides the dose rule lets go of the components of the dose rule, as the domain's change
+/// and seed do; the next scenario sets them again.
+[<Tests>]
+let doseRuleComponentsTests =
+    let additives = [| "NaCl 3%"; "KCl 7,4%" |]
+    let names = [| "Samenstelling C"; "NaCl 3%"; "KCl 7,4%"; "gluc 10%" |]
+
+    let first =
+        { OrderContext.empty with
+            Filter =
+                { OrderContext.filter with
+                    Generic = Some "Samenstelling C"
+                    Components = additives
+                    DoseRuleComponents = names
+                    SelectedComponents = ComponentSelection.Selected [ "KCl 7,4%" ]
+                }
+        }
+
+    let components (ctx: OrderContext) =
+        ctx.Filter.Components, ctx.Filter.DoseRuleComponents, ctx.Filter.SelectedComponents
+
+    let none = [||], [||], ComponentSelection.AllComponents
+
+    testList
+        "the components of the dose rule after another dose rule is picked"
+        [
+            test "a dose type picked lets go of them" {
+                first
+                |> OrderContext.doseTypeChange (Some(DoseType.Once "dag 3"))
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a medication emptied lets go of them" {
+                first
+                |> OrderContext.medicationChange None
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "the same dose type keeps them" {
+                let held = { first with OrderContext.Filter.DoseType = Some(DoseType.Once "dag 2") }
+
+                held
+                |> OrderContext.doseTypeChange (Some(DoseType.Once "dag 2"))
+                |> components
+                |> Expect.equal "kept" (components held)
+            }
+
+            test "a diluent picked keeps them" {
+                first
+                |> OrderContext.diluentChange (Some "gluc 20%")
+                |> components
+                |> Expect.equal "kept" (components first)
+            }
+
+            test "a seed of another medication from the formulary lets go of them" {
+                first
+                |> OrderContext.seedFilter SeedSource.Formulary None (Some "Intralipid 20%") None None None
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same medication with another dose type lets go of them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter
+                    SeedSource.Formulary
+                    f.Indication
+                    f.Generic
+                    f.Route
+                    f.Form
+                    (Some(DoseType.Once "dag 3"))
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same picks keeps them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter SeedSource.Url f.Indication f.Generic f.Route f.Form f.DoseType
+                |> components
+                |> Expect.equal "kept" (components first)
+            }
+        ]

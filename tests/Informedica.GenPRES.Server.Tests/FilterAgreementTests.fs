@@ -166,11 +166,18 @@ let seedTests =
             SeedSource.Reload, S.SeedSource.Reload
         ]
 
-    // the filter's own choices, other choices, and none at all
+    // the filter's own choices, other choices, one other choice each, and none at all
     let choices (f: Filter) =
+        let otherDoseType = options.DoseTypes |> Array.tryFind (Some >> (<>) f.DoseType)
+
         [
             "the same", (f.Indication, f.Generic, f.Route, f.Form, f.DoseType)
             "others", (Some "sedatie", Some "morfine", Some "INTRAVENEUS", Some "drank", Some options.DoseTypes[1])
+            "another indication", (Some "sedatie", f.Generic, f.Route, f.Form, f.DoseType)
+            "another medication", (f.Indication, Some "morfine", f.Route, f.Form, f.DoseType)
+            "another route", (f.Indication, f.Generic, Some "INTRAVENEUS", f.Form, f.DoseType)
+            "another form", (f.Indication, f.Generic, f.Route, Some "drank", f.DoseType)
+            "another dose type", (f.Indication, f.Generic, f.Route, f.Form, otherDoseType)
             "none", (None, None, None, None, None)
         ]
 
@@ -178,6 +185,13 @@ let seedTests =
         "the domain's seeds and Shared's"
         [
             for fname, filter in filters do
+                // the components of a dose rule set, so that a seed that lets go of them shows
+                let filter =
+                    { filter with
+                        DoseRuleComponents = [| "paracetamol"; "NaCl 0,9%"; "water" |]
+                        SelectedComponents = ComponentSelection.Selected [ "NaCl 0,9%" ]
+                    }
+
                 let ctx = { context filter with Scenarios = [||] }
                 let shared = ctx |> Contract.context OrderCategory.Medication
 
