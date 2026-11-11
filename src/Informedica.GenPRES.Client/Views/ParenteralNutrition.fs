@@ -237,6 +237,7 @@ module ParenteralNutrition =
                 // the plan takes one change at a time: no removal while one is under way
                 Components.RemoveIconButton.View
                     {|
+                        label = Terms.``Delete`` |> getTerm "Verwijder"
                         onRemove = onRemove
                         busy = held
                     |}

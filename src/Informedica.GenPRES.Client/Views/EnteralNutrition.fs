@@ -144,12 +144,16 @@ module EnteralNutrition =
                     fieldMinWidth = None
                 |}
 
+        let context: Global.Context = React.useContext Global.context
+        let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
+
         let counting = React.useContext Global.counting
         let waiting = props.busy || counting.Counting
 
         let bin =
             Components.RemoveIconButton.View
                 {|
+                    label = Terms.``Delete`` |> getTerm "Verwijder"
                     onRemove =
                         fun () ->
                             props.nutrition.TurnOffer(props.slotId, props.index, OrderContextMachine.OfferSwitch.Off)
@@ -338,6 +342,7 @@ module EnteralNutrition =
                 // the plan takes one change at a time: no removal while one is under way
                 Components.RemoveIconButton.View
                     {|
+                        label = Terms.``Delete`` |> getTerm "Verwijder"
                         onRemove = onRemove
                         busy = waiting
                     |}
