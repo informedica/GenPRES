@@ -27,9 +27,94 @@ module EnteralNutrition =
     open NutritionSlot
 
 
+    /// The fields of a feeding or a supplement on one measured row: the first item, then the frequency,
+    /// the dose quantity and the dose per time, so that a feeding and its supplements share the columns.
+    /// Narrower than the items need, all items stand in one column, never wrapped part-way and never
+    /// scrolled sideways. The row is measured, not the window: the container query decides, and a field
+    /// that never gets buttons here drops its hidden slots.
+    let private fieldRow
+        (first: JSX.Element)
+        (frequency: JSX.Element)
+        (doseQuantity: JSX.Element)
+        (dosePerTime: JSX.Element)
+        =
+        let containerSx =
+            {| Components.QuantityField.dropUnusedSlotsSx with
+                containerType = "inline-size"
+                width = "100%"
+            |}
+
+        // the first item with the room of a severity mark, frequency with its inner buttons, the dose
+        // field with all its buttons, dose per time without, and the gaps
+        let rowWidth =
+            200
+            + Components.QuantityField.markWidth
+            + Components.QuantityField.fieldWidthInnerSlots
+            + Components.QuantityField.fieldWidth
+            + Components.QuantityField.fieldWidthWithoutSlots
+            + 3 * 16
+
+        let flexSx =
+            createObj
+                [
+                    "display" ==> "flex"
+                    "flexWrap" ==> "nowrap"
+                    "gap" ==> 2
+                    "alignItems" ==> "flex-end"
+                    $"@container (max-width: %i{rowWidth - 1}px)"
+                    ==> {|
+                            flexDirection = "column"
+                            alignItems = "stretch"
+                        |}
+                ]
+
+        // the first item keeps the room a field gives its severity mark, so the gaps between all items
+        // look the same
+        let itemSx =
+            {|
+                flex = "1 1 0%"
+                minWidth = 200
+                paddingRight = $"%i{Components.QuantityField.markWidth}px"
+                ``& .MuiFormControl-root`` = {| width = "100%" |}
+                ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
+            |}
+
+        // a quantity field is as wide as its buttons and a readable value need
+        let fieldItemSx =
+            {|
+                flex = "1 1 0%"
+                minWidth = "min-content"
+            |}
+
+        // frequency keeps one width whether it is chosen from the dropdown or stepped
+        let frequencyItemSx = {| fieldItemSx with minWidth = Components.QuantityField.fieldWidthInnerSlots |}
+
+        JSX.jsx
+            $"""
+        import Box from '@mui/material/Box';
+        <Box sx={containerSx}>
+            <Box sx={flexSx}>
+                <Box sx={itemSx}>
+                    {first}
+                </Box>
+                <Box sx={frequencyItemSx}>
+                    {frequency}
+                </Box>
+                <Box sx={fieldItemSx}>
+                    {doseQuantity}
+                </Box>
+                <Box sx={fieldItemSx}>
+                    {dosePerTime}
+                </Box>
+            </Box>
+        </Box>
+        """
+
+
     /// One offer of a feeding: its name with the switch that turns it on, and while it is on the frequency,
-    /// the dose and the dose per time. It shows no filter: the link rule decides its composition, its
-    /// indication and its dose type, and a nutrition slot has no form to pick.
+    /// the dose and the dose per time in the columns of the feeding's fields. It shows no filter: the link
+    /// rule decides its composition, its indication and its dose type, and a nutrition slot has no form to
+    /// pick.
     [<JSX.Component>]
     let private OfferView
         (props:
@@ -58,28 +143,39 @@ module EnteralNutrition =
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
-        let controls =
+        let isOn = props.offer.Switch = OrderContextMachine.OfferSwitch.On
+
+        let handleSwitch _ =
+            props.offer.Switch
+            |> OrderContextMachine.OfferSwitch.flip
+            |> fun switch -> props.nutrition.TurnOffer(props.slotId, props.index, switch)
+
+        let name = OrderContextText.offerName props.offer.Context
+
+        let switchLabel =
+            JSX.jsx
+                $"""
+            import FormControlLabel from '@mui/material/FormControlLabel';
+            import Switch from '@mui/material/Switch';
+
+            <FormControlLabel
+                control={{<Switch checked={isOn} disabled={held} onChange={handleSwitch} />}}
+                label={name}
+            />
+            """
+
+        // while it is on, the supplement's fields stand in the columns of the feeding's fields
+        if isOn then
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
-            <Stack direction="column" spacing={2}>
+            <Stack direction="column" spacing={1}>
                 {slot.ScenarioNotice}
-                <Stack direction="row" spacing={2}>
-                    {slot.FrequencyControl}
-                    {slot.DoseQuantityControl}
-                    {slot.DosePerTimeAdjustDisplay}
-                </Stack>
+                {fieldRow switchLabel slot.FrequencyControl slot.DoseQuantityControl slot.DosePerTimeAdjustDisplay}
             </Stack>
             """
-
-        Components.OfferSwitch.View
-            {|
-                name = OrderContextText.offerName props.offer.Context
-                switch = props.offer.Switch
-                disabled = held
-                onTurn = fun switch -> props.nutrition.TurnOffer(props.slotId, props.index, switch)
-                controls = controls
-            |}
+        else
+            switchLabel
 
 
     /// One feeding: its name with a bin beside it, the filters, the frequency, the dose and the dose per
@@ -119,82 +215,7 @@ module EnteralNutrition =
         let doseQtyControl = slot.DoseQuantityControl
         let dosePerTimeAdjDisplay = slot.DosePerTimeAdjustDisplay
 
-        let frequencyDoseRow =
-            // The row is measured, not the window: the container query below decides, and a
-            // field that never gets buttons here drops its hidden slots.
-            let containerSx =
-                {| Components.QuantityField.dropUnusedSlotsSx with
-                    containerType = "inline-size"
-                    width = "100%"
-                |}
-
-            // Every feeding keeps its items on one row while they fit: the filter with the
-            // room of a severity mark, frequency with its inner buttons, the dose field with
-            // all its buttons, dose per time without, and the gaps. Narrower, all items stand
-            // in one column, never wrapped part-way and never scrolled sideways.
-            let rowWidth =
-                200
-                + Components.QuantityField.markWidth
-                + Components.QuantityField.fieldWidthInnerSlots
-                + Components.QuantityField.fieldWidth
-                + Components.QuantityField.fieldWidthWithoutSlots
-                + 3 * 16
-
-            let flexSx =
-                createObj
-                    [
-                        "display" ==> "flex"
-                        "flexWrap" ==> "nowrap"
-                        "gap" ==> 2
-                        "alignItems" ==> "flex-end"
-                        $"@container (max-width: %i{rowWidth - 1}px)"
-                        ==> {|
-                                flexDirection = "column"
-                                alignItems = "stretch"
-                            |}
-                    ]
-
-            // the filter keeps the room a field gives its severity mark, so the gaps between
-            // all items look the same
-            let itemSx =
-                {|
-                    flex = "1 1 0%"
-                    minWidth = 200
-                    paddingRight = $"%i{Components.QuantityField.markWidth}px"
-                    ``& .MuiFormControl-root`` = {| width = "100%" |}
-                    ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
-                |}
-
-            // a quantity field is as wide as its buttons and a readable value need
-            let fieldItemSx =
-                {|
-                    flex = "1 1 0%"
-                    minWidth = "min-content"
-                |}
-
-            // frequency keeps one width whether it is chosen from the dropdown or stepped
-            let frequencyItemSx = {| fieldItemSx with minWidth = Components.QuantityField.fieldWidthInnerSlots |}
-
-            JSX.jsx
-                $"""
-            import Box from '@mui/material/Box';
-            <Box sx={containerSx}>
-                <Box sx={flexSx}>
-                    <Box sx={itemSx}>
-                        {genericFilter}
-                    </Box>
-                    <Box sx={frequencyItemSx}>
-                        {frequencyControl}
-                    </Box>
-                    <Box sx={fieldItemSx}>
-                        {doseQtyControl}
-                    </Box>
-                    <Box sx={fieldItemSx}>
-                        {dosePerTimeAdjDisplay}
-                    </Box>
-                </Box>
-            </Box>
-            """
+        let frequencyDoseRow = fieldRow genericFilter frequencyControl doseQtyControl dosePerTimeAdjDisplay
 
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
@@ -255,11 +276,12 @@ module EnteralNutrition =
                     |}
             | None -> null
 
-        // the section's name on its line, with the button that removes the section beside it
+        // the name of the chosen feeding on its line, the category before one is chosen, with the
+        // button that removes the section beside it
         let heading =
             Components.SectionHeading.View
                 {|
-                    label = slot.Label
+                    label = props.nutritionContext.Filter.Generic |> Option.defaultValue slot.Label
                     action = Some removeButton
                 |}
 
