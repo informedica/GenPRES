@@ -778,14 +778,17 @@ module NutritionSlot =
             |}
         // a value only shown has nothing for a cross to clear
         let display = ViewHelpers.orderFixed texts true fieldsWait
-        // the filters of a locked order show what was picked, and take nothing
-        let filterSelect = ViewHelpers.filterSelectWhen (not isLocked)
-        let responsiveFilter = ViewHelpers.responsiveFilterWhen (not isLocked) isMobile
+        // the filters of a locked order show what was picked, and take nothing; a pick sends at once, so
+        // the filters also wait for a request out and for the step clicks a field still counts, since a
+        // request under way drops the command that comes after it
+        let filterSelect = ViewHelpers.filterSelectWhen (not held)
+        let responsiveFilter = ViewHelpers.responsiveFilterWhen (not held) isMobile
 
         let displayOrder = shownOrder
 
-        // the checkboxes and the diluent wait while the fields wait or the composition is locked
-        let compositionWaits = fieldsWait || isCompositionLocked
+        // the checkboxes and the diluent send at once, so they wait as the filters do, and while the
+        // composition is locked
+        let compositionWaits = held || isCompositionLocked
 
         let diluentChange s =
             PickPolicy.diluentCommand ctx.Filter.Diluents s
