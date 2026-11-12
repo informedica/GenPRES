@@ -49,7 +49,7 @@ module GenOrderTools =
             Form: string option
         }
 
-    type DilutionRulesForContextInput =
+    type SolutionRulesForContextInput =
         {
             Generic: string option
             Form: string option
@@ -225,15 +225,15 @@ module GenOrderTools =
         )
 
 
-    let getDilutionRulesForContext (provider: IResourceProvider) (input: DilutionRulesForContextInput) =
-        Formulary.getDilutionRules provider input.Generic input.Form input.Route
-        |> Array.map (fun dilRule ->
+    let getSolutionRulesForContext (provider: IResourceProvider) (input: SolutionRulesForContextInput) =
+        Formulary.getSolutionRules provider input.Generic input.Form input.Route
+        |> Array.map (fun solRule ->
             {|
-                Generic = dilRule.Generic
-                Form = dilRule.Form
-                Route = dilRule.Route
-                DiluentCount = dilRule.Diluents |> Array.length
-                Diluents = dilRule.Diluents |> Array.map _.Generic
+                Generic = solRule.Generic
+                Form = solRule.Form
+                Route = solRule.Route
+                DiluentCount = solRule.Diluents |> Array.length
+                Diluents = solRule.Diluents |> Array.map _.Generic
             |}
         )
 
@@ -366,7 +366,7 @@ module GenOrderTools =
             "dose rules cover the picks and the patient, and each needs a weight, or a weight and a height, "
             + "the patient does not have"
         | Refusal.NoDiluent ->
-            "each medication must be diluted to meet its dilution rule, and the formulary has no diluent for it"
+            "each medication must be diluted to meet its solution rule, and the formulary has no diluent for it"
         | Refusal.NotSolved -> "the order cannot be solved"
         | Refusal.NoAdjustedDose -> "the order has no dose per kg or per m2"
 

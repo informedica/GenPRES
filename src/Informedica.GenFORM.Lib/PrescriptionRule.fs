@@ -17,15 +17,15 @@ module PrescriptionRule =
 
     /// Whether a prescription rule can be prescribed for the patient: the patient has every
     /// measurement, the weight or the BSA, that the per kg and per m2 bounds of its dose limits, its
-    /// dilution rules and its applied renal rule need.
+    /// solution rules and its applied renal rule need.
     let isPrescribable pat (pr: PrescriptionRule) =
         [
             for dl in pr.DoseRule |> DoseRule.allLimits do
                 yield! dl |> doseLimitMeasures
-            for dilRule in pr.DilutionRules do
+            for solRule in pr.SolutionRules do
                 yield!
-                    dilRule.VolumeAdjust
-                    :: (dilRule.DilutionLimits |> Array.toList |> List.map _.QuantityAdj)
+                    solRule.VolumeAdjust
+                    :: (solRule.SolutionLimits |> Array.toList |> List.map _.QuantityAdj)
                     |> List.choose RenalRule.measureOf
             for rl in pr.RenalRules |> Array.collect _.RenalLimits do
                 yield! rl |> RenalRule.limitMeasures
@@ -191,53 +191,53 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    let adjustDilutionRuleToPatient (pat: Patient) (dilRule: DilutionRule) =
+    let adjustSolutionRuleToPatient (pat: Patient) (solRule: SolutionRule) =
         match pat.Weight with
-        | None -> dilRule
+        | None -> solRule
         | Some w ->
-            { dilRule with
+            { solRule with
                 Volume =
-                    if dilRule.VolumeAdjust |> MinMax.isEmpty then
-                        dilRule.Volume
+                    if solRule.VolumeAdjust |> MinMax.isEmpty then
+                        solRule.Volume
                     else
-                        [ dilRule.VolumeAdjust |> MinMax.apply ((*) w); dilRule.Volume ]
+                        [ solRule.VolumeAdjust |> MinMax.apply ((*) w); solRule.Volume ]
                         |> MinMax.foldMinimize true true
-                DilutionLimits =
-                    dilRule.DilutionLimits
-                    |> Array.map (fun dilutionLimit ->
-                        if dilutionLimit.QuantityAdj |> MinMax.isEmpty then
-                            dilutionLimit
+                SolutionLimits =
+                    solRule.SolutionLimits
+                    |> Array.map (fun solutionLimit ->
+                        if solutionLimit.QuantityAdj |> MinMax.isEmpty then
+                            solutionLimit
                         else
-                            { dilutionLimit with
+                            { solutionLimit with
                                 Quantity =
-                                    [ dilutionLimit.QuantityAdj |> MinMax.apply ((*) w); dilutionLimit.Quantity ]
+                                    [ solutionLimit.QuantityAdj |> MinMax.apply ((*) w); solutionLimit.Quantity ]
                                     |> MinMax.foldMinimize true true
                             }
                     )
             }
 
 
-    /// What is compared of a rule: the rule row, the renal rules and, when they count, the dilution
+    /// What is compared of a rule: the rule row, the renal rules and, when they count, the solution
     /// rules. A rule rewritten for the patient, to end a conflict between its limits, is the same
     /// rule, so the rewritten rule itself counts only when a renal rule applies: a renal band is a
     /// limit of its own. The patient of the rule differs between any two patients, so it is left out.
-    let comparedRule dilutionRules (pr: PrescriptionRule) =
+    let comparedRule solutionRules (pr: PrescriptionRule) =
         pr.DoseRule.Id,
         (if pr.RenalRules |> Array.isEmpty then
              None
          else
              Some pr.DoseRule),
         pr.RenalRules,
-        match dilutionRules with
-        | DilutionRuleComparison.Counted -> pr.DilutionRules |> Array.map DilutionRule.withoutPatientAmounts
-        | DilutionRuleComparison.Ignored -> [||]
+        match solutionRules with
+        | SolutionRuleComparison.Counted -> pr.SolutionRules |> Array.map SolutionRule.withoutPatientAmounts
+        | SolutionRuleComparison.Ignored -> [||]
 
 
     /// Whether the rules of the current patient are the rules of the patient at the context. No rule
     /// for the current patient means they are not.
-    let sameRules dilutionRules atContext current =
+    let sameRules solutionRules atContext current =
         (current |> Array.isEmpty |> not)
-        && (atContext |> Array.map (comparedRule dilutionRules)) = (current |> Array.map (comparedRule dilutionRules))
+        && (atContext |> Array.map (comparedRule solutionRules)) = (current |> Array.map (comparedRule solutionRules))
 
 
     /// Whether a component is an additive: a product of the component is marked IsAdditive, by the
@@ -276,34 +276,34 @@ module PrescriptionRule =
         |> Array.map _.Name
 
 
-    /// Whether the dilution rule, adjusted to the patient, limits the component: a dilution limit of
+    /// Whether the solution rule, adjusted to the patient, limits the component: a solution limit of
     /// the component with a maximum quantity or a list of quantities. A quantity per kg is in the
     /// quantity only when the patient has a weight. A minimum alone leaves the component unbounded.
-    /// Only the first dilution limit of the component counts, since that is the one the order takes.
-    let limitsComponent (dilRule: DilutionRule) name =
-        dilRule
-        |> DilutionRule.componentLimit name
+    /// Only the first solution limit of the component counts, since that is the one the order takes.
+    let limitsComponent (solRule: SolutionRule) name =
+        solRule
+        |> SolutionRule.componentLimit name
         |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
 
 
-    /// The prescription rule with only the dilution rules that limit every component without a limit,
-    /// with a dose count of at least 1; none when no dilution rule is left. Each dilution rule gives
-    /// its own scenario, so a dilution rule that does not limit those components would give an order
+    /// The prescription rule with only the solution rules that limit every component without a limit,
+    /// with a dose count of at least 1; none when no solution rule is left. Each solution rule gives
+    /// its own scenario, so a solution rule that does not limit those components would give an order
     /// with a component without any limit. A rule whose components all have a limit is kept as it is.
-    let withLimitingDilutionRules (pr: PrescriptionRule) =
+    let withLimitingSolutionRules (pr: PrescriptionRule) =
         match pr.DoseRule |> componentNamesWithoutLimits with
         | [||] -> Some pr
         | names ->
             let limiting =
-                pr.DilutionRules
-                |> Array.filter (fun dilRule ->
-                    dilRule |> DilutionRule.hasDoseCountOfAtLeastOne
-                    && names |> Array.forall (limitsComponent dilRule)
+                pr.SolutionRules
+                |> Array.filter (fun solRule ->
+                    solRule |> SolutionRule.hasDoseCountOfAtLeastOne
+                    && names |> Array.forall (limitsComponent solRule)
                 )
 
             match limiting with
             | [||] -> None
-            | dilRules -> Some { pr with DilutionRules = dilRules }
+            | solRules -> Some { pr with SolutionRules = solRules }
 
 
     /// The prescription rules for the filter; isAdditive decides the components a selection can leave
@@ -311,7 +311,7 @@ module PrescriptionRule =
     let filter
         isAdditive
         doseRules
-        dilutionRules
+        solutionRules
         renalRules
         routeMapping
         (filter: DoseFilter)
@@ -331,7 +331,7 @@ module PrescriptionRule =
             let filter =
                 { filter with
                     Indication = dr.Indication |> Some
-                    // RenalRule / DilutionRule sheets key on the base substance
+                    // RenalRule / SolutionRule sheets key on the base substance
                     // name, not the brand/form label, so match on genericName.
                     Generic = dr.Generic |> Generic.genericName |> Some
                     Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
@@ -342,9 +342,9 @@ module PrescriptionRule =
             {
                 Patient = pat
                 DoseRule = dr
-                DilutionRules =
-                    let dilutionFilter =
-                        { Filter.dilutionFilter (dr.Generic |> Generic.genericName) with
+                SolutionRules =
+                    let solutionFilter =
+                        { Filter.solutionFilter (dr.Generic |> Generic.genericName) with
                             Patient = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
                             Route = dr.Route |> Some
@@ -354,20 +354,20 @@ module PrescriptionRule =
                             Dose = None
                         }
 
-                    dilutionRules
+                    solutionRules
                     // a diluent that is also a component of the dose rule would be in the order twice;
                     // checked before the filter narrows the diluents to the chosen one, so that choosing
                     // another diluent of the rule does not let the rule through
-                    |> Array.filter (DilutionRule.componentDiluents dr >> Array.isEmpty)
-                    |> DilutionRule.filter routeMapping dilutionFilter
-                    |> Array.map (fun dilRule ->
-                        { dilRule with
-                            DilutionLimits =
-                                dilRule.DilutionLimits
-                                |> Array.map (fun dilutionLimit ->
-                                    { dilutionLimit with
+                    |> Array.filter (SolutionRule.componentDiluents dr >> Array.isEmpty)
+                    |> SolutionRule.filter routeMapping solutionFilter
+                    |> Array.map (fun solRule ->
+                        { solRule with
+                            SolutionLimits =
+                                solRule.SolutionLimits
+                                |> Array.map (fun solutionLimit ->
+                                    { solutionLimit with
                                         Products =
-                                            dilutionLimit.Products
+                                            solutionLimit.Products
                                             |> Array.filter (fun p ->
                                                 dr.ComponentLimits
                                                 |> Array.collect _.Products
@@ -413,7 +413,7 @@ module PrescriptionRule =
                                 }
                             )
                     }
-                DilutionRules = pr.DilutionRules |> Array.map (adjustDilutionRuleToPatient filter.Patient)
+                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.Patient)
             }
         )
         // Recalculate the dose rule according to a renal rules
@@ -429,17 +429,17 @@ module PrescriptionRule =
                     }
                 )
         )
-        // This step comes last, after the dilution rules are adjusted to the patient. The renal rules
+        // This step comes last, after the solution rules are adjusted to the patient. The renal rules
         // change only substance limits, so a component without a limit still has none after them.
-        |> Array.choose withLimitingDilutionRules
+        |> Array.choose withLimitingSolutionRules
         |> Ok
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient isAdditive doseRules dilutionRules renalRules routeMapping (pat: Patient) =
+    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (pat: Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat
-        |> filter isAdditive doseRules dilutionRules renalRules routeMapping
+        |> filter isAdditive doseRules solutionRules renalRules routeMapping
 
 
     /// Get the string representation of an array of PrescriptionRules. getLink is
@@ -452,7 +452,7 @@ module PrescriptionRule =
                 |> Array.collect (fun x ->
                     [|
                         [| x.DoseRule |] |> DoseRule.Print.toMarkdown getLink
-                        x.DilutionRules |> DilutionRule.Print.toMarkdown "verdunnen"
+                        x.SolutionRules |> SolutionRule.Print.toMarkdown "verdunnen"
                     |]
                 )
         ]
@@ -464,14 +464,14 @@ module PrescriptionRule =
     let getDoseRule (pr: PrescriptionRule) = pr.DoseRule
 
 
-    let getDilutionRules (pr: PrescriptionRule) = pr.DilutionRules
+    let getSolutionRules (pr: PrescriptionRule) = pr.SolutionRules
 
 
     /// Get all DoseRules of an array of PrescriptionRules.
     let getDoseRules = Array.map getDoseRule
 
 
-    let collectDilutionRules = Array.collect getDilutionRules
+    let collectSolutionRules = Array.collect getSolutionRules
 
 
     /// Get all indications of an array of PrescriptionRules.
@@ -495,7 +495,7 @@ module PrescriptionRule =
 
     let diluents (prs: PrescriptionRule[]) =
         prs
-        |> Array.collect _.DilutionRules
+        |> Array.collect _.SolutionRules
         |> Array.collect _.Diluents
         |> Array.distinct
 

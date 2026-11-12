@@ -5284,7 +5284,7 @@ module DoseTotalTests =
 
 
 /// The fraction of the preparation that makes up one dose, from the MinPerc and MaxPerc columns of a
-/// dilution rule, turned into the dose count of the order.
+/// solution rule, turned into the dose count of the order.
 module SolutionDoseCountTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -5303,7 +5303,7 @@ module SolutionDoseCountTests =
         }
 
 
-    let dilutionRule doseFraction : DilutionRule =
+    let solutionRule doseFraction : SolutionRule =
         {
             Generic = "amfotericine b liposomaal"
             Form = None
@@ -5319,13 +5319,13 @@ module SolutionDoseCountTests =
             VolumeAdjust = MinMax.empty
             DripRate = MinMax.empty
             DoseFraction = doseFraction
-            DilutionLimits = [||]
+            SolutionLimits = [||]
         }
 
 
     let withRule doseFraction =
         Scenarios.amfo
-        |> Medication.addDilutionRule OrderLogging.noOp Patient.patient (doseFraction |> dilutionRule |> Some)
+        |> Medication.addSolutionRule OrderLogging.noOp Patient.patient (doseFraction |> solutionRule |> Some)
 
 
     let solved doseFraction =
@@ -5354,10 +5354,10 @@ module SolutionDoseCountTests =
 
     let tests =
         testList
-            "the dose fraction of a dilution rule as the dose count"
+            "the dose fraction of a solution rule as the dose count"
             [
                 testList
-                    "addDilutionRule"
+                    "addSolutionRule"
                     [
                         test "a rule with 0.5 gives the medication a dose count of exactly 2" {
                             fraction (incl (1N / 2N)) (incl (1N / 2N))
@@ -5422,7 +5422,7 @@ module SolutionDoseCountTests =
             ]
 
 
-/// A medication given undiluted, whose product concentrations must fall within its dilution limit.
+/// A medication given undiluted, whose product concentrations must fall within its solution limit.
 module UndilutedSolutionTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -5467,14 +5467,14 @@ module UndilutedSolutionTests =
 
     let tests =
         testList
-            "an undiluted concentration outside the dilution limit"
+            "an undiluted concentration outside the solution limit"
             [
-                test "a substance keeps only the concentrations its dilution limit allows" {
+                test "a substance keeps only the concentrations its solution limit allows" {
                     Scenarios.amfo
                     |> withVialConcentrations [| 1N; 4N |]
                     |> _.Components.Head.Substances
                     |> List.find (fun si -> si.Name = "amfotericine b liposomaal")
-                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Medication.concentrationsWithinSolution
                     |> Expect.equal
                         "1 mg/mL is within 0.2 to 2 mg/mL, 4 mg/mL is not"
                         (1N |> ValueUnit.singleWithUnit mgPerMl |> Some)
@@ -5484,13 +5484,13 @@ module UndilutedSolutionTests =
                     { Medication.SubstanceItem.item with
                         Name = "vancomycine"
                         Concentrations = [| 9N; 10N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
-                        DilutionLimit =
-                            { DilutionLimit.limit with
+                        Solution =
+                            { SolutionLimit.limit with
                                 Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
                             }
                             |> Some
                     }
-                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Medication.concentrationsWithinSolution
                     |> Expect.equal
                         "10 mg/mL alone, not 9 or 10.5 mg/mL"
                         (10N |> ValueUnit.singleWithUnit mgPerMl |> Some)
@@ -5498,7 +5498,7 @@ module UndilutedSolutionTests =
 
                 test "the orderable concentration of a limit with an equal minimum and maximum is that value" {
                     let exactly10 =
-                        { DilutionLimit.limit with
+                        { SolutionLimit.limit with
                             Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
                         }
 
@@ -5511,7 +5511,7 @@ module UndilutedSolutionTests =
                             |> List.head
                             |> _.Items
                             |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
-                            |> Medication.OrderBuilder.withItemDilutionLimit exactly10
+                            |> Medication.OrderBuilder.withItemSolution exactly10
                             |> _.OrderableConcentration
                             |> OrderVariable.Concentration.toOrdVar
                             |> _.DefinedConstraints
@@ -5528,8 +5528,8 @@ module UndilutedSolutionTests =
                         { Medication.SubstanceItem.item with
                             Name = "vancomycine"
                             Concentrations = [| 1N; 50N |] |> ValueUnit.withUnit mmolPerMl |> Some
-                            DilutionLimit =
-                                { DilutionLimit.limit with
+                            Solution =
+                                { SolutionLimit.limit with
                                     Concentration =
                                         { MinMax.empty with
                                             Min = 9N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
@@ -5540,23 +5540,23 @@ module UndilutedSolutionTests =
                         }
 
                     si
-                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Medication.concentrationsWithinSolution
                     |> Expect.equal "a molar concentration is not compared with a mass limit" si.Concentrations
                 }
 
-                test "a substance without a dilution limit keeps every concentration" {
+                test "a substance without a solution limit keeps every concentration" {
                     let si =
                         Scenarios.amfo.Components.Head.Substances
                         |> List.find (fun si -> si.Name = "saccharose")
 
                     si
-                    |> Medication.concentrationsWithinDilutionLimit
-                    |> Expect.equal "saccharose has no dilution limit" si.Concentrations
+                    |> Medication.concentrationsWithinSolution
+                    |> Expect.equal "saccharose has no solution limit" si.Concentrations
                 }
 
                 test "the undiluted amphotericin order is refused" {
                     Scenarios.amfoUndiluted
-                    |> Medication.undilutedOutsideDilutionLimit
+                    |> Medication.undilutedOutsideSolution
                     |> List.map _.Name
                     |> Expect.equal "the amphotericin is outside the limit" [ "amfotericine b liposomaal" ]
 
@@ -5574,7 +5574,7 @@ module UndilutedSolutionTests =
                     |> Expect.equal "only 1 mg/mL is offered" (Ok(1N |> ValueUnit.singleWithUnit mgPerMl |> Some))
                 }
 
-                test "the diluted amphotericin order keeps the dilution limit and offers no concentration" {
+                test "the diluted amphotericin order keeps the solution limit and offers no concentration" {
                     match
                         Scenarios.amfo
                         |> Medication.toOrder Scenarios.testStart
@@ -5582,8 +5582,8 @@ module UndilutedSolutionTests =
                     with
                     | Ok cs ->
                         cs.Values |> Expect.isNone "the solver finds the concentration"
-                        cs.Min |> Expect.isSome "the minimum of the dilution limit is kept"
-                        cs.Max |> Expect.isSome "the maximum of the dilution limit is kept"
+                        cs.Min |> Expect.isSome "the minimum of the solution limit is kept"
+                        cs.Max |> Expect.isSome "the maximum of the solution limit is kept"
                     | Error msg -> failtest $"the diluted order is not built: %A{msg}"
                 }
 
@@ -5599,7 +5599,7 @@ module UndilutedSolutionTests =
                     |> Expect.isFalse "the diluted order can be built"
                 }
 
-                test "a medication without a dilution limit means no diluent is needed" {
+                test "a medication without a solution limit means no diluent is needed" {
                     [| Scenarios.amfoUndiluted; Scenarios.pcmSupp |]
                     |> Medication.allLackNeededDiluent
                     |> Expect.isFalse "the suppository can be built"
@@ -5609,12 +5609,12 @@ module UndilutedSolutionTests =
                     [||] |> Medication.allLackNeededDiluent |> Expect.isFalse "nothing was dropped"
                 }
 
-                test "a medication without a dilution limit is built" {
+                test "a medication without a solution limit is built" {
                     let pcm = Scenarios.pcmSupp
 
                     pcm
-                    |> Medication.undilutedOutsideDilutionLimit
-                    |> Expect.isEmpty "paracetamol suppository has no dilution limit"
+                    |> Medication.undilutedOutsideSolution
+                    |> Expect.isEmpty "paracetamol suppository has no solution limit"
 
                     pcm
                     |> Medication.toOrder Scenarios.testStart
@@ -5624,7 +5624,7 @@ module UndilutedSolutionTests =
             ]
 
 
-/// The minimum and maximum volume of a dilution rule, which limit the orderable quantity.
+/// The minimum and maximum volume of a solution rule, which limit the orderable quantity.
 module SolutionVolumeTests =
 
     open Informedica.GenCore.Lib.Ranges

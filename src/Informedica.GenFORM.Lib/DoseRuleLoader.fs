@@ -84,9 +84,9 @@ module DoseRuleLoader =
 
 
     /// The dose rules of the rows, with the warnings. A dose rule without any limit is kept when a
-    /// dilution rule that applies to it limits every component; when a dilution rule applies but does
+    /// solution rule that applies to it limits every component; when a solution rule applies but does
     /// not, it is left out with a warning.
-    let fromData routeMapping formRoutes prods (dilutionRules: DilutionRule[]) (data: DoseRuleData[]) =
+    let fromData routeMapping formRoutes prods (solutionRules: SolutionRule[]) (data: DoseRuleData[]) =
         // get the validated dose rule data from data
         // and the warnings
         let data, warnings =
@@ -155,10 +155,10 @@ module DoseRuleLoader =
         rules
         // drop dose rules left with no meaningful limits (a row that passes
         // validateData but carries no dose values yields an empty dose rule), but keep a dose rule
-        // without limits that a dilution rule limits
-        |> DoseRule.removeEmptyLimits (DilutionRule.anyLimitsDoseRule routeMapping dilutionRules),
+        // without limits that a solution rule limits
+        |> DoseRule.removeEmptyLimits (SolutionRule.anyLimitsDoseRule routeMapping solutionRules),
         ([ warnings; unitWarnings; dedupWarnings ]
          |> Array.concat
          |> Array.map Warning
          |> Array.toList)
-        @ (dilutionRules |> DilutionRule.unlimitedDoseRules routeMapping rules)
+        @ (solutionRules |> SolutionRule.unlimitedDoseRules routeMapping rules)

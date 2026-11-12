@@ -242,7 +242,7 @@ module Adapters =
 
             member _.GetDoseRules() = ctx |> doseRulesOf provider
 
-            member _.GetDilutionRules() = provider.GetDilutionRules()
+            member _.GetSolutionRules() = provider.GetSolutionRules()
             member _.GetRenalRules() = provider.GetRenalRules()
             member _.GetTotals() = provider.GetTotals()
             member _.GetGStandProvider() = provider.GetGStandProvider()

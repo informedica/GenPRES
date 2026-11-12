@@ -1,15 +1,15 @@
 namespace Informedica.GenForm.Lib
 
 
-module DilutionLimit =
+module SolutionLimit =
 
     open Informedica.GenCore.Lib.Ranges
 
 
-    /// An empty DilutionLimit.
+    /// An empty SolutionLimit.
     let limit =
         {
-            DilutionLimitTarget = NoLimitTarget
+            SolutionLimitTarget = NoLimitTarget
             Quantity = MinMax.empty
             QuantityAdj = MinMax.empty
             Quantities = None

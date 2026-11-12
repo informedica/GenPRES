@@ -38,7 +38,7 @@ module OrderContextRefusalPolicy =
         | Terms.``Prescribe Refusal Measurement`` ->
             "The dose rules for {0} need a weight, or a weight and a height, that this patient does not have. Enter them to see a dose"
         | Terms.``Prescribe Refusal No diluent`` ->
-            "The dose rules for {0} need a diluent, and the formulary has none that brings the drug within its dilution rule"
+            "The dose rules for {0} need a diluent, and the formulary has none that brings the medication within its solution rule"
         | Terms.``Prescribe Refusal Not solved`` ->
             "This change cannot be applied: the order cannot be calculated with it. The order stays as it was"
         | Terms.``Prescribe Refusal No adjusted dose`` ->

@@ -1,4 +1,4 @@
-/// The concentration limit of a component in a dilution rule: the fraction of the whole orderable the
+/// The concentration limit of a component in a solution rule: the fraction of the whole orderable the
 /// component may be, applied to the concentration of the component in the orderable.
 module ComponentConcentrationTests
 
@@ -31,21 +31,21 @@ module Fixture =
     let kcl () =
         Scenarios.kaliumchlorideOnceTimedText
         |> Tests.TestOrder.parse
-        |> Scenarios.mapSubstances "kaliumchloride" (fun sub -> { sub with DilutionLimit = None })
+        |> Scenarios.mapSubstances "kaliumchloride" (fun sub -> { sub with Solution = None })
 
 
-    /// The medication with the dilution limit of the component with the name changed, starting from
-    /// a limit without bounds when the component has no dilution limit.
-    let withDilutionLimit name f med =
+    /// The medication with the solution limit of the component with the name changed, starting from
+    /// a limit without bounds when the component has no solution limit.
+    let withSolutionLimit name f med =
         med
         |> Scenarios.mapComponent
             name
             (fun pc ->
                 { pc with
-                    DilutionLimit =
-                        pc.DilutionLimit
+                    Solution =
+                        pc.Solution
                         |> Option.defaultValue
-                            { DilutionLimit.limit with DilutionLimitTarget = ComponentLimitTarget name }
+                            { SolutionLimit.limit with SolutionLimitTarget = ComponentLimitTarget name }
                         |> f
                         |> Some
                 }
@@ -54,13 +54,13 @@ module Fixture =
 
     /// The medication with a concentration limit on the component with the name.
     let withConcentration name conc med =
-        med |> withDilutionLimit name (fun dl -> { dl with Concentration = conc })
+        med |> withSolutionLimit name (fun dl -> { dl with Concentration = conc })
 
 
     /// The medication with a quantity limit in mL on the component with the name.
     let withQuantity name lo hi med =
         med
-        |> withDilutionLimit
+        |> withSolutionLimit
             name
             (fun dl ->
                 { dl with
@@ -75,8 +75,8 @@ module Fixture =
 
     /// The electrolyte and glucose bag for 11 kg: NaCl 3%, KCl 7,4% and gluc 10% as the diluent, at
     /// most 75.5 mL/kg, which is 830.5 mL. As in the rule sheet the components have no dose limits:
-    /// what the bag holds of a component is a dilution limit on the component. The substances have
-    /// no dilution limit, so that only a limit on a component bounds the bag.
+    /// what the bag holds of a component is a solution limit on the component. The substances have
+    /// no solution limit, so that only a limit on a component bounds the bag.
     let bag () =
         let tpn = Scenarios.tpn
 
@@ -88,7 +88,7 @@ module Fixture =
                 |> List.map (fun pc ->
                     { pc with
                         Dose = None
-                        Substances = pc.Substances |> List.map (fun sub -> { sub with DilutionLimit = None })
+                        Substances = pc.Substances |> List.map (fun sub -> { sub with Solution = None })
                     }
                 )
         }

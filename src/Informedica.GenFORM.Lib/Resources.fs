@@ -20,7 +20,7 @@ module Resources =
             FormularyProducts: FormularyProduct[]
             GenPresProducts: Informedica.ZIndex.Lib.Types.GenPresProduct[]
             DoseRuleData: DoseRuleData[]
-            DilutionRuleData: DilutionRuleData[]
+            SolutionRuleData: SolutionRuleData[]
             RenalRuleData: RenalRuleData[]
             TotalsData: TotalsData[]
         }
@@ -64,7 +64,7 @@ module Resources =
         abstract member GetEnteralFeeding: unit -> ProductComponent[]
         abstract member GetProducts: unit -> ProductComponent[]
         abstract member GetDoseRules: unit -> DoseRule[]
-        abstract member GetDilutionRules: unit -> DilutionRule[]
+        abstract member GetSolutionRules: unit -> SolutionRule[]
         abstract member GetRenalRules: unit -> RenalRule[]
         abstract member GetTotals: unit -> TotalsData[]
         abstract member GetGStandProvider: unit -> Check.GStandProvider
@@ -91,7 +91,7 @@ module Resources =
             EnteralFeeding: ProductComponent[]
             Products: ProductComponent[]
             DoseRules: DoseRule[]
-            DilutionRules: DilutionRule[]
+            SolutionRules: SolutionRule[]
             RenalRules: RenalRule[]
             Messages: Message[]
             IsLoaded: bool
@@ -108,7 +108,7 @@ module Resources =
             FormularyProducts = [||]
             GenPresProducts = [||]
             DoseRuleData = [||]
-            DilutionRuleData = [||]
+            SolutionRuleData = [||]
             RenalRuleData = [||]
             TotalsData = [||]
         }
@@ -237,7 +237,7 @@ module Resources =
     module Departments =
 
         /// One hospital's ward written in code, and the only thing that keeps a patient without
-        /// a department from losing every ward's dilution rules and reconstitutions. It stays
+        /// a department from losing every ward's solution rules and reconstitutions. It stays
         /// until the department is the user's to choose; then it becomes configuration, and
         /// this is the one place that changes.
         let defaultDepartment = "ICK"
@@ -260,12 +260,12 @@ module Resources =
             }
 
 
-        /// From the loaded rows: the dose-rule rows, the dilution-rule rows and the
+        /// From the loaded rows: the dose-rule rows, the solution-rule rows and the
         /// reconstitutions, the three sheets that name departments.
-        let ofRules (doseRows: DoseRuleData[]) (dilutionRows: DilutionRuleData[]) (reconstitutions: Reconstitution[]) =
+        let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
             [
                 doseRows |> Seq.map (fun d -> Some d.Patient.Dep)
-                dilutionRows |> Seq.map _.Department
+                solutionRows |> Seq.map _.Department
                 reconstitutions |> Seq.map _.Department
             ]
             |> Seq.concat
@@ -296,7 +296,7 @@ module Resources =
         let parenteralMeds = ResourceKey.create<ProductComponent[]> "parenteralMeds"
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
-        let dilutionRuleData = ResourceKey.create<DilutionRuleData[]> "dilutionRuleData"
+        let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
         let departments = ResourceKey.create<Departments> "departments"
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         // The normal-value tables GenCORE parses from the rows; none when they do not parse.
@@ -319,13 +319,13 @@ module Resources =
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
         // The dose rules whose orders can be prescribed on their own, without a main order.
         let standAloneDoseRules = ResourceKey.create<DoseRule[]> "standAloneDoseRules"
-        let dilutionRules = ResourceKey.create<DilutionRule[]> "dilutionRules"
+        let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
         // The renal rules refused by the unit checks, each with the reasons.
         let refusedRenalRules = ResourceKey.create<(RenalRule * string list)[]> "refusedRenalRules"
         // The renal rules checked against the dose rules; only gives messages.
         let renalRuleChecks = ResourceKey.create<unit> "renalRuleChecks"
-        // The dose rules and dilution rules checked for inverted ranges and missing diluents;
+        // The dose rules and solution rules checked for inverted ranges and missing diluents;
         // only gives messages.
         let ruleChecks = ResourceKey.create<unit> "ruleChecks"
         // G-Standaard dose-rule capability, served as a function-valued resource.
@@ -390,7 +390,7 @@ module Resources =
                 )
 
                 Keys.doseRuleData.Name, ofResult (fun () -> DoseRuleLoader.getData dataUrlId)
-                Keys.dilutionRuleData.Name, ofResult (fun () -> DilutionRule.getData dataUrlId)
+                Keys.solutionRuleData.Name, ofResult (fun () -> SolutionRule.getData dataUrlId)
                 Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> RenalRule.getData dataUrlId)
 
                 // the departments the rules name, and the default: derived, so it loads once
@@ -399,7 +399,7 @@ module Resources =
                 derive (fun r ->
                     Departments.ofRules
                         (r.Get Keys.doseRuleData)
-                        (r.Get Keys.dilutionRuleData)
+                        (r.Get Keys.solutionRuleData)
                         (r.Get Keys.reconstitution)
                 )
 
@@ -486,7 +486,7 @@ module Resources =
                             (r.Get Keys.routeMappings)
                             (r.Get Keys.formRoutes)
                             (r.Get Keys.products)
-                            (r.Get Keys.dilutionRules)
+                            (r.Get Keys.solutionRules)
                             (r.Get Keys.doseRuleData)
 
                     let drs, renalMsgs =
@@ -503,13 +503,13 @@ module Resources =
                     |> LinkRule.standAlone (r.Get Keys.routeMappings) (r.Get Keys.linkRules)
                 )
 
-                Keys.dilutionRules.Name,
+                Keys.solutionRules.Name,
                 (fun r ->
-                    DilutionRule.map
+                    SolutionRule.map
                         (r.Get Keys.routeMappings)
                         (r.Get Keys.parenteralMeds)
                         (r.Get Keys.products)
-                        (r.Get Keys.dilutionRuleData)
+                        (r.Get Keys.solutionRuleData)
                     |> Result.map (fun v -> box v, [])
                 )
 
@@ -532,38 +532,38 @@ module Resources =
 
                 // Reported -> ResourceState.Messages:
                 // - a rule with a minimum above its maximum
-                // - a dilution rule whose diluents match no parenteral product
-                // - a dilution rule without diluents whose concentration limit allows no strength of its products
-                // - a dilution rule whose dose count has no maximum and no maximum on the preparation
-                // - two dilution rules that apply to one dose rule and one patient
-                // - a diluent that is also a component of a dose rule the dilution rule applies to
+                // - a solution rule whose diluents match no parenteral product
+                // - a solution rule without diluents whose concentration limit allows no strength of its products
+                // - a solution rule whose dose count has no maximum and no maximum on the preparation
+                // - two solution rules that apply to one dose rule and one patient
+                // - a diluent that is also a component of a dose rule the solution rule applies to
                 // - a diluent whose Formulary product is not marked IsDiluent
-                // - a dilution rule with a diluent row but no diluent
-                // - a dilution rule with more than one dilution limit for the same component or substance
-                // - a dose rule and a dilution rule whose ranges for a component no order can meet
+                // - a solution rule with a diluent row but no diluent
+                // - a solution rule with more than one solution limit for the same component or substance
+                // - a dose rule and a solution rule whose ranges for a component no order can meet
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,
                 deriveWith (fun r ->
                     (),
-                    (r.Get Keys.dilutionRuleData
-                     |> DilutionRule.missingDiluents (r.Get Keys.parenteralMeds))
-                    @ (r.Get Keys.dilutionRuleData
-                       |> DilutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
-                    @ (r.Get Keys.dilutionRuleData
-                       |> DilutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
-                    @ (r.Get Keys.dilutionRules
-                       |> DilutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    (r.Get Keys.solutionRuleData
+                     |> SolutionRule.missingDiluents (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
                     @ (r.Get Keys.doseRules |> DoseRule.divisibleWarnings)
-                    @ (r.Get Keys.dilutionRules |> DilutionRule.invertedRanges)
-                    @ (r.Get Keys.dilutionRules |> DilutionRule.openDoseCounts)
-                    @ (r.Get Keys.dilutionRules |> DilutionRule.repeatedTargets)
-                    @ (r.Get Keys.dilutionRules
-                       |> DilutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
-                    @ (r.Get Keys.dilutionRules
-                       |> DilutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
-                    @ (r.Get Keys.dilutionRules
-                       |> DilutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules |> SolutionRule.invertedRanges)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.openDoseCounts)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.repeatedTargets)
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                 )
 
                 // G-Standaard dose rules served as a function-valued resource: the
@@ -632,7 +632,7 @@ module Resources =
                             FormularyProducts = eng.Resolve Keys.formularyProducts
                             GenPresProducts = eng.Resolve Keys.genPresProducts
                             DoseRuleData = eng.Resolve Keys.doseRuleData
-                            DilutionRuleData = eng.Resolve Keys.dilutionRuleData
+                            SolutionRuleData = eng.Resolve Keys.solutionRuleData
                             RenalRuleData = eng.Resolve Keys.renalRuleData
                             TotalsData = eng.Resolve Keys.totalsData
                         }
@@ -641,7 +641,7 @@ module Resources =
                     EnteralFeeding = eng.Resolve Keys.enteralFeeding
                     Products = eng.Resolve Keys.products
                     DoseRules = eng.Resolve Keys.doseRules
-                    DilutionRules = eng.Resolve Keys.dilutionRules
+                    SolutionRules = eng.Resolve Keys.solutionRules
                     RenalRules = eng.Resolve Keys.renalRules
                     Messages = eng.Warnings |> List.toArray
                     LastReloaded = DateTime.UtcNow
@@ -686,7 +686,7 @@ module Resources =
             member _.GetEnteralFeeding() = state.EnteralFeeding
             member _.GetProducts() = state.Products
             member _.GetDoseRules() = state.DoseRules
-            member _.GetDilutionRules() = state.DilutionRules
+            member _.GetSolutionRules() = state.SolutionRules
             member _.GetRenalRules() = state.RenalRules
             member _.GetTotals() = state.Data.TotalsData
 
@@ -732,7 +732,7 @@ module Resources =
                                 EnteralFeeding = [||]
                                 Products = [||]
                                 DoseRules = [||]
-                                DilutionRules = [||]
+                                SolutionRules = [||]
                                 RenalRules = [||]
                                 Messages = [| yield! msgs |> List.toArray |]
                                 LastReloaded = DateTime.MinValue
@@ -786,7 +786,7 @@ module Resources =
 
             member this.GetProducts() = this.getFromCache _.State.Products
             member this.GetDoseRules() = this.getFromCache _.State.DoseRules
-            member this.GetDilutionRules() = this.getFromCache _.State.DilutionRules
+            member this.GetSolutionRules() = this.getFromCache _.State.SolutionRules
             member this.GetRenalRules() = this.getFromCache _.State.RenalRules
 
             member this.GetTotals() = this.getFromCache _.State.Data.TotalsData

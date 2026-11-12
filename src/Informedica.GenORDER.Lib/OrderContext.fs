@@ -101,12 +101,12 @@ module OrderScenario =
 
 
     /// One access device per medication that Medication.fromRule makes from the rule, in the same
-    /// order: the device of each dilution rule, or a single AnyAccess when the rule has none.
+    /// order: the device of each solution rule, or a single AnyAccess when the rule has none.
     let accessOfRule pr =
-        if pr.DilutionRules |> Array.isEmpty then
+        if pr.SolutionRules |> Array.isEmpty then
             [| AnyAccess |]
         else
-            pr.DilutionRules |> Array.map _.PatientCategory.Access
+            pr.SolutionRules |> Array.map _.PatientCategory.Access
 
 
     /// The warning on an order with a Divisible but no limit, and on an order that fits its rule
@@ -206,7 +206,7 @@ module OrderScenario =
         let useAdjust = ord |> EquationMapping.usesAdjust
 
         let dils =
-            pr.DilutionRules
+            pr.SolutionRules
             |> Array.collect _.Diluents
             |> Array.map _.Generic
             |> Array.distinct
@@ -1400,13 +1400,13 @@ Scenarios: {scenarios}
     let rulesVerdict logger ord atContext current =
         match atContext, current with
         | Ok atContext, Ok current ->
-            let dilutionRules =
+            let solutionRules =
                 if ord |> Order.isOneDose then
-                    DilutionRuleComparison.Counted
+                    SolutionRuleComparison.Counted
                 else
-                    DilutionRuleComparison.Ignored
+                    SolutionRuleComparison.Ignored
 
-            PrescriptionRule.sameRules dilutionRules atContext current |> not |> Some
+            PrescriptionRule.sameRules solutionRules atContext current |> not |> Some
         | Error errs, _
         | _, Error errs ->
             errs |> Events.GenFormErrors |> OrderLogging.logOrderEventError logger
@@ -1432,7 +1432,7 @@ Scenarios: {scenarios}
 
 
     /// The order the single rule gives, with the id given. None when there are several rule rows or
-    /// dilution rules, or when the rule gives no order: the rule of an order is then not known.
+    /// solution rules, or when the rule gives no order: the rule of an order is then not known.
     let orderOfRule start logger orderId (rules: PrescriptionRule[]) =
         rules
         |> Array.tryExactlyOne
@@ -1635,23 +1635,23 @@ Scenarios: {scenarios}
 
 
     /// The dose rules applying to the department of the patient, or the default department:
-    /// every rule with limits, and a dose rule without limits only when a dilution rule for the
+    /// every rule with limits, and a dose rule without limits only when a solution rule for the
     /// department limits every component of it.
     let applyingToDepartment provider pat drs =
         let routeMapping = Api.getRouteMapping provider
         let department = (pat |> Api.withDefaultDepartment provider).Department
 
-        let dilutionRules =
-            Api.getDilutionRules provider
-            |> Array.filter (fun dilRule ->
+        let solutionRules =
+            Api.getSolutionRules provider
+            |> Array.filter (fun solRule ->
                 department
-                |> PatientCategory.departmentMatches dilRule.PatientCategory.Department
+                |> PatientCategory.departmentMatches solRule.PatientCategory.Department
             )
 
         drs
         |> Array.filter (fun dr ->
             dr |> DoseRule.hasNoLimits |> not
-            || dr |> DilutionRule.anyLimitsDoseRule routeMapping dilutionRules
+            || dr |> SolutionRule.anyLimitsDoseRule routeMapping solutionRules
         )
 
 
@@ -1659,7 +1659,7 @@ Scenarios: {scenarios}
     /// patient's department, then the picks with the patient as the rules match it, then whether
     /// each prescription rule for the picks needs a measurement the patient lacks. For a child
     /// without a weight no rule covers the patient. A dose rule without limits counts for the picks
-    /// only when a dilution rule of the department limits it, and for the patient only when a dilution
+    /// only when a solution rule of the department limits it, and for the patient only when a solution
     /// rule for the patient limits it, or when it has no products, which answers NoProducts.
     let refusal provider (ctx: OrderContext) =
         // the department alone, so that a rule of the patient's ward counts as one for the picks
@@ -1688,7 +1688,7 @@ Scenarios: {scenarios}
                 |> Array.collect _.Products
                 |> Array.isEmpty
 
-            // the prescription rules keep a rule without limits only with a dilution rule of the patient
+            // the prescription rules keep a rule without limits only with a solution rule of the patient
             // that limits it; a rule without products they drop before that, which answers NoProducts
             let forPatient =
                 forPicks
@@ -1775,7 +1775,7 @@ Scenarios: {scenarios}
                 ctx |> updateFilterIfOneScenario |> Evaluated |> Ok
             else
                 // Note: different prescription rules can exist based on multiple pharmaceutical forms
-                // and multiple dilution rules
+                // and multiple solution rules
                 let groups = prs |> rulesByDivisible provider
                 let allGroups = groups |> Array.concat
                 let picked = groups |> Array.collect (pickedGroups ctx.Filter.PickedProducts)
