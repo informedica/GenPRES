@@ -4,8 +4,8 @@ name: Issue title lint
 # .github/instructions/commit-message.instructions.md. This workflow runs the check of the commit-msg
 # hook (.husky/scripts/commit-lint.fsx) against the title of an issue, so the pattern keeps a single
 # source. An issue cannot be blocked the way a pull request can: a title that fails the check gets
-# the label "needs title" and one comment that names the format, and the label is removed when the
-# title passes. An issue with the label "ux" is skipped: the UX / Design template is for users and
+# the label "needs title" and, once for an issue, a comment that names the format. The label is
+# removed when the title passes. An issue with the label "ux" is skipped: the UX / Design template is for users and
 # UX designers, and a maintainer renames such an issue at triage.
 
 on:
@@ -16,10 +16,6 @@ permissions:
   contents: read
   issues: write
 
-concurrency:
-  group: issue-title-lint-${{ github.event.issue.number }}
-  cancel-in-progress: true
-
 jobs:
   issue-title-lint:
     # An edit that leaves the title as it was needs no new check.
@@ -27,6 +23,13 @@ jobs:
       ${{ !contains(github.event.issue.labels.*.name, 'ux')
       && (github.event.action != 'edited' || github.event.changes.title) }}
     runs-on: ubuntu-latest
+
+    # On the job and not on the workflow, so that a run this condition skips, such as an edit of the
+    # body, never takes the place of a check that is running or waiting. The checks of one issue run
+    # one after the other and none is cancelled halfway; each reads the issue as it is at that moment.
+    concurrency:
+      group: issue-title-lint-${{ github.event.issue.number }}
+      cancel-in-progress: false
 
     steps:
       # The default branch, never code from the issue: the title is the only input from the reporter.
@@ -43,19 +46,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          # Passed through the environment and never interpolated into the script: the title is
-          # text from the reporter.
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          HAS_LABEL: ${{ contains(github.event.issue.labels.*.name, 'needs title') }}
           LABEL: needs title
+          # Marks the comment of this workflow, so a later run finds it.
+          MARKER: "<!-- issue-title-lint -->"
         run: |
           set -euo pipefail
 
+          # The issue as it is now, not as it was when the event was raised: an earlier run may have
+          # changed the label, and the title may have been edited again. The title is text from the
+          # reporter and stays in a variable; it is never interpolated into this script.
+          issue=$(gh issue view "$ISSUE_NUMBER" --json title,labels,comments)
+          has_label=$(jq --arg label "$LABEL" 'any(.labels[]; .name == $label)' <<< "$issue")
+          has_comment=$(jq --arg marker "$MARKER" 'any(.comments[]; .body | contains($marker))' <<< "$issue")
+
           tmp=$(mktemp)
-          printf '%s\n' "$ISSUE_TITLE" > "$tmp"
+          jq -r '.title' <<< "$issue" > "$tmp"
 
           if dotnet fsi .husky/scripts/commit-lint.fsx "$tmp"; then
-            if [[ "$HAS_LABEL" == "true" ]]; then
+            if [[ "$has_label" == "true" ]]; then
               gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL"
             fi
 
@@ -64,15 +72,19 @@ jobs:
 
           echo "::warning::The title of issue #$ISSUE_NUMBER is not in the form type(scope): description"
 
-          # The label and the comment are added once, not again on every edit that still fails.
-          if [[ "$HAS_LABEL" != "true" ]]; then
+          # The label and the comment are each looked up by themselves, so a run that added the label
+          # and then failed leaves the comment to the next run. The comment is added once for an issue.
+          if [[ "$has_label" != "true" ]]; then
             gh label create "$LABEL" --color FBCA04 \
               --description "The issue title is not in the form type(scope): description" \
               --force
 
             gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL"
+          fi
 
+          if [[ "$has_comment" != "true" ]]; then
             gh issue comment "$ISSUE_NUMBER" --body-file - <<'COMMENT'
+          <!-- issue-title-lint -->
           The title of this issue is not in the form the project uses. An issue title is written as the heading of a commit:
 
           ```
