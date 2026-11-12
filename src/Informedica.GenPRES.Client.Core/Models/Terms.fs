@@ -341,3 +341,20 @@ type Terms =
     | ``Patient Renal Intermittent Hemodialysis``
     | ``Patient Renal Continuous Hemodialysis``
     | ``Patient Renal Peritoneal Dialysis``
+    // the quantity labels of an order, and the text while an order loads
+    | ``Order Dose Quantity``
+    | ``Order Preparation Quantity``
+    | ``Order Product Strength``
+    | ``Order Total Quantity``
+    | ``Order Total Volume``
+    | ``Order Loading``
+    // the nutrition slot: the column headings, the hint that the composition is locked, the
+    // caption of the intake slider and the share of the total, with {0} the percentage
+    | ``Nutrition Component``
+    | ``Nutrition Quantity``
+    | ``Nutrition Recommended Range``
+    | ``Nutrition Composition Locked``
+    | ``Nutrition Intake Caption``
+    | ``Nutrition Share Of Total``
+    // the section header of the parenteral nutrition print
+    | ``Nutrition Parenteral Print Header``

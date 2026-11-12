@@ -103,6 +103,7 @@ module ParenteralNutrition =
                         disabled = not slot.CanSetDoseShare || held
                         onCommit = slot.SetDoseQuantityPerc
                         order = box slot.Order
+                        texts = ViewHelpers.intakeSliderTexts getTerm
                     |}
             else
                 null
@@ -373,6 +374,10 @@ module ParenteralNutrition =
                                 Totals = totals
                             }
                         onClose = fun () -> setPrintOpen false
+                        title = Terms.``Nutrition Parenteral`` |> getTerm "Parenteral Nutrition"
+                        header =
+                            Terms.``Nutrition Parenteral Print Header``
+                            |> getTerm "INFUSION ORDERS CENTRAL VENOUS CATHETERS"
                     |}
             else
                 null

@@ -607,6 +607,7 @@ module NutritionSlot =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
+        let recommendedRange = Terms.``Nutrition Recommended Range`` |> getTerm "Recommended range"
 
         let ctx = props.nutritionContext
         let ncId = props.nutritionContext.Id
@@ -893,7 +894,7 @@ module NutritionSlot =
                             |> OrderDisplay.Variable.renderValue 3
                         with
                         | "" -> "", ""
-                        | r -> $"(%s{r})", "Aanbevolen range"
+                        | r -> $"(%s{r})", recommendedRange
 
                     JSX.jsx
                         $"""
@@ -954,7 +955,9 @@ module NutritionSlot =
             | Some ord ->
                 let severity = ord.Orderable.Dose.Quantity |> markOf
 
-                let label = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
+                let label =
+                    ord.Orderable.Dose.Quantity
+                    |> ViewHelpers.ovarLabel (Terms.``Order Dose Quantity`` |> getTerm "dose quantity")
 
                 let vals = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarValsWithRange string 3
 
@@ -1103,16 +1106,13 @@ module NutritionSlot =
             | Some ord ->
                 let ovar = ord.Orderable.OrderableQuantity
 
+                let totalVolumeLabel =
+                    ovar
+                    |> ViewHelpers.ovarLabel (Terms.``Order Total Volume`` |> getTerm "total volume")
+
                 ovar
                 |> ViewHelpers.ovarValsWithRange string 3
-                |> display
-                    false
-                    (ovar |> ViewHelpers.ovarLabel "totaal volume")
-                    None
-                    ignore
-                    ViewHelpers.noSteps
-                    (ovar |> markOf)
-                    (Some 400)
+                |> display false totalVolumeLabel None ignore ViewHelpers.noSteps (ovar |> markOf) (Some 400)
             | None -> null
 
         let onClickReset = fun () -> ResetOrderScenario |> dispatch
@@ -1126,9 +1126,9 @@ module NutritionSlot =
 
         let administrationDivider = Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
 
-        let componentHeading = heading "Component"
-        let quantityHeading = heading "Hoeveelheid"
-        let rangeHeading = heading "Aanbevolen range"
+        let componentHeading = Terms.``Nutrition Component`` |> getTerm "Component" |> heading
+        let quantityHeading = Terms.``Nutrition Quantity`` |> getTerm "Quantity" |> heading
+        let rangeHeading = recommendedRange |> heading
 
         let headerRow =
             JSX.jsx
@@ -1160,13 +1160,17 @@ module NutritionSlot =
 
         let resetBar = Components.ActionBar.View {| actions = [| resetAction |] |}
 
+        let compositionLockedText =
+            Terms.``Nutrition Composition Locked``
+            |> getTerm "set the dose quantity to 100% first to change the composition"
+
         let compositionHint =
             if isCompositionLocked then
                 JSX.jsx
                     $"""
                 import Typography from '@mui/material/Typography';
                 <Typography variant="caption" color="text.secondary">
-                    zet de toedien hoeveelheid eerst op 100%% om de samenstelling te wijzigen
+                    {compositionLockedText}
                 </Typography>
                 """
             else

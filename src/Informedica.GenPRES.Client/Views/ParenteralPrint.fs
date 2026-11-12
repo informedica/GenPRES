@@ -28,13 +28,16 @@ module ParenteralPrint =
 
 
     /// The parenteral orders on paper, for the central venous lines: per order its components
-    /// with their volume and dose per kg, the rate and the time, then the totals of the intake.
+    /// with their volume and dose per kg, the rate and the time, then the totals of the intake. The
+    /// caller gives the title of the dialog and the header of the section in the user's language.
     [<JSX.Component>]
     let View
         (props:
             {|
                 plan: OrderPlan
                 onClose: unit -> unit
+                title: string
+                header: string
             |})
         =
         let printLabels = Global.printLabels ()
@@ -254,7 +257,7 @@ module ParenteralPrint =
             let header =
                 ViewHelpers.PrintView.SectionHeader
                     {|
-                        label = "INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS"
+                        label = props.header
                         marginBottom = 2
                     |}
 
@@ -280,6 +283,6 @@ module ParenteralPrint =
             {|
                 isOpen = true
                 onClose = props.onClose
-                title = "Parenterale Voeding"
+                title = props.title
                 children = printContent
             |}
