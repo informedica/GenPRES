@@ -215,11 +215,11 @@ module Interactions =
 
         let chipList = Array.append planChips manualChips
 
-        let drug1Label = Terms.``Interactions Drug 1`` |> getTerm "Medicatie 1"
-        let drug2Label = Terms.``Interactions Drug 2`` |> getTerm "Medicatie 2"
-        let classLabel = Terms.``Interactions Class`` |> getTerm "Interactie klasse"
+        let drug1Label = Terms.``Interactions Drug 1`` |> getTerm "Drug 1"
+        let drug2Label = Terms.``Interactions Drug 2`` |> getTerm "Drug 2"
+        let classLabel = Terms.``Interactions Class`` |> getTerm "Interaction class"
 
-        let noneFoundLabel = Terms.``Interactions None Found`` |> getTerm "Geen interacties gevonden"
+        let noneFoundLabel = Terms.``Interactions None Found`` |> getTerm "No interactions found"
 
         let interactionTable =
             if interactionRows.Length > 0 then
@@ -268,12 +268,12 @@ module Interactions =
             else
                 null
 
-        let titleLabel = Terms.``Interactions`` |> getTerm "Interacties"
+        let titleLabel = Terms.``Interactions`` |> getTerm "Interactions"
 
         let autocomplete =
             Components.Autocomplete.View
                 {|
-                    label = Terms.``Interactions Medication`` |> getTerm "Medicatie"
+                    label = Terms.``Interactions Medication`` |> getTerm "Medication"
                     selected = None
                     values = drugNameValues
                     updateSelected =
@@ -289,7 +289,7 @@ module Interactions =
                     placeholder = None
                 |}
 
-        let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"
+        let deleteLabel = Terms.``Delete`` |> getTerm "Delete"
         let onClickClear = fun _ -> ClearManualDrugs |> dispatch
 
         let patientNotice =

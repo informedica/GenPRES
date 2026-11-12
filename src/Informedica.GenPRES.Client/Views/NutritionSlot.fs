@@ -71,7 +71,7 @@ module NutritionSlot =
     let prescribeBar getTerm (resetAction: Components.ActionBar.Action) (onPrescribe: (unit -> unit) option) =
         let prescribe =
             {|
-                label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                label = Terms.``Prescribe`` |> getTerm "Prescribe"
                 kind = Components.ActionBar.Kind.Primary
                 onClick = onPrescribe |> Option.defaultValue ignore
                 disabled = onPrescribe.IsNone
@@ -835,7 +835,7 @@ module NutritionSlot =
                 let diluentSelect name choices =
                     Components.PickField.View
                         {|
-                            label = Terms.Diluent |> getTerm "Verdunningsvorm"
+                            label = Terms.Diluent |> getTerm "Diluent"
                             options = choices |> Array.map (fun s -> s, s)
                             selected = Some name
                             onChange = diluentChange
@@ -1026,7 +1026,7 @@ module NutritionSlot =
         let genericFilter =
             let sel = ctx.Filter.Generic
             let items = ctx.Filter.Generics
-            let lbl = Terms.Composition |> getTerm "Samenstelling"
+            let lbl = Terms.Composition |> getTerm "Composition"
 
             items |> responsiveFilter lbl sel genericChange
 
@@ -1124,7 +1124,7 @@ module NutritionSlot =
                     action = None
                 |}
 
-        let administrationDivider = Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
+        let administrationDivider = Terms.``Prescribe Administration`` |> getTerm "Administration" |> heading
 
         let componentHeading = Terms.``Nutrition Component`` |> getTerm "Component" |> heading
         let quantityHeading = Terms.``Nutrition Quantity`` |> getTerm "Quantity" |> heading
@@ -1193,13 +1193,13 @@ module NutritionSlot =
                         onClose = None
                     |}
             elif ctx.Scenarios |> Array.length > 1 then
-                let text = "Er zijn meerdere regels gevonden voor deze keuze, daarom kan er geen order getoond worden"
-
                 Components.Notice.View
                     {|
                         kind = Components.Notice.Kind.Warning
                         title = None
-                        message = Terms.``Nutrition Several Rules`` |> getTerm text
+                        message =
+                            Terms.``Nutrition Several Rules``
+                            |> getTerm "More than one rule was found for this choice, so no order can be shown"
                         action = None
                         onClose = None
                     |}
@@ -1214,7 +1214,7 @@ module NutritionSlot =
             else
                 let sel = ctx.Filter.Indication
                 let items = ctx.Filter.Indications
-                let lbl = Terms.Indication |> getTerm "Indicatie"
+                let lbl = Terms.Indication |> getTerm "Indication"
 
                 items |> responsiveFilter lbl sel indicationChange
 
@@ -1239,7 +1239,7 @@ module NutritionSlot =
             else
                 let sel = ctx.Filter.DoseType |> Option.map DoseTypeText.doseTypeToString
                 let items = ctx.Filter.DoseTypes
-                let lbl = Terms.``Dose Type`` |> getTerm "Doseer type"
+                let lbl = Terms.``Dose Type`` |> getTerm "Dose type"
 
                 items
                 |> Array.map (fun s -> s |> DoseTypeText.doseTypeToString, s |> DoseTypeText.doseTypeToDescription)

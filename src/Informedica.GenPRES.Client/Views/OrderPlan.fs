@@ -277,7 +277,7 @@ module OrderPlan =
                         Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
                         Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
                         Api.OrderViewCommand.SetMaxScheduleFrequencyProperty,
-                    Terms.``Order Frequency`` |> getTerm "frequentie"
+                    Terms.``Order Frequency`` |> getTerm "frequency"
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
                         evaluate
@@ -298,7 +298,7 @@ module OrderPlan =
                         Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
                         Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
                         Api.OrderViewCommand.SetMaxOrderableDoseRateProperty,
-                    Terms.``Order Drip rate`` |> getTerm "inloop snelheid"
+                    Terms.``Order Drip rate`` |> getTerm "drip rate"
                 | QuantityModePolicy.Field.ComponentQuantity
                 | QuantityModePolicy.Field.Other -> Components.QuantityField.Fixed, ""
 
@@ -369,7 +369,7 @@ module OrderPlan =
                 |> box
                 {|
                     field = "medication"
-                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"
+                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medication"
                     width = 200
                     filterable = true
                     // no sort, which would part a linked order from its main order
@@ -388,7 +388,7 @@ module OrderPlan =
                 |> box
                 {|
                     field = "frequency"
-                    headerName = Terms.``Order Plan Frequency`` |> getTerm "Frequentie"
+                    headerName = Terms.``Order Plan Frequency`` |> getTerm "Frequency"
                     width = 150
                     filterable = false
                     sortable = false
@@ -398,7 +398,7 @@ module OrderPlan =
                 |> box
                 {|
                     field = "quantity"
-                    headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"
+                    headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Quantity"
                     width = 150
                     filterable = false
                     sortable = false
@@ -406,7 +406,7 @@ module OrderPlan =
                 |> box
                 {|
                     field = "solution"
-                    headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"
+                    headerName = Terms.``Continuous Medication Solution`` |> getTerm "Solution"
                     width = 150
                     filterable = false
                     sortable = false
@@ -416,7 +416,7 @@ module OrderPlan =
                 |> box //``type`` = "number"
                 {|
                     field = "dose"
-                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"
+                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dose"
                     width = 200
                     filterable = false
                     sortable = false
@@ -608,8 +608,8 @@ module OrderPlan =
                     isOpen = confirmDeleteOpen
                     title = "Verwijder Geselecteerde Voorschriften"
                     text = "De geselecteerde voorschriften worden uit het order plan verwijderd. Wilt u doorgaan?"
-                    confirmLabel = Terms.Delete |> getTerm "Verwijderen"
-                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    confirmLabel = Terms.Delete |> getTerm "Delete"
+                    cancelLabel = Terms.Cancel |> getTerm "Cancel"
                     onConfirm = onDeleteConfirmed
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
@@ -626,7 +626,7 @@ module OrderPlan =
         // keeps its height and the table does not move when a row is checked
         let deleteAction =
             {|
-                label = Terms.Delete |> getTerm "Verwijderen"
+                label = Terms.Delete |> getTerm "Delete"
                 kind = Components.ActionBar.Kind.Destructive
                 onClick = onDelete
                 disabled = nothingSelected

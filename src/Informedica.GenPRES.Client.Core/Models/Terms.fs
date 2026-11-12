@@ -29,14 +29,14 @@ type Terms =
     | ``Patient remove patient data``
     | ``Emergency List``
     | ``Emergency List show when patient data``
-    | ``Emergency List Catagory``
+    | ``Emergency List Category``
     | ``Emergency List Intervention``
     | ``Emergency List Calculated``
     | ``Emergency List Preparation``
     | ``Emergency List Advice``
     | ``Continuous Medication List``
     | ``Continuous Medication List show when patient data``
-    | ``Continuous Medication Catagory``
+    | ``Continuous Medication Category``
     | ``Continuous Medication Medication``
     | ``Continuous Medication Quantity``
     | ``Continuous Medication Solution``
@@ -374,3 +374,7 @@ type Terms =
     | ``Settings Analyzing Log File``
     | ``Settings Log Analysis Report``
     | ``Settings No Report``
+    // the heading above the enteral supplements of a feeding
+    | ``Nutrition Enteral Supplements``
+    // the progress text while the resources reload
+    | ``Settings Reloading Resources``

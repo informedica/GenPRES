@@ -58,7 +58,7 @@ module ContinuousMeds =
                 |> box
                 {|
                     field = "catagory"
-                    headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"
+                    headerName = Terms.``Continuous Medication Category`` |> getTerm "Category"
                     width = 140
                     filterable = true
                     sortable = true
@@ -66,7 +66,7 @@ module ContinuousMeds =
                 |> box
                 {|
                     field = "medication"
-                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"
+                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medication"
                     width = 200
                     filterable = true
                     sortable = true
@@ -76,7 +76,7 @@ module ContinuousMeds =
                     [
                         "field" ==> "quantity"
                         "headerName"
-                        ==> (Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid")
+                        ==> (Terms.``Continuous Medication Quantity`` |> getTerm "Quantity")
                         "width" ==> 140
                         "filterable" ==> false
                         "sortable" ==> false
@@ -86,7 +86,7 @@ module ContinuousMeds =
                     [
                         "field" ==> "solution"
                         "headerName"
-                        ==> (Terms.``Continuous Medication Solution`` |> getTerm "Oplossing")
+                        ==> (Terms.``Continuous Medication Solution`` |> getTerm "Solution")
                         "width" ==> 140
                         "filterable" ==> false
                         "sortable" ==> false
@@ -94,7 +94,7 @@ module ContinuousMeds =
                     ]
                 {|
                     field = "dose"
-                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"
+                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dose"
                     width = 200
                     filterable = false
                     sortable = false
@@ -102,7 +102,7 @@ module ContinuousMeds =
                 |> box //``type`` = "number"
                 {|
                     field = "advice"
-                    headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"
+                    headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advice"
                     width = 200
                     filterable = false
                     sortable = false
@@ -278,7 +278,7 @@ module ContinuousMeds =
             {|
                 isOpen = printOpen
                 onClose = fun () -> setPrintOpen false
-                title = Terms.``Continuous Medication List`` |> getTerm "Continue Medicatie"
+                title = Terms.``Continuous Medication List`` |> getTerm "Continuous Medication"
                 children = printContent
             |}
 

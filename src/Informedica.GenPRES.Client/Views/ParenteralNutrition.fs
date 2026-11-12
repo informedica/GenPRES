@@ -238,7 +238,7 @@ module ParenteralNutrition =
                 // the plan takes one change at a time: no removal while one is under way
                 Components.RemoveIconButton.View
                     {|
-                        label = Terms.``Delete`` |> getTerm "Verwijder"
+                        label = Terms.``Delete`` |> getTerm "Delete"
                         onRemove = onRemove
                         busy = held
                     |}
@@ -346,10 +346,10 @@ module ParenteralNutrition =
 
         let addButtons =
             [|
-                NutritionCategory.TPN, Terms.``Nutrition TPN`` |> getTerm "TPN"
-                NutritionCategory.Lipid, Terms.``Nutrition Lipids`` |> getTerm "Vetten"
+                NutritionCategory.TPN, Terms.``Nutrition TPN`` |> getTerm "Total Parenteral Nutrition"
+                NutritionCategory.Lipid, Terms.``Nutrition Lipids`` |> getTerm "Lipids"
                 NutritionCategory.ElectrolyteGlucose,
-                Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
+                Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Electrolytes/Glucose"
             |]
             |> Array.map (fun (category, label) ->
                 Components.AddButton.View
@@ -392,7 +392,7 @@ module ParenteralNutrition =
 
         <React.Fragment>
             <Stack direction="row" sx={alignCenterSx} spacing={1}>
-                <Typography variant="h6">{Terms.``Nutrition Parenteral Section`` |> getTerm "Parenteraal"}</Typography>
+                <Typography variant="h6">{Terms.``Nutrition Parenteral Section`` |> getTerm "Parenteral"}</Typography>
                 <Button color="primary" size="small" disabled={printDisabled} onClick={fun _ -> setPrintOpen true} startIcon={{<PrintIcon />}}>
                     {Terms.Print |> getTerm "Print"}
                 </Button>

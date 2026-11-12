@@ -74,7 +74,9 @@ module Settings =
         )
 
         let backdrop =
-            ViewHelpers.backdropProgress isLoading (Terms.``Reload resources`` |> getTerm "Reloading resources...")
+            ViewHelpers.backdropProgress
+                isLoading
+                (Terms.``Settings Reloading Resources`` |> getTerm "Reloading resources...")
 
         // the page is only reached signed in, so the token stands in for the password
         let handleReload = fun _ -> resources.ReloadResources()

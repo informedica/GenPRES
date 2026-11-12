@@ -346,7 +346,9 @@ module Prescribe =
                     // the access the preparation is for, labelled as the patient panel labels it
                     let access =
                         sc.Access
-                        |> Option.map (PatientText.accessText (Terms.``Patient Enteral Tube`` |> getTerm "Sonde"))
+                        |> Option.map (
+                            PatientText.accessText (Terms.``Patient Enteral Tube`` |> getTerm "Enteral tube")
+                        )
                         |> Option.map (fun s -> $" (%s{s})")
                         |> Option.defaultValue ""
 
@@ -447,13 +449,13 @@ module Prescribe =
                         </Typography>
                         <List sx={listSx}>
                             {[|
-                                 item "prescription" Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
+                                 item "prescription" Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Prescription") sc.Prescription
                                  if sc.Preparation |> Array.length > 0 then
-                                     item "preparation" Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Bereiding") sc.Preparation
+                                     item "preparation" Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Preparation") sc.Preparation
                                  item
                                      "administration"
                                      Mui.Icons.MedicationLiquid
-                                     (Terms.``Prescribe Administration`` |> getTerm "Toediening")
+                                     (Terms.``Prescribe Administration`` |> getTerm "Administration")
                                      sc.Administration
                              |]
                              |> unbox<seq<ReactElement>>
@@ -468,14 +470,14 @@ module Prescribe =
                             actions =
                                 [|
                                     {|
-                                        label = Edit |> getTerm "bewerken"
+                                        label = Edit |> getTerm "Edit"
                                         kind = Components.ActionBar.Kind.Secondary
                                         onClick = handleEditClick
                                         disabled = false
                                         icon = Some Mui.Icons.CalculateIcon
                                     |}
                                     {|
-                                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                                        label = Terms.``Prescribe`` |> getTerm "Prescribe"
                                         kind = Components.ActionBar.Kind.Primary
                                         onClick = prescribe
                                         disabled = prescribeDisabled
@@ -516,7 +518,7 @@ module Prescribe =
 
         // the orders the link rules offer with the order the workbench is narrowed to, each with its switch
         let offers =
-            let formLabel = Terms.Form |> getTerm "Vorm"
+            let formLabel = Terms.Form |> getTerm "Form"
 
             envOrderContext.Offers
             |> Array.mapi (fun i offer ->
@@ -561,7 +563,7 @@ module Prescribe =
             <React.Fragment>
                 <Stack direction="column" spacing={if isMobile then 1 else 3}>
                     <Typography sx={ {| fontSize = 14 |} } color="text.secondary" >
-                        {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
+                        {Terms.``Prescribe Scenarios`` |> getTerm "Medication scenarios"}
                     </Typography>
                     {match orderContext with
                      | OrderContextView.Settled pr
@@ -569,7 +571,7 @@ module Prescribe =
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
                      | OrderContextView.NoPatientData -> None, [||]
                      |> fun (sel, items) ->
-                         let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
+                         let lbl = Terms.``Prescribe Indications`` |> getTerm "Indications"
 
                          items |> responsiveFilter lbl sel indicationChange}
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
@@ -579,7 +581,7 @@ module Prescribe =
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
                          | OrderContextView.NoPatientData -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
+                             let lbl = Terms.``Prescribe Medications`` |> getTerm "Medications"
 
                              items |> responsiveFilter lbl sel medicationChange
 
@@ -605,7 +607,7 @@ module Prescribe =
                              ctx.Filter.Form, ctx.Filter.Forms
                          | _ -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.Form |> getTerm "Vorm"
+                             let lbl = Terms.Form |> getTerm "Form"
 
                              if items |> Array.isEmpty then
                                  null
@@ -626,7 +628,7 @@ module Prescribe =
 
                              let sel = pr.Filter.Diluent
                              let items = pr.Filter.Diluents
-                             let lbl = Terms.Diluent |> getTerm "Verdunningsvorm"
+                             let lbl = Terms.Diluent |> getTerm "Diluent"
 
                              items |> Array.map (fun s -> s, s) |> select lbl sel diluentChange
 
@@ -643,7 +645,7 @@ module Prescribe =
                              ->
 
                              let items = pr.Filter.Components
-                             let lbl = Terms.Components |> getTerm "Componenten"
+                             let lbl = Terms.Components |> getTerm "Components"
 
                              // every option is checked only when no selection is made
                              let sel =
@@ -664,7 +666,7 @@ module Prescribe =
                              ->
                              let sel = pr.Filter.DoseType |> Option.map DoseTypeText.doseTypeToString
                              let items = pr.Filter.DoseTypes
-                             let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
+                             let lbl = Terms.``Dose Types`` |> getTerm "Dose types"
 
                              items
                              |> Array.map (fun s -> s |> DoseTypeText.doseTypeToString, s |> DoseTypeText.doseTypeToDescription)

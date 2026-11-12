@@ -153,7 +153,7 @@ module EnteralNutrition =
         let bin =
             Components.RemoveIconButton.View
                 {|
-                    label = Terms.``Delete`` |> getTerm "Verwijder"
+                    label = Terms.``Delete`` |> getTerm "Delete"
                     onRemove =
                         fun () ->
                             props.nutrition.TurnOffer(props.slotId, props.index, OrderContextMachine.OfferSwitch.Off)
@@ -296,7 +296,7 @@ module EnteralNutrition =
             else
                 Components.SectionHeading.View
                     {|
-                        label = Terms.``Nutrition Enteral Supplement`` |> getTerm "Supplementen"
+                        label = Terms.``Nutrition Enteral Supplements`` |> getTerm "Enteral supplements"
                         action = None
                     |}
 
@@ -342,7 +342,7 @@ module EnteralNutrition =
                 // the plan takes one change at a time: no removal while one is under way
                 Components.RemoveIconButton.View
                     {|
-                        label = Terms.``Delete`` |> getTerm "Verwijder"
+                        label = Terms.``Delete`` |> getTerm "Delete"
                         onRemove = onRemove
                         busy = waiting
                     |}
@@ -441,7 +441,7 @@ module EnteralNutrition =
                 else
                     AddOfferMenu
                         {|
-                            label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
+                            label = Terms.``Nutrition Add Supplement`` |> getTerm "Add supplement"
                             offers =
                                 offersOff
                                 |> Array.map (fun (index, offer) -> index, OrderContextText.offerName offer.Context)
@@ -471,7 +471,7 @@ module EnteralNutrition =
         let feedingAddButton =
             Components.AddButton.View
                 {|
-                    label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
+                    label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enteral feeding"
                     onClick = fun () -> props.nutrition.StartSlot NutritionCategory.EnteralFeeding
                     disabled = waiting
                 |}
@@ -494,7 +494,7 @@ module EnteralNutrition =
             import Box from '@mui/material/Box';
 
             <Box sx={flexOverflowSx}>
-                <Typography>{Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"}</Typography>
+                <Typography>{Terms.``Nutrition Enteral Feeding`` |> getTerm "Enteral feeding"}</Typography>
                 {adminSummaries |> unbox<seq<ReactElement>> |> React.Fragment}
             </Box>
             """

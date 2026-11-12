@@ -159,13 +159,13 @@ module Patient =
                 Components.ConfirmDialog.View
                     {|
                         isOpen = confirmResetOpen
-                        title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
+                        title = Terms.``Patient Reset Dialog Title`` |> getTerm "Clear patient data"
                         text =
                             Terms.``Patient Reset Dialog Text``
                             |> getTerm
-                                "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
+                                "The age, the weight, the height and the other data of the patient are cleared. Do you want to continue?"
                         confirmLabel = Terms.Reset |> getTerm "Reset"
-                        cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                        cancelLabel = Terms.Cancel |> getTerm "Cancel"
                         onConfirm = onResetConfirmed
                         onCancel = fun () -> setConfirmResetOpen false
                     |}
@@ -178,12 +178,12 @@ module Patient =
             Components.ConfirmDialog.View
                 {|
                     isOpen = newPatient.IsSome
-                    title = Terms.``Patient New Dialog Title`` |> getTerm "Nieuwe patiënt"
+                    title = Terms.``Patient New Dialog Title`` |> getTerm "New patient"
                     text =
                         Terms.``Patient New Dialog Text``
-                        |> getTerm "Dit start een nieuwe patiënt. Alle orders worden verwijderd."
-                    confirmLabel = Terms.Confirm |> getTerm "Bevestigen"
-                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                        |> getTerm "This starts a new patient. All orders are removed."
+                    confirmLabel = Terms.Confirm |> getTerm "Confirm"
+                    cancelLabel = Terms.Cancel |> getTerm "Cancel"
                     onConfirm = onNewPatientConfirmed
                     onCancel = fun () -> setNewPatient None
                 |}
@@ -249,7 +249,7 @@ module Patient =
 
             Components.PickField.View
                 {|
-                    label = Terms.``Patient Department`` |> getTerm "Afdeling"
+                    label = Terms.``Patient Department`` |> getTerm "Department"
                     options = options
                     selected = own
                     onChange = changeDepartment
@@ -281,12 +281,12 @@ module Patient =
                         message =
                             if isDefault then
                                 Terms.``Patient Department Default``
-                                |> getTerm "De standaardafdeling: er is geen afdeling gekozen"
+                                |> getTerm "The default department: no department was chosen"
                             elif launched then
                                 Terms.``Patient Department Launched``
-                                |> getTerm "Meegegeven door het systeem dat GenPRES opende"
+                                |> getTerm "Passed on by the system that opened GenPRES"
                             else
-                                Terms.``Patient Department Chosen`` |> getTerm "Gekozen voor deze patiënt"
+                                Terms.``Patient Department Chosen`` |> getTerm "Chosen for this patient"
                         action = None
                         onClose = None
                     |}
@@ -307,7 +307,7 @@ module Patient =
                         |}
                     if SessionPatientPolicy.canRefresh session then
                         {|
-                            label = Terms.``Patient Refresh`` |> getTerm "Ververs uit het EPD"
+                            label = Terms.``Patient Refresh`` |> getTerm "Refresh from the EHR"
                             kind = Components.ActionBar.Kind.Secondary
                             onClick = fun () -> envSession.Refresh()
                             disabled = busy
@@ -386,7 +386,7 @@ module Patient =
         // the placeholder of a field from its estimate, as its key and its text, said to be an
         // estimate, only while nothing is measured
         let estimatePlaceholder toKey toText measured estimated =
-            let word = Terms.``Patient Estimated`` |> getTerm "geschat"
+            let word = Terms.``Patient Estimated`` |> getTerm "estimated"
 
             match measured with
             | Some _ -> None
@@ -437,10 +437,10 @@ module Patient =
 
                     ev?target?value |> string |> Msg.UpdateGender |> dispatch
 
-            let genderLabel = Terms.``Patient Gender`` |> getTerm "Geslacht"
-            let maleLabel = Terms.``Patient Male`` |> getTerm "Man"
-            let femaleLabel = Terms.``Patient Female`` |> getTerm "Vrouw"
-            let unknownLabel = Terms.``Patient Unknown Gender`` |> getTerm "Onbekend"
+            let genderLabel = Terms.``Patient Gender`` |> getTerm "Gender"
+            let maleLabel = Terms.``Patient Male`` |> getTerm "Male"
+            let femaleLabel = Terms.``Patient Female`` |> getTerm "Female"
+            let unknownLabel = Terms.``Patient Unknown Gender`` |> getTerm "Unknown"
 
             JSX.jsx
                 $"""
@@ -483,7 +483,7 @@ module Patient =
                     keepOpen ()
                     ev?target?``checked`` |> unbox<bool> |> Msg.UpdateMarkedAdult |> dispatch
 
-            let adultLabel = Terms.``Patient Adult`` |> getTerm "Volwassene"
+            let adultLabel = Terms.``Patient Adult`` |> getTerm "Adult"
             let disabled = busy || adultDisabled
 
             let switch =
@@ -509,7 +509,7 @@ module Patient =
                 [| 0..19 |]
                 |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
                 |> createAgeSelect
-                    (Terms.``Patient Age years`` |> getTerm "jaren")
+                    (Terms.``Patient Age years`` |> getTerm "years")
                     (pat |> Option.bind Patient.getAgeYears)
                     (fun s ->
                         keepOpen ()
@@ -519,7 +519,7 @@ module Patient =
                 [| 1..11 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
-                    (Terms.``Patient Age months`` |> getTerm "maanden")
+                    (Terms.``Patient Age months`` |> getTerm "months")
                     (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
                     (fun s ->
                         keepOpen ()
@@ -529,7 +529,7 @@ module Patient =
                 [| 1..3 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
-                    (Terms.``Patient Age weeks`` |> getTerm "weken")
+                    (Terms.``Patient Age weeks`` |> getTerm "weeks")
                     (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
                     (fun s ->
                         keepOpen ()
@@ -539,7 +539,7 @@ module Patient =
                 [| 1..6 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
-                    (Terms.``Patient Age days`` |> getTerm "dagen")
+                    (Terms.``Patient Age days`` |> getTerm "days")
                     (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
                     (fun s ->
                         keepOpen ()
@@ -557,7 +557,7 @@ module Patient =
                              (fun g -> $"%g{float g / 1000.}")
                              p.Weight.Measured
                      ))
-                    (Terms.``Patient Weight`` |> getTerm "gewicht" |> (fun s -> $"{s} (kg)"))
+                    (Terms.``Patient Weight`` |> getTerm "Weight" |> (fun s -> $"{s} (kg)"))
                     (pat |> Option.bind (_.Weight.Measured >> weightToNone))
                     (fun s ->
                         keepOpen ()
@@ -573,7 +573,7 @@ module Patient =
 
                          p.Height.Estimated |> estimatePlaceholder cm cm p.Height.Measured
                      ))
-                    (Terms.``Patient Length`` |> getTerm "lengte" |> (fun s -> $"{s} (cm)"))
+                    (Terms.``Patient Length`` |> getTerm "Length" |> (fun s -> $"{s} (cm)"))
                     (pat |> Option.bind (_.Height.Measured >> heightToNone))
                     (fun s ->
                         keepOpen ()
@@ -586,7 +586,7 @@ module Patient =
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
                         None
-                        (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
+                        (Terms.``Patient Age weeks`` |> getTerm "weeks" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGAWeeks |> zeroToNone)
                         (fun s ->
                             keepOpen ()
@@ -597,7 +597,7 @@ module Patient =
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
                         None
-                        (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
+                        (Terms.``Patient Age days`` |> getTerm "days" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGADays |> zeroToNone)
                         (fun s ->
                             keepOpen ()
@@ -624,8 +624,8 @@ module Patient =
                 if adultOffered then
                     adultSwitch
 
-                let accessLabel = Terms.``Patient Access`` |> getTerm "Toegangen"
-                let tubeLabel = Terms.``Patient Enteral Tube`` |> getTerm "Sonde"
+                let accessLabel = Terms.``Patient Access`` |> getTerm "Access"
+                let tubeLabel = Terms.``Patient Enteral Tube`` |> getTerm "Enteral tube"
 
                 JSX.jsx
                     $"""
@@ -657,7 +657,7 @@ module Patient =
 
                 RenalFunctionText.labelled (fun term -> term |> getTerm (RenalFunctionText.english term))
                 |> createSelect
-                    (Terms.``Patient Renal Function`` |> getTerm "Nierfunctie")
+                    (Terms.``Patient Renal Function`` |> getTerm "Renal function")
                     (pat |> Option.bind PatientRead.getRenalFunction)
                     (fun s ->
                         keepOpen ()
