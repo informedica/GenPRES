@@ -53,6 +53,22 @@ A library scope is the library's name without the `Informedica.` and `.Lib` part
 - `BREAKING CHANGE:` footer for a breaking change
 - `Fixes #123` or `Closes #456` for the issue; `Co-authored-by: Name <email>` for co-authors
 
+## Issue Titles
+
+The title of an issue is written as the heading of a commit: the same format, types, scopes and description rules.
+
+```
+fix(genorder): the dose quantity of an enteral feeding cannot be set
+feat(ui): show the weight in use and align the enteral feeding fields
+```
+
+- The type is the type of the change that resolves the issue: `fix` for a defect, `feat` for new behaviour, `refactor`, `docs`, `build`, `ci`, ...
+- A `fix` title states what is wrong, a title of any other type states the change in the imperative mood
+- The 50 character limit of a commit heading does not apply; the title stays one line
+- An issue filed with the UX / Design template may keep a plain title; a maintainer renames it at triage
+
+The workflow `.github/workflows/issue-title-lint.yml` runs the check of the commit-msg hook against the title of an issue that is opened, edited or reopened. A title that fails gets the label `needs title` and a comment; the label is removed when the title passes.
+
 ## Examples
 
 ```
