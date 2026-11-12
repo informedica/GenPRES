@@ -579,7 +579,7 @@ module NutritionSlot =
             /// The share of the total the dose is, in percent, when both hold one value.
             DoseQuantityShare: decimal option
             /// Why the components are locked, while the dose of the TPN is a part of the total.
-            CompositionHint: JSX.Element
+            CompositionNotice: JSX.Element
             /// What the user sees instead of an order when the rules give more than one scenario.
             ScenarioNotice: JSX.Element
         }
@@ -766,6 +766,12 @@ module NutritionSlot =
         // while the dose of the TPN is a part of the total, the composition stays as it is: a step
         // of a component would keep the rate of the part for the whole
         let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
+
+        // the notice of the locked composition may be dismissed; it comes back when the composition
+        // is unlocked and then locked again
+        let lockNoticeDismissed, setLockNoticeDismissed = React.useState false
+
+        React.useEffect ((fun () -> setLockNoticeDismissed false), [| box isCompositionLocked |])
 
         let componentSelect = ViewHelpers.orderSelect texts true (fieldsWait || isCompositionLocked)
 
@@ -1162,16 +1168,27 @@ module NutritionSlot =
 
         let compositionLockedText =
             Terms.``Nutrition Composition Locked``
-            |> getTerm "set the dose quantity to 100% first to change the composition"
+            |> getTerm "Set the dose quantity to 100% first to change the composition."
 
-        let compositionHint =
-            if isCompositionLocked then
+        // padding, because the Stack the notice sits in sets the top margin of its children
+        let compositionNoticeSx = {| paddingTop = 1 |}
+
+        let compositionNotice =
+            if isCompositionLocked && not lockNoticeDismissed then
+                let notice =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Info
+                            title = None
+                            message = compositionLockedText
+                            action = None
+                            onClose = Some(fun () -> setLockNoticeDismissed true)
+                        |}
+
                 JSX.jsx
                     $"""
-                import Typography from '@mui/material/Typography';
-                <Typography variant="caption" color="text.secondary">
-                    {compositionLockedText}
-                </Typography>
+                import Box from '@mui/material/Box';
+                <Box sx={compositionNoticeSx}>{notice}</Box>
                 """
             else
                 null
@@ -1267,6 +1284,6 @@ module NutritionSlot =
             SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
             CanSetDoseShare = canSetDoseShare
             DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
-            CompositionHint = compositionHint
+            CompositionNotice = compositionNotice
             ScenarioNotice = scenarioNotice
         }
