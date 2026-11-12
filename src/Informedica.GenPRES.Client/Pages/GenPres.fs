@@ -186,10 +186,12 @@ module GenPres =
                 </Box>
                 """
 
+        let demoText = Global.getLocalizedTerm localizationTerms lang "DEMO VERSION!" Terms.``Demo Version``
+
         let title =
             let s = $"GenPRES {props.page |> Global.pageToString localizationTerms lang}"
 
-            if props.isDemo then $"{s} - DEMO VERSION!" else s
+            if props.isDemo then $"%s{s} - %s{demoText}" else s
 
 
         let titleBar =

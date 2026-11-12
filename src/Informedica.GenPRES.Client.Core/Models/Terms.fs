@@ -358,3 +358,19 @@ type Terms =
     | ``Nutrition Share Of Total``
     // the section header of the parenteral nutrition print
     | ``Nutrition Parenteral Print Header``
+    // the shell: the demo mark of the window title, the login and logout buttons, and the close
+    // button of a dialog
+    | ``Demo Version``
+    | Login
+    | Logout
+    | Close
+    // the settings page: the log files and the report of a log file
+    | ``Settings Log Files``
+    | ``Settings File Name``
+    | ``Settings Size``
+    | ``Settings Last Modified``
+    | ``Settings Refresh``
+    | ``Settings No Log Files``
+    | ``Settings Analyzing Log File``
+    | ``Settings Log Analysis Report``
+    | ``Settings No Report``

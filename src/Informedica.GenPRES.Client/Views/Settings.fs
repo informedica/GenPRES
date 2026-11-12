@@ -35,6 +35,17 @@ module Settings =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
+        let logFilesText = Terms.``Settings Log Files`` |> getTerm "Log Files"
+        let fileNameHeading = Terms.``Settings File Name`` |> getTerm "File Name"
+        let sizeHeading = Terms.``Settings Size`` |> getTerm "Size"
+        let lastModifiedHeading = Terms.``Settings Last Modified`` |> getTerm "Last Modified"
+        let refreshText = Terms.``Settings Refresh`` |> getTerm "Refresh"
+        let noLogFilesText = Terms.``Settings No Log Files`` |> getTerm "No log files found."
+        let reportTitleText = Terms.``Settings Log Analysis Report`` |> getTerm "Log Analysis Report"
+        let noReportText = Terms.``Settings No Report`` |> getTerm "No report available."
+        let closeText = Terms.Close |> getTerm "Close"
+        let analyzingText = Terms.``Settings Analyzing Log File`` |> getTerm "Analyzing log file..."
+
         let refreshIcon = Mui.Icons.RefreshIcon
 
         // Log analyzer local state
@@ -79,7 +90,7 @@ module Settings =
             | InProgress -> true
             | _ -> false
 
-        let analysisBackdrop = ViewHelpers.backdropProgress isAnalyzing "Analyzing log file..."
+        let analysisBackdrop = ViewHelpers.backdropProgress isAnalyzing analyzingText
 
         let centeringSx =
             {|
@@ -110,7 +121,7 @@ module Settings =
                     $"""
                     <>
                     {refreshing}
-                    <Typography variant="body2" sx={ {| p = 2 |} }>No log files found.</Typography>
+                    <Typography variant="body2" sx={ {| p = 2 |} }>{noLogFilesText}</Typography>
                     </>
                     """
             | Resolved files
@@ -143,9 +154,9 @@ module Settings =
                         <Table stickyHeader={true} size="small">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>{"File Name"}</TableCell>
-                                    <TableCell align="right">{"Size"}</TableCell>
-                                    <TableCell>{"Last Modified"}</TableCell>
+                                    <TableCell>{fileNameHeading}</TableCell>
+                                    <TableCell align="right">{sizeHeading}</TableCell>
+                                    <TableCell>{lastModifiedHeading}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -191,7 +202,7 @@ module Settings =
                         </pre>
                     </Box>
                     """
-            | _ -> JSX.jsx $"""<Typography>No report available.</Typography>"""
+            | _ -> JSX.jsx $"""<Typography>{noReportText}</Typography>"""
 
         let buttonRowSx =
             {|
@@ -243,20 +254,20 @@ module Settings =
             {backdrop}
             {analysisBackdrop}
             <Box sx={logHeaderSx}>
-                <Typography variant="subtitle1">{"Log Files"}</Typography>
-                <IconButton size="small" onClick={handleRefreshLogs} title="Refresh">
+                <Typography variant="subtitle1">{logFilesText}</Typography>
+                <IconButton size="small" onClick={handleRefreshLogs} title={refreshText}>
                     {refreshIcon}
                 </IconButton>
             </Box>
             {logFileTable}
             <Dialog open={reportDialogOpen} onClose={handleReportClose} maxWidth="lg" fullWidth={true}>
-                <DialogTitle>{"Log Analysis Report"}</DialogTitle>
+                <DialogTitle>{reportTitleText}</DialogTitle>
                 <DialogContent>
                     {reportContent}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleReportClose}>
-                        {Terms.Cancel |> getTerm "Close"}
+                        {closeText}
                     </Button>
                 </DialogActions>
             </Dialog>
