@@ -261,17 +261,15 @@ module Order =
             | SetMaxComponentQuantityProperty -> handleStep stepper.setComponentQtyMax
 
 
-        let showOrderName (ord: Order option) =
-            match ord with
-            | Some ord ->
-                let form =
-                    ord.Orderable.Components
-                    |> Array.tryHead
-                    |> Option.map _.Form
-                    |> Option.defaultValue ""
+        /// The name of the order and the form of its first component.
+        let orderName (ord: Order) =
+            let form =
+                ord.Orderable.Components
+                |> Array.tryHead
+                |> Option.map _.Form
+                |> Option.defaultValue ""
 
-                $"{ord.Orderable.Name} {form}"
-            | None -> "order is loading ..."
+            $"{ord.Orderable.Name} {form}"
 
 
     open Elmish
@@ -465,6 +463,7 @@ module Order =
         let isMobile = Mui.Hooks.useIsMobile ()
 
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
+        let productStrength = Terms.``Order Product Strength`` |> getTerm "product strength"
 
         // the context shown: settled, or the one sent while a change is under way
         let shownContext =
@@ -1268,7 +1267,7 @@ module Order =
                             cmp |> Option.map _.Name |> Option.defaultValue "",
                             ComponentProperty.OrderableQuantity
                         ))
-                        "bereiding hoeveelheid"
+                        (Terms.``Order Preparation Quantity`` |> getTerm "preparation quantity")
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
                         stepper
@@ -1300,7 +1299,7 @@ module Order =
                             |> selectFor
                                 "substCompConc"
                                 (Models.OrderContext.Target.Item(cname, iname, ItemProperty.ComponentConcentration))
-                                "product sterkte"
+                                productStrength
                                 None
                                 (change >> dispatch)
                                 ViewHelpers.noSteps
@@ -1334,7 +1333,7 @@ module Order =
                                             itm.Name,
                                             ItemProperty.ComponentConcentration
                                         ))
-                                        "product sterkte"
+                                        productStrength
                                         None
                                         (change >> dispatch)
                                         ViewHelpers.noSteps
@@ -1401,7 +1400,7 @@ module Order =
                     |> selectFor
                         "ordQty"
                         (Models.OrderContext.Target.Orderable OrderableProperty.Quantity)
-                        "totale hoeveelheid"
+                        (Terms.``Order Total Quantity`` |> getTerm "total quantity")
                         None
                         (ChangeOrderableQuantity >> dispatch)
                         ViewHelpers.noSteps
@@ -1462,7 +1461,7 @@ module Order =
                     |> selectFor
                         "ordDoseQty"
                         (Models.OrderContext.Target.Orderable OrderableProperty.DoseQuantity)
-                        "toedien hoeveelheid"
+                        (Terms.``Order Dose Quantity`` |> getTerm "dose quantity")
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
                         stepper
@@ -1481,6 +1480,7 @@ module Order =
                             disabled = not (PlanContextPolicy.setsDoseShare props.editing) || props.busy
                             onCommit = SetDoseQuantityPercProperty >> dispatch
                             order = box ord
+                            texts = ViewHelpers.intakeSliderTexts getTerm
                         |}
                 | _ -> null
 
@@ -1665,6 +1665,11 @@ module Order =
 
             let titleSlotProps = {| title = {| variant = "h6" |} |}
 
+            let orderTitle =
+                shownOrder
+                |> Option.map orderName
+                |> Option.defaultValue (Terms.``Order Loading`` |> getTerm "order is loading ...")
+
             JSX.jsx
                 $"""
             import CardHeader from '@mui/material/CardHeader';
@@ -1677,7 +1682,7 @@ module Order =
             <div>
             <CardHeader
                 sx = {headerSx}
-                title={shownOrder |> showOrderName}
+                title={orderTitle}
                 slotProps={titleSlotProps}
             ></CardHeader>
             <CardContent sx={contentSx}>

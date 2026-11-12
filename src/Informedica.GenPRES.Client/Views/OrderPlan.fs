@@ -287,7 +287,7 @@ module OrderPlan =
                         Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
                         Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
                         Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty,
-                    "toedien hoeveelheid"
+                    Terms.``Order Dose Quantity`` |> getTerm "dose quantity"
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
                         evaluate

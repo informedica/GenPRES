@@ -6,6 +6,7 @@ namespace Views
 module ViewHelpers =
 
     open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
     open Informedica.GenPRES.Client.Core.Policies
 
     open System
@@ -83,6 +84,21 @@ module ViewHelpers =
         {|
             severity = ovar.Level |> Severity.ofLevel
             reason = ovar |> SeverityReasonPolicy.ofOrderVariable |> Option.bind reasonText
+        |}
+
+
+    /// The caption of the intake slider and the sentence that tells the percentage of the total, in
+    /// the language of getTerm.
+    let intakeSliderTexts (getTerm: string -> Terms -> string) : Components.IntakeSlider.Texts =
+        {|
+            caption =
+                Terms.``Nutrition Intake Caption``
+                |> getTerm "dose quantity as a percentage of the total"
+            shareOfTotal =
+                fun pct ->
+                    Terms.``Nutrition Share Of Total``
+                    |> getTerm "{0}% of total"
+                    |> TermText.fill [ pct ]
         |}
 
 

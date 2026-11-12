@@ -12,8 +12,17 @@ module IntakeSlider =
     open Informedica.GenPRES.Client.Core.Policies
 
 
+    /// The caption and the sentence that tells the percentage of the total.
+    type Texts =
+        {|
+            caption: string
+            shareOfTotal: string -> string
+        |}
+
+
     /// The slider: the id of its caption, unique on the page, the share the dose gives now, whether it
-    /// takes a change, what a release sets, and the order it is for, whose change drops a position dragged.
+    /// takes a change, what a release sets, the order it is for, whose change drops a position dragged,
+    /// and its texts.
     type Props =
         {|
             labelId: string
@@ -21,6 +30,7 @@ module IntakeSlider =
             disabled: bool
             onCommit: int -> unit
             order: obj
+            texts: Texts
         |}
 
 
@@ -74,12 +84,12 @@ module IntakeSlider =
             match position, props.share with
             | None, Some share ->
                 let pct = share |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
-                $": %s{pct}%% van totaal"
+                $": %s{props.texts.shareOfTotal pct}"
             | _ -> ""
 
         let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setDragged (Some v))
         let onIntakeCommitted = System.Func<obj, int, unit>(fun _ v -> props.onCommit v)
-        let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
+        let intakeLabel = fun (v: int) -> props.texts.shareOfTotal (string v)
 
         JSX.jsx
             $"""
@@ -88,7 +98,7 @@ module IntakeSlider =
         import Typography from '@mui/material/Typography';
         <Box sx={sliderBoxSx}>
             <Typography id={props.labelId} variant="caption" color="text.secondary">
-                toedien hoeveelheid als percentage van totaal{shareText}
+                {props.texts.caption}{shareText}
             </Typography>
             <Slider
                 aria-labelledby={props.labelId}
