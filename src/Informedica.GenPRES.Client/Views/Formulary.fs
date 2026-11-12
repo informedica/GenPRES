@@ -267,7 +267,7 @@ module Formulary =
                      | Refreshing form -> form.Indication, form.Indications
                      | _ -> None, [||]
                      |> fun (sel, items) ->
-                         let lbl = Terms.``Formulary Indications`` |> getTerm "Indicaties"
+                         let lbl = Terms.``Formulary Indications`` |> getTerm "Indications"
 
                          if isMobile then
                              items
@@ -283,7 +283,7 @@ module Formulary =
                          | Refreshing form -> form.Generic, form.Generics
                          | _ -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.``Formulary Medications`` |> getTerm "Medicatie"
+                             let lbl = Terms.``Formulary Medications`` |> getTerm "Medications"
 
                              if isMobile then
                                  items |> Array.map (fun s -> s, s) |> select lbl sel (GenericChange >> dispatch)
@@ -305,7 +305,7 @@ module Formulary =
                          | Refreshing form -> form.Form, form.Forms
                          | _ -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.``Pharmaceutical Form`` |> getTerm "Farmacologische Vorm"
+                             let lbl = Terms.``Pharmaceutical Form`` |> getTerm "Pharmaceutical form"
 
                              if isMobile then
                                  items |> Array.map (fun s -> s, s) |> select lbl sel (FormChange >> dispatch)
@@ -316,7 +316,7 @@ module Formulary =
                          | Refreshing form ->
                              (form.DoseType, form.DoseTypes)
                              |> fun (sel, items) ->
-                                 let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
+                                 let lbl = Terms.``Dose Types`` |> getTerm "Dose types"
                                  let sel = sel |> Option.map DoseTypeText.doseTypeToString
 
                                  items

@@ -30,32 +30,32 @@ module LeaveDialog =
 
         let title =
             if props.launched then
-                Terms.``Url Leave Session Title`` |> getTerm "Sessie verlaten?"
+                Terms.``Url Leave Session Title`` |> getTerm "Leave the session?"
             else
-                Terms.``Url Leave Title`` |> getTerm "Orderplan verlaten?"
+                Terms.``Url Leave Title`` |> getTerm "Leave the order plan?"
 
         let text =
             match props.launched, props.asksLaunch with
             | true, true ->
                 Terms.``Url Leave Launch Text``
                 |> getTerm
-                    "De sessie wordt gesloten en de nieuwe sessie uit het EPD wordt geopend. Nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
+                    "The session is closed and the new session from the EHR is opened. New and changed orders and the medication being prescribed are lost. Do you want to continue?"
             | true, false ->
                 Terms.``Url Leave Session Text``
                 |> getTerm
-                    "De sessie met de patiënt uit het EPD wordt gesloten en de patiënt uit de url wordt gebruikt, zonder sessie. Nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
+                    "The session with the patient from the EHR is closed and the patient from the url is used, without a session. New and changed orders and the medication being prescribed are lost. Do you want to continue?"
             | false, _ ->
                 Terms.``Url Leave Text``
                 |> getTerm
-                    "De nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
+                    "The new and changed orders and the medication being prescribed are lost. Do you want to continue?"
 
         Components.ConfirmDialog.View
             {|
                 isOpen = props.isOpen
                 title = title
                 text = text
-                confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
-                cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                confirmLabel = Terms.``Url Leave`` |> getTerm "Leave"
+                cancelLabel = Terms.Cancel |> getTerm "Cancel"
                 onConfirm = props.onConfirm
                 onCancel = props.onCancel
             |}

@@ -102,22 +102,22 @@ module ViewHelpers =
         |}
 
 
-    /// The quantity field's texts in the user's language, today's Dutch where the sheet has no
+    /// The quantity field's texts in the user's language, English where the sheet has no
     /// translation.
     let quantityFieldTexts (getTerm: string -> Terms -> string) : Components.QuantityField.Texts =
         {|
-            pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
-            pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            pickValue = Terms.``Pick a value`` |> getTerm "pick a value"
+            pickMedian = Terms.``Pick the median`` |> getTerm "to the median"
             navigableTitles =
-                Terms.``Step to minimum`` |> getTerm "naar minimum",
-                Terms.``Step lower`` |> getTerm "lager",
-                Terms.``Step higher`` |> getTerm "hoger",
-                Terms.``Step to maximum`` |> getTerm "naar maximum"
+                Terms.``Step to minimum`` |> getTerm "to the minimum",
+                Terms.``Step lower`` |> getTerm "lower",
+                Terms.``Step higher`` |> getTerm "higher",
+                Terms.``Step to maximum`` |> getTerm "to the maximum"
             stepableTitles =
-                Terms.``Step large down`` |> getTerm "grote stap omlaag",
-                Terms.``Step down`` |> getTerm "stap omlaag",
-                Terms.``Step up`` |> getTerm "stap omhoog",
-                Terms.``Step large up`` |> getTerm "grote stap omhoog"
+                Terms.``Step large down`` |> getTerm "large step down",
+                Terms.``Step down`` |> getTerm "step down",
+                Terms.``Step up`` |> getTerm "step up",
+                Terms.``Step large up`` |> getTerm "large step up"
         |}
 
 

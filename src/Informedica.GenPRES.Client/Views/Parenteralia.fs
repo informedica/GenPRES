@@ -106,7 +106,7 @@ module Parenteralia =
 
             <CardContent>
                 <Typography sx={subtitleSx} color="text.secondary" gutterBottom>
-                    {Terms.Formulary |> getTerm "Parenteralia"}
+                    {Terms.Parenteralia |> getTerm "Parenteralia"}
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {match parenteralia with
@@ -115,7 +115,7 @@ module Parenteralia =
                      | _ -> None, [||]
                      |> fun (sel, items) ->
                          items
-                         |> responsiveFilter (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
+                         |> responsiveFilter (Terms.``Formulary Medications`` |> getTerm "Medications") sel (GenericChange >> dispatch)
 
                 }
                     {match parenteralia with
@@ -127,7 +127,7 @@ module Parenteralia =
                              null
                          else
                              items
-                             |> responsiveFilter (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
+                             |> responsiveFilter (Terms.Form |> getTerm "Form") sel (FormChange >> dispatch)}
                     {match parenteralia with
                      | Resolved par
                      | Refreshing par -> par.Route, par.Routes
@@ -140,7 +140,7 @@ module Parenteralia =
 
                     <Box sx={ {| marginTop = 2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
-                            {Terms.Delete |> getTerm "Verwijder"}
+                            {Terms.Delete |> getTerm "Delete"}
                         </Button>
                         </Box>
 

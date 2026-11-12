@@ -26,11 +26,11 @@ module AlertText =
         | Alert.Alert.CloseFailed -> alertTerm Terms.``Alert Close Failed``
         | Alert.Alert.PinNotSent -> alertTerm Terms.``Alert Pin Not Sent``
         | Alert.Alert.RequestFailed -> alertTerm Terms.``Alert Request Failed``
-        | Alert.Alert.NoPatientForMedication -> terms "Voer patient gegevens in" Terms.``Patient enter patient data``
+        | Alert.Alert.NoPatientForMedication -> terms "Enter patient data" Terms.``Patient enter patient data``
         | Alert.Alert.LaunchNotOpened ->
             let text =
-                "De start vanuit het EPD is niet geopend: er wordt ondertekend. "
-                + "Open de patiënt opnieuw vanuit het EPD."
+                "The launch from the EHR was not opened: a signature is under way. "
+                + "Open the patient again from the EHR."
 
             terms text Terms.``Url Launch Signing``
         | Alert.Alert.PatientChangeFailed reason

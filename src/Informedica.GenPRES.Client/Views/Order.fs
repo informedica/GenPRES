@@ -1022,7 +1022,7 @@ module Order =
 
         let administrationDivider =
             if showAdminDivider then
-                Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
+                Terms.``Prescribe Administration`` |> getTerm "Administration" |> heading
             else
                 null
 
@@ -1073,13 +1073,16 @@ module Order =
                             None
                 | _ -> null
 
+            // a select label followed by the unit of its values, as in "dose (mg)"
+            let withUnit unit label = $"%s{label} (%s{unit})"
+
             let substDoseQtySelect =
                 match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                     let label, vals =
                         itms[i].Dose.Quantity.Variable.Vals
                         |> Option.map (fun v ->
-                            (Terms.``Order Dose`` |> getTerm "keer dosis" |> (fun s -> $"{s} ({v.Unit})")),
+                            (Terms.``Order Dose`` |> getTerm "dose" |> withUnit v.Unit),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                             |> Array.distinctBy snd
@@ -1110,9 +1113,7 @@ module Order =
                     let label, vals =
                         itms[i].Dose.QuantityAdjust.Variable.Vals
                         |> Option.map (fun v ->
-                            (Terms.``Order Adjusted dose``
-                             |> getTerm "keer dosis"
-                             |> fun s -> $"{s} ({v.Unit})"),
+                            (Terms.``Order Dose`` |> getTerm "dose" |> withUnit v.Unit),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                             |> Array.distinctBy snd
@@ -1149,7 +1150,7 @@ module Order =
                             itms[i].Dose.PerTime.Variable.Vals
                         |> Option.map (fun v ->
                             (Terms.``Order Adjusted dose``
-                             |> getTerm "dosering"
+                             |> getTerm "adjusted dose"
                              |> fun s -> $"{s} ({v.Unit})"),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
@@ -1214,7 +1215,7 @@ module Order =
                                  ItemProperty.DoseRateAdjust
                              else
                                  ItemProperty.DoseRate))
-                        (Terms.``Order Adjusted dose`` |> getTerm "dosering")
+                        (Terms.``Order Adjusted dose`` |> getTerm "adjusted dose")
                         None
                         dispatch
                         stepper
@@ -1432,7 +1433,7 @@ module Order =
                     selectFor
                         "frequency"
                         (Models.OrderContext.Target.Schedule ScheduleProperty.Frequency)
-                        (Terms.``Order Frequency`` |> getTerm "frequentie")
+                        (Terms.``Order Frequency`` |> getTerm "frequency")
                         None
                         (ChangeFrequency >> dispatch)
                         stepper
@@ -1509,7 +1510,7 @@ module Order =
                     |> selectFor
                         "ordDoseRate"
                         (Models.OrderContext.Target.Orderable OrderableProperty.DoseRate)
-                        (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
+                        (Terms.``Order Drip rate`` |> getTerm "drip rate")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
                         stepper
@@ -1528,7 +1529,7 @@ module Order =
                     |> selectFor
                         "time"
                         (Models.OrderContext.Target.Schedule ScheduleProperty.Time)
-                        (Terms.``Order Administration time`` |> getTerm "inloop tijd")
+                        (Terms.``Order Administration time`` |> getTerm "administration time")
                         None
                         (ChangeTime >> dispatch)
                         ViewHelpers.noSteps
@@ -1552,7 +1553,7 @@ module Order =
 
                     let onClick = fun _ -> toggleFold ()
 
-                    let label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+                    let label = Terms.``Prescribe Preparation`` |> getTerm "Preparation"
 
                     // the button is named after the section it opens and folds, since its icon
                     // says nothing to a screen reader and the name beside it is not linked to it
@@ -1580,11 +1581,11 @@ module Order =
                 if not argumentationWanted then
                     null
                 else
-                    let label = Terms.``Order Argumentation`` |> getTerm "argumentatie"
+                    let label = Terms.``Order Argumentation`` |> getTerm "Argumentation"
 
                     let helper =
                         Terms.``Order Argumentation Helper``
-                        |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
+                        |> getTerm "why the dose differs from what the rules allow"
 
                     let inputProps =
                         {|
