@@ -17,14 +17,15 @@ module AlertText =
     let text (terms: string -> Terms -> string) alert =
         // a term of the signing vocabulary falls back to the English the policy gives
         let signing term = terms (SigningPolicy.english term) term
+        let alertTerm term = terms (Alert.english term) term
 
         match alert with
-        | Alert.Alert.DrugNamesNotLoaded -> "Interactie medicatie namen konden niet worden geladen"
-        | Alert.Alert.InteractionsFound n -> $"Er zijn %i{n} interactie(s) gevonden"
-        | Alert.Alert.InvalidPassword -> "Invalid password"
-        | Alert.Alert.CloseFailed -> "De sessie kon niet worden gesloten. Probeer het opnieuw."
-        | Alert.Alert.PinNotSent -> "De pincode kon niet worden verstuurd. Probeer het opnieuw."
-        | Alert.Alert.RequestFailed -> "Er ging iets mis, herladen"
+        | Alert.Alert.DrugNamesNotLoaded -> alertTerm Terms.``Alert Interaction Names Not Loaded``
+        | Alert.Alert.InteractionsFound n -> alertTerm Terms.``Alert Interactions Found`` |> TermText.fill [ string n ]
+        | Alert.Alert.InvalidPassword -> alertTerm Terms.``Invalid password``
+        | Alert.Alert.CloseFailed -> alertTerm Terms.``Alert Close Failed``
+        | Alert.Alert.PinNotSent -> alertTerm Terms.``Alert Pin Not Sent``
+        | Alert.Alert.RequestFailed -> alertTerm Terms.``Alert Request Failed``
         | Alert.Alert.NoPatientForMedication -> terms "Voer patient gegevens in" Terms.``Patient enter patient data``
         | Alert.Alert.LaunchNotOpened ->
             let text =
@@ -33,7 +34,9 @@ module AlertText =
 
             terms text Terms.``Url Launch Signing``
         | Alert.Alert.PatientChangeFailed reason
-        | Alert.Alert.WorkbenchFailed reason -> reason
+        | Alert.Alert.WorkbenchFailed reason ->
+            reason
+            |> Option.defaultWith (fun () -> alertTerm Terms.``Alert Something Went Wrong``)
         | Alert.Alert.SigningSendFailed -> signing Terms.``Signing Send Failed``
         | Alert.Alert.OrderPlanSigned signed -> SigningPolicy.signedSentence signing signed
         | Alert.Alert.SigningRefused refusal -> SigningPolicy.refusalSentence signing refusal

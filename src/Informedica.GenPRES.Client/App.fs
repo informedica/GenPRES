@@ -801,11 +801,13 @@ let View () =
     let serverErrorBanner =
         match Client.serverError state with
         | Some error ->
+            let tr term = getTerm (ServerErrorPolicy.english term) term
+
             Components.Notice.View
                 {|
                     kind = Components.Notice.Kind.Error
-                    title = Some "Server probleem"
-                    message = error.Message
+                    title = Some(tr Terms.``Server Error Title``)
+                    message = error |> ServerErrorPolicy.message tr
                     action = None
                     onClose = Some(fun () -> dispatch (Msg.Shell ShellMachine.ShellMsg.ServerErrorDismissed))
                 |}

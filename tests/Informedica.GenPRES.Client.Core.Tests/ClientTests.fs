@@ -385,6 +385,36 @@ let tests =
                 ]
 
             testList
+                "a failure the server tells"
+                [
+                    let told effect =
+                        initial Url.none
+                        |> Client.route (LanesTests.counter ()) (ClientEffect.Lanes effect)
+
+                    let alerted alert = [ ClientMsg.Shell(ShellMsg.AlertRaised alert) ]
+
+                    test "a patient change tells the first error the server gave" {
+                        told (LanesEffect.Patient(PatientEffect.TellError [| "a"; "b" |]))
+                        |> Expect.equal "the first" (alerted (Alert.Alert.PatientChangeFailed(Some "a")))
+                    }
+
+                    test "a patient change tells no error text when the server gave none" {
+                        told (LanesEffect.Patient(PatientEffect.TellError [||]))
+                        |> Expect.equal "none" (alerted (Alert.Alert.PatientChangeFailed None))
+                    }
+
+                    test "the workbench tells the first error the server gave" {
+                        told (LanesEffect.Workbench(OrderContextEffect.TellError [| "a"; "b" |]))
+                        |> Expect.equal "the first" (alerted (Alert.Alert.WorkbenchFailed(Some "a")))
+                    }
+
+                    test "the workbench tells no error text when the server gave none" {
+                        told (LanesEffect.Workbench(OrderContextEffect.TellError [||]))
+                        |> Expect.equal "none" (alerted (Alert.Alert.WorkbenchFailed None))
+                    }
+                ]
+
+            testList
                 "the error banner"
                 [
                     test "a failed formulary load raises the banner, and its next landing clears it" {

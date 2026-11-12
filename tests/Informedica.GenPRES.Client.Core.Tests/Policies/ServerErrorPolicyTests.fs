@@ -5,6 +5,7 @@ namespace Informedica.GenPRES.Client.Core.Tests.Policies
 /// of request that raised it, or until the server check succeeds.
 module ServerErrorPolicyTests =
 
+    open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Policies
 
     open Expecto
@@ -18,6 +19,7 @@ module ServerErrorPolicyTests =
             ErrorSource.Formulary
             ErrorSource.Parenteralia
             ErrorSource.Interactions
+            ErrorSource.Totals
             ErrorSource.Login
             ErrorSource.LogFiles
             ErrorSource.LogAnalysis
@@ -34,13 +36,13 @@ module ServerErrorPolicyTests =
                 testList
                     "raised"
                     [
-                        test "keeps the source and the errors after the sentence" {
+                        test "keeps the source and the errors" {
                             raised ErrorSource.OrderPlan [| "x"; "y" |]
                             |> Expect.equal
                                 "should hold both"
                                 {
                                     Source = ErrorSource.OrderPlan
-                                    Message = "Server fout: x; y"
+                                    Errors = [| "x"; "y" |]
                                 }
                         }
 
@@ -48,15 +50,48 @@ module ServerErrorPolicyTests =
                             let long = String.replicate 250 "a"
                             let cut = String.replicate 200 "a"
 
-                            (raised ErrorSource.Formulary [| long; "b"; "c"; "d" |]).Message
-                            |> Expect.equal "three, the first cut" $"Server fout: %s{cut}...; b; c"
+                            (raised ErrorSource.Formulary [| long; "b"; "c"; "d" |]).Errors
+                            |> Expect.equal "three, the first cut" [| $"%s{cut}..."; "b"; "c" |]
+                        }
+                    ]
+
+                testList
+                    "message"
+                    [
+                        // the Dutch rows of the terms, as the sheet has them
+                        let dutch term =
+                            match term with
+                            | Terms.``Server Error Text`` -> "Serverfout: {0}"
+                            | _ -> english term
+
+                        test "the errors after the sentence" {
+                            raised ErrorSource.OrderPlan [| "x"; "y" |]
+                            |> message english
+                            |> Expect.equal "should list the errors" "Server error: x; y"
+                        }
+
+                        test "in the language of the terms" {
+                            raised ErrorSource.OrderPlan [| "x"; "y" |]
+                            |> message dutch
+                            |> Expect.equal "should be Dutch" "Serverfout: x; y"
                         }
 
                         test "the server check gives the sentence that it does not answer, whatever the error" {
-                            (raised ErrorSource.Server [| "connection refused" |]).Message
+                            raised ErrorSource.Server [| "connection refused" |]
+                            |> message english
                             |> Expect.equal
                                 "the sentence"
-                                "De server is niet bereikbaar. Controleer of de server is gestart."
+                                "The server cannot be reached. Check that the server has been started."
+                        }
+
+                        test "the English of every banner term is set" {
+                            for term in
+                                [
+                                    Terms.``Server Error Title``
+                                    Terms.``Server Error Unreachable``
+                                    Terms.``Server Error Text``
+                                ] do
+                                english term |> Expect.notEqual $"default for {term}" $"{term}"
                         }
                     ]
 

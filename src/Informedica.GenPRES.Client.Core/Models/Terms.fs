@@ -2,8 +2,7 @@ namespace Informedica.GenPRES.Client.Core.Models
 
 /// Compile-time-safe enumeration of all localizable UI strings.
 /// Add a new case here whenever a new UI label is introduced, and update the
-/// Localization sheet accordingly. New cases are drafted script-first in
-/// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
+/// Localization sheet accordingly. New cases are drafted first in a script.
 /// The translations live in data/localization/localization.tsv, the shape of the sheet;
 /// scripts/CheckLocalization.fsx fails when a case has no row there.
 type Terms =
@@ -316,3 +315,15 @@ type Terms =
     | ``Startup Load Bolus Medication``
     | ``Startup Load Continuous Medication``
     | ``Startup Load Products``
+    // the snackbar alerts, with {0} the number of interactions
+    | ``Alert Interaction Names Not Loaded``
+    | ``Alert Interactions Found``
+    | ``Alert Close Failed``
+    | ``Alert Pin Not Sent``
+    | ``Alert Request Failed``
+    // a failure the server gave no error text for
+    | ``Alert Something Went Wrong``
+    // the server error banner, with {0} the errors the server gave
+    | ``Server Error Title``
+    | ``Server Error Unreachable``
+    | ``Server Error Text``
