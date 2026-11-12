@@ -260,7 +260,7 @@ module Formulary =
                 <Stack direction="column" spacing={3}>
 
                     <Typography sx={ {| fontSize = 14 |} } color="text.secondary" gutterBottom>
-                        {Formulary |> getTerm "Formularium"}
+                        {Formulary |> getTerm "Formulary"}
                     </Typography>
                     {match formulary with
                      | Resolved form
@@ -330,7 +330,7 @@ module Formulary =
 
                     <Box sx={ {| marginTop = 2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
-                            {Delete |> getTerm "Verwijder"}
+                            {Delete |> getTerm "Delete"}
                         </Button>
                     </Box>
                 </Stack>

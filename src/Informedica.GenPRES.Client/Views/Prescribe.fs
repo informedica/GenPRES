@@ -470,7 +470,7 @@ module Prescribe =
                             actions =
                                 [|
                                     {|
-                                        label = Edit |> getTerm "bewerken"
+                                        label = Edit |> getTerm "Edit"
                                         kind = Components.ActionBar.Kind.Secondary
                                         onClick = handleEditClick
                                         disabled = false
