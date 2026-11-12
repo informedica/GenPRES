@@ -1215,6 +1215,33 @@ module Medication =
             }
 
 
+        /// What a dilution limit asks of a component: how much of it the orderable may hold, and
+        /// what fraction of the whole orderable it may be. A component that is the only component
+        /// of the medication is left without the fraction, because the component is the whole
+        /// orderable.
+        let withComponentDilutionLimit single (dilutionLimit: DilutionLimit) (cmp: Types.Component) =
+            let con f = OrderVariable.mapConstraints f
+
+            { cmp with
+                OrderableQuantity =
+                    cmp.OrderableQuantity
+                    |> OrderVariable.Quantity.apply (
+                        con (
+                            OrderVariable.Constraints.setValues dilutionLimit.Quantities
+                            >> OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity
+                        )
+                    )
+                OrderableConcentration =
+                    if single then
+                        cmp.OrderableConcentration
+                    else
+                        cmp.OrderableConcentration
+                        |> OrderVariable.Concentration.apply (
+                            con (OrderVariable.Constraints.setMinMax false dilutionLimit.Concentration)
+                        )
+            }
+
+
         /// The quantities and concentrations the products give an item. With one component
         /// the orderable is the component, so the concentration in the one is the
         /// concentration in the other, and only the concentrations the dilution limit allows
@@ -1391,19 +1418,7 @@ module Medication =
                     |> OrderVariable.Quantity.apply (con (OrderVariable.Constraints.setValues pc.Quantities))
                 OrderableQuantity =
                     cmp.OrderableQuantity
-                    |> OrderVariable.Quantity.apply (
-                        con (fun cs ->
-                            cs
-                            |> OrderVariable.Constraints.setIncr incr
-                            |> fun cs ->
-                                match pc.DilutionLimit with
-                                | None -> cs
-                                | Some dilutionLimit ->
-                                    cs
-                                    |> OrderVariable.Constraints.setValues dilutionLimit.Quantities
-                                    |> OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity
-                        )
-                    )
+                    |> OrderVariable.Quantity.apply (con (OrderVariable.Constraints.setIncr incr))
                 Dose =
                     if single then
                         { cmp.Dose with
@@ -1414,6 +1429,10 @@ module Medication =
                     else
                         cmp.Dose
             }
+            |> fun cmp ->
+                match pc.DilutionLimit with
+                | None -> cmp
+                | Some dilutionLimit -> cmp |> withComponentDilutionLimit single dilutionLimit
 
 
         /// What the dose rule allows of the component. Where it allows nothing, the dose
