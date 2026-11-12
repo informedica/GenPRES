@@ -129,6 +129,70 @@ let tests =
                 termKeys () |> List.distinct |> List.length |> Expect.equal "all distinct" (termKeys () |> List.length)
             }
 
+            test "fallbacks finds the three ways the code writes a fallback, with their lines" {
+                let source =
+                    String.concat
+                        "\n"
+                        [
+                            "let a = Terms.``Order Dose`` |> getTerm \"dose\""
+                            "let b ="
+                            "    Delete"
+                            "    |> getTerm"
+                            "        \"Delete\""
+                            "    | Terms.Cancel -> \"Cancel\""
+                            "    terms \"Enter patient data\" Terms.``Patient enter patient data``"
+                        ]
+
+                source
+                |> fallbacks [ "Order Dose"; "Delete"; "Cancel"; "Patient enter patient data" ] "View.fs"
+                |> List.map (fun f -> f.Line, f.Term, f.Text)
+                |> Expect.equal
+                    "four fallbacks"
+                    [
+                        1, "Order Dose", "dose"
+                        5, "Delete", "Delete"
+                        6, "Cancel", "Cancel"
+                        7, "Patient enter patient data", "Enter patient data"
+                    ]
+            }
+
+            test "fallbacks leaves out a name that is no term" {
+                "Severity.Low |> getTerm \"low\"\n| Terms.Other -> \"other\""
+                |> fallbacks [ "Cancel" ] "View.fs"
+                |> Expect.isEmpty "no term"
+            }
+
+            test "fallbacks reads an escaped quote in the text" {
+                "Terms.Quote |> getTerm \"say \\\"hi\\\"\""
+                |> fallbacks [ "Quote" ] "View.fs"
+                |> List.map _.Text
+                |> Expect.equal "the quotes" [ "say \"hi\"" ]
+            }
+
+            test "wrongFallbacks names a fallback that differs from the English cell" {
+                let file = { Header = header; Rows = [ row "A" [ "Delete"; "Verwijder" ]; row "B" [ "Edit"; "Bewerk" ] ] }
+
+                [
+                    { File = "View.fs"; Line = 3; Term = "A"; Text = "Verwijder" }
+                    { File = "View.fs"; Line = 4; Term = "B"; Text = "Edit" }
+                    { File = "View.fs"; Line = 5; Term = "C"; Text = "no row" }
+                ]
+                |> wrongFallbacks file
+                |> List.map (fun (f, english) -> f.Term, english)
+                |> Expect.equal "A only" [ ("A", "Delete") ]
+            }
+
+            test "every fallback in the client equals the English cell of its term" {
+                let file = localizationPath () |> readLocalization
+                let found = clientFallbacks (termKeys ())
+
+                found |> Expect.isNonEmpty "the scan finds fallbacks"
+
+                wrongFallbacks file found
+                |> List.map (fun (f, english) -> $"%s{f.File}:%i{f.Line} %s{f.Term}: %s{f.Text} <> %s{english}")
+                |> Expect.isEmpty "no fallback differs"
+            }
+
             test "the localization file covers the union, every locale, every cell" {
                 let report = localizationPath () |> readLocalization |> scan (localeColumns ()) (termKeys ())
 

@@ -85,7 +85,7 @@ support but excluded from the solution build, so `dotnet build GenPRES.sln` neve
 | `dotnet run TestHeadless` | Run the suite through plain `dotnet test` |
 | `dotnet run Coverage` | Run the suite with the Code Coverage collector and print line and branch coverage per GenPRES assembly, plus the projects no test loads; writes `coverage/summary.md` and the cobertura report. A failing test ends it without a table. |
 | `dotnet run CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
-| `dotnet run Localization` | Check `data/localization/localization.tsv` against the `Terms` union (every case has a row, every locale a column, every cell filled), then print its rows to paste over the Localization sheet |
+| `dotnet run Localization` | Check `data/localization/localization.tsv` against the `Terms` union (every case has a row, every locale a column, every cell filled) and every English fallback in the client code against its English cell, then print its rows to paste over the Localization sheet |
 | `dotnet run Format` | Format all F# source with Fantomas |
 | `dotnet run MarkdownLint` | Lint the Markdown files |
 | `dotnet run ApiDocs` | Build the fsdocs API reference into `./output/`. Set `FSDOCS_ROOT` to the site base URL |

@@ -455,7 +455,8 @@ Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSoluti
 
 
 // The localization file checked against the Terms union (every case has a row, every locale a
-// column, every cell filled), then its rows, tab separated, to paste over the Localization sheet.
+// column, every cell filled) and the client's English fallbacks against their English cells, then
+// its rows, tab separated, to paste over the Localization sheet.
 Target.create "Localization" (fun _ -> run dotnet [ "fsi"; "scripts/CheckLocalization.fsx"; "--print" ] ".")
 
 
