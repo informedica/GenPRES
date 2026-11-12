@@ -1258,7 +1258,11 @@ module Types =
                 /// infusion (drip) rate bounds in mL/hour
                 MinDrip: BigRational option
                 MaxDrip: BigRational option
-                /// concentration bounds in Unit/mL
+                /// Concentration bounds in Unit/mL. On a row with a Substance the bounds are the
+                /// concentration of the substance in the prepared solution. On a row with a Component and
+                /// no Substance, with the Unit column mL, the bounds are the fraction of the whole prepared
+                /// solution the component may be, the other components and the diluent included: 1 part of
+                /// the component to 7 parts of everything else is 1 part in 8, the value 0.125.
                 MinConc: BigRational option
                 MaxConc: BigRational option
             }

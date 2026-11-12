@@ -36,6 +36,7 @@
     <Compile Include="OrderSetTests.fs" />
     <Compile Include="OrderLawsTests.fs" />
     <Compile Include="ConcentrationTests.fs" />
+    <Compile Include="ComponentConcentrationTests.fs" />
     <Compile Include="LargeIncrementTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />

@@ -1852,18 +1852,15 @@ let overConstrained =
     }
 
 
+/// The medication with the named component changed by f.
+let mapComponent cmpName f (med: Types.Medication) =
+    { med with Components = med.Components |> List.map (fun c -> if c.Name = cmpName then f c else c) }
+
+
 /// The medication with the substances of the named component changed by f.
-let mapSubstances cmpName f (med: Types.Medication) =
-    { med with
-        Components =
-            med.Components
-            |> List.map (fun c ->
-                if c.Name = cmpName then
-                    { c with Substances = c.Substances |> List.map f }
-                else
-                    c
-            )
-    }
+let mapSubstances cmpName f med =
+    med
+    |> mapComponent cmpName (fun c -> { c with Substances = c.Substances |> List.map f })
 
 
 /// The medication with a third component, NaCl 0,9%, a copy of its last component with only natrium
