@@ -827,7 +827,7 @@ type NoRules() =
         member _.GetProducts() = raise (System.NotImplementedException())
 
         member _.GetDoseRules() = [||]
-        member _.GetDilutionRules() = [||]
+        member _.GetSolutionRules() = [||]
         member _.GetRenalRules() = [||]
 
         member _.GetTotals() = raise (System.NotImplementedException())
@@ -1100,7 +1100,7 @@ type RulesOf(rules: DoseRule[]) =
         member _.GetRouteMappings() = RuleFixtures.routeMapping
 
 
-/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a dilution limit of
+/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a solution limit of
 /// 9 to 11 mg/mL and no diluent, so the medication cannot become an order.
 type UndilutedVancomycin() =
     inherit NoRules()
@@ -1145,7 +1145,7 @@ type UndilutedVancomycin() =
                 }
         }
 
-    let dilutionRule: DilutionRule =
+    let solutionRule: SolutionRule =
         {
             Generic = "vancomycine"
             Form = None
@@ -1161,10 +1161,10 @@ type UndilutedVancomycin() =
             VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DilutionLimits =
+            SolutionLimits =
                 [|
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
                         Concentration =
                             Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
                                 (9N |> ValueUnit.singleWithUnit mgPerMl)
@@ -1176,12 +1176,12 @@ type UndilutedVancomycin() =
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
             DoseRuleLoader.fromData routeMapping [||] [| vial |] [||] [| row |] |> fst
-        member _.GetDilutionRules() = [| dilutionRule |]
+        member _.GetSolutionRules() = [| solutionRule |]
         member _.GetRouteMappings() = routeMapping
 
 
 /// The electrolyte and glucose mixture as the production sheet holds it: a dose rule without dose values
-/// for no department, 3 to 16 kg, and a dilution rule for ICK from a weight in grams that limits both
+/// for no department, 3 to 16 kg, and a solution rule for ICK from a weight in grams that limits both
 /// components per kg.
 module Electrolytes =
 
@@ -1246,8 +1246,8 @@ module Electrolytes =
             (max |> ValueUnit.singleWithUnit (mL |> ValueUnit.per kg))
 
 
-    /// The dilution rule for ICK, from minWeight to 16 kg, in grams: at most 6 and 2 mL per kg.
-    let dilutionRule minWeight : DilutionRule =
+    /// The solution rule for ICK, from minWeight to 16 kg, in grams: at most 6 and 2 mL per kg.
+    let solutionRule minWeight : SolutionRule =
         let limit u = ValueUnit.singleWithUnit u >> Limit.inclusive >> Some
 
         {
@@ -1272,14 +1272,14 @@ module Electrolytes =
             VolumeAdjust = MinMax.empty
             DripRate = MinMax.empty
             DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
-            DilutionLimits =
+            SolutionLimits =
                 [|
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = ComponentLimitTarget "NaCl 3%"
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = ComponentLimitTarget "NaCl 3%"
                         QuantityAdj = perKg 6N
                     }
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = ComponentLimitTarget "KCl 7,4%"
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = ComponentLimitTarget "KCl 7,4%"
                         QuantityAdj = perKg 2N
                     }
                 |]
@@ -1295,20 +1295,20 @@ module Electrolytes =
         }
 
 
-/// The electrolyte and glucose mixture with a dilution rule for ICK from minWeight grams, and the products
+/// The electrolyte and glucose mixture with a solution rule for ICK from minWeight grams, and the products
 /// given.
 type ElectrolyteRules(minWeight, products) =
     inherit NoRules()
 
-    let dilutionRules = [| Electrolytes.dilutionRule minWeight |]
+    let solutionRules = [| Electrolytes.solutionRule minWeight |]
 
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
             [| Electrolytes.row "NaCl 3%"; Electrolytes.row "KCl 7,4%" |]
-            |> DoseRuleLoader.fromData Electrolytes.routeMapping [||] products dilutionRules
+            |> DoseRuleLoader.fromData Electrolytes.routeMapping [||] products solutionRules
             |> fst
 
-        member _.GetDilutionRules() = dilutionRules
+        member _.GetSolutionRules() = solutionRules
         member _.GetRouteMappings() = Electrolytes.routeMapping
         member _.GetDepartments() = Resources.Departments.ofNamed [ Some "ICK"; Some "NEO" ]
 
@@ -1998,10 +1998,10 @@ let selectsRulesTests =
         ]
 
 
-/// The access device a scenario is labelled with: that of the dilution rule its order was made
+/// The access device a scenario is labelled with: that of the solution rule its order was made
 /// from, paired by place with the medications of the rule.
 let scenarioAccessTests =
-    let dilutionRule access : DilutionRule =
+    let solutionRule access : SolutionRule =
         {
             Generic = "paracetamol"
             Form = None
@@ -2017,7 +2017,7 @@ let scenarioAccessTests =
             VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DilutionLimits = [||]
+            SolutionLimits = [||]
         }
 
     // a function, so that the rule lookup runs in the test and not when the file loads
@@ -2029,25 +2029,25 @@ let scenarioAccessTests =
         |> Api.getPrescriptionRules provider
         |> Result.defaultValue [||]
         |> Array.head
-        |> fun pr -> { pr with DilutionRules = accesses |> Array.map dilutionRule }
+        |> fun pr -> { pr with SolutionRules = accesses |> Array.map solutionRule }
 
     testList
         "the access of a scenario"
         [
-            test "a rule without dilution rules gives a single any access" {
+            test "a rule without solution rules gives a single any access" {
                 rule [||]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "any access, once" [| AnyAccess |]
             }
 
-            test "each dilution rule gives its access device, in the order of the rules" {
+            test "each solution rule gives its access device, in the order of the rules" {
                 rule [| CVL; PVL; AnyAccess |]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "the devices of the rules" [| CVL; PVL; AnyAccess |]
             }
 
             for accesses in [ [||]; [| CVL |]; [| CVL; PVL; AnyAccess |] ] do
-                test $"%i{accesses.Length} dilution rules give as many devices as medications" {
+                test $"%i{accesses.Length} solution rules give as many devices as medications" {
                     let pr = rule accesses
 
                     pr
@@ -2059,7 +2059,7 @@ let scenarioAccessTests =
                 }
 
             for accesses in [ [||]; [| CVL; PVL |]; [| PVL; AnyAccess; CVL |] ] do
-                test $"evaluated, the scenarios of %i{accesses.Length} dilution rules hold the access of their rule" {
+                test $"evaluated, the scenarios of %i{accesses.Length} solution rules hold the access of their rule" {
                     let expected =
                         if accesses |> Array.isEmpty then
                             [| AnyAccess |]
@@ -3713,7 +3713,7 @@ let totalsOverTests =
         ]
 
 
-/// The refusal of a context whose dose rule has no limits and gets them from a dilution rule.
+/// The refusal of a context whose dose rule has no limits and gets them from a solution rule.
 let refusalWithoutLimitsTests =
     let picked provider (pat: Patient) : OrderContext =
         let ctx = OrderContext.create OrderLogging.noOp provider pat
@@ -3753,7 +3753,7 @@ let refusalWithoutLimitsTests =
                 |> Expect.equal "no dose rules" Refusal.NoDoseRules
             }
 
-            test "in ICK, below the weight of the dilution rule, no dose rule is there for the patient" {
+            test "in ICK, below the weight of the solution rule, no dose rule is there for the patient" {
                 Electrolytes.patient "ICK" 5N
                 |> refusal 7000N
                 |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient

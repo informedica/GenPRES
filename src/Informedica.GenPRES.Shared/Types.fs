@@ -557,7 +557,7 @@ module Types =
             /// as calculated on the patient data before; it is for the prescriber to accept or remove
             NotRecalculated: bool
             ProductIds: string[]
-            /// The access device the scenario's dilution rule makes the preparation for; none when
+            /// The access device the scenario's solution rule makes the preparation for; none when
             /// the preparation is for any access. Never the patient's access.
             Access: Access option
         }
@@ -926,7 +926,7 @@ module Types =
         /// height, the patient does not have.
         | MeasurementMissing
         /// Dose rules cover the picks and the patient, and each medication must be diluted to
-        /// meet its dilution rule while the formulary has no diluent for it.
+        /// meet its solution rule while the formulary has no diluent for it.
         | NoDiluent
         /// The order cannot be solved with the change; the order stays as it was.
         | NotSolved

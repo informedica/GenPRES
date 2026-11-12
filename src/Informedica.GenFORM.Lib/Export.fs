@@ -288,7 +288,7 @@ module Analyze =
     /// <summary>
     /// surviving rows of any dataset = valid rows (loading keeps them), minus
     /// empty-limit no-substance rows (loading drops them), except the rows of a dose
-    /// rule that loading keeps without limits, because a dilution rule limits it. A row
+    /// rule that loading keeps without limits, because a solution rule limits it. A row
     /// belongs to the dose rule whose DataId is its RuleId; a sheet row has no RuleId,
     /// so it is computed.
     /// </summary>
@@ -446,7 +446,7 @@ module Export =
             (provider.GetRouteMappings())
             (provider.GetFormRoutes())
             (provider.GetProducts())
-            (provider.GetDilutionRules())
+            (provider.GetSolutionRules())
             data
         |> fst
 

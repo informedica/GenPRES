@@ -229,7 +229,7 @@ let zformDoseRangeToSubstanceLimit
 // 8.  Build a GenFORM DoseRule from one ZForm PatientDosage
 //
 //     Returns None when the dosage is purely continuous (rate-only),
-//     because those rules are not meaningful without dilution rules.
+//     because those rules are not meaningful without solution rules.
 // ===================================================================
 
 let patientDosageToGenFormDoseRule

@@ -92,10 +92,10 @@ type GenFormMcpTools() =
 
         GenFormTools.filterDoseRules GenFormMcpTools.Provider input |> McpHelpers.toJson
 
-    [<McpServerTool(Name = "get_dilution_rules")>]
-    [<Description("Return all dilution rules from the GenFORM knowledge base")>]
-    static member GetDilutionRules() =
-        GenFormTools.getDilutionRules GenFormMcpTools.Provider |> McpHelpers.toJson
+    [<McpServerTool(Name = "get_solution_rules")>]
+    [<Description("Return all solution rules from the GenFORM knowledge base")>]
+    static member GetSolutionRules() =
+        GenFormTools.getSolutionRules GenFormMcpTools.Provider |> McpHelpers.toJson
 
     [<McpServerTool(Name = "get_renal_rules")>]
     [<Description("Return all renal adjustment rules from the GenFORM knowledge base")>]
@@ -200,23 +200,23 @@ type GenOrderMcpTools() =
         GenOrderTools.getDoseRulesForContext GenOrderMcpTools.Provider input
         |> McpHelpers.toJson
 
-    [<McpServerTool(Name = "get_dilution_rules_for_context")>]
-    [<Description("Return the dilution rules for a medication")>]
-    static member GetDilutionRulesForContext
+    [<McpServerTool(Name = "get_solution_rules_for_context")>]
+    [<Description("Return the solution rules for a medication")>]
+    static member GetSolutionRulesForContext
         (
             [<Description("Generic drug name"); Optional>] generic: string,
             [<Description("Drug form"); Optional>] form: string,
             [<Description("Administration route"); Optional>] route: string
         )
         =
-        let input: GenOrderTools.DilutionRulesForContextInput =
+        let input: GenOrderTools.SolutionRulesForContextInput =
             {
                 Generic = McpHelpers.optStr generic
                 Form = McpHelpers.optStr form
                 Route = McpHelpers.optStr route
             }
 
-        GenOrderTools.getDilutionRulesForContext GenOrderMcpTools.Provider input
+        GenOrderTools.getSolutionRulesForContext GenOrderMcpTools.Provider input
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "create_order_context")>]

@@ -41,7 +41,7 @@ type TotalsSpy() =
         member _.GetRenalRules() = raise (NotImplementedException())
         member _.GetResourceInfo() = raise (NotImplementedException())
         member _.GetRouteMappings() = raise (NotImplementedException())
-        member _.GetDilutionRules() = raise (NotImplementedException())
+        member _.GetSolutionRules() = raise (NotImplementedException())
 
         member _.GetTotals() =
             callCount <- callCount + 1

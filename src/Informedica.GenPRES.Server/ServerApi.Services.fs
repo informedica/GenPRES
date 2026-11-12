@@ -243,11 +243,11 @@ module ParenteraliaService =
         Logging.ServerLogging.Info $"getting parenteralia for {par.Generic}"
         |> Informedica.Logging.Lib.Logging.logInfo logger
 
-        let dilRules = Formulary.getDilutionRules provider par.Generic par.Form par.Route
+        let solRules = Formulary.getSolutionRules provider par.Generic par.Form par.Route
 
-        let gens = dilRules |> DilutionRule.generics
-        let shps = dilRules |> DilutionRule.forms
-        let rtes = dilRules |> DilutionRule.routes
+        let gens = solRules |> SolutionRule.generics
+        let shps = solRules |> SolutionRule.forms
+        let rtes = solRules |> SolutionRule.routes
 
         { par with
             Generics = gens
@@ -265,7 +265,7 @@ module ParenteraliaService =
                 if par.Generic |> Option.isNone then
                     ""
                 else
-                    dilRules |> DilutionRule.Print.toMarkdown ""
+                    solRules |> SolutionRule.Print.toMarkdown ""
         }
         |> Ok
 

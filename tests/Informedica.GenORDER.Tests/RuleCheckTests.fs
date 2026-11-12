@@ -18,8 +18,8 @@ module Fixture =
 
     let logger = DataUpdateFixtures.logger
     let limit v = Some(BigRational.FromInt v)
-    let counted = DilutionRuleComparison.Counted
-    let ignored = DilutionRuleComparison.Ignored
+    let counted = SolutionRuleComparison.Counted
+    let ignored = SolutionRuleComparison.Ignored
 
     /// Rule A up to 10 kg and rule B from 10 kg, with another maximum dose.
     let rows maxB =
@@ -76,12 +76,12 @@ module Fixture =
         |> OrderContext.rulesFor logger p ctx.Patient
         |> Result.defaultWith (fun msgs -> failtest $"no rules: %A{msgs}")
 
-    /// A dilution rule to compare with.
-    let dilutionRules () =
-        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetDilutionRules()
+    /// A solution rule to compare with.
+    let solutionRules () =
+        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetSolutionRules()
 
-    let withDilutionRules rs =
-        rs |> Array.map (fun r -> { r with DilutionRules = dilutionRules () })
+    let withSolutionRules rs =
+        rs |> Array.map (fun r -> { r with SolutionRules = solutionRules () })
 
     let renalRule: RenalRule =
         {
@@ -263,27 +263,27 @@ let tests =
             }
 
             testList
-                "dilution rules"
+                "solution rules"
                 [
                     test "count with one dose, as when a central line is removed and its rule goes" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withDilutionRules) rules
+                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withSolutionRules) rules
                         |> Expect.isFalse "other rules"
                     }
 
                     test "are ignored with more doses" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withDilutionRules) rules
+                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withSolutionRules) rules
                         |> Expect.isTrue "the same rules"
                     }
 
                     test "the amount a per kg limit gives at a weight does not count" {
-                        let at (w: BigRational) (sr: DilutionRule) =
+                        let at (w: BigRational) (sr: SolutionRule) =
                             { sr with
-                                DilutionLimits =
-                                    sr.DilutionLimits
+                                SolutionLimits =
+                                    sr.SolutionLimits
                                     |> Array.map (fun sl ->
                                         let perKg =
                                             5N
@@ -302,8 +302,8 @@ let tests =
 
                         let atWeight w =
                             Fixture.rules ()
-                            |> Fixture.withDilutionRules
-                            |> Array.map (fun r -> { r with DilutionRules = r.DilutionRules |> Array.map (at w) })
+                            |> Fixture.withSolutionRules
+                            |> Array.map (fun r -> { r with SolutionRules = r.SolutionRules |> Array.map (at w) })
 
                         PrescriptionRule.sameRules Fixture.counted (atWeight 10N) (atWeight 20N)
                         |> Expect.isTrue "one rule"
