@@ -39,6 +39,9 @@ module TitleBar =
 
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
 
+        let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let getTerm = Global.getLocalizedTerm terms context.Localization
+
         // the hospital, the language, the login and the session change what every request reads:
         // they wait while anything is out
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
@@ -168,7 +171,18 @@ module TitleBar =
                 userSelect = "none"
             |}
 
-        let loginButtonText = if props.isAuthenticated then "Logout" else "Login"
+        let loginText = Terms.Login |> getTerm "Login"
+        let logoutText = Terms.Logout |> getTerm "Logout"
+        let passwordLabel = Terms.Password |> getTerm "Password"
+        let cancelText = Terms.Cancel |> getTerm "Cancel"
+
+        let passwordHelper =
+            if loginError then
+                Terms.``Invalid password`` |> getTerm "Invalid password"
+            else
+                ""
+
+        let loginButtonText = if props.isAuthenticated then logoutText else loginText
 
         let loginButtonIcon =
             if props.isAuthenticated then
@@ -263,11 +277,8 @@ module TitleBar =
                 minWidth = 0
             |}
 
-        // the session terms in the User's language, else the policy's English
-        let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
-
-        let tr term =
-            Global.getLocalizedTerm terms context.Localization (SessionGatePolicy.english term) term
+        // the session terms in the user's language, else the policy's English
+        let tr term = getTerm (SessionGatePolicy.english term) term
 
         let roleName role =
             match role with
@@ -455,26 +466,26 @@ module TitleBar =
                         readOnly={true}
                         style={ {| display = "none" |} }
                     />
-                    <DialogTitle>{"Login"}</DialogTitle>
+                    <DialogTitle>{loginText}</DialogTitle>
                     <DialogContent>
                         <TextField
                             autoFocus={true}
                             margin="dense"
                             name="password"
                             autoComplete="current-password"
-                            label="Password"
+                            label={passwordLabel}
                             type="password"
                             fullWidth={true}
                             variant="outlined"
                             value={password}
                             error={loginError}
-                            helperText={if loginError then "Invalid password" else ""}
+                            helperText={passwordHelper}
                             onChange={handlePasswordChange}
                         />
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={handleLoginClose} type="button">{"Cancel"}</Button>
-                        <Button type="submit" variant="contained">{"Login"}</Button>
+                        <Button onClick={handleLoginClose} type="button">{cancelText}</Button>
+                        <Button type="submit" variant="contained">{loginText}</Button>
                     </DialogActions>
                 </form>
             </Dialog>

@@ -279,3 +279,16 @@ Nutrition Composition Locked	set the dose quantity to 100% first to change the c
 Nutrition Intake Caption	dose quantity as a percentage of the total	toedien hoeveelheid als percentage van totaal	quantité administrée en pourcentage du total	verabreichte Menge als Prozentsatz der Gesamtmenge	cantidad administrada como porcentaje del total	quantità somministrata come percentuale del totale
 Nutrition Share Of Total	{0}% of total	{0}% van totaal	{0} % du total	{0} % der Gesamtmenge	{0} % del total	{0}% del totale
 Nutrition Parenteral Print Header	INFUSION ORDERS CENTRAL VENOUS CATHETERS	INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS	PRESCRIPTIONS DE PERFUSION CATHÉTERS VEINEUX CENTRAUX	INFUSIONSVERORDNUNGEN ZENTRALVENÖSE KATHETER	ÓRDENES DE INFUSIÓN CATÉTERES VENOSOS CENTRALES	PRESCRIZIONI DI INFUSIONE CATETERI VENOSI CENTRALI
+Demo Version	DEMO VERSION!	DEMOVERSIE!	VERSION DE DÉMONSTRATION !	DEMOVERSION!	¡VERSIÓN DE DEMOSTRACIÓN!	VERSIONE DEMO!
+Login	Login	Inloggen	Connexion	Anmelden	Iniciar sesión	Accedi
+Logout	Logout	Uitloggen	Déconnexion	Abmelden	Cerrar sesión	Esci
+Close	Close	Sluiten	Fermer	Schließen	Cerrar	Chiudi
+Settings Log Files	Log Files	Logbestanden	Fichiers journaux	Protokolldateien	Archivos de registro	File di log
+Settings File Name	File Name	Bestandsnaam	Nom du fichier	Dateiname	Nombre del archivo	Nome del file
+Settings Size	Size	Grootte	Taille	Größe	Tamaño	Dimensione
+Settings Last Modified	Last Modified	Laatst gewijzigd	Dernière modification	Zuletzt geändert	Última modificación	Ultima modifica
+Settings Refresh	Refresh	Vernieuwen	Actualiser	Aktualisieren	Actualizar	Aggiorna
+Settings No Log Files	No log files found.	Geen logbestanden gevonden.	Aucun fichier journal trouvé.	Keine Protokolldateien gefunden.	No se encontraron archivos de registro.	Nessun file di log trovato.
+Settings Analyzing Log File	Analyzing log file...	Logbestand wordt geanalyseerd...	Analyse du fichier journal...	Protokolldatei wird analysiert...	Analizando el archivo de registro...	Analisi del file di log...
+Settings Log Analysis Report	Log Analysis Report	Rapport loganalyse	Rapport d'analyse du journal	Bericht der Protokollanalyse	Informe de análisis del registro	Rapporto di analisi del log
+Settings No Report	No report available.	Geen rapport beschikbaar.	Aucun rapport disponible.	Kein Bericht verfügbar.	No hay ningún informe disponible.	Nessun rapporto disponibile.
