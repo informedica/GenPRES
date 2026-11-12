@@ -16,12 +16,24 @@ module PatientText =
         match term with
         | Terms.``Patient Male`` -> "Male"
         | Terms.``Patient Female`` -> "Female"
-        | Terms.``Patient Unknown Gender`` -> "Unknown"
-        | Terms.``Patient Renal Function`` -> "Renal function"
         | Terms.``Patient Boy`` -> "Boy"
         | Terms.``Patient Girl`` -> "Girl"
-        | Terms.``Patient Age And`` -> "and"
+        | Terms.``Patient Unknown Gender`` -> "Unknown"
+        | Terms.``Patient Age`` -> "Age"
+        | Terms.``Patient Weight`` -> "Weight"
+        | Terms.``Patient Length`` -> "Length"
         | Terms.``Patient BSA`` -> "BSA"
+        | Terms.``Patient GA Age`` -> "Gest. Age"
+        | Terms.``Patient Renal Function`` -> "Renal function"
+        | Terms.``Patient Age year`` -> "year"
+        | Terms.``Patient Age years`` -> "years"
+        | Terms.``Patient Age month`` -> "month"
+        | Terms.``Patient Age months`` -> "months"
+        | Terms.``Patient Age week`` -> "week"
+        | Terms.``Patient Age weeks`` -> "weeks"
+        | Terms.``Patient Age day`` -> "day"
+        | Terms.``Patient Age days`` -> "days"
+        | Terms.``Patient Age And`` -> "and"
         | Terms.``Patient Estimated`` -> "estimated"
         | _ -> RenalFunctionText.english term
 
@@ -34,35 +46,33 @@ module PatientText =
     module Age =
 
         let gestAgeToString terms lang (age: AgeWeeksDays) =
-            let getTerm = LocalizationText.getTerm terms
+            let text = text terms lang
 
-            $"""
-{age.Weeks} {getTerm lang Terms.``Patient Age weeks``} {age.Days} {getTerm lang Terms.``Patient Age days``}
-            """
+            $"%i{int age.Weeks} %s{text Terms.``Patient Age weeks``} %i{int age.Days} %s{text Terms.``Patient Age days``}"
 
 
         let toString terms lang (age: Age) =
-            let getTerm = LocalizationText.getTerm terms lang
+            let text = text terms lang
 
             let inline plur s1 s2 n = if int n = 1 then $"{int n} {s1}" else $"{int n} {s2}"
 
-            let andWord = text terms lang Terms.``Patient Age And``
+            let andWord = text Terms.``Patient Age And``
 
             let d =
                 age.Days
-                |> plur (getTerm Terms.``Patient Age day``) (getTerm Terms.``Patient Age days``)
+                |> plur (text Terms.``Patient Age day``) (text Terms.``Patient Age days``)
 
             let w =
                 age.Weeks
-                |> plur (getTerm Terms.``Patient Age week``) (getTerm Terms.``Patient Age weeks``)
+                |> plur (text Terms.``Patient Age week``) (text Terms.``Patient Age weeks``)
 
             let m =
                 age.Months
-                |> plur (getTerm Terms.``Patient Age month``) (getTerm Terms.``Patient Age months``)
+                |> plur (text Terms.``Patient Age month``) (text Terms.``Patient Age months``)
 
             let y =
                 age.Years
-                |> plur (getTerm Terms.``Patient Age year``) (getTerm Terms.``Patient Age years``)
+                |> plur (text Terms.``Patient Age year``) (text Terms.``Patient Age years``)
 
             match age with
             | _ when age.Years = 0<year> && age.Months = 0<month> && age.Weeks = 0<week> -> $"{d}"
@@ -157,8 +167,6 @@ module PatientText =
 
 
     let toString terms lang markDown (pat: Patient) =
-        let getTerm = LocalizationText.getTerm terms lang
-
         let bold s = s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
         let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
@@ -170,14 +178,15 @@ module PatientText =
         [
             pat |> genderWord text |> Some |> bold
 
-            Some $"{Terms.``Patient Age`` |> getTerm}:" |> italic
+            Some $"%s{text Terms.``Patient Age``}:" |> italic
 
             pat.Age
             |> Option.map (Age.toString terms lang)
             |> bold
-            |> Option.orElse ("" |> Some)
+            |> Option.defaultValue ""
+            |> Some
 
-            Some $"{Terms.``Patient Weight`` |> getTerm}:" |> italic
+            Some $"%s{text Terms.``Patient Weight``}:" |> italic
 
             pat.Weight.Measured |> Option.map weightText |> bold
 
@@ -192,7 +201,7 @@ module PatientText =
                 pat.Weight.EstimatedP97
 
 
-            Some $"{Terms.``Patient Length`` |> getTerm}:" |> italic
+            Some $"%s{text Terms.``Patient Length``}:" |> italic
 
             pat.Height.Measured |> Option.map heightText |> bold
 
@@ -217,12 +226,13 @@ module PatientText =
             |> bold
 
             if pat.GestationalAge |> GestationalAge.mayBeGiven then
-                (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
+                (Some $", %s{text Terms.``Patient GA Age``}:") |> italic
 
                 pat.GestationalAge
                 |> GestationalAge.value
                 |> Option.map (Age.gestAgeToString terms lang)
-                |> Option.orElse ("" |> Some)
+                |> Option.defaultValue ""
+                |> Some
 
             if pat.RenalFunction |> Option.isSome then
                 Some $"%s{text Terms.``Patient Renal Function``}:" |> italic
