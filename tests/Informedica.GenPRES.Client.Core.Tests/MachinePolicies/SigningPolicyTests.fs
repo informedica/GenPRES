@@ -363,6 +363,24 @@ let tests =
                     test "an unverified notice has no lines" {
                         noticeRows named patient (notice None) |> Expect.isEmpty "no lines"
                     }
+
+                    test "without the sheet the renal function and the gender are in English" {
+                        noticeRows
+                            english
+                            { patient with
+                                Gender = Male
+                                RenalFunction = Some(EGFR(Some 30, Some 50))
+                            }
+                            (notice (
+                                Some
+                                    { patient with
+                                        Gender = Female
+                                        RenalFunction = Some PeritonealDialysis
+                                    }
+                            ))
+                        |> List.map (fun r -> r.Plan, r.Ehr)
+                        |> Expect.equal "English" [ "Male", "Female"; "30 - 50 mL/min/1.73 m2", "Peritoneal dialysis" ]
+                    }
                 ]
 
             test "the PIN's own check is the enrolment's: four to six digits" {

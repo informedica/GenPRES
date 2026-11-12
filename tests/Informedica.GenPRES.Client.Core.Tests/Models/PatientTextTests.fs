@@ -114,7 +114,7 @@ let toStringTests =
          |],
          Spanish,
          (0, 6, 2, 1),
-         "6 Some(ySp), 2 Some(sMkDbv) en 1 Some(cK4C)")
+         "6 Some(ySp), 2 Some(sMkDbv) and 1 Some(cK4C)")
         ([|
             [|
                 "Patient Age day"
@@ -3996,6 +3996,43 @@ let patientOf (years: int option) mark gender : Patient =
     }
 
 
+/// The Dutch and German rows of the patient terms, as the sheet has them.
+let patientRows =
+    [|
+        [| "Patient Male"; "Male"; "Man"; ""; "Männlich"; ""; "" |]
+        [| "Patient Female"; "Female"; "Vrouw"; ""; "Weiblich"; ""; "" |]
+        [| "Patient Unknown Gender"; "Unknown"; "Onbekend"; ""; "Unbekannt"; ""; "" |]
+        [| "Patient Boy"; "Boy"; "Jongen"; ""; "Junge"; ""; "" |]
+        [| "Patient Girl"; "Girl"; "Meisje"; ""; "Mädchen"; ""; "" |]
+        [| "Patient Age And"; "and"; "en"; ""; "und"; ""; "" |]
+        [| "Patient BSA"; "BSA"; "BSA"; ""; "KOF"; ""; "" |]
+        [|
+            "Patient Renal Function"
+            "Renal function"
+            "Nierfunctie"
+            ""
+            "Nierenfunktion"
+            ""
+            ""
+        |]
+        [|
+            "Patient Renal Peritoneal Dialysis"
+            "Peritoneal dialysis"
+            "Peritoneale dialyse"
+            ""
+            "Peritonealdialyse"
+            ""
+            ""
+        |]
+    |]
+
+
+/// The translation of a term from the patient rows, else its English.
+let translate lang term =
+    LocalizationText.getTerm patientRows lang term
+    |> Option.defaultValue (PatientText.english term)
+
+
 [<Tests>]
 let genderWordTests =
     testList
@@ -4003,29 +4040,97 @@ let genderWordTests =
         [
             test "a marked patient of 17 is written as Man or Vrouw" {
                 patientOf (Some 17) (AdultMark.MarkableAdult true) Male
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "a man" "Man"
                 patientOf (Some 17) (AdultMark.MarkableAdult true) Female
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "a woman" "Vrouw"
             }
 
             test "a patient of 17 not marked is written as Jongen or Meisje" {
                 patientOf (Some 17) (AdultMark.MarkableAdult false) Male
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "a boy" "Jongen"
                 patientOf (Some 17) (AdultMark.MarkableAdult false) Female
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "a girl" "Meisje"
             }
 
             test "a patient of 18 is an adult, and a marked patient without an age too" {
                 patientOf (Some 18) AdultMark.Adult Male
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "18" "Man"
                 patientOf None (AdultMark.MarkableAdult true) Female
-                |> PatientText.genderWord
+                |> PatientText.genderWord (translate Dutch)
                 |> Flip.Expect.equal "no age" "Vrouw"
+            }
+
+            test "the words follow the language" {
+                patientOf (Some 5) (AdultMark.MarkableAdult false) Female
+                |> PatientText.genderWord (translate German)
+                |> Flip.Expect.equal "a girl" "Mädchen"
+                patientOf (Some 5) (AdultMark.MarkableAdult false) UnknownGender
+                |> PatientText.genderWord (translate Dutch)
+                |> Flip.Expect.equal "unknown" "Onbekend"
+            }
+
+            test "without the sheet the words are English" {
+                patientOf (Some 5) (AdultMark.MarkableAdult false) Male
+                |> PatientText.genderWord PatientText.english
+                |> Flip.Expect.equal "a boy" "Boy"
+            }
+        ]
+
+
+[<Tests>]
+let patientLineTests =
+    testList
+        "PatientText.toString"
+        [
+            let line lang renal =
+                { patientOf (Some 5) (AdultMark.MarkableAdult false) Female with RenalFunction = renal }
+                |> PatientText.toString patientRows lang false
+
+            test "the gender, the BSA label and the renal function are written in the language" {
+                let text = line German (Some PeritonealDialysis)
+
+                for part in [ "Mädchen"; "KOF:"; "Nierenfunktion:"; "Peritonealdialyse" ] do
+                    text.Contains part |> Flip.Expect.isTrue $"%s{part} in %s{text}"
+            }
+
+            test "without a renal function there is no renal label" {
+                (line Dutch None).Contains "Nierfunctie" |> Flip.Expect.isFalse "no renal label"
+            }
+
+            test "a term without a row falls back to English" {
+                let text = line French (Some PeritonealDialysis)
+
+                for part in [ "Girl"; "BSA:"; "Renal function:"; "Peritoneal dialysis" ] do
+                    text.Contains part |> Flip.Expect.isTrue $"%s{part} in %s{text}"
+            }
+
+        ]
+
+
+[<Tests>]
+let englishTests =
+    testList
+        "PatientText.english"
+        [
+            test "the English of every patient term is set" {
+                for term in
+                    [
+                        Terms.``Patient Male``
+                        Terms.``Patient Female``
+                        Terms.``Patient Unknown Gender``
+                        Terms.``Patient Renal Function``
+                        Terms.``Patient Boy``
+                        Terms.``Patient Girl``
+                        Terms.``Patient Age And``
+                        Terms.``Patient BSA``
+                        Terms.``Patient Estimated``
+                    ] do
+                    PatientText.english term |> Flip.Expect.notEqual $"default for {term}" $"{term}"
             }
         ]
 

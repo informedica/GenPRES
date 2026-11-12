@@ -327,3 +327,17 @@ type Terms =
     | ``Server Error Title``
     | ``Server Error Unreachable``
     | ``Server Error Text``
+    // the patient line: a child's gender word, the word that joins the last part of an age, the
+    // label of the body surface area
+    | ``Patient Boy``
+    | ``Patient Girl``
+    | ``Patient Age And``
+    | ``Patient BSA``
+    // the renal functions the patient panel offers
+    | ``Patient Renal eGFR Above 50``
+    | ``Patient Renal eGFR 30 To 50``
+    | ``Patient Renal eGFR 10 To 30``
+    | ``Patient Renal eGFR Below 10``
+    | ``Patient Renal Intermittent Hemodialysis``
+    | ``Patient Renal Continuous Hemodialysis``
+    | ``Patient Renal Peritoneal Dialysis``
