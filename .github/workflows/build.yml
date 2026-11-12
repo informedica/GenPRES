@@ -77,6 +77,11 @@ jobs:
       # source files only, so it needs no build and runs before the tests for fast feedback.
       run: dotnet fsi scripts/CheckDependencyRule.fsx
 
+    - name: Check localization
+      # Every term of the client has a row in data/localization/localization.tsv, and every English
+      # fallback in the client code equals the English cell of its term. Reads the files only.
+      run: dotnet fsi scripts/CheckLocalization.fsx
+
     - name: Check project graph is current
       # The dependency diagram in ARCHITECTURE.md is generated from the .fsproj files and the ring
       # map; fails when a project or reference changed without `dotnet fsi scripts/ProjectGraph.fsx --write`.
