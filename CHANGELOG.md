@@ -1,5 +1,5 @@
 ---
-last_commit_released: f1de12cbe91280be20d6385d5b473f88af35a1a4
+last_commit_released: 5a22b6f38e31846bda068ab6764373ab9526a145
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,25 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.54 - 2026-11-12
+
+### 🚀 Features
+
+* *(client)* Translate the alert and server error texts ([d3cb19a6](https://github.com/informedica/GenPRES/commit/d3cb19a6780809f2dd5a0c65e55878208bf2248d))
+* *(client)* Translate the patient text and renal options ([477e5402](https://github.com/informedica/GenPRES/commit/477e5402bdff609000720618b185a0bfe5548156))
+* *(client)* Translate the order and nutrition labels ([d4405290](https://github.com/informedica/GenPRES/commit/d4405290a5799e82fe2c4757ac350ddedbcd6bd2))
+* *(client)* Translate the shell and settings texts ([df0fd899](https://github.com/informedica/GenPRES/commit/df0fd8997132318925af0373e29626731519ba69))
+* *(genorder)* Apply component concentration limit ([dc01773e](https://github.com/informedica/GenPRES/commit/dc01773edef85c55d501d7dcdd80207443bd653a))
+* *(ui)* Show the TPN composition lock as a notice ([ef0a43a0](https://github.com/informedica/GenPRES/commit/ef0a43a0c2bd00fa0721eb6d1f5dce30b859acac))
+
+### 🐞 Bug Fixes
+
+* *(client)* Make every term fallback English ([34e0081c](https://github.com/informedica/GenPRES/commit/34e0081cd246fb46b57f48161361bc5303438802))
+* *(client)* Switch the last four fallbacks to English ([c8ce4fa3](https://github.com/informedica/GenPRES/commit/c8ce4fa3d1a9a6729dfcd36d251e8714f6804bfe))
+* *(client)* Unwrap the age words of the patient text ([e2cae8ca](https://github.com/informedica/GenPRES/commit/e2cae8caea03c1c665e570db09e39640d89787b9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/f1de12cbe91280be20d6385d5b473f88af35a1a4..5a22b6f38e31846bda068ab6764373ab9526a145)</small></strong>
 
 ## 0.1.2-alpha.53 - 2026-11-11
 
