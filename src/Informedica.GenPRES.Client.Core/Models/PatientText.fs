@@ -10,6 +10,27 @@ module PatientText =
     open Informedica.GenPRES.Shared.Types.Patient
 
 
+    /// The English of the patient terms, used when the sheet has no row for a term or has not
+    /// loaded. Any other term shows the English of the renal function terms, or its name.
+    let english term =
+        match term with
+        | Terms.``Patient Male`` -> "Male"
+        | Terms.``Patient Female`` -> "Female"
+        | Terms.``Patient Unknown Gender`` -> "Unknown"
+        | Terms.``Patient Renal Function`` -> "Renal function"
+        | Terms.``Patient Boy`` -> "Boy"
+        | Terms.``Patient Girl`` -> "Girl"
+        | Terms.``Patient Age And`` -> "and"
+        | Terms.``Patient BSA`` -> "BSA"
+        | Terms.``Patient Estimated`` -> "estimated"
+        | _ -> RenalFunctionText.english term
+
+
+    /// The text of a term in the language: the sheet's translation, else the English.
+    let text terms lang term =
+        LocalizationText.getTerm terms lang term |> Option.defaultValue (english term)
+
+
     module Age =
 
         let gestAgeToString terms lang (age: AgeWeeksDays) =
@@ -24,6 +45,8 @@ module PatientText =
             let getTerm = LocalizationText.getTerm terms lang
 
             let inline plur s1 s2 n = if int n = 1 then $"{int n} {s1}" else $"{int n} {s2}"
+
+            let andWord = text terms lang Terms.``Patient Age And``
 
             let d =
                 age.Days
@@ -43,10 +66,11 @@ module PatientText =
 
             match age with
             | _ when age.Years = 0<year> && age.Months = 0<month> && age.Weeks = 0<week> -> $"{d}"
-            | _ when age.Years = 0<year> && age.Months = 0<month> -> if age.Days = 0<day> then $"{w}" else $"{w} en {d}"
+            | _ when age.Years = 0<year> && age.Months = 0<month> ->
+                if age.Days = 0<day> then $"{w}" else $"{w} {andWord} {d}"
             | _ when age.Years = 0<year> ->
                 match age.Weeks, age.Days with
-                | ws, ds when ds > 0<day> && ws > 0<week> -> $"{m}, {w} en {d}"
+                | ws, ds when ds > 0<day> && ws > 0<week> -> $"{m}, {w} {andWord} {d}"
                 | ws, ds when ds = 0<day> && ws > 0<week> -> $"{m}, {w}"
                 | ws, ds when ds > 0<day> && ws = 0<week> -> $"{m}, {d}"
                 | _ -> $"{m}"
@@ -75,13 +99,18 @@ module PatientText =
 
     /// The word for the patient's gender and age group: an adult by the Shared adult test, the
     /// mark as an adult included.
-    let genderWord (pat: Patient) =
+    let genderWord tr (pat: Patient) =
         let adult = pat |> isAdult
 
-        match pat.Gender with
-        | Male -> if adult then "Man" else "Jongen"
-        | Female -> if adult then "Vrouw" else "Meisje"
-        | UnknownGender -> "Onbekend geslacht"
+        let term =
+            match pat.Gender, adult with
+            | Male, true -> Terms.``Patient Male``
+            | Male, false -> Terms.``Patient Boy``
+            | Female, true -> Terms.``Patient Female``
+            | Female, false -> Terms.``Patient Girl``
+            | UnknownGender, _ -> Terms.``Patient Unknown Gender``
+
+        tr term
 
 
     /// A weight in grams as kilograms.
@@ -134,10 +163,12 @@ module PatientText =
 
         let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
 
-        let estimatedWord = Terms.``Patient Estimated`` |> getTerm |> Option.defaultValue "estimated"
+        let text = text terms lang
+
+        let estimatedWord = text Terms.``Patient Estimated``
 
         [
-            pat |> genderWord |> Some |> bold
+            pat |> genderWord text |> Some |> bold
 
             Some $"{Terms.``Patient Age`` |> getTerm}:" |> italic
 
@@ -176,7 +207,7 @@ module PatientText =
                 pat.Height.EstimatedP97
 
 
-            (Some "BSA:") |> italic
+            Some $"%s{text Terms.``Patient BSA``}:" |> italic
             pat
             |> calcBSA
             |> Option.map (fun x ->
@@ -194,8 +225,8 @@ module PatientText =
                 |> Option.orElse ("" |> Some)
 
             if pat.RenalFunction |> Option.isSome then
-                Some "Nierfunctie:" |> italic
-                pat.RenalFunction |> Option.map RenalFunctionText.renalToOption |> bold
+                Some $"%s{text Terms.``Patient Renal Function``}:" |> italic
+                pat.RenalFunction |> Option.map (RenalFunctionText.term >> text) |> bold
 
         ]
         |> List.choose id

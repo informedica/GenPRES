@@ -204,7 +204,7 @@ module SigningPolicy =
                     Terms.``Patient Renal Function``
                     patient.RenalFunction
                     ehr.RenalFunction
-                    RenalFunctionText.renalToOption
+                    (RenalFunctionText.term >> tr)
                 row Terms.``Patient Department`` patient.Department ehr.Department id
             ]
             |> List.choose id

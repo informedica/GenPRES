@@ -57,7 +57,7 @@ module SessionGatePolicy =
 
 
     /// The English of the session terms, used when the sheet has no row for a term or has not
-    /// loaded. Any other term shows its name.
+    /// loaded. Any other term shows the English of the patient terms, or its name.
     let english (term: Terms) =
         match term with
         | Terms.``Session Gate Opening`` -> "Opening your session"
@@ -114,7 +114,7 @@ module SessionGatePolicy =
         | Terms.``Session Version Opened`` -> "Version {0} by {1} is now open."
         | Terms.``Session Refresh Failed`` ->
             "The patient data could not be read from the EHR again. The patient data are as they were."
-        | _ -> $"{term}"
+        | _ -> PatientText.english term
 
 
     /// The sentences of a refusal: what happened, then what the user can do. Each sentence is its

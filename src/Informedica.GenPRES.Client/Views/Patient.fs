@@ -655,8 +655,7 @@ module Patient =
                 </Box>
                 """
 
-                RenalFunctionText.options
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                RenalFunctionText.labelled (fun term -> term |> getTerm (RenalFunctionText.english term))
                 |> createSelect
                     (Terms.``Patient Renal Function`` |> getTerm "Nierfunctie")
                     (pat |> Option.bind PatientRead.getRenalFunction)

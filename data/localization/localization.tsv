@@ -255,3 +255,14 @@ Alert Something Went Wrong	Something went wrong.	Er ging iets mis.	Une erreur s'
 Server Error Title	Server problem	Serverprobleem	Problème de serveur	Serverproblem	Problema del servidor	Problema del server
 Server Error Unreachable	The server cannot be reached. Check that the server has been started.	De server is niet bereikbaar. Controleer of de server is gestart.	Le serveur est injoignable. Vérifiez que le serveur est démarré.	Der Server ist nicht erreichbar. Prüfen Sie, ob der Server gestartet ist.	No se puede acceder al servidor. Compruebe que el servidor está iniciado.	Il server non è raggiungibile. Verifica che il server sia avviato.
 Server Error Text	Server error: {0}	Serverfout: {0}	Erreur du serveur : {0}	Serverfehler: {0}	Error del servidor: {0}	Errore del server: {0}
+Patient Boy	Boy	Jongen	Garçon	Junge	Niño	Bambino
+Patient Girl	Girl	Meisje	Fille	Mädchen	Niña	Bambina
+Patient Age And	and	en	et	und	y	e
+Patient BSA	BSA	BSA	SC	KOF	SC	SC
+Patient Renal eGFR Above 50	> 50 mL/min/1.73 m2	> 50 mL/min/1,73 m2	> 50 mL/min/1,73 m2	> 50 mL/min/1,73 m2	> 50 mL/min/1,73 m2	> 50 mL/min/1,73 m2
+Patient Renal eGFR 30 To 50	30 - 50 mL/min/1.73 m2	30 - 50 mL/min/1,73 m2	30 - 50 mL/min/1,73 m2	30 - 50 mL/min/1,73 m2	30 - 50 mL/min/1,73 m2	30 - 50 mL/min/1,73 m2
+Patient Renal eGFR 10 To 30	10 - 30 mL/min/1.73 m2	10 - 30 mL/min/1,73 m2	10 - 30 mL/min/1,73 m2	10 - 30 mL/min/1,73 m2	10 - 30 mL/min/1,73 m2	10 - 30 mL/min/1,73 m2
+Patient Renal eGFR Below 10	< 10 mL/min/1.73 m2	< 10 mL/min/1,73 m2	< 10 mL/min/1,73 m2	< 10 mL/min/1,73 m2	< 10 mL/min/1,73 m2	< 10 mL/min/1,73 m2
+Patient Renal Intermittent Hemodialysis	Intermittent hemodialysis	Intermitterende hemodialyse	Hémodialyse intermittente	Intermittierende Hämodialyse	Hemodiálisis intermitente	Emodialisi intermittente
+Patient Renal Continuous Hemodialysis	Continuous hemodialysis	Continue hemodialyse	Hémodialyse continue	Kontinuierliche Hämodialyse	Hemodiálisis continua	Emodialisi continua
+Patient Renal Peritoneal Dialysis	Peritoneal dialysis	Peritoneale dialyse	Dialyse péritonéale	Peritonealdialyse	Diálisis peritoneal	Dialisi peritoneale
