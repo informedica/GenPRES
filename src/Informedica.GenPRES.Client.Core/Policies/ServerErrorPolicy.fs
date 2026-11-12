@@ -6,6 +6,9 @@ namespace Informedica.GenPRES.Client.Core.Policies
 /// check that succeeds, and that check clears every error, since the server answers again.
 module ServerErrorPolicy =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+
 
     /// The kind of request an error answered.
     [<RequireQualifiedAccess>]
@@ -37,24 +40,19 @@ module ServerErrorPolicy =
         {
             /// The kind of request the error answered.
             Source: ErrorSource
-            /// The text the banner shows.
-            Message: string
+            /// The first three errors the server gave, each cut at 200 characters.
+            Errors: string[]
         }
 
 
-    /// The error a failed request of source raises: for the server check, the sentence that it does
-    /// not answer; for any other source the first three errors, each cut at 200 characters.
+    /// The error a failed request of source raises, with the first three errors, each cut at 200
+    /// characters.
     let raised source (errs: string[]) =
         let cut (s: string) = if s.Length > 200 then s[..199] + "..." else s
 
         {
             Source = source
-            Message =
-                match source with
-                | ErrorSource.Server -> "De server is niet bereikbaar. Controleer of de server is gestart."
-                | _ ->
-                    let errs = errs |> Array.truncate 3 |> Array.map cut |> String.concat "; "
-                    $"Server fout: %s{errs}"
+            Errors = errs |> Array.truncate 3 |> Array.map cut
         }
 
 
@@ -64,3 +62,23 @@ module ServerErrorPolicy =
         match error with
         | Some e when e.Source = source || source = ErrorSource.Server -> None
         | _ -> error
+
+
+    /// The English of the banner terms, used when the sheet has no row for a term or has not
+    /// loaded. Any other term shows its name.
+    let english term =
+        match term with
+        | Terms.``Server Error Title`` -> "Server problem"
+        | Terms.``Server Error Unreachable`` -> "The server cannot be reached. Check that the server has been started."
+        | Terms.``Server Error Text`` -> "Server error: {0}"
+        | _ -> $"{term}"
+
+
+    /// The sentence of the banner: for the server check, that the server does not answer; for any
+    /// other source, the errors the server gave.
+    let message tr error =
+        match error.Source with
+        | ErrorSource.Server -> tr Terms.``Server Error Unreachable``
+        | _ ->
+            tr Terms.``Server Error Text``
+            |> TermText.fill [ error.Errors |> String.concat "; " ]

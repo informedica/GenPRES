@@ -1,8 +1,10 @@
 namespace Informedica.GenPRES.Client.Core.Helpers
 
-/// What the snackbar can show: one case per sentence, and the severity it is shown with. The text
-/// of a case is written where the client turns it into words.
+/// What the snackbar can show: one case per sentence, the severity it is shown with, and the
+/// English of the alert terms; the client translates them.
 module Alert =
+
+    open Informedica.GenPRES.Client.Core.Models
 
     open Informedica.GenPRES.Shared.Types
 
@@ -44,10 +46,12 @@ module Alert =
         | NoPatientForMedication
         /// A launch url came while a signature was under way, and was not opened.
         | LaunchNotOpened
-        /// The patient change failed, with the first error the server gave.
-        | PatientChangeFailed of string
-        /// The workbench failed, with the first error the server gave.
-        | WorkbenchFailed of string
+        /// The patient change failed, with the first error the server gave; none when the server
+        /// gave no error text.
+        | PatientChangeFailed of string option
+        /// The workbench failed, with the first error the server gave; none when the server gave no
+        /// error text.
+        | WorkbenchFailed of string option
         /// The signature did not reach the server.
         | SigningSendFailed
         /// The order plan was signed.
@@ -89,3 +93,18 @@ module Alert =
         | Alert.PatientDataChanged _
         | Alert.OrderPlanSigned _
         | Alert.SignedPlanOpened _ -> Severity.Success
+
+
+    /// The English of the alert terms, used when the sheet has no row for a term or has not
+    /// loaded. Any other term shows its name.
+    let english term =
+        match term with
+        | Terms.``Alert Interaction Names Not Loaded`` ->
+            "The medication names for the interaction check could not be loaded."
+        | Terms.``Alert Interactions Found`` -> "{0} interaction(s) found."
+        | Terms.``Invalid password`` -> "Invalid password"
+        | Terms.``Alert Close Failed`` -> "The session could not be closed. Try again."
+        | Terms.``Alert Pin Not Sent`` -> "The PIN could not be sent. Try again."
+        | Terms.``Alert Request Failed`` -> "Something went wrong; reload the page."
+        | Terms.``Alert Something Went Wrong`` -> "Something went wrong."
+        | _ -> $"{term}"

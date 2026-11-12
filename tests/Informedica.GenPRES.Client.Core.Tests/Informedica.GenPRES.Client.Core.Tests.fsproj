@@ -19,6 +19,7 @@
     <Compile Include="Helpers/TermTextTests.fs" />
     <Compile Include="Helpers/UrlTests.fs" />
     <Compile Include="Helpers/CommandPreviewTests.fs" />
+    <Compile Include="Helpers/AlertTests.fs" />
 
     <!-- the code from Shared -->
     <Compile Include="Models/PatientTextTests.fs" />

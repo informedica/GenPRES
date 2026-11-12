@@ -609,7 +609,7 @@ module Client =
         let alert a = [ ClientMsg.Shell(ShellMsg.AlertRaised a) ]
         let failed source errs = [ ClientMsg.Shell(ShellMsg.ServerErrorRaised(source, errs)) ]
         let succeeded source = [ ClientMsg.Shell(ShellMsg.ServerErrorCleared source) ]
-        let first errs = errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"
+        let first errs = errs |> Array.tryHead
 
         match effect with
         // the lanes: what the user is told, the plan's error banner, the pages and the interactions
