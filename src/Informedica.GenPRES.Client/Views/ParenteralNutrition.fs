@@ -145,7 +145,7 @@ module ParenteralNutrition =
             <>
                 {slot.ComponentHeader}
                 {slot.ComponentRows |> unbox<seq<ReactElement>> |> React.Fragment}
-                {slot.CompositionHint}
+                {slot.CompositionNotice}
                 <Divider sx={dividerSx} />
                 {totalVolumeRow}
             </>
