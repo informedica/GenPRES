@@ -44,7 +44,7 @@ open Informedica.ZIndex.Lib
 
 
 /// The spreadsheet with the DilutionRules and Formulary sheets, used when GENPRES_URL_ID is not set.
-let defaultUrlId = "1StESB1RJTOiLOglvGeziC784JQwPkc3Sm98wrjId6rI"
+let defaultUrlId = ""
 
 
 /// The spreadsheet id from GENPRES_URL_ID, or the default spreadsheet when the variable is not set.
