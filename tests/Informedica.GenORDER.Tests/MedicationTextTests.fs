@@ -588,7 +588,7 @@ Components:
                 - "2"
               Unit: microg/kg/min
               Inclusive: true
-        Solution:
+        Dilution:
           Quantity:
             Min:
               Value:
@@ -697,7 +697,7 @@ Components:
           Value:
             - "0.08"
           Unit: g/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -709,7 +709,7 @@ Components:
           Value:
             - "0.008"
           Unit: mmol/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -721,7 +721,7 @@ Components:
           Value:
             - "0.02"
           Unit: mmol/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -754,7 +754,7 @@ Components:
           Value:
             - "0.5"
           Unit: mmol/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -787,7 +787,7 @@ Components:
           Value:
             - "1"
           Unit: mmol/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -993,7 +993,7 @@ Components:
                 - "1.7"
               Unit: mg/min
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1100,7 +1100,7 @@ Components:
           Value:
             - "0.08"
           Unit: g/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -1133,7 +1133,7 @@ Components:
           Value:
             - "0.5"
           Unit: mmol/ml
-        Solution:
+        Dilution:
           Concentration:
             Max:
               Value:
@@ -1298,7 +1298,7 @@ Components:
                 - "7"
               Unit: mg/kg/day
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1468,7 +1468,7 @@ Components:
     /// Demonstrates:
     /// - TimedOrder where the active drug must be reconstituted (dissolved)
     ///   from a powder vial before dilution in a carrier fluid
-    /// - Solution limit concentration constraint (2.5-10 mg/ml)
+    /// - Dilution limit concentration constraint (2.5-10 mg/ml)
     /// - Rate limit (max 1.7 mg/min) alongside per-time and per-time-adjusted
     ///   dose limits — multiple simultaneous dose constraints
     /// - Carrier fluid (glucose 5%) as a second component
@@ -1551,7 +1551,7 @@ Components:
                 - "1.7"
               Unit: mg/min
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1588,7 +1588,7 @@ Components:
     ///
     /// Demonstrates:
     /// - ContinuousOrder where the active drug is diluted in a carrier fluid
-    /// - Solution limit concentration constraint for the active substance (max 1 mg/ml)
+    /// - Dilution limit concentration constraint for the active substance (max 1 mg/ml)
     /// - Rate-adjusted dosing in microg/kg/min
     /// - A carrier fluid (glucose 10%) as a second component contributing to
     ///   total infusion volume
@@ -1646,7 +1646,7 @@ Components:
                 - "2"
               Unit: microg/kg/min
               Inclusive: true
-        Solution:
+        Dilution:
           Quantity:
             Min:
               Value:
@@ -1802,8 +1802,8 @@ module MedicationTextYamlTests =
     let withPlaceTargets (med: Medication) =
         let dose t =
             Option.map (fun (dl: DoseLimit) -> { dl with DoseLimitTarget = t })
-        let solutionLimit t =
-            Option.map (fun (sl: SolutionLimit) -> { sl with SolutionLimitTarget = t })
+        let dilutionLimit t =
+            Option.map (fun (dl: DilutionLimit) -> { dl with DilutionLimitTarget = t })
 
         { med with
             Dose = med.Dose |> dose OrderableLimitTarget
@@ -1812,13 +1812,13 @@ module MedicationTextYamlTests =
                 |> List.map (fun pc ->
                     { pc with
                         Dose = pc.Dose |> dose (ComponentLimitTarget pc.Name)
-                        Solution = pc.Solution |> solutionLimit (ComponentLimitTarget pc.Name)
+                        Dilution = pc.Dilution |> dilutionLimit (DilutionTarget.Component pc.Name)
                         Substances =
                             pc.Substances
                             |> List.map (fun si ->
                                 { si with
                                     Dose = si.Dose |> dose (SubstanceLimitTarget si.Name)
-                                    Solution = si.Solution |> solutionLimit (SubstanceLimitTarget si.Name)
+                                    Dilution = si.Dilution |> dilutionLimit (DilutionTarget.Substance si.Name)
                                 }
                             )
                     }
@@ -1826,29 +1826,30 @@ module MedicationTextYamlTests =
         }
 
 
-    /// Every limit target of a medication with its place.
+    /// Every limit target of a medication with its place, the target written out so that a dose
+    /// target and a dilution target compare in one list.
     let targets (med: Medication) =
         [
             match med.Dose with
-            | Some dl -> "Dose", dl.DoseLimitTarget
+            | Some dl -> "Dose", $"%A{dl.DoseLimitTarget}"
             | None -> ()
 
             for pc in med.Components do
                 match pc.Dose with
-                | Some dl -> $"%s{pc.Name}.Dose", dl.DoseLimitTarget
+                | Some dl -> $"%s{pc.Name}.Dose", $"%A{dl.DoseLimitTarget}"
                 | None -> ()
 
-                match pc.Solution with
-                | Some sl -> $"%s{pc.Name}.Solution", sl.SolutionLimitTarget
+                match pc.Dilution with
+                | Some dl -> $"%s{pc.Name}.Dilution", $"%A{dl.DilutionLimitTarget}"
                 | None -> ()
 
                 for si in pc.Substances do
                     match si.Dose with
-                    | Some dl -> $"%s{pc.Name}.%s{si.Name}.Dose", dl.DoseLimitTarget
+                    | Some dl -> $"%s{pc.Name}.%s{si.Name}.Dose", $"%A{dl.DoseLimitTarget}"
                     | None -> ()
 
-                    match si.Solution with
-                    | Some sl -> $"%s{pc.Name}.%s{si.Name}.Solution", sl.SolutionLimitTarget
+                    match si.Dilution with
+                    | Some dl -> $"%s{pc.Name}.%s{si.Name}.Dilution", $"%A{dl.DilutionLimitTarget}"
                     | None -> ()
         ]
 

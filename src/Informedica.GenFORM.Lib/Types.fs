@@ -584,21 +584,53 @@ module Types =
         }
 
 
-    /// A SolutionLimit for a Substance.
+    /// What a DilutionLimit applies to: one component or one substance in the solution.
+    [<RequireQualifiedAccess>]
+    type DilutionTarget =
+        /// The component with this name
+        | Component of string
+        /// The substance with this name
+        | Substance of string
+
+
+    /// A limit on one component or one substance in the solution: how much of the component
+    /// or substance the solution may hold, and in what concentration.
+    type DilutionLimit =
+        {
+            /// The component or the substance the DilutionLimit applies to
+            DilutionLimitTarget: DilutionTarget
+            /// The MinMax Quantity of the component or substance in the solution
+            Quantity: MinMax
+            /// The MinMax Quantity per kg of the component or substance in the solution
+            QuantityAdjust: MinMax
+            /// The possible Quantities of the component or substance in the solution
+            Quantities: ValueUnit option
+            /// The MinMax Concentration of the component or substance in the solution
+            Concentration: MinMax
+            /// The Products of the component the DilutionLimit applies to
+            Products: ProductComponent[]
+        }
+
+
+    /// The limits on the solution as a whole, which an order applies to the orderable.
     type SolutionLimit =
         {
-            /// The Substance for the SolutionLimit
-            SolutionLimitTarget: LimitTarget
-            /// The MinMax Quantity of the Substance for the SolutionLimit
-            Quantity: MinMax
-            /// The MinMax Quantity Adjust of the Substance for the SolutionLimit
-            QuantityAdj: MinMax
-            /// A list of possible Quantities of the Substance for the SolutionLimit
-            Quantities: ValueUnit option
-            /// The Minmax Concentration of the Substance for the SolutionLimit
-            Concentration: MinMax
-            /// The Products the SolutionRule applies to
-            Products: ProductComponent[]
+            /// The number of equal parts one unit of the prepared solution can be divided into, so
+            /// the step of the orderable is 1 divided by this value. It takes the place of the
+            /// Divisible of the products of the medication.
+            Div: BigRational option
+            /// The possible Volumes of the solution
+            Volumes: ValueUnit option
+            /// The MinMax Volume of the solution
+            Volume: MinMax
+            /// The MinMax Volume per kg of the solution
+            VolumeAdjust: MinMax
+            /// The MinMax Drip Rate of the solution
+            DripRate: MinMax
+            /// The fraction of the preparation that makes up one dose, for example 0.5 for half the
+            /// preparation. The order uses 1 divided by the fraction as the number of doses in the
+            /// preparation.
+            DoseFraction: MinMax
         }
 
 
@@ -620,25 +652,13 @@ module Types =
             PatientCategory: PatientCategory
             /// The MinMax Dose range of the SolutionRule
             Dose: MinMax
-            /// The diluents to use, from the column "Diluents" of the SolutionRules sheet
+            /// The diluents to use, from the column "Diluents" of the SolutionRules sheet. A rule
+            /// without diluents gives the medication undiluted.
             Diluents: ProductComponent[]
-            /// The number of equal parts one unit of the prepared solution can be divided into, so
-            /// the step of the orderable is 1 divided by this value. It takes the place of the
-            /// Divisible of the products of the medication.
-            Div: BigRational option
-            /// The possible Volumes to use
-            Volumes: ValueUnit option
-            /// A MinMax Volume range to use
-            Volume: MinMax
-            /// A MinMax adjusted Volume range to use
-            VolumeAdjust: MinMax
-            /// A MinMax Drip Rate for the SolutionRule
-            DripRate: MinMax
-            /// The fraction of the preparation that makes up one dose, for example 0.5 for half the preparation.
-            /// The order uses 1 divided by the fraction as the number of doses in the preparation.
-            DoseFraction: MinMax
-            /// The SolutionLimits for the SolutionRule
-            SolutionLimits: SolutionLimit[]
+            /// The limits on the solution as a whole
+            SolutionLimit: SolutionLimit
+            /// The limits on the components and the substances in the solution
+            DilutionLimits: DilutionLimit[]
         }
 
 
@@ -1239,7 +1259,7 @@ module Types =
                 /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
                 MaxPerc: BigRational option
-                // solution limit section
+                // dilution limit section
                 /// sheet column "Component": the component the row limits, or "diluent" without a
                 /// substance to limit the diluent of the rule, whichever is chosen.
                 Component: string

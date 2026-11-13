@@ -11,6 +11,46 @@ module SolutionRule =
     open Utils
 
 
+    module DilutionTarget =
+
+
+        /// The name of the component or the substance.
+        let toString =
+            function
+            | DilutionTarget.Component s
+            | DilutionTarget.Substance s -> s
+
+
+    module DilutionLimit =
+
+
+        /// A DilutionLimit on the target with no limits set.
+        let create target =
+            {
+                DilutionLimitTarget = target
+                Quantity = MinMax.empty
+                QuantityAdjust = MinMax.empty
+                Quantities = None
+                Concentration = MinMax.empty
+                Products = [||]
+            }
+
+
+    module SolutionLimit =
+
+
+        /// A SolutionLimit with no limits set.
+        let empty =
+            {
+                Div = None
+                Volumes = None
+                Volume = MinMax.empty
+                VolumeAdjust = MinMax.empty
+                DripRate = MinMax.empty
+                DoseFraction = MinMax.empty
+            }
+
+
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
 
 
@@ -64,7 +104,7 @@ module SolutionRule =
                         MaxVolAdj = get "MaxVolAdj" |> toBrOpt
                         MinPerc = get "MinPerc" |> toBrOpt
                         MaxPerc = get "MaxPerc" |> toBrOpt
-                        // solution limit section
+                        // dilution limit section
                         Component = get "Component"
                         Substance = get "Substance"
                         Unit = get "Unit"
@@ -150,26 +190,29 @@ module SolutionRule =
                     |> List.toArray
                     |> Array.choose (fun s -> parenteral |> Array.tryFind (_.Generic >> String.equalsCapInsens s))
                     |> Array.distinctBy _.Generic
-                Div = r.Div
-                Volumes =
-                    if r.Volumes |> Array.isEmpty then
-                        None
-                    else
-                        r.Volumes |> ValueUnit.withUnit Units.mL |> Some
-                Volume = (r.MinVol, r.MaxVol) |> fromTupleInclIncl (Some Units.mL)
-                VolumeAdjust =
-                    (r.MinVolAdj, r.MaxVolAdj)
-                    |> fromTupleInclIncl (Units.mL |> ValueUnit.per Units.Weight.kiloGram |> Some)
-                DripRate =
-                    (r.MinDrip, r.MaxDrip)
-                    |> fromTupleInclIncl (Some(Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
-                DoseFraction = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
-                SolutionLimits = [||]
+                SolutionLimit =
+                    {
+                        Div = r.Div
+                        Volumes =
+                            if r.Volumes |> Array.isEmpty then
+                                None
+                            else
+                                r.Volumes |> ValueUnit.withUnit Units.mL |> Some
+                        Volume = (r.MinVol, r.MaxVol) |> fromTupleInclIncl (Some Units.mL)
+                        VolumeAdjust =
+                            (r.MinVolAdj, r.MaxVolAdj)
+                            |> fromTupleInclIncl (Units.mL |> ValueUnit.per Units.Weight.kiloGram |> Some)
+                        DripRate =
+                            (r.MinDrip, r.MaxDrip)
+                            |> fromTupleInclIncl (Some(Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
+                        DoseFraction = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
+                    }
+                DilutionLimits = [||]
             }
         )
         |> Array.map (fun (solRule, rs) ->
             { solRule with
-                SolutionLimits =
+                DilutionLimits =
                     rs
                     |> expandDiluentRows (solRule.Diluents |> Array.map _.Generic)
                     |> Array.map (fun l ->
@@ -177,13 +220,13 @@ module SolutionRule =
                         let au = u |> Option.map (ValueUnit.per Units.Weight.kiloGram)
 
                         {
-                            SolutionLimitTarget =
+                            DilutionLimitTarget =
                                 match l.Substance, l.Component with
-                                | s, _ when s |> String.notEmpty -> s |> SubstanceLimitTarget
-                                | _, c when c |> String.notEmpty -> c |> ComponentLimitTarget
-                                | _ -> invalidOp "Solution limit should be either a substance or a component limit"
+                                | s, _ when s |> String.notEmpty -> s |> DilutionTarget.Substance
+                                | _, c when c |> String.notEmpty -> c |> DilutionTarget.Component
+                                | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
-                            QuantityAdj = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl au
+                            QuantityAdjust = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl au
                             Quantities =
                                 if l.Quantities |> Array.isEmpty then
                                     None
@@ -205,12 +248,12 @@ module SolutionRule =
                                 )
                         }
                     )
-                    // filter out solution limits that are empty
-                    |> Array.filter (fun solutionLimit ->
-                        (solutionLimit.Concentration |> MinMax.isEmpty
-                         && solutionLimit.Quantities |> Option.isNone
-                         && solutionLimit.QuantityAdj |> MinMax.isEmpty
-                         && solutionLimit.Quantity |> MinMax.isEmpty)
+                    // filter out dilution limits that are empty
+                    |> Array.filter (fun dilutionLimit ->
+                        (dilutionLimit.Concentration |> MinMax.isEmpty
+                         && dilutionLimit.Quantities |> Option.isNone
+                         && dilutionLimit.QuantityAdjust |> MinMax.isEmpty
+                         && dilutionLimit.Quantity |> MinMax.isEmpty)
                         |> not
                     )
 
@@ -237,18 +280,20 @@ module SolutionRule =
 
     /// Every range a solution rule carries, each with its name.
     let ranges (solRule: SolutionRule) =
+        let sl = solRule.SolutionLimit
+
         [
             yield! solRule.PatientCategory |> PatientCategory.ranges
             "dose", solRule.Dose
-            "volume", solRule.Volume
-            "volume adjust", solRule.VolumeAdjust
-            "drip rate", solRule.DripRate
-            "dose fraction", solRule.DoseFraction
-            for solutionLimit in solRule.SolutionLimits do
-                let target = solutionLimit.SolutionLimitTarget |> LimitTarget.toString
-                $"%s{target} quantity", solutionLimit.Quantity
-                $"%s{target} quantity adjust", solutionLimit.QuantityAdj
-                $"%s{target} concentration", solutionLimit.Concentration
+            "volume", sl.Volume
+            "volume adjust", sl.VolumeAdjust
+            "drip rate", sl.DripRate
+            "dose fraction", sl.DoseFraction
+            for dilutionLimit in solRule.DilutionLimits do
+                let target = dilutionLimit.DilutionLimitTarget |> DilutionTarget.toString
+                $"%s{target} quantity", dilutionLimit.Quantity
+                $"%s{target} quantity adjust", dilutionLimit.QuantityAdjust
+                $"%s{target} concentration", dilutionLimit.Concentration
         ]
 
 
@@ -266,24 +311,24 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per component or substance that a solution rule gives more than one solution limit,
-    /// names compared case-insensitively. An order takes only the first of those solution limits.
+    /// One warning per component or substance that a solution rule gives more than one dilution limit,
+    /// names compared case-insensitively. An order takes only the first of those dilution limits.
     let repeatedTargets (rules: SolutionRule[]) =
         rules
         |> Array.toList
         |> List.collect (fun solRule ->
-            solRule.SolutionLimits
+            solRule.DilutionLimits
             |> Array.toList
             |> List.groupBy (fun dl ->
-                match dl.SolutionLimitTarget with
-                | ComponentLimitTarget s -> "component", s |> String.toLower
-                | target -> "substance", target |> LimitTarget.toString |> String.toLower
+                match dl.DilutionLimitTarget with
+                | DilutionTarget.Component s -> "component", s |> String.toLower
+                | DilutionTarget.Substance s -> "substance", s |> String.toLower
             )
             |> List.filter (fun (_, dls) -> dls |> List.length > 1)
             |> List.map (fun ((kind, _), dls) ->
-                let name = dls |> List.head |> _.SolutionLimitTarget |> LimitTarget.toString
+                let name = dls |> List.head |> _.DilutionLimitTarget |> DilutionTarget.toString
 
-                $"%s{solRule |> label}: %i{dls |> List.length} solution limits for the %s{kind} %s{name}, "
+                $"%s{solRule |> label}: %i{dls |> List.length} dilution limits for the %s{kind} %s{name}, "
                 + "an order takes only the first"
             )
         )
@@ -296,29 +341,31 @@ module SolutionRule =
         lim |> Option.filter (Limit.getValueUnit >> ValueUnit.isZero >> not)
 
 
-    /// Whether a solution limit bounds the preparation: the maximum quantity of a substance, or
+    /// Whether a dilution limit bounds the preparation: the maximum quantity of a substance, or
     /// the maximum quantity per kg once the weight is known, divided by the minimum concentration
     /// of that substance is a maximum volume.
-    let boundsPreparation (solutionLimit: SolutionLimit) =
-        (solutionLimit.Quantity.Max.IsSome || solutionLimit.QuantityAdj.Max.IsSome)
-        && solutionLimit.Concentration.Min
+    let boundsPreparation (dilutionLimit: DilutionLimit) =
+        (dilutionLimit.Quantity.Max.IsSome || dilutionLimit.QuantityAdjust.Max.IsSome)
+        && dilutionLimit.Concentration.Min
            |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
 
 
     /// One warning per solution rule whose dose count has no maximum, because the rule gives a
     /// maximum dose fraction and no minimum, while the preparation has no maximum either: no
     /// maximum volume, no list of volumes, no maximum volume per kg, which bounds the preparation
-    /// once the weight is known, and no solution limit that bounds it. The user then cannot set
+    /// once the weight is known, and no dilution limit that bounds it. The user then cannot set
     /// the preparation.
     let openDoseCounts (rules: SolutionRule[]) =
         rules
         |> Array.filter (fun solRule ->
-            solRule.DoseFraction.Max |> nonZeroLimit |> Option.isSome
-            && solRule.DoseFraction.Min |> nonZeroLimit |> Option.isNone
-            && solRule.Volume.Max |> Option.isNone
-            && solRule.Volumes |> Option.isNone
-            && solRule.VolumeAdjust.Max |> Option.isNone
-            && solRule.SolutionLimits |> Array.exists boundsPreparation |> not
+            let sl = solRule.SolutionLimit
+
+            sl.DoseFraction.Max |> nonZeroLimit |> Option.isSome
+            && sl.DoseFraction.Min |> nonZeroLimit |> Option.isNone
+            && sl.Volume.Max |> Option.isNone
+            && sl.Volumes |> Option.isNone
+            && sl.VolumeAdjust.Max |> Option.isNone
+            && solRule.DilutionLimits |> Array.exists boundsPreparation |> not
         )
         |> Array.map (fun solRule ->
             $"%s{solRule |> label}: a maximum dose fraction without a minimum and no maximum volume, "
@@ -339,7 +386,7 @@ module SolutionRule =
         |> Array.choose (fun r ->
             match [| r |] |> map [||] parenteral [||] with
             | Ok [| solRule |] when solRule.Diluents |> Array.isEmpty ->
-                Some({ solRule with SolutionLimits = [||] }, r.Diluents)
+                Some({ solRule with DilutionLimits = [||] }, r.Diluents)
             | _ -> None
         )
         |> Array.groupBy fst
@@ -363,7 +410,7 @@ module SolutionRule =
         |> Array.filter isDiluentRow
         |> Array.choose (fun r ->
             match [| r |] |> map [||] parenteral [||] with
-            | Ok [| solRule |] when solRule.Diluents |> Array.isEmpty -> Some { solRule with SolutionLimits = [||] }
+            | Ok [| solRule |] when solRule.Diluents |> Array.isEmpty -> Some { solRule with DilutionLimits = [||] }
             | _ -> None
         )
         |> Array.distinct
@@ -408,8 +455,9 @@ module SolutionRule =
     let doseCountRange (solRule: SolutionRule) =
         let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
         let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
+        let sl = solRule.SolutionLimit
 
-        match solRule.DoseFraction.Min |> nonZeroLimit, solRule.DoseFraction.Max |> nonZeroLimit with
+        match sl.DoseFraction.Min |> nonZeroLimit, sl.DoseFraction.Max |> nonZeroLimit with
         | None, None -> MinMax.empty
         | min, max ->
             let max =
@@ -436,24 +484,24 @@ module SolutionRule =
         | count -> count.Min |> Option.bind Limit.getValue |> Option.exists (fun c -> c >= 1N)
 
 
-    /// The first solution limit of the component, the one the order takes.
+    /// The first dilution limit of the component, the one the order takes.
     let componentLimit name (solRule: SolutionRule) =
-        solRule.SolutionLimits
+        solRule.DilutionLimits
         |> Array.tryFind (fun dl ->
-            match dl.SolutionLimitTarget with
-            | ComponentLimitTarget c -> c |> String.equalsCapInsens name
-            | _ -> false
+            match dl.DilutionLimitTarget with
+            | DilutionTarget.Component c -> c |> String.equalsCapInsens name
+            | DilutionTarget.Substance _ -> false
         )
 
 
-    /// Whether the solution rule can limit the component for some patient: its first solution limit of
+    /// Whether the solution rule can limit the component for some patient: its first dilution limit of
     /// the component has a maximum quantity, a maximum quantity per kg or a list of quantities.
     let canLimitComponent (solRule: SolutionRule) name =
         solRule
         |> componentLimit name
         |> Option.exists (fun dl ->
             dl.Quantity.Max |> Option.isSome
-            || dl.QuantityAdj.Max |> Option.isSome
+            || dl.QuantityAdjust.Max |> Option.isSome
             || dl.Quantities |> Option.isSome
         )
 
@@ -495,7 +543,7 @@ module SolutionRule =
     /// The warnings for one solution rule and one dose rule: per component they both limit, whose
     /// dose range and range in the preparation no order can meet for any dose count of the solution
     /// rule. A quantity is compared with a quantity, a quantity per kg with a quantity per kg; the
-    /// solution limit is the first of the component.
+    /// dilution limit is the first of the component.
     let pairConflicts (solRule: SolutionRule) (dr: DoseRule) =
         let count = solRule |> doseCountRange
         let rangeText = MinMax.toString "min. " "min. " "max. " "max. "
@@ -504,13 +552,13 @@ module SolutionRule =
         |> Array.toList
         |> List.choose (fun cl ->
             match cl.Limit, solRule |> componentLimit cl.Name with
-            | Some doseLimit, Some solutionLimit -> Some(cl.Name, doseLimit, solutionLimit)
+            | Some doseLimit, Some dilutionLimit -> Some(cl.Name, doseLimit, dilutionLimit)
             | _ -> None
         )
-        |> List.collect (fun (name, doseLimit, solutionLimit) ->
+        |> List.collect (fun (name, doseLimit, dilutionLimit) ->
             [
-                name, "quantity", doseLimit.Quantity, solutionLimit.Quantity
-                name, "quantity per kg", doseLimit.QuantityAdjust, solutionLimit.QuantityAdj
+                name, "quantity", doseLimit.Quantity, dilutionLimit.Quantity
+                name, "quantity per kg", doseLimit.QuantityAdjust, dilutionLimit.QuantityAdjust
             ]
         )
         |> List.filter (fun (_, _, dose, prep) -> noDoseCountMeets count dose prep)
@@ -645,11 +693,11 @@ module SolutionRule =
     /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive: a limit
     /// with a minimum equal to the maximum allows that one strength.
     let substancesWithoutAllowedStrength (products: ProductComponent[]) (solRule: SolutionRule) =
-        solRule.SolutionLimits
-        |> Array.choose (fun solutionLimit ->
-            match solutionLimit.SolutionLimitTarget with
-            | SubstanceLimitTarget s when solutionLimit.Concentration |> MinMax.isEmpty |> not ->
-                let conc = solutionLimit.Concentration
+        solRule.DilutionLimits
+        |> Array.choose (fun dilutionLimit ->
+            match dilutionLimit.DilutionLimitTarget with
+            | DilutionTarget.Substance s when dilutionLimit.Concentration |> MinMax.isEmpty |> not ->
+                let conc = dilutionLimit.Concentration
 
                 let comparable vu =
                     [ conc.Min; conc.Max ]
@@ -736,19 +784,24 @@ module SolutionRule =
     /// The solution rule without the amounts the rule lookup works out from a per kg limit with the
     /// weight of the patient, so that one rule compares as equal at every weight.
     let withoutPatientAmounts (solRule: SolutionRule) =
+        let sl = solRule.SolutionLimit
+
         { solRule with
-            Volume =
-                if solRule.VolumeAdjust |> MinMax.isEmpty then
-                    solRule.Volume
-                else
-                    MinMax.empty
-            SolutionLimits =
-                solRule.SolutionLimits
-                |> Array.map (fun solutionLimit ->
-                    if solutionLimit.QuantityAdj |> MinMax.isEmpty then
-                        solutionLimit
+            SolutionLimit =
+                { sl with
+                    Volume =
+                        if sl.VolumeAdjust |> MinMax.isEmpty then
+                            sl.Volume
+                        else
+                            MinMax.empty
+                }
+            DilutionLimits =
+                solRule.DilutionLimits
+                |> Array.map (fun dilutionLimit ->
+                    if dilutionLimit.QuantityAdjust |> MinMax.isEmpty then
+                        dilutionLimit
                     else
-                        { solutionLimit with Quantity = MinMax.empty }
+                        { dilutionLimit with Quantity = MinMax.empty }
                 )
         }
 
@@ -853,8 +906,10 @@ module SolutionRule =
                 |> BigRational.toDouble
                 |> fun x -> $"{x * 100.}"
 
+            let sl = solRule.SolutionLimit
+
             let p =
-                match solRule.DoseFraction.Min, solRule.DoseFraction.Max with
+                match sl.DoseFraction.Min, sl.DoseFraction.Max with
                 | None, None -> ""
                 | Some l, None -> $"min. {l |> toPerc}"
                 | None, Some l -> $"max. {l |> toPerc}"
@@ -870,12 +925,13 @@ module SolutionRule =
                 $"* geef %s{p}%% van de bereiding"
 
 
-        /// Split a SolutionLimit into its display parts so callers can de-duplicate
+        /// Split a DilutionLimit into its display parts so callers can de-duplicate
         /// trailing lines that are identical across multiple limits of the same rule.
         /// includeSubstanceName = false suppresses the inline substance prefix
         /// (used when the substance is rendered as a separate heading).
-        let printSolutionLimit (solRule: SolutionRule) (includeSubstanceName: bool) (limit: SolutionLimit) =
+        let printDilutionLimit (solRule: SolutionRule) (includeSubstanceName: bool) (limit: DilutionLimit) =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
+            let sl = solRule.SolutionLimit
 
             let loc =
                 match solRule.PatientCategory.Access with
@@ -892,17 +948,17 @@ module SolutionRule =
             let q = limit.Quantity |> mmToStr
 
             let vol =
-                if solRule.Volume |> mmToStr |> String.isNullOrWhiteSpace then
+                if sl.Volume |> mmToStr |> String.isNullOrWhiteSpace then
                     ""
                 else
-                    solRule.Volume
+                    sl.Volume
                     |> mmToStr
                     |> fun s -> $""" in {s} {solRule.Diluents |> Array.map _.Generic |> String.concat "/"}"""
                 |> fun s ->
                     if s |> String.notEmpty then
                         s
                     else
-                        solRule.Volumes
+                        sl.Volumes
                         |> Option.map (Utils.ValueUnit.toString -1)
                         |> Option.defaultValue ""
                         |> fun s ->
@@ -918,7 +974,7 @@ module SolutionRule =
 
             let substancePrefix =
                 if includeSubstanceName then
-                    $"{limit.SolutionLimitTarget |> LimitTarget.toString}: "
+                    $"{limit.DilutionLimitTarget |> DilutionTarget.toString}: "
                 else
                     ""
 
@@ -963,7 +1019,7 @@ module SolutionRule =
             ||> Array.fold (fun acc (generic, rs) ->
                 let prods =
                     rs
-                    |> Array.collect _.SolutionLimits
+                    |> Array.collect _.DilutionLimits
                     |> Array.collect _.Products
                     |> Array.sortBy (fun p ->
                         p.Substances
@@ -1004,18 +1060,13 @@ module SolutionRule =
 
                             let distinctSubstances =
                                 rs
-                                |> Array.collect _.SolutionLimits
-                                |> Array.map _.SolutionLimitTarget
+                                |> Array.collect _.DilutionLimits
+                                |> Array.map _.DilutionLimitTarget
                                 |> Array.distinct
 
                             let substanceHeading, includeSubstanceName =
                                 if distinctSubstances.Length = 1 then
-                                    let name = distinctSubstances[0] |> LimitTarget.toString
-
-                                    if name |> String.isNullOrWhiteSpace then
-                                        "", true
-                                    else
-                                        substance_md name, false
+                                    distinctSubstances[0] |> DilutionTarget.toString |> substance_md, false
                                 else
                                     "", true
 
@@ -1050,13 +1101,13 @@ module SolutionRule =
                                                     // Within a single-target group the concentratie is de-duplicated
                                                     // (same substance + same conc across different qty ranges).
                                                     let targetBlocks =
-                                                        r.SolutionLimits
-                                                        |> Array.groupBy _.SolutionLimitTarget
+                                                        r.DilutionLimits
+                                                        |> Array.groupBy _.DilutionLimitTarget
                                                         |> Array.collect (fun (_, limits) ->
                                                             let parts =
                                                                 limits
                                                                 |> Array.map (
-                                                                    printSolutionLimit r includeSubstanceName
+                                                                    printDilutionLimit r includeSubstanceName
                                                                 )
 
                                                             let heads =
