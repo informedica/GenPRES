@@ -1,5 +1,5 @@
 ---
-last_commit_released: bde1e4efda533532e16390789f08b0bd117cf1e3
+last_commit_released: ad762bbfa3ec1069c2d876523d6d934ad543c18c
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.56 - 2026-11-13
+
+### 🐞 Bug Fixes
+
+* *(genform)* Reword the undiluted concentration warning ([eb650c9d](https://github.com/informedica/GenPRES/commit/eb650c9dc4ed1cf27709d4ac1f5616086222c0f3))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/bde1e4efda533532e16390789f08b0bd117cf1e3..ad762bbfa3ec1069c2d876523d6d934ad543c18c)</small></strong>
 
 ## 0.1.2-alpha.55 - 2026-11-12
 
