@@ -138,6 +138,21 @@ let tests =
                     ]
             }
 
+            test "the undiluted refusal says the medication is given undiluted, not that a diluent is missing" {
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDiluent
+                    |> Expect.wantSome "a notice"
+
+                n.Body
+                |> Expect.equal
+                    "the body"
+                    "For salbutamol, intraveneus, each medication is given undiluted, and its concentration limit allows none of its product concentrations"
+
+                [ "diluent"; "formulary"; "solution rule" ]
+                |> List.filter n.Body.Contains
+                |> Expect.isEmpty "no missing-diluent framing"
+            }
+
             test "the English of every refusal term is the English of the localization file" {
                 refusalTerms
                 |> List.filter (fun term -> englishRows.Value |> Map.tryFind $"{term}" <> Some(english term))

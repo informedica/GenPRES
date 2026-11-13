@@ -5566,6 +5566,20 @@ module UndilutedSolutionTests =
                     |> Expect.isTrue "a 4 mg/mL vial with no diluent cannot meet 0.2 to 2 mg/mL"
                 }
 
+                test "the undiluted amphotericin refusal says the medication is given undiluted" {
+                    match Scenarios.amfoUndiluted |> Medication.toOrder Scenarios.testStart with
+                    | Error(Exceptions.OrderCouldNotBeCreated exn) ->
+                        exn.Message
+                        |> Expect.stringContains
+                            "names the limit"
+                            "is given undiluted, and its solution limit allows no concentration of amfotericine b liposomaal"
+
+                        exn.Message
+                        |> String.contains "no diluent"
+                        |> Expect.isFalse "does not say a diluent is missing"
+                    | result -> failtest $"the undiluted order is not refused as uncreatable: %A{result}"
+                }
+
                 test "an undiluted order offers only the vial concentrations within the limit" {
                     Scenarios.amfoUndiluted
                     |> withVialConcentrations [| 1N; 4N |]

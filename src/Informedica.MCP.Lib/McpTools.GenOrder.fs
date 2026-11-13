@@ -366,7 +366,8 @@ module GenOrderTools =
             "dose rules cover the picks and the patient, and each needs a weight, or a weight and a height, "
             + "the patient does not have"
         | Refusal.NoDiluent ->
-            "each medication must be diluted to meet its solution rule, and the formulary has no diluent for it"
+            "each medication is given undiluted, and its concentration limit allows none of its product "
+            + "concentrations"
         | Refusal.NotSolved -> "the order cannot be solved"
         | Refusal.NoAdjustedDose -> "the order has no dose per kg or per m2"
 

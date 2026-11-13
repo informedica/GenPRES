@@ -1122,7 +1122,8 @@ module Medication =
         | _ -> []
 
 
-    /// Whether there are medications and each one needs a diluent that is not supplied.
+    /// Whether there are medications and each one is given undiluted while its concentration
+    /// limit allows none of its product concentrations.
     let allLackNeededDiluent (meds: Medication[]) =
         meds |> Array.isEmpty |> not
         && meds |> Array.forall (undilutedOutsideSolution >> List.isEmpty >> not)
@@ -1884,7 +1885,7 @@ module Medication =
         | sis, _ ->
             let names = sis |> List.map _.Name |> String.concat ", "
 
-            $"%s{med.Name} has no diluent, and its solution limit allows no concentration of %s{names} "
+            $"%s{med.Name} is given undiluted, and its solution limit allows no concentration of %s{names} "
             + "its product has"
             |> refuse
 

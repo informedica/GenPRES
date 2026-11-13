@@ -960,8 +960,8 @@ module Types =
         /// Dose rules cover the picks and the patient, and each needs a weight, or a weight and a
         /// height, the patient does not have.
         | MeasurementMissing
-        /// Dose rules cover the picks and the patient, and each medication must be diluted to
-        /// meet its solution rule while the formulary has no diluent for it.
+        /// Dose rules cover the picks and the patient, and each medication is given undiluted
+        /// while its concentration limit allows none of its product concentrations.
         | NoDiluent
         /// The order cannot be solved with the change; the order stays as it was.
         | NotSolved

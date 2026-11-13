@@ -8690,7 +8690,15 @@ module Tests =
                                     |> single
 
                                 s |> Expect.stringContains "names the generic" "zidovudine"
-                                s |> Expect.stringContains "says why" "no diluent"
+
+                                s
+                                |> Expect.stringContains
+                                    "says why"
+                                    "given undiluted, the concentration limit of zidovudine allows no strength of its products"
+
+                                s
+                                |> String.contains "no diluent"
+                                |> Expect.isFalse "does not say a diluent is missing"
                             }
 
                             test "a rule with a diluent gives no warning" {
@@ -8884,7 +8892,7 @@ module Tests =
 
                             test "the rule checks at load report the rule" {
                                 ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                |> List.exists (String.contains "no diluent")
+                                |> List.exists (String.contains "given undiluted")
                                 |> Expect.isTrue "reported"
                             }
                         ]

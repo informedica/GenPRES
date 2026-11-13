@@ -719,7 +719,7 @@ module SolutionRule =
                 let names = subs |> String.concat ", "
 
                 Warning
-                    $"%s{solRule |> label}: no diluent, and the concentration limit of %s{names} allows no strength of its products"
+                    $"%s{solRule |> label}: given undiluted, the concentration limit of %s{names} allows no strength of its products"
                 |> Some
         )
         |> Array.distinct
