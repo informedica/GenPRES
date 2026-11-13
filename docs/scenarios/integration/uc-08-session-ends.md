@@ -38,7 +38,7 @@ sequenceDiagram
     S->>D: the mark dropped, the cookie deleted
     Note over C1: the gate offers a relaunch, or continue without launch
 
-    Note over C1,C2: step 3, the carry-over: not built. The unsigned work of the old tab is gone with it.
+    Note over C1,C2: step 3, the carry-over: refused. The unsigned work of the old tab is gone with it.
 ```
 
 A reload of the old tab instead of an action asks `GetSession`, which answers
@@ -61,10 +61,21 @@ workstation, sees the notice and discharges it.
 time A relaunches from the old tab the mark is gone. The notice is the gate on the old tab, and
 nothing else.
 
-**There is no carry-over.** The design has the new tab read the old tab's cart from memory,
-same User and same Patient only. The code has no such read; the cart of the superseded Session
-is dropped when the gate shows. A User who wants the work keeps the old tab open until it is
-signed. This is [#518](https://github.com/informedica/GenPRES/issues/518).
+**There is no carry-over, and none will be built.** The design has the new tab read the old
+tab's cart from memory, same User and same Patient only. The code has no such read; the cart of
+the superseded Session is dropped when the gate shows. A User who wants the work keeps the old
+tab open until it is signed, and the leave-page guard warns before a tab with unsigned work is
+closed or left.
+
+The carry-over was refused rather than left pending
+([#518](https://github.com/informedica/GenPRES/issues/518)), because a hand-over inside the
+browser reaches only the case where no work is lost. A relaunch in the same browser profile
+does not end the old tab: the session cookie is shared by every tab of the profile, so the old
+tab continues on the new Session and its work stays one tab away. A relaunch in another browser
+or profile, as drawn above, does end the old tab, but no channel inside the browser reaches
+across a profile, and keeping unsigned work in the Server, the one way that would, is forbidden
+(Rule 32; Concept 16). The design's carry-over of step 3 is therefore a divergence of the code
+from the design, not a gap.
 
 **A restart forgets the Session, unless the store is set.** The design has a Session's standing
 live in its record, so that a restart ends nothing (Rule 32). With
@@ -83,7 +94,6 @@ engine is still to be chosen ([#516](https://github.com/informedica/GenPRES/issu
   told the ending ([#1061](https://github.com/informedica/GenPRES/issues/1061)).
 - The notice at the next launch, and the acknowledgement only A can give (Rule 11;
   [session-endings](session-endings.md)).
-- The carry-over of unsigned work into a relaunched tab ([#518](https://github.com/informedica/GenPRES/issues/518)).
 - The audit of a Session superseded by a newer launch, and of the refusal it is told (Rule 46).
   A close and the PIN limit are audited on the SQLite store, since each writes an ending; a
   supersession writes none — the newer Session is what tells it — so there is nothing to audit

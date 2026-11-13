@@ -89,8 +89,10 @@ UserRegistry says what that person may do and which Patient they have active. Ne
 the other's question, and the Server asks both at every launch.
 
 **No Client-to-Client edge.** The design's carry-over of unsigned work from an old tab to a new
-one (UC-8 step 3) would be a read inside the browser, not a message; it is not built
-([#518](https://github.com/informedica/GenPRES/issues/518)).
+one (UC-8 step 3) would be a read inside the browser, not a message; it is refused rather than
+pending, since it could reach only a relaunch in the same browser profile, where the old tab
+does not end ([#518](https://github.com/informedica/GenPRES/issues/518);
+[uc-08](uc-08-session-ends.md)).
 
 ---
 
