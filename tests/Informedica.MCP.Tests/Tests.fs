@@ -702,8 +702,16 @@ module Tests =
                     test "a medication without its diluent is not an empty success" {
                         Refused(1, Refusal.NoDiluent)
                         |> refusedAsError
-                        |> Result.mapError _.Contains("no diluent")
-                        |> Expect.equal "names the diluent" (Error true)
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
+                    }
+
+                    test "the undiluted reason does not say a diluent is missing" {
+                        let reason = refusalReason Refusal.NoDiluent
+
+                        [ "diluent"; "formulary"; "solution rule"; "must be diluted" ]
+                        |> List.filter reason.Contains
+                        |> Expect.isEmpty "no missing-diluent framing"
                     }
 
                     test "a medication without its diluent is an error through the tool path" {
@@ -719,8 +727,8 @@ module Tests =
                             Form = None
                         }
                         |> evaluateOrderContext (UndilutedVancomycin())
-                        |> Result.mapError _.Contains("no diluent")
-                        |> Expect.equal "names the diluent" (Error true)
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
                     }
                 ]
 
