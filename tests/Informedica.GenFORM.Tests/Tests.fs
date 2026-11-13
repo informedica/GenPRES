@@ -3499,7 +3499,7 @@ module Tests =
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
-                    test "a solution limit is headed by the rule's access, the tube included" {
+                    test "a dilution limit is headed by the rule's access, the tube included" {
                         let rule access : SolutionRule =
                             {
                                 Generic = "paracetamol"
@@ -3510,27 +3510,14 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Access = access }
                                 Dose = MinMax.empty
                                 Diluents = [||]
-                                Div = None
-                                Volumes = None
-                                Volume = MinMax.empty
-                                VolumeAdjust = MinMax.empty
-                                DripRate = MinMax.empty
-                                DoseFraction = MinMax.empty
-                                SolutionLimits = [||]
+                                SolutionLimit = SolutionRule.SolutionLimit.empty
+                                DilutionLimits = [||]
                             }
 
-                        let limit: SolutionLimit =
-                            {
-                                SolutionLimitTarget = NoLimitTarget
-                                Quantity = MinMax.empty
-                                QuantityAdj = MinMax.empty
-                                Quantities = None
-                                Concentration = MinMax.empty
-                                Products = [||]
-                            }
+                        let limit = SolutionRule.DilutionLimit.create (DilutionTarget.Substance "paracetamol")
 
                         let heading access =
-                            (SolutionRule.Print.printSolutionLimit (rule access) false limit).head
+                            (SolutionRule.Print.printDilutionLimit (rule access) false limit).head
 
                         heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
                         heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
@@ -6302,13 +6289,8 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Department = dep }
                                 Dose = MinMax.empty
                                 Diluents = [||]
-                                Div = None
-                                Volumes = None
-                                Volume = MinMax.empty
-                                VolumeAdjust = MinMax.empty
-                                DripRate = MinMax.empty
-                                DoseFraction = MinMax.empty
-                                SolutionLimits = [||]
+                                SolutionLimit = SolutionRule.SolutionLimit.empty
+                                DilutionLimits = [||]
                             }
 
                         let rules = [| rule (Some "ICK"); rule (Some "NICU"); rule None |]
@@ -6437,13 +6419,8 @@ module Tests =
                 PatientCategory = patCat
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = MinMax.empty
-                VolumeAdjust = MinMax.empty
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
-                SolutionLimits = [||]
+                SolutionLimit = SolutionRule.SolutionLimit.empty
+                DilutionLimits = [||]
             }
 
 
@@ -7425,13 +7402,12 @@ module Tests =
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = RR.range mL None (Some 500N)
-                VolumeAdjust = volumeAdjust
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
-                SolutionLimits = [||]
+                SolutionLimit =
+                    { SolutionRule.SolutionLimit.empty with
+                        Volume = RR.range mL None (Some 500N)
+                        VolumeAdjust = volumeAdjust
+                    }
+                DilutionLimits = [||]
             }
 
         let private renalLimit qty qtyAdj =
@@ -7873,8 +7849,11 @@ module Tests =
                                 [|
                                     sr
                                     { sr with
-                                        VolumeAdjust = MinMax.empty
-                                        Volume = RR.range mL None (Some 250N)
+                                        SolutionLimit =
+                                            { sr.SolutionLimit with
+                                                VolumeAdjust = MinMax.empty
+                                                Volume = RR.range mL None (Some 250N)
+                                            }
                                     }
                                 |]
                             )
@@ -8008,16 +7987,10 @@ module Tests =
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = MinMax.empty
-                VolumeAdjust = MinMax.empty
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
-                SolutionLimits =
+                SolutionLimit = SolutionRule.SolutionLimit.empty
+                DilutionLimits =
                     [|
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = SubstanceLimitTarget generic
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Substance generic) with
                             Concentration = conc
                         }
                     |]
@@ -8047,8 +8020,8 @@ module Tests =
 
         let doseFractionRule doseFraction =
             { solutionRule "vancomycine" MinMax.empty with
-                SolutionLimits = [||]
-                DoseFraction = doseFraction
+                DilutionLimits = [||]
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
             }
 
 
@@ -9071,8 +9044,8 @@ module Tests =
                                 | res -> failtest $"expected one solution rule, got %A{res}"
 
                             let targets (solRule: SolutionRule) =
-                                solRule.SolutionLimits
-                                |> Array.map (_.SolutionLimitTarget >> LimitTarget.toString)
+                                solRule.DilutionLimits
+                                |> Array.map (_.DilutionLimitTarget >> SolutionRule.DilutionTarget.toString)
 
                             test "keep the order of the Diluents cell" {
                                 [| solutionRow "samenstelling c" [ "gluc 30%"; "gluc 20%" ] |]
@@ -9092,8 +9065,8 @@ module Tests =
                                     "the substance, then each diluent"
                                     [| "samenstelling c"; "gluc 20%"; "gluc 30%" |]
 
-                                solRule.SolutionLimits[1..]
-                                |> Array.map _.QuantityAdj
+                                solRule.DilutionLimits[1..]
+                                |> Array.map _.QuantityAdjust
                                 |> Array.distinct
                                 |> Expect.hasLength "the limit of the diluent row for both diluents" 1
                             }
@@ -9103,7 +9076,7 @@ module Tests =
                                 let byDiluent = [| diluentRow cell |] |> mapped
                                 let byName = [| { diluentRow cell with Component = "gluc 30%" } |] |> mapped
 
-                                byDiluent.SolutionLimits |> Expect.equal "the same limits" byName.SolutionLimits
+                                byDiluent.DilutionLimits |> Expect.equal "the same limits" byName.DilutionLimits
                             }
 
                             test "the Component diluent is matched in any case" {
@@ -9116,7 +9089,7 @@ module Tests =
                             test "a diluent row of a rule without diluents gives no limit" {
                                 [| diluentRow [] |]
                                 |> SolutionRule.map ivRouteMapping gluc [||]
-                                |> Result.map (Array.collect _.SolutionLimits)
+                                |> Result.map (Array.collect _.DilutionLimits)
                                 |> Expect.equal "no limit" (Ok [||])
                             }
 
@@ -9365,19 +9338,30 @@ module Tests =
                             }
 
                             test "a maximum volume bounds the preparation" {
-                                { unboundedRule with Volume = bounds None (volume 50N) }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with Volume = bounds None (volume 50N) }
+                                }
                                 |> warns
                                 |> Expect.equal "no warning" 0
                             }
 
                             test "a minimum volume alone does not bound the preparation" {
-                                { unboundedRule with Volume = bounds (volume 10N) None }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with Volume = bounds (volume 10N) None }
+                                }
                                 |> warns
                                 |> Expect.equal "a warning" 1
                             }
 
                             test "a list of volumes bounds the preparation" {
-                                { unboundedRule with Volumes = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with
+                                            Volumes = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some
+                                        }
+                                }
                                 |> warns
                                 |> Expect.equal "no warning" 0
                             }
@@ -9386,8 +9370,13 @@ module Tests =
                                 let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
 
                                 { unboundedRule with
-                                    VolumeAdjust =
-                                        bounds None (10N |> ValueUnit.singleWithUnit mLPerKg |> Limit.inclusive |> Some)
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with
+                                            VolumeAdjust =
+                                                bounds
+                                                    None
+                                                    (10N |> ValueUnit.singleWithUnit mLPerKg |> Limit.inclusive |> Some)
+                                        }
                                 }
                                 |> warns
                                 |> Expect.equal "no warning" 0
@@ -9419,7 +9408,7 @@ module Tests =
                             }
 
                             testList
-                                "a solution limit"
+                                "a dilution limit"
                                 [
                                     let mgPerKg = mg |> ValueUnit.per Units.Weight.kiloGram
                                     let limit u n = n |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some
@@ -9429,12 +9418,13 @@ module Tests =
 
                                     let withLimit qty qtyAdj cnc =
                                         { unboundedRule with
-                                            SolutionLimits =
+                                            DilutionLimits =
                                                 [|
-                                                    { SolutionLimit.limit with
-                                                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                                                    { SolutionRule.DilutionLimit.create (
+                                                          DilutionTarget.Substance "vancomycine"
+                                                      ) with
                                                         Quantity = qty
-                                                        QuantityAdj = qtyAdj
+                                                        QuantityAdjust = qtyAdj
                                                         Concentration = cnc
                                                     }
                                                 |]
@@ -10257,19 +10247,18 @@ module Tests =
         let withoutLimits = doseRule [| componentLimit "NaCl 3%" None; componentLimit "KCl 7,4%" None |]
 
 
-        let solutionLimit name quantity quantityAdj quantities =
-            { SolutionLimit.limit with
-                SolutionLimitTarget = ComponentLimitTarget name
+        let dilutionLimit name quantity quantityAdjust quantities =
+            { SolutionRule.DilutionLimit.create (DilutionTarget.Component name) with
                 Quantity = quantity
-                QuantityAdj = quantityAdj
+                QuantityAdjust = quantityAdjust
                 Quantities = quantities
             }
 
 
         let solutionRule limits =
             { RuleCheckTests.solutionRule "electrolyt/glucose mengsel" MinMax.empty with
-                DoseFraction = fraction None (Some 1N)
-                SolutionLimits = limits
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = fraction None (Some 1N) }
+                DilutionLimits = limits
             }
 
 
@@ -10277,8 +10266,8 @@ module Tests =
         let limitsBoth =
             solutionRule
                 [|
-                    solutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
-                    solutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
+                    dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
+                    dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
                 |]
 
 
@@ -10286,8 +10275,8 @@ module Tests =
         let limitsBothPerKg =
             solutionRule
                 [|
-                    solutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
-                    solutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
+                    dilutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
+                    dilutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
                 |]
 
 
@@ -10372,7 +10361,7 @@ module Tests =
 
                             test "a solution rule that limits one of two components does not keep the rule" {
                                 let onlyNaCl =
-                                    solutionRule [| solutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None |]
+                                    solutionRule [| dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None |]
 
                                 prescriptionRule withoutLimits [| onlyNaCl |]
                                 |> PrescriptionRule.withLimitingSolutionRules
@@ -10385,8 +10374,8 @@ module Tests =
                                 let listed =
                                     solutionRule
                                         [|
-                                            solutionLimit "NaCl 3%" MinMax.empty MinMax.empty qts
-                                            solutionLimit "KCl 7,4%" MinMax.empty MinMax.empty qts
+                                            dilutionLimit "NaCl 3%" MinMax.empty MinMax.empty qts
+                                            dilutionLimit "KCl 7,4%" MinMax.empty MinMax.empty qts
                                         |]
 
                                 prescriptionRule withoutLimits [| listed |]
@@ -10401,8 +10390,8 @@ module Tests =
                                 let minOnly =
                                     solutionRule
                                         [|
-                                            solutionLimit "NaCl 3%" atLeast MinMax.empty None
-                                            solutionLimit "KCl 7,4%" atLeast MinMax.empty None
+                                            dilutionLimit "NaCl 3%" atLeast MinMax.empty None
+                                            dilutionLimit "KCl 7,4%" atLeast MinMax.empty None
                                         |]
 
                                 prescriptionRule withoutLimits [| minOnly |]
@@ -10410,16 +10399,16 @@ module Tests =
                                 |> Expect.isNone "dropped"
                             }
 
-                            test "only the first solution limit of a component counts, as in the order" {
+                            test "only the first dilution limit of a component counts, as in the order" {
                                 let atLeast =
                                     bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
 
                                 let minFirst =
                                     solutionRule
                                         [|
-                                            solutionLimit "NaCl 3%" atLeast MinMax.empty None
-                                            solutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
-                                            solutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
+                                            dilutionLimit "NaCl 3%" atLeast MinMax.empty None
+                                            dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
+                                            dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
                                         |]
 
                                 prescriptionRule withoutLimits [| minFirst |]
@@ -10437,8 +10426,8 @@ module Tests =
                                 let upper =
                                     solutionRule
                                         [|
-                                            solutionLimit "NACL 3%" (range mL 0N 60N) MinMax.empty None
-                                            solutionLimit "kcl 7,4%" (range mL 0N 20N) MinMax.empty None
+                                            dilutionLimit "NACL 3%" (range mL 0N 60N) MinMax.empty None
+                                            dilutionLimit "kcl 7,4%" (range mL 0N 20N) MinMax.empty None
                                         |]
 
                                 prescriptionRule withoutLimits [| upper |]
@@ -10461,7 +10450,13 @@ module Tests =
                                             Some 2N, Some 2N, false
                                         ] do
                                         test $"a dose fraction of %A{min} to %A{max} keeps the rule: %b{kept}" {
-                                            let solRule = { limitsBoth with DoseFraction = fraction min max }
+                                            let solRule =
+                                                { limitsBoth with
+                                                    SolutionLimit =
+                                                        { limitsBoth.SolutionLimit with
+                                                            DoseFraction = fraction min max
+                                                        }
+                                                }
 
                                             prescriptionRule withoutLimits [| solRule |]
                                             |> PrescriptionRule.withLimitingSolutionRules
@@ -10565,11 +10560,8 @@ module Tests =
         let rowsWithoutLimits = [| row "NaCl 3%" None; row "KCl 7,4%" None |]
 
 
-        let solutionLimit name quantityAdj =
-            { SolutionLimit.limit with
-                SolutionLimitTarget = ComponentLimitTarget name
-                QuantityAdj = quantityAdj
-            }
+        let dilutionLimit name quantityAdjust =
+            { SolutionRule.DilutionLimit.create (DilutionTarget.Component name) with QuantityAdjust = quantityAdjust }
 
 
         let perKg max = range (mL |> ValueUnit.per kg) 0N max
@@ -10579,8 +10571,8 @@ module Tests =
             { RuleCheckTests.solutionRule "electrolyt/glucose mengsel" MinMax.empty with
                 Indication = Some "Parenterale suppletie"
                 PatientCategory = { PatientCategory.empty with Department = Some "ICK" }
-                DoseFraction = fraction None (Some 1N)
-                SolutionLimits = limits
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = fraction None (Some 1N) }
+                DilutionLimits = limits
             }
 
 
@@ -10588,12 +10580,12 @@ module Tests =
         let limitsBoth =
             solutionRule
                 [|
-                    solutionLimit "NaCl 3%" (perKg 6N)
-                    solutionLimit "KCl 7,4%" (perKg (3N / 2N))
+                    dilutionLimit "NaCl 3%" (perKg 6N)
+                    dilutionLimit "KCl 7,4%" (perKg (3N / 2N))
                 |]
 
 
-        let limitsNaClOnly = solutionRule [| solutionLimit "NaCl 3%" (perKg 6N) |]
+        let limitsNaClOnly = solutionRule [| dilutionLimit "NaCl 3%" (perKg 6N) |]
 
 
         let load solRules rows =
@@ -10638,7 +10630,13 @@ module Tests =
                     test "a solution rule with a dose count below 1 drops the rule with a warning" {
                         let rules, msgs =
                             rowsWithoutLimits
-                            |> load [| { limitsBoth with DoseFraction = fraction None (Some 2N) } |]
+                            |> load
+                                [|
+                                    { limitsBoth with
+                                        SolutionLimit =
+                                            { limitsBoth.SolutionLimit with DoseFraction = fraction None (Some 2N) }
+                                    }
+                                |]
 
                         rules |> Expect.isEmpty "dropped"
                         msgs |> Expect.hasLength "one warning" 1
@@ -10648,7 +10646,7 @@ module Tests =
                         let atLeast = { perKg 1N with Max = None }
 
                         let minOnly =
-                            solutionRule [| solutionLimit "NaCl 3%" atLeast; solutionLimit "KCl 7,4%" atLeast |]
+                            solutionRule [| dilutionLimit "NaCl 3%" atLeast; dilutionLimit "KCl 7,4%" atLeast |]
 
                         let rules, msgs = rowsWithoutLimits |> load [| minOnly |]
 
@@ -10833,12 +10831,11 @@ module Tests =
             { RuleCheckTests.solutionRule "Samenstelling C" MinMax.empty with
                 Indication = Some "Standaard Totale Parenterale Voeding"
                 DoseType = Timed "dag 2"
-                DoseFraction = doseFraction
-                SolutionLimits =
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
+                DilutionLimits =
                     [|
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = ComponentLimitTarget "Samenstelling C"
-                            QuantityAdj = optRange mLPerKg prepMin prepMax
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component "Samenstelling C") with
+                            QuantityAdjust = optRange mLPerKg prepMin prepMax
                         }
                     |]
             }
@@ -10855,7 +10852,7 @@ module Tests =
 
         /// The dose count range of a solution rule with the dose fraction.
         let countOf doseFraction =
-            { solutionRule None None doseFraction with SolutionLimits = [||] }
+            { solutionRule None None doseFraction with DilutionLimits = [||] }
             |> SolutionRule.doseCountRange
 
 
@@ -11062,15 +11059,14 @@ module Tests =
 
     module RepeatedTargetTests =
 
-        let solutionLimit target =
-            { SolutionLimit.limit with
-                SolutionLimitTarget = target
+        let dilutionLimit target =
+            { SolutionRule.DilutionLimit.create target with
                 Concentration = RuleCheckTests.range RuleCheckTests.mgPerMl 0N 5N
             }
 
 
         let solutionRule generic limits =
-            { RuleCheckTests.solutionRule generic MinMax.empty with SolutionLimits = limits }
+            { RuleCheckTests.solutionRule generic MinMax.empty with DilutionLimits = limits }
 
 
         let warningTexts rules =
@@ -11079,22 +11075,22 @@ module Tests =
 
         let tests =
             testList
-                "a solution rule with more than one solution limit for the same target"
+                "a solution rule with more than one dilution limit for the same target"
                 [
                     test "two limits for the same substance give one warning" {
                         [|
                             solutionRule
                                 "erytromycine"
                                 [|
-                                    solutionLimit (SubstanceLimitTarget "erytromycine")
-                                    solutionLimit (SubstanceLimitTarget "erytromycine")
+                                    dilutionLimit (DilutionTarget.Substance "erytromycine")
+                                    dilutionLimit (DilutionTarget.Substance "erytromycine")
                                 |]
                         |]
                         |> warningTexts
                         |> Expect.equal
                             "one warning"
                             [
-                                "solution rule erytromycine, INTRAVENEUS: 2 solution limits for the substance erytromycine, "
+                                "solution rule erytromycine, INTRAVENEUS: 2 dilution limits for the substance erytromycine, "
                                 + "an order takes only the first"
                             ]
                     }
@@ -11104,8 +11100,8 @@ module Tests =
                             solutionRule
                                 "Samenstelling C"
                                 [|
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
                                 |]
                         |]
                         |> warningTexts
@@ -11118,12 +11114,12 @@ module Tests =
                                 "erytromycine"
                                 [|
                                     for _ in 1..3 do
-                                        solutionLimit (SubstanceLimitTarget "erytromycine")
+                                        dilutionLimit (DilutionTarget.Substance "erytromycine")
                                 |]
                         |]
                         |> warningTexts
                         |> List.exactlyOne
-                        |> Expect.stringContains "three" "3 solution limits"
+                        |> Expect.stringContains "three" "3 dilution limits"
                     }
 
                     test "names that differ only in case are the same target" {
@@ -11131,8 +11127,8 @@ module Tests =
                             solutionRule
                                 "Samenstelling C"
                                 [|
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
-                                    solutionLimit (ComponentLimitTarget "NACL 3%")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "NACL 3%")
                                 |]
                         |]
                         |> warningTexts
@@ -11144,8 +11140,8 @@ module Tests =
                             solutionRule
                                 "kaliumchloride"
                                 [|
-                                    solutionLimit (ComponentLimitTarget "kaliumchloride")
-                                    solutionLimit (SubstanceLimitTarget "kaliumchloride")
+                                    dilutionLimit (DilutionTarget.Component "kaliumchloride")
+                                    dilutionLimit (DilutionTarget.Substance "kaliumchloride")
                                 |]
                         |]
                         |> warningTexts
@@ -11157,9 +11153,9 @@ module Tests =
                             solutionRule
                                 "Samenstelling C"
                                 [|
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
-                                    solutionLimit (ComponentLimitTarget "KCl 7,4%")
-                                    solutionLimit (SubstanceLimitTarget "natrium")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "KCl 7,4%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
                                 |]
                         |]
                         |> warningTexts
@@ -11168,9 +11164,12 @@ module Tests =
 
                     test "one limit each in two solution rules gives no warning" {
                         [|
-                            solutionRule "erytromycine" [| solutionLimit (SubstanceLimitTarget "erytromycine") |]
-                            { solutionRule "erytromycine" [| solutionLimit (SubstanceLimitTarget "erytromycine") |] with
-                                Volume = RuleCheckTests.range Units.Volume.milliLiter 5N 10N
+                            solutionRule "erytromycine" [| dilutionLimit (DilutionTarget.Substance "erytromycine") |]
+                            { solutionRule "erytromycine" [| dilutionLimit (DilutionTarget.Substance "erytromycine") |] with
+                                SolutionLimit =
+                                    { SolutionRule.SolutionLimit.empty with
+                                        Volume = RuleCheckTests.range Units.Volume.milliLiter 5N 10N
+                                    }
                             }
                         |]
                         |> warningTexts
@@ -11182,10 +11181,10 @@ module Tests =
                             solutionRule
                                 "Samenstelling C"
                                 [|
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
-                                    solutionLimit (SubstanceLimitTarget "natrium")
-                                    solutionLimit (ComponentLimitTarget "NaCl 3%")
-                                    solutionLimit (SubstanceLimitTarget "natrium")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
                                 |]
                         |]
                         |> warningTexts

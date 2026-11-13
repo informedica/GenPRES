@@ -1100,7 +1100,7 @@ type RulesOf(rules: DoseRule[]) =
         member _.GetRouteMappings() = RuleFixtures.routeMapping
 
 
-/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a solution limit of
+/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a dilution limit of
 /// 9 to 11 mg/mL and no diluent, so the medication cannot become an order.
 type UndilutedVancomycin() =
     inherit NoRules()
@@ -1155,16 +1155,10 @@ type UndilutedVancomycin() =
             PatientCategory = PatientCategory.empty
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            SolutionLimits =
+            SolutionLimit = SolutionRule.SolutionLimit.empty
+            DilutionLimits =
                 [|
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
                         Concentration =
                             Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
                                 (9N |> ValueUnit.singleWithUnit mgPerMl)
@@ -1266,21 +1260,17 @@ module Electrolytes =
                 }
             Dose = MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = MinMax.empty
-            VolumeAdjust = MinMax.empty
-            DripRate = MinMax.empty
-            DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
-            SolutionLimits =
+            SolutionLimit =
+                { SolutionRule.SolutionLimit.empty with
+                    DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
+                }
+            DilutionLimits =
                 [|
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = ComponentLimitTarget "NaCl 3%"
-                        QuantityAdj = perKg 6N
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Component "NaCl 3%") with
+                        QuantityAdjust = perKg 6N
                     }
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = ComponentLimitTarget "KCl 7,4%"
-                        QuantityAdj = perKg 2N
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Component "KCl 7,4%") with
+                        QuantityAdjust = perKg 2N
                     }
                 |]
         }
@@ -2011,13 +2001,8 @@ let scenarioAccessTests =
             PatientCategory = { PatientCategory.empty with Access = access }
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            SolutionLimits = [||]
+            SolutionLimit = SolutionRule.SolutionLimit.empty
+            DilutionLimits = [||]
         }
 
     // a function, so that the rule lookup runs in the test and not when the file loads

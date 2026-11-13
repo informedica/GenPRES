@@ -24,8 +24,8 @@ module PrescriptionRule =
                 yield! dl |> doseLimitMeasures
             for solRule in pr.SolutionRules do
                 yield!
-                    solRule.VolumeAdjust
-                    :: (solRule.SolutionLimits |> Array.toList |> List.map _.QuantityAdj)
+                    solRule.SolutionLimit.VolumeAdjust
+                    :: (solRule.DilutionLimits |> Array.toList |> List.map _.QuantityAdjust)
                     |> List.choose RenalRule.measureOf
             for rl in pr.RenalRules |> Array.collect _.RenalLimits do
                 yield! rl |> RenalRule.limitMeasures
@@ -195,22 +195,27 @@ module PrescriptionRule =
         match pat.Weight with
         | None -> solRule
         | Some w ->
+            let sl = solRule.SolutionLimit
+
             { solRule with
-                Volume =
-                    if solRule.VolumeAdjust |> MinMax.isEmpty then
-                        solRule.Volume
-                    else
-                        [ solRule.VolumeAdjust |> MinMax.apply ((*) w); solRule.Volume ]
-                        |> MinMax.foldMinimize true true
-                SolutionLimits =
-                    solRule.SolutionLimits
-                    |> Array.map (fun solutionLimit ->
-                        if solutionLimit.QuantityAdj |> MinMax.isEmpty then
-                            solutionLimit
+                SolutionLimit =
+                    { sl with
+                        Volume =
+                            if sl.VolumeAdjust |> MinMax.isEmpty then
+                                sl.Volume
+                            else
+                                [ sl.VolumeAdjust |> MinMax.apply ((*) w); sl.Volume ]
+                                |> MinMax.foldMinimize true true
+                    }
+                DilutionLimits =
+                    solRule.DilutionLimits
+                    |> Array.map (fun dilutionLimit ->
+                        if dilutionLimit.QuantityAdjust |> MinMax.isEmpty then
+                            dilutionLimit
                         else
-                            { solutionLimit with
+                            { dilutionLimit with
                                 Quantity =
-                                    [ solutionLimit.QuantityAdj |> MinMax.apply ((*) w); solutionLimit.Quantity ]
+                                    [ dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w); dilutionLimit.Quantity ]
                                     |> MinMax.foldMinimize true true
                             }
                     )
@@ -276,10 +281,10 @@ module PrescriptionRule =
         |> Array.map _.Name
 
 
-    /// Whether the solution rule, adjusted to the patient, limits the component: a solution limit of
+    /// Whether the solution rule, adjusted to the patient, limits the component: a dilution limit of
     /// the component with a maximum quantity or a list of quantities. A quantity per kg is in the
     /// quantity only when the patient has a weight. A minimum alone leaves the component unbounded.
-    /// Only the first solution limit of the component counts, since that is the one the order takes.
+    /// Only the first dilution limit of the component counts, since that is the one the order takes.
     let limitsComponent (solRule: SolutionRule) name =
         solRule
         |> SolutionRule.componentLimit name
@@ -362,12 +367,12 @@ module PrescriptionRule =
                     |> SolutionRule.filter routeMapping solutionFilter
                     |> Array.map (fun solRule ->
                         { solRule with
-                            SolutionLimits =
-                                solRule.SolutionLimits
-                                |> Array.map (fun solutionLimit ->
-                                    { solutionLimit with
+                            DilutionLimits =
+                                solRule.DilutionLimits
+                                |> Array.map (fun dilutionLimit ->
+                                    { dilutionLimit with
                                         Products =
-                                            solutionLimit.Products
+                                            dilutionLimit.Products
                                             |> Array.filter (fun p ->
                                                 dr.ComponentLimits
                                                 |> Array.collect _.Products

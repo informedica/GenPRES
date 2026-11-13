@@ -363,22 +363,22 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 | SolutionRule                 | MinDose    | float                                                 | unit            | yes | The minimum dose                                                   |
 | SolutionRule                 | MaxDose    | float                                                 | unit            | yes | The maximum dose                                                   |
 | SolutionRule                 | Diluents   | text list                                             |                 |     | The possible diluents that can be used                             |
-| SolutionRule                 | Volumes    | float list                                            | mL              |     | The possible volume quantities that can be used                    |
-| SolutionRule                 | MinVol     | float                                                 | mL              |     | The minimum volume                                                 |
-| SolutionRule                 | MaxVol     | float                                                 | mL              |     | The maximum volume                                                 |
-| SolutionRule                 | MinVolAdj  | float                                                 | mL / kg         |     | The minimum allowed solution volume                                |
-| SolutionRule                 | MaxVolAdj  | float                                                 | mL / kg         |     | The maximum allowed solution volume                                |
-| SolutionRule                 | MinDrip    | float                                                 | mL / hour       |     | The minimum allowed infusion rate                                  |
-| SolutionRule                 | MaxDrip    | float                                                 | mL / hour       |     | The maximum allowed infusion rate                                  |
-| SolutionRule                 | MinPerc    | float                                                 | fraction        |     | The minimum fraction of the preparation that makes up one dose     |
-| SolutionRule                 | MaxPerc    | float                                                 | fraction        |     | The maximum fraction of the preparation that makes up one dose     |
-| SolutionLimit                | Substance  | text                                                  |                 |     | The substance used for the below fields                            |
-| SolutionLimit                | SubstUnit  | text                                                  |                 |     | The unit to measure the substance                                  |
-| SolutionLimit                | Quantities | float list                                            | subst_unit      |     | The substance quantities that can be used                          |
-| SolutionLimit                | MinQty     | float                                                 | subst_unit      |     | The minimum substance quantity                                     |
-| SolutionLimit                | MaxQty     | float                                                 | subst_unit      |     | The maximum substance quantity                                     |
-| SolutionLimit                | MinConc    | float                                                 | subst_unit / mL |     | The minimum substance concentration                                |
-| SolutionLimit                | MaxConc    | float                                                 | subst_unit / mL |     | The maximum substance concentration                                |
+| SolutionLimit                | Volumes    | float list                                            | mL              |     | The possible volume quantities that can be used                    |
+| SolutionLimit                | MinVol     | float                                                 | mL              |     | The minimum volume                                                 |
+| SolutionLimit                | MaxVol     | float                                                 | mL              |     | The maximum volume                                                 |
+| SolutionLimit                | MinVolAdj  | float                                                 | mL / kg         |     | The minimum allowed solution volume                                |
+| SolutionLimit                | MaxVolAdj  | float                                                 | mL / kg         |     | The maximum allowed solution volume                                |
+| SolutionLimit                | MinDrip    | float                                                 | mL / hour       |     | The minimum allowed infusion rate                                  |
+| SolutionLimit                | MaxDrip    | float                                                 | mL / hour       |     | The maximum allowed infusion rate                                  |
+| SolutionLimit                | MinPerc    | float                                                 | fraction        |     | The minimum fraction of the preparation that makes up one dose     |
+| SolutionLimit                | MaxPerc    | float                                                 | fraction        |     | The maximum fraction of the preparation that makes up one dose     |
+| DilutionLimit                | Substance  | text                                                  |                 |     | The substance used for the below fields                            |
+| DilutionLimit                | SubstUnit  | text                                                  |                 |     | The unit to measure the substance                                  |
+| DilutionLimit                | Quantities | float list                                            | subst_unit      |     | The substance quantities that can be used                          |
+| DilutionLimit                | MinQty     | float                                                 | subst_unit      |     | The minimum substance quantity                                     |
+| DilutionLimit                | MaxQty     | float                                                 | subst_unit      |     | The maximum substance quantity                                     |
+| DilutionLimit                | MinConc    | float                                                 | subst_unit / mL |     | The minimum substance concentration                                |
+| DilutionLimit                | MaxConc    | float                                                 | subst_unit / mL |     | The maximum substance concentration                                |
 
 ### Appendix E.1. Renal Rule Model Figure
 

@@ -44,24 +44,23 @@ module Fixture =
 
 
     // The per-kg limits of a component belong to its orderable quantity, the composition, not to its
-    // dose: a part of the orderable may be given. So each component dose limit becomes a solution limit
+    // dose: a part of the orderable may be given. So each component dose limit becomes a dilution limit
     // on the component, made absolute by the weight as Medication.create does for a solution rule.
-    let withComponentSolutionLimits (med: Medication) =
-        let toSolutionLimit (pc: ProductComponent) =
+    let withComponentDilutionLimits (med: Medication) =
+        let toDilutionLimit (pc: ProductComponent) =
             match pc.Dose, med.Adjust with
             | Some dl, Some weight ->
                 { pc with
                     Dose = None
-                    Solution =
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = pc.Name |> ComponentLimitTarget
+                    Dilution =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
                             Quantity = dl.QuantityAdjust |> MinMax.apply ((*) weight)
                         }
                         |> Some
                 }
             | _ -> pc
 
-        { med with Components = med.Components |> List.map toSolutionLimit }
+        { med with Components = med.Components |> List.map toDilutionLimit }
 
 
     // the orderable dose limited by nothing per kg: the composition and the time decide the dose
@@ -70,7 +69,7 @@ module Fixture =
 
 
     // gluc 10% fills the TPN up, between 65 and 80 mL/kg, made absolute by the weight
-    let withGlucoseSolutionLimit (med: Medication) =
+    let withGlucoseDilutionLimit (med: Medication) =
         let mlPerKg n =
             n
             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Weight.kiloGram)
@@ -81,9 +80,8 @@ module Fixture =
             match med.Adjust with
             | Some weight when pc.Name = "gluc 10%" ->
                 { pc with
-                    Solution =
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = pc.Name |> ComponentLimitTarget
+                    Dilution =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
                             Quantity =
                                 { MinMax.empty with
                                     Min = mlPerKg 65N
@@ -130,8 +128,8 @@ module Fixture =
     let tpn =
         Scenarios.tpnComplete
         |> withDoseCountMinOne
-        |> withComponentSolutionLimits
-        |> withGlucoseSolutionLimit
+        |> withComponentDilutionLimits
+        |> withGlucoseDilutionLimit
         |> withoutOrderableDoseQuantityAdjust
 
 
@@ -332,8 +330,8 @@ let tests =
 
             test "the fixture limits the component orderable quantities, not the component doses" {
                 tpn.Components
-                |> List.forall (fun pc -> pc.Dose.IsNone && pc.Solution.IsSome)
-                |> Expect.isTrue "every component should have a solution limit and no dose limit"
+                |> List.forall (fun pc -> pc.Dose.IsNone && pc.Dilution.IsSome)
+                |> Expect.isTrue "every component should have a dilution limit and no dose limit"
             }
 
             test "the fixture is within its constraints" {

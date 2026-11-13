@@ -539,7 +539,7 @@ module Resources =
                 // - a diluent that is also a component of a dose rule the solution rule applies to
                 // - a diluent whose Formulary product is not marked IsDiluent
                 // - a solution rule with a diluent row but no diluent
-                // - a solution rule with more than one solution limit for the same component or substance
+                // - a solution rule with more than one dilution limit for the same component or substance
                 // - a dose rule and a solution rule whose ranges for a component no order can meet
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,

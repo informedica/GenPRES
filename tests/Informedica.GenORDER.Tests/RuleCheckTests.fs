@@ -282,9 +282,9 @@ let tests =
                     test "the amount a per kg limit gives at a weight does not count" {
                         let at (w: BigRational) (sr: SolutionRule) =
                             { sr with
-                                SolutionLimits =
-                                    sr.SolutionLimits
-                                    |> Array.map (fun sl ->
+                                DilutionLimits =
+                                    sr.DilutionLimits
+                                    |> Array.map (fun dl ->
                                         let perKg =
                                             5N
                                             |> ValueUnit.singleWithUnit (
@@ -293,8 +293,8 @@ let tests =
 
                                         let amount = 5N * w |> ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                                        { sl with
-                                            QuantityAdj = MinMax.createExact perKg
+                                        { dl with
+                                            QuantityAdjust = MinMax.createExact perKg
                                             Quantity = MinMax.createExact amount
                                         }
                                     )

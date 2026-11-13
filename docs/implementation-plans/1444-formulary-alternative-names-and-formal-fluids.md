@@ -281,9 +281,10 @@ One pull request at a time, each merged before the next.
      and `SolventVolume`, and the dilution rule data's `Diluents`, `MinQtyPerKg` and
      `MaxQtyPerKg`. The sheet row type and its parser follow the sheet: `DilutionRuleData` and
      `parseDilutionRuleData`.
-   - The domain follows too: `SolutionRule` is `DilutionRule` and `SolutionLimit` is
-     `DilutionLimit`, with their modules, files (`DilutionRule.fs`, `DilutionLimit.fs`), resource
-     keys, provider members and the GenORDER types that carry them.
+   - The domain follows too: `SolutionRule` is `DilutionRule`, with its module, file
+     (`DilutionRule.fs`), resource keys, provider members and the GenORDER types that carry it.
+     `DilutionLimit`, the limit on one component or one substance in the solution, already has
+     that name; `SolutionLimit`, the limits on the solution as a whole, keeps its name.
    - The MCP formulary tool outputs the field `Diluents` in place of `Solutions`, and the MCP tools
      `get_solution_rules` and `get_solution_rules_for_context` are `get_dilution_rules` and
      `get_dilution_rules_for_context`.

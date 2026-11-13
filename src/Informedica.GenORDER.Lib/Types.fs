@@ -314,8 +314,8 @@ module Types =
     type MinMax = Informedica.GenForm.Lib.Types.MinMax
     /// Type alias for DoseLimit from Informedica.GenForm.Lib.Types
     type DoseLimit = Informedica.GenForm.Lib.Types.DoseLimit
-    /// Type alias for SolutionLimit from Informedica.GenForm.Lib.Types
-    type SolutionLimit = Informedica.GenForm.Lib.Types.SolutionLimit
+    /// Type alias for DilutionLimit from Informedica.GenForm.Lib.Types
+    type DilutionLimit = Informedica.GenForm.Lib.Types.DilutionLimit
 
 
     /// Commands that can be executed on an order for calculations
@@ -711,8 +711,8 @@ module Types =
             Divisible: BigRational option
             /// The dose limits for the product
             Dose: DoseLimit option
-            /// The solution limit of the component, when a solution rule limits it
-            Solution: SolutionLimit option
+            /// The dilution limit of the component, when a solution rule limits it
+            Dilution: DilutionLimit option
             /// The list of substances contained in the product
             Substances: SubstanceItem list
             /// The products the component can be made of; empty when none are known
@@ -732,8 +732,8 @@ module Types =
             Concentrations: ValueUnit option
             /// The dose limits for a substance
             Dose: DoseLimit option
-            /// The solution limit of the substance, when a solution rule limits it
-            Solution: SolutionLimit option
+            /// The dilution limit of the substance, when a solution rule limits it
+            Dilution: DilutionLimit option
         }
 
 
