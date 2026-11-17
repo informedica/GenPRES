@@ -26,7 +26,7 @@ module FormularyService =
                 Route = form.Route
                 Form = form.Form
                 DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
-                Patient = pat
+                PatientData = pat
             }
         )
 
@@ -149,7 +149,7 @@ module FormularyService =
         $"""
 
 Formulary filter:
-Patient: {filter.Patient |> PatientData.toString}
+Patient: {filter.PatientData |> PatientData.toString}
 Indication: {filter.Indication |> Option.defaultValue ""}
 Generic: {filter.Generic |> Option.defaultValue ""}
 Route: {filter.Route |> Option.defaultValue ""}
@@ -193,7 +193,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
 
                     let doseCheck =
                         dsrs
-                        |> checkDoseRules provider filter.Patient
+                        |> checkDoseRules provider filter.PatientData
                         |> DoseCheck.build Mappers.parseTextItem singleRule
 
                     writeDebugMessage $"finished checking {dsrs |> Array.length} rules"

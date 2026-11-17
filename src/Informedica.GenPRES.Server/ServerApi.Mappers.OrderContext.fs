@@ -310,7 +310,7 @@ module OrderContextMapper =
             Context =
                 {
                     Filter = ctx.Filter |> filter
-                    Patient = ctx.Patient |> Patient.ofModel today
+                    PatientData = ctx.Patient |> Patient.ofModel today
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
@@ -332,7 +332,7 @@ module OrderContextMapper =
                 |> Category.ofDomain
             DemoVersion = demo
             Filter = dto.Context.Filter |> filterBack
-            Patient = dto.Context.Patient |> Patient.toModel
+            Patient = dto.Context.PatientData |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
             Totals = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation

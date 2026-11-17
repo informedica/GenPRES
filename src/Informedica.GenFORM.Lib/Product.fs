@@ -238,7 +238,11 @@ module Product =
         let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
             rs
             |> Array.filter (
-                matches routeMapping filter.Patient.Location (filter.Patient |> PatientData.department) filter.Route
+                matches
+                    routeMapping
+                    filter.PatientData.Location
+                    (filter.PatientData |> PatientData.department)
+                    filter.Route
             )
 
 

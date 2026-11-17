@@ -1788,7 +1788,7 @@ let flightWriteTests =
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
                     let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
-                    let patient = v1.Plan.Patient |> Session.atBirthDate v1.SignedAt whom
+                    let patient = v1.Plan.PatientData |> Session.atBirthDate v1.SignedAt whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
 
                     runWrites
@@ -1821,7 +1821,8 @@ let flightWriteTests =
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
                     let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
                     let patientOn zone =
-                        v1.Plan.Patient |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
+                        v1.Plan.PatientData
+                        |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patientOn amsterdam)
 
                     patientOn amsterdam
@@ -1855,7 +1856,7 @@ let flightWriteTests =
                             Session.RememberAnswer(
                                 "s-1",
                                 "k-1",
-                                SigningOutcome.Submitted(v1, None, OpenedToken "opened-again", v1.Plan.Patient),
+                                SigningOutcome.Submitted(v1, None, OpenedToken "opened-again", v1.Plan.PatientData),
                                 t0
                             )
                         ]
@@ -2103,7 +2104,7 @@ let auditTests =
                         Session.RememberAnswer(
                             "s-1",
                             "k-1",
-                            SigningOutcome.Submitted(v1, None, OpenedToken "t", v1.Plan.Patient),
+                            SigningOutcome.Submitted(v1, None, OpenedToken "t", v1.Plan.PatientData),
                             t0
                         )
                     ]

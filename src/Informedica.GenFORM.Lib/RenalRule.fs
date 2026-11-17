@@ -367,7 +367,7 @@ module RenalRule =
 
 
     let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
-        let pat, ageHolds = filter.Patient |> PatientData.forAdultMatch
+        let pat, ageHolds = filter.PatientData |> PatientData.forAdultMatch
         let age = pat |> CorePatientData.ageInDays
 
         [|
@@ -380,7 +380,7 @@ module RenalRule =
             appliesTo mapping filter.Generic filter.Route filter.Indication filter.DoseType
             // A rule applies when its renal function is the renal function of the patient.
             fun (rr: RenalRule) ->
-                filter.Patient
+                filter.PatientData
                 |> PatientData.renalFunction
                 |> Option.exists ((=) rr.RenalFunction)
         |]
@@ -475,7 +475,7 @@ module RenalRule =
         reduced, reducedAdj
 
 
-    let adjustDoseLimit (pat: PatientData) (renalRule: RenalRule) (dl: DoseLimit) =
+    let adjustDoseLimit (patientData: PatientData) (renalRule: RenalRule) (dl: DoseLimit) =
         let relative mmNew mmOrig =
             if mmOrig = MinMax.empty || mmNew = MinMax.empty then
                 mmOrig
@@ -501,7 +501,7 @@ module RenalRule =
         let ownMeasure (renal: MinMax, renalAdj: MinMax) =
             match dl.AdjustUnit, renalAdj |> measureOf with
             | Some du, Some ru when not (sameMeasure du ru) ->
-                match Some ru |> PatientData.adjustValue pat with
+                match Some ru |> PatientData.adjustValue patientData with
                 | Some v ->
                     let abs = renalAdj |> MinMax.apply (fun vu -> vu * v)
 
@@ -528,7 +528,7 @@ module RenalRule =
                 | NoReduction -> dl
                 | Replace ->
                     let adjUnit = rl |> adjustUnit
-                    let adj = adjUnit |> PatientData.adjustValue pat
+                    let adj = adjUnit |> PatientData.adjustValue patientData
 
                     let dose renal = replaceDose adj (ownMeasure renal)
 
@@ -560,7 +560,7 @@ module RenalRule =
 
     /// The dose rule under a renal rule. A dose rule without an adjust unit takes the adjust unit
     /// that a dose limit took from the renal rule.
-    let adjustDoseRule pat (renalRule: RenalRule) (doseRule: DoseRule) =
+    let adjustDoseRule patientData (renalRule: RenalRule) (doseRule: DoseRule) =
 
         { doseRule with
             RenalRuleSource = Some renalRule.Source
@@ -572,7 +572,9 @@ module RenalRule =
             ComponentLimits =
                 doseRule.ComponentLimits
                 |> Array.map (fun dl ->
-                    { dl with SubstanceLimits = dl.SubstanceLimits |> Array.map (adjustDoseLimit pat renalRule) }
+                    { dl with
+                        SubstanceLimits = dl.SubstanceLimits |> Array.map (adjustDoseLimit patientData renalRule)
+                    }
                 )
         }
         |> fun dr ->

@@ -24,7 +24,8 @@ module PlanContext =
 
 
     /// The context with the patient.
-    let withPatient pat (pc: PlanContext) = { pc with Context = { pc.Context with Patient = pat } }
+    let withPatientData patientData (pc: PlanContext) =
+        { pc with Context = { pc.Context with PatientData = patientData } }
 
 
     /// The nutrition category of a context, none for a medication.
@@ -341,11 +342,11 @@ module OrderPlan =
 
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
-    /// The plan for a patient with the contexts given, nothing filtered and no totals: what
-    /// a signed version opens on, its contexts as they were, nothing evaluated.
-    let create (pat: PatientData) (contexts: PlanContext[]) : OrderPlan =
+    /// The plan for patient data with the contexts given. Nothing is filtered and there are no
+    /// totals. A stored plan opens this way, with its contexts as they were and nothing evaluated.
+    let create (patientData: PatientData) (contexts: PlanContext[]) : OrderPlan =
         {
-            Patient = pat
+            PatientData = patientData
             Filtered = [||]
             Contexts = contexts
             Totals = Totals.empty
@@ -367,11 +368,11 @@ module OrderPlan =
 
     /// The totals over the orders of the contexts narrowed to one order, for the age and weight of the
     /// patient. A context that is not narrowed adds nothing, as in the plan's own totals.
-    let totalsOver totalsData patient contexts =
+    let totalsOver totalsData patientData contexts =
         contexts
         |> Array.choose PlanContext.contribution
         |> Array.map _.Order
-        |> OrderContext.totalsFor totalsData patient
+        |> OrderContext.totalsFor totalsData patientData
 
 
     /// The plan with its totals recomputed over the orders of the contexts the filter keeps,
@@ -382,22 +383,25 @@ module OrderPlan =
             Contexts =
                 plan.Contexts
                 |> Array.map (fun pc ->
-                    { pc with Totals = pc.Context |> OrderContext.contextTotalsFor totalsData plan.Patient }
+                    { pc with Totals = pc.Context |> OrderContext.contextTotalsFor totalsData plan.PatientData }
                 )
-            Totals = plan |> filtered |> totalsOver totalsData plan.Patient
+            Totals = plan |> filtered |> totalsOver totalsData plan.PatientData
         }
 
 
     /// Every order of the plan calculated on the patient of the plan. An order that cannot be calculated
     /// stands, marked, so that a plan is never partly on new data. An order keeps its amounts on new
     /// patient data; only its values per kg are solved again. A context without an order, from a plan
-    /// signed before every context held one, only takes the patient.
+    /// stored before every context held one, only takes the patient.
     let followPatientData logger provider (plan: OrderPlan) =
         let follow (pc: PlanContext) =
             match pc |> PlanContext.contribution with
-            | None -> pc |> PlanContext.withPatient plan.Patient
+            | None -> pc |> PlanContext.withPatientData plan.PatientData
             | Some sc ->
-                match pc.Context |> OrderContext.orderOnPatientData logger provider plan.Patient sc with
+                match
+                    pc.Context
+                    |> OrderContext.orderOnPatientData logger provider plan.PatientData sc
+                with
                 // a refused order stands, marked, and the rest of the plan follows: the prescriber decides
                 | Evaluated ctx
                 | Refused(ctx, _) -> { pc with Context = ctx }
@@ -504,8 +508,8 @@ module OrderPlan =
 
     /// An order context into the plan with a new id, its category and its link as sent, its
     /// one scenario the order it contributes and its totals as evaluated. Refused when the
-    /// context is not narrowed to one scenario, when the plan already holds that order (the
-    /// signing challenge would refuse the plan later, so it is said now). The plan takes any number
+    /// context is not narrowed to one scenario, when the plan already holds that order (a
+    /// plan that holds an order twice is refused later, so it is said now). The plan takes any number
     /// of orders of every category. The shape of the link is checked wherever a plan is read.
     let addOrderContext (newId: unit -> string) (context: PlanContext) (plan: OrderPlan) =
         match context |> PlanContext.contribution with
@@ -549,7 +553,7 @@ module OrderPlan =
 
         type Dto =
             {
-                Patient: CorePatientData.Dto.Dto
+                PatientData: CorePatientData.Dto.Dto
                 Filtered: string[]
                 Contexts: PlanContext.Dto.Dto[]
                 Totals: Totals.Dto.Dto
@@ -558,7 +562,7 @@ module OrderPlan =
 
         let toDto (plan: OrderPlan) : Dto =
             {
-                Patient = plan.Patient |> CorePatientData.Dto.toDto
+                PatientData = plan.PatientData |> CorePatientData.Dto.toDto
                 Filtered = plan.Filtered
                 Contexts = plan.Contexts |> Array.map PlanContext.Dto.toDto
                 Totals = plan.Totals |> Totals.Dto.toDto
@@ -573,7 +577,7 @@ module OrderPlan =
                 "OrderPlan"
                 dto
                 (fun dto ->
-                    let patient = Nested.required "Patient" dto.Patient (Patient.fromDto today)
+                    let patient = Nested.required "PatientData" dto.PatientData (Patient.fromDto today)
 
                     let contexts =
                         dto.Contexts
@@ -589,7 +593,7 @@ module OrderPlan =
                     | Ok patient, Ok contexts, Ok totals ->
                         let plan: OrderPlan =
                             {
-                                Patient = patient
+                                PatientData = patient
                                 Filtered = dto.Filtered |> DtoResult.orEmpty
                                 Contexts = contexts |> List.toArray
                                 Totals = totals

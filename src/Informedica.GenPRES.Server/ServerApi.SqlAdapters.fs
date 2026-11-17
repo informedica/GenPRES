@@ -209,11 +209,12 @@ module SqlDatabase =
 
 
     /// The JSON structure version this release reads and writes for the order plan of a version.
-    let jsonVersion = 15
+    let jsonVersion = 16
 
 
-    /// Checks that this release can read plan JSON of a structure version. Version 15 has the
-    /// GenCORE patient data. An older version is not converted and loads as unreadable.
+    /// Checks that this release can read plan JSON of a structure version. Version 16 names the
+    /// patient data of a plan and of an order context PatientData. An older version is not
+    /// converted and loads as unreadable.
     let upgrade version json = SqlEhrData.checkVersion jsonVersion jsonVersion version json
 
 
@@ -1663,7 +1664,8 @@ module SqlSessions =
                         match versionId |> Option.bind headOf, token with
                         | Some(StoredVersion.Readable(v, whom)), Some t ->
                             let patient =
-                                v.Plan.Patient |> Session.atBirthDate (v.SignedAt |> LocalDate.ofUtc zone) whom
+                                v.Plan.PatientData
+                                |> Session.atBirthDate (v.SignedAt |> LocalDate.ofUtc zone) whom
                             Some(SigningOutcome.Submitted(v, whom, OpenedToken t, patient))
                         // the version it names cannot be read: there is no answer to repeat
                         | _ -> None

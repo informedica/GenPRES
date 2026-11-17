@@ -20,7 +20,7 @@ module PrescriptionRule =
     /// Whether a prescription rule can be prescribed for the patient: the patient has every
     /// measurement, the weight or the BSA, that the per kg and per m2 bounds of its dose limits, its
     /// solution rules and its applied renal rule need.
-    let isPrescribable pat (pr: PrescriptionRule) =
+    let isPrescribable patientData (pr: PrescriptionRule) =
         [
             for dl in pr.DoseRule |> DoseRule.allLimits do
                 yield! dl |> doseLimitMeasures
@@ -32,13 +32,13 @@ module PrescriptionRule =
             for rl in pr.RenalRules |> Array.collect _.RenalLimits do
                 yield! rl |> RenalRule.limitMeasures
         ]
-        |> List.forall (Some >> PatientData.adjustValue pat >> Option.isSome)
+        |> List.forall (Some >> PatientData.adjustValue patientData >> Option.isSome)
 
 
     /// The dose limit adjusted to the patient, when the patient has the measurement its per kg or per m2
     /// bounds need; otherwise the dose limit as it is.
-    let adjustDoseLimitToPatient freqs pat dl =
-        match dl |> doseLimitMeasures |> List.tryHead |> PatientData.adjustValue pat with
+    let adjustDoseLimitToPatient freqs patientData dl =
+        match dl |> doseLimitMeasures |> List.tryHead |> PatientData.adjustValue patientData with
         | None -> dl
         | Some adj ->
             // The frequency that minimizes the per administration dose (highest
@@ -193,8 +193,8 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    let adjustSolutionRuleToPatient (pat: PatientData) (solRule: SolutionRule) =
-        match pat |> CorePatientData.weightInKg with
+    let adjustSolutionRuleToPatient (patientData: PatientData) (solRule: SolutionRule) =
+        match patientData |> CorePatientData.weightInKg with
         | None -> solRule
         | Some w ->
             let sl = solRule.SolutionLimit
@@ -326,7 +326,7 @@ module PrescriptionRule =
         =
 
         let warns = ResizeArray<string>()
-        let pat = filter.Patient
+        let pat = filter.PatientData
 
         doseRules
         |> DoseRule.filter routeMapping filter
@@ -349,12 +349,12 @@ module PrescriptionRule =
                 }
 
             {
-                Patient = pat
+                PatientData = pat
                 DoseRule = dr
                 SolutionRules =
                     let solutionFilter =
                         { Filter.solutionFilter (dr.Generic |> Generic.genericName) with
-                            Patient = pat
+                            PatientData = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
                             Route = dr.Route |> Some
                             Indication = dr.Indication |> Some
@@ -416,13 +416,14 @@ module PrescriptionRule =
                             // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                             |> Array.map (fun dl ->
                                 { dl with
-                                    Limit = dl.Limit |> Option.map (adjustDoseLimitToPatient freq filter.Patient)
+                                    Limit = dl.Limit |> Option.map (adjustDoseLimitToPatient freq filter.PatientData)
                                     SubstanceLimits =
-                                        dl.SubstanceLimits |> Array.map (adjustDoseLimitToPatient freq filter.Patient)
+                                        dl.SubstanceLimits
+                                        |> Array.map (adjustDoseLimitToPatient freq filter.PatientData)
                                 }
                             )
                     }
-                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.Patient)
+                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.PatientData)
             }
         )
         // Recalculate the dose rule according to a renal rules
@@ -433,7 +434,7 @@ module PrescriptionRule =
                 pr.RenalRules
                 |> Array.map (fun rr ->
                     { pr with
-                        DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule filter.Patient rr
+                        DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule filter.PatientData rr
                         RenalRules = [| rr |]
                     }
                 )
@@ -445,9 +446,9 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (pat: PatientData) =
+    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (patientData: PatientData) =
         Filter.doseFilter
-        |> Filter.setPatient pat
+        |> Filter.setPatientData patientData
         |> filter isAdditive doseRules solutionRules renalRules routeMapping
 
 
@@ -465,7 +466,7 @@ module PrescriptionRule =
                     |]
                 )
         ]
-        |> List.append [ prs[0].Patient |> PatientData.toString ]
+        |> List.append [ prs[0].PatientData |> PatientData.toString ]
         |> String.concat "\n"
 
 

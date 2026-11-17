@@ -815,16 +815,16 @@ module SolutionRule =
         [|
             fun (solRule: SolutionRule) -> solRule.Generic |> String.equalsCapInsens filter.Generic
             // a rule that names a department is for the patients of that department only
-            if filter.Patient |> PatientData.department |> Option.isSome then
+            if filter.PatientData |> PatientData.department |> Option.isSome then
                 fun (solRule: SolutionRule) ->
-                    filter.Patient
+                    filter.PatientData
                     |> PatientData.department
                     |> PatientCategory.departmentMatches solRule.PatientCategory.Department
             // don't filter on the rest of the patient if it is not set; a department alone does not set it
-            if filter.Patient |> PatientData.hasDataBesidesDepartment then
+            if filter.PatientData |> PatientData.hasDataBesidesDepartment then
                 fun (solRule: SolutionRule) ->
                     solRule.PatientCategory
-                    |> PatientData.matchesCategoryWithoutLocationAndGender filter.Patient
+                    |> PatientData.matchesCategoryWithoutLocationAndGender filter.PatientData
             fun (solRule: SolutionRule) -> solRule.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
             fun (solRule: SolutionRule) ->
                 solRule.Indication

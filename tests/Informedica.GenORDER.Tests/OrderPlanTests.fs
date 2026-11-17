@@ -82,7 +82,7 @@ module Fixtures =
     let context (scenarios: OrderScenario[]) : OrderContext =
         {
             Filter = filter
-            Patient = PatientData.unknown
+            PatientData = PatientData.unknown
             Scenarios = scenarios
             Argumentation = None
         }
@@ -218,7 +218,7 @@ let tests =
                 |> _.Totals
                 |> Expect.equal "the suppository alone has no volume" Totals.empty
 
-                { p with Patient = PatientData.unknown }
+                { p with PatientData = PatientData.unknown }
                 |> OrderPlan.recalculate [| volume |]
                 |> _.Totals
                 |> Expect.equal "no weight, no totals" Totals.empty
@@ -503,7 +503,7 @@ module EvaluateFixtures =
     let pcmContext: OrderContext =
         {
             Filter = held
-            Patient = child
+            PatientData = child
             Scenarios = [| pcmScenario |]
             Argumentation = None
         }
@@ -1376,7 +1376,7 @@ let ruleSetDiscoveryTests =
                                 Indications = set.Indications
                                 Generics = set.Generics
                             }
-                        Patient = RuleFixtures.patient (Some 5N) false (Some 20N) None
+                        PatientData = RuleFixtures.patient (Some 5N) false (Some 20N) None
                         Scenarios = [||]
                         Argumentation = None
                     }
@@ -1397,7 +1397,9 @@ let rulesTests =
         [
             test "a patient without a department keeps its context: the selection, the components and the scenarios" {
                 let held =
-                    { EvaluateFixtures.pcmContext with Patient = EvaluateFixtures.child |> Patient.setDepartment None }
+                    { EvaluateFixtures.pcmContext with
+                        PatientData = EvaluateFixtures.child |> Patient.setDepartment None
+                    }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
 
@@ -1408,13 +1410,15 @@ let rulesTests =
                 |> Expect.equal "the selection as held" held.Filter.SelectedComponents
 
                 ctx.Filter.Diluents |> Expect.equal "the diluents as held" held.Filter.Diluents
-                ctx.Patient |> Patient.getDepartment |> Expect.equal "still no department" None
+                ctx.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "still no department" None
             }
 
             test "a patient with a department is treated the same" {
                 let held =
                     { EvaluateFixtures.pcmContext with
-                        Patient = EvaluateFixtures.child |> Patient.setDepartment (Some "ICK")
+                        PatientData = EvaluateFixtures.child |> Patient.setDepartment (Some "ICK")
                     }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
@@ -1426,7 +1430,7 @@ let rulesTests =
             test "without a weight and a height the context is made afresh" {
                 let held =
                     { EvaluateFixtures.pcmContext with
-                        Patient = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
+                        PatientData = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
                     }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
@@ -1457,7 +1461,7 @@ let rulesTests =
                     |> Patient.setDepartment None
                     |> OrderContext.create OrderLogging.noOp (NoRules())
 
-                fresh.Patient
+                fresh.PatientData
                 |> Patient.getDepartment
                 |> Expect.equal "still no department" None
                 fresh.Filter.Forms |> Expect.isEmpty "no rules, no forms"
@@ -1468,7 +1472,7 @@ let rulesTests =
                     |> Patient.setDepartment (Some "NEO")
                     |> OrderContext.create OrderLogging.noOp (NoRules())
 
-                own.Patient
+                own.PatientData
                 |> Patient.getDepartment
                 |> Expect.equal "its own department" (Some "NEO")
             }
@@ -1485,7 +1489,7 @@ let rulesTests =
                 fresh.Filter.Forms |> Expect.equal "the rule's form is offered" [| "zetpil" |]
                 fresh.Filter.Generics
                 |> Expect.equal "the rule's generic is offered" [| "paracetamol" |]
-                fresh.Patient
+                fresh.PatientData
                 |> Patient.getDepartment
                 |> Expect.equal "the patient keeps no department" None
 
@@ -1522,7 +1526,7 @@ let rulesTests =
                     |> OrderContext.create OrderLogging.noOp (NotLoaded())
 
                 fresh.Filter.Forms |> Expect.isEmpty "no forms"
-                fresh.Patient
+                fresh.PatientData
                 |> Patient.getDepartment
                 |> Expect.equal "still no department" None
 
@@ -1564,7 +1568,7 @@ let rulesTests =
                     |> Api.filterDoseRules
                         (RulesOf rules)
                         { Informedica.GenForm.Lib.Filter.doseFilter with
-                            Patient = PatientData.unknown |> Patient.setDepartment department
+                            PatientData = PatientData.unknown |> Patient.setDepartment department
                         }
                     |> Array.map _.PatientCategory.Department
 
@@ -1607,7 +1611,7 @@ let rulesTests =
             test "made afresh, the context keeps its argumentation" {
                 let held =
                     { EvaluateFixtures.pcmContext with
-                        Patient = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
+                        PatientData = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
                         Argumentation = Some "Sepsis, hogere dosis in overleg met de apotheek"
                     }
 
@@ -1646,13 +1650,13 @@ let prescribableTests =
 
     // the options of the pick lists of a context whose rules for the patient all fail the check
     let unprescribableOptions provider (ctx: OrderContext) =
-        let pat = ctx.Patient
+        let pat = ctx.PatientData
 
         let failing field options setPick =
             options
             |> Array.filter (fun o ->
                 // the lookup matches the patient as create does, through the default department
-                { Filter.doseFilter with Patient = pat }
+                { Filter.doseFilter with PatientData = pat }
                 |> setPick o
                 |> Api.filterPrescriptionRules provider
                 |> Result.defaultValue [||]
@@ -1722,7 +1726,7 @@ let prescribableTests =
 
                     let rules =
                         { Filter.doseFilter with
-                            Patient = pat
+                            PatientData = pat
                             Indication = Some "pijn"
                         }
                         |> FilterHelpers.getPrescribableRules logger (provider ())
@@ -1750,7 +1754,7 @@ let useAdjustTests =
     let scenarioOf row =
         let provider = RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
 
-        { Filter.doseFilter with Patient = child }
+        { Filter.doseFilter with PatientData = child }
         |> Api.filterPrescriptionRules provider
         |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
@@ -1810,7 +1814,7 @@ let componentOptionTests =
             RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
             :> Resources.IResourceProvider
 
-        { Filter.doseFilter with Patient = child }
+        { Filter.doseFilter with PatientData = child }
         |> Api.filterPrescriptionRules provider
         |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
@@ -1948,7 +1952,8 @@ let selectsRulesTests =
 
             test "an adult whose weight is cleared gets the absolute rules and the fever rule" {
                 let ctx = patient (Some 40N) false (Some 70N) None |> contextOf
-                let cleared = { ctx with Patient = ctx.Patient |> Patient.setWeight SamplePatients.measuredOn None }
+                let cleared =
+                    { ctx with PatientData = ctx.PatientData |> Patient.setWeight SamplePatients.measuredOn None }
 
                 let ctx, _ = cleared |> OrderContext.getRules logger (provider ())
 
@@ -1980,7 +1985,7 @@ let selectsRulesTests =
                     |> contextOf
                     |> fun ctx -> { ctx with Filter = { ctx.Filter with Indication = Some "pijn" } }
 
-                { picked with Patient = picked.Patient |> Patient.setWeight SamplePatients.measuredOn None }
+                { picked with PatientData = picked.PatientData |> Patient.setWeight SamplePatients.measuredOn None }
                 |> OrderContext.refusal (provider ())
                 |> Expect.equal "the weight is missing" Refusal.MeasurementMissing
             }
@@ -2106,7 +2111,7 @@ let refusalTests =
 
                         picks.Generic |> Expect.equal "chosen" (Some "Paracetamol")
                         picks.Indication |> Expect.equal "chosen" (Some "koorts")
-                        picks.Patient |> Expect.equal "no patient" PatientData.unknown
+                        picks.PatientData |> Expect.equal "no patient" PatientData.unknown
                     }
 
                     test "one option offered is the pick, more are none" {
@@ -2258,7 +2263,7 @@ let refusalTests =
                         let rulesFor indication =
                             { Filter.doseFilter with
                                 Indication = Some indication
-                                Patient = noWeight
+                                PatientData = noWeight
                             }
                             |> Api.filterPrescriptionRules provider
                             |> Result.defaultValue [||]
@@ -2290,7 +2295,7 @@ let refusalTests =
                         rules |> Expect.isNonEmpty "the fixture builds a rule"
 
                         { EvaluateFixtures.pcmContext with
-                            Patient = EvaluateFixtures.child |> Patient.setDepartment (Some "NEO")
+                            PatientData = EvaluateFixtures.child |> Patient.setDepartment (Some "NEO")
                             Filter =
                                 { EvaluateFixtures.fresh with
                                     Generic = Some "paracetamol"
@@ -2614,7 +2619,7 @@ let listsOfOtherPicksTests =
             test "a child without a weight keeps the lists, since no rule is looked up" {
                 let provider = RefusedFixtures.provider ()
                 let fresh = RefusedFixtures.fresh provider
-                let noWeight = { fresh with Patient = RuleFixtures.patient (Some 5N) false None None }
+                let noWeight = { fresh with PatientData = RuleFixtures.patient (Some 5N) false None None }
 
                 noWeight
                 |> OrderContext.withListsOfOtherPicks OrderLogging.noOp provider
@@ -2720,7 +2725,7 @@ module LinkFixtures =
     let child = EvaluateFixtures.child
 
 
-    let ofOrder orderId = { context [| scenario orderId |] with Patient = child }
+    let ofOrder orderId = { context [| scenario orderId |] with PatientData = child }
 
 
     // a context of two orders, not narrowed to one
@@ -3759,7 +3764,7 @@ let refusalWithoutLimitsTests =
                 (provider :> Resources.IResourceProvider).GetDoseRules()
                 |> Expect.hasLength "the kept rule" 1
 
-                { Filter.doseFilter with Patient = Electrolytes.patient "ICK" 5N }
+                { Filter.doseFilter with PatientData = Electrolytes.patient "ICK" 5N }
                 |> Api.filterPrescriptionRules provider
                 |> Result.map Array.length
                 |> Expect.equal "one prescription rule" (Ok 1)

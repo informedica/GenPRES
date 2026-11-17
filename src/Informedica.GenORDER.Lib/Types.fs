@@ -937,7 +937,7 @@ module Types =
             /// The filter for selecting scenarios
             Filter: Filter
             /// The patient information
-            Patient: PatientData
+            PatientData: PatientData
             /// The list of available scenarios
             Scenarios: OrderScenario[]
             /// What the clinician wrote when the dose left what the rules allow; none until
@@ -1010,7 +1010,7 @@ module Types =
     /// </summary>
     /// <remarks>
     /// The totals are computed when the context is evaluated and copied unchanged
-    /// everywhere else, so a signed version stores the totals the signer saw.
+    /// everywhere else, so a stored plan holds the totals the prescriber saw.
     /// </remarks>
     type PlanContext =
         {
@@ -1036,8 +1036,8 @@ module Types =
     /// </summary>
     type OrderPlan =
         {
-            /// The patient data as shown, the data a version is signed on
-            Patient: PatientData
+            /// The patient data as shown to the prescriber
+            PatientData: PatientData
             /// The ids of the contexts the row filter keeps; empty for all of them
             Filtered: string[]
             /// Every order context of the plan, drug and nutrition alike

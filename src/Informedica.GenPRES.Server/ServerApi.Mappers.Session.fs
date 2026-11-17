@@ -32,7 +32,7 @@ module SessionMapper =
     /// data, so the version has none.
     let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
         ({
-            Patient = signed.Patient |> Patient.ofModel today
+            PatientData = signed.Patient |> Patient.ofModel today
             Filtered = [||]
             Contexts = signed.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
             Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
@@ -85,7 +85,7 @@ module SessionMapper =
             PatientId = v.PatientId
             Base = v.Base
             OrderContexts = plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
-            Patient = plan.Patient |> Patient.toModel
+            Patient = plan.PatientData |> Patient.toModel
             Identity = whom |> Option.map identity
             Verified = v.Verified
         }

@@ -775,7 +775,7 @@ module Session =
 
         let ofHead =
             match opened.Head with
-            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> signedPatientAt date whom)
+            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.PatientData |> signedPatientAt date whom)
             | _ -> None
 
         match opened.Act with
@@ -1709,7 +1709,7 @@ module Session =
                                         let whom = OpenedSession.identity { record.Opened with EhrPatient = ehr }
 
                                         let patient =
-                                            version.Plan.Patient |> atBirthDate (LocalDate.ofUtc zone now) whom
+                                            version.Plan.PatientData |> atBirthDate (LocalDate.ofUtc zone now) whom
 
                                         let opened =
                                             { record with

@@ -4062,7 +4062,7 @@ module Tests =
                 DoseType = None
                 Diluent = None
                 Components = ComponentSelection.AllComponents
-                Patient = PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
+                PatientData = PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
             }
 
 
@@ -4199,7 +4199,7 @@ module Tests =
             doseRules.Value
             |> Array.map (fun dr ->
                 {
-                    Patient = PatientDtoTests.Fixtures.child
+                    PatientData = PatientDtoTests.Fixtures.child
                     DoseRule = dr
                     SolutionRules = [||]
                     RenalRules = [||]
@@ -4264,13 +4264,13 @@ module Tests =
 
                     test "an empty filter and empty patient category" {
                         patCat
-                        |> PatientData.matchesCategory filter.Patient
+                        |> PatientData.matchesCategory filter.PatientData
                         |> Expect.isTrue "should return true"
                     }
 
                     test "an empty filter and patient category with female gender" {
                         { patCat with Gender = Female }
-                        |> PatientData.matchesCategory filter.Patient
+                        |> PatientData.matchesCategory filter.PatientData
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4383,8 +4383,8 @@ module Tests =
 
                     test "setting a patient on a filter keeps the patient's post-menstrual age" {
                         Filter.doseFilter
-                        |> Filter.setPatient (neonate (Some 45) (Some 196) (Some 242))
-                        |> _.Patient
+                        |> Filter.setPatientData (neonate (Some 45) (Some 196) (Some 242))
+                        |> _.PatientData
                         |> CorePatientData.postMenstrualAgeInDays
                         |> Expect.equal "242 days, not recalculated" (Some(inDays 242))
                     }
@@ -4480,7 +4480,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientData.matchesCategory filter.Patient
+                        |> PatientData.matchesCategory filter.PatientData
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4978,7 +4978,7 @@ module Tests =
         let childrenOneToEighteen =
             category (ageRange (Some(years 1N)) (Some(years 18N)) |> AbsoluteAge) MinMax.empty
 
-        let filterFor pat = { Filter.doseFilter with Patient = pat }
+        let filterFor pat = { Filter.doseFilter with PatientData = pat }
 
         let private load<'T> name =
             Path.Combine(AppContext.BaseDirectory, "fixtures", name)
@@ -6747,7 +6747,7 @@ module Tests =
                         // what getRules does: the default on the filter's patient, never on the patient itself
                         let matched (department: string option) =
                             { Filter.solutionFilter "paracetamol" with
-                                Patient =
+                                PatientData =
                                     PatientDtoTests.Fixtures.child
                                     |> TestPatient.withDepartment (department |> Option.orElse (Some deps.Default))
                             }
@@ -6899,7 +6899,7 @@ module Tests =
 
         /// The indications of the rules a lookup for the patient finds.
         let matched pat =
-            { Filter.solutionFilter "paracetamol" with Patient = pat }
+            { Filter.solutionFilter "paracetamol" with PatientData = pat }
             |> fun filter -> rules |> SolutionRule.filter [||] filter
             |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
 
@@ -7802,7 +7802,7 @@ module Tests =
                 (DoseRuleLoader.fromData Fixtures.rm.Value [||] Fixtures.prods.Value [||] Fixtures.data.Value
                  |> fst)
 
-        let private filterFor pat = { Filter.doseFilter with Patient = pat }
+        let private filterFor pat = { Filter.doseFilter with PatientData = pat }
 
         let private doseLimit adjustUnit = { RR.doseLimit with AdjustUnit = adjustUnit }
 
@@ -7829,7 +7829,7 @@ module Tests =
             let dr = paracetamol.Value
 
             {
-                Patient = pat
+                PatientData = pat
                 DoseRule =
                     { dr with
                         AdjustUnit = dl.AdjustUnit
@@ -10736,7 +10736,7 @@ module Tests =
 
         let prescriptionRule dr solRules : PrescriptionRule =
             {
-                Patient = TestPatient.unknown
+                PatientData = TestPatient.unknown
                 DoseRule = dr
                 SolutionRules = solRules
                 RenalRules = [||]
@@ -10750,7 +10750,7 @@ module Tests =
 
 
         let filterFor weight solRules =
-            { Filter.doseFilter with Patient = patient weight }
+            { Filter.doseFilter with PatientData = patient weight }
             |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] solRules [||] ivRouteMapping
 
 
@@ -11217,7 +11217,7 @@ module Tests =
                     test "a kept rule reaches a patient with a weight through the filter" {
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
-                        { Filter.doseFilter with Patient = patient (Some 5000N) }
+                        { Filter.doseFilter with PatientData = patient (Some 5000N) }
                         |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "one prescription rule" (Ok 1)
@@ -11226,7 +11226,7 @@ module Tests =
                     test "a kept rule does not reach a patient without a weight" {
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
-                        { Filter.doseFilter with Patient = patient None }
+                        { Filter.doseFilter with PatientData = patient None }
                         |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "no prescription rule" (Ok 0)

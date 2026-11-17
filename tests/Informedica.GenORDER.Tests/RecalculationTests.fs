@@ -125,7 +125,7 @@ module Fixture =
     let context scenarios : OrderContext =
         {
             Filter = OrderContext.emptyFilter
-            Patient = PatientData.unknown
+            PatientData = PatientData.unknown
             Scenarios = scenarios
             Argumentation = None
         }
@@ -365,7 +365,7 @@ let tests =
 
                 let after = ctx |> DataUpdateFixtures.onData Fixture.provider pat
 
-                after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
+                after.PatientData |> Expect.equal "the patient of the rules" ctx.PatientData
 
                 after.Scenarios[0].Order
                 |> Fixture.adjustOf

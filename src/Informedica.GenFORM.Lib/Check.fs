@@ -199,8 +199,8 @@ module Check =
 
 
     /// The age of the patient in months that the G-Standaard dose rules are looked up with.
-    let ageInMonths (pat: PatientData) =
-        pat
+    let ageInMonths (patientData: PatientData) =
+        patientData
         |> CorePatientData.ageInDays
         |> Option.bind (fun vu ->
             vu
@@ -212,11 +212,11 @@ module Check =
         )
 
 
-    let createDoseRulesWithMapping routeMapping (pat: PatientData) gen frm rte =
-        let a = pat |> ageInMonths
+    let createDoseRulesWithMapping routeMapping (patientData: PatientData) gen frm rte =
+        let a = patientData |> ageInMonths
 
         let w =
-            pat
+            patientData
             |> CorePatientData.weightInKg
             |> Option.bind (fun vu ->
                 vu
@@ -477,14 +477,14 @@ module Check =
         age && weight
 
 
-    let matchWithZIndex (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
+    let matchWithZIndex (getDosageRules: GStandProvider) (patientData: PatientData) (dr: DoseRule) =
         {|
             doseRule = dr
             zindex =
                 {|
                     dosages =
                         getDosageRules
-                            pat
+                            patientData
                             // G-Standaard keys on the base substance name only;
                             // the brand/form label would never match.
                             (dr.Generic |> Generic.genericName)
@@ -654,8 +654,13 @@ module Check =
         |}
 
 
-    let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
-        let m = dr |> matchWithZIndex getDosageRules pat |> createMapping
+    let checkDoseRuleWith
+        (cfg: CheckConfig)
+        (getDosageRules: GStandProvider)
+        (patientData: PatientData)
+        (dr: DoseRule)
+        =
+        let m = dr |> matchWithZIndex getDosageRules patientData |> createMapping
 
         let eqsAny (candidates: DoseType list) (dt: DoseType) = candidates |> List.exists (DoseType.eqsType dt)
 
@@ -977,8 +982,8 @@ module Check =
     /// Pure dose-check over a single rule given an injected data provider.
     /// In production the provider comes from the Resources layer
     /// (Api.getGStandProvider), not built ad hoc from a route mapping.
-    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
-        checkDoseRuleWith checkConfigDef getDosageRules pat dr
+    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (patientData: PatientData) (dr: DoseRule) =
+        checkDoseRuleWith checkConfigDef getDosageRules patientData dr
 
 
     /// Dose-check over many rules. log and the data provider are injected so the

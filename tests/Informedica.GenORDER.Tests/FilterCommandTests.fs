@@ -135,7 +135,7 @@ let tests =
             test "clearing everything keeps the patient and drops the rest" {
                 let cleared = context options |> OrderContext.clearAll
 
-                (cleared.Patient, cleared.Filter, cleared.Scenarios.Length, cleared.Argumentation)
+                (cleared.PatientData, cleared.Filter, cleared.Scenarios.Length, cleared.Argumentation)
                 |> Expect.equal "patient kept" (PatientData.unknown, OrderContext.emptyFilter, 0, None)
             }
         ]

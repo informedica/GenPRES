@@ -112,12 +112,12 @@ module GenOrderTools =
     /// Estimates a weight or height that the caller did not give, from the age and the gender,
     /// dated today. A value the caller gave stays measured. Nothing is estimated without an age or
     /// without the normal-value tables.
-    let estimated today normalValues (input: CreateOrderContextInput) (pat: PatientData) =
+    let estimated today normalValues (input: CreateOrderContextInput) (patientData: PatientData) =
         match normalValues, input.WeightKg, input.HeightCm with
         | _, Some _, Some _
-        | None, _, _ -> pat
+        | None, _, _ -> patientData
         | Some tables, _, _ ->
-            let est = CoreEstimates.ofAge tables pat.Gender pat.Age None
+            let est = CoreEstimates.ofAge tables patientData.Gender patientData.Age None
 
             let weight =
                 est.Weight
@@ -125,14 +125,14 @@ module GenOrderTools =
 
             let height = est.Height |> Option.map (fun e -> decimal e.Mean |> CoreHeightValue.heightInCm)
 
-            let pat =
+            let patientData =
                 match input.WeightKg, weight with
-                | None, Some _ -> pat |> Patient.setEstimatedWeight today weight
-                | _ -> pat
+                | None, Some _ -> patientData |> Patient.setEstimatedWeight today weight
+                | _ -> patientData
 
             match input.HeightCm, height with
-            | None, Some _ -> pat |> Patient.setEstimatedHeight today height
-            | _ -> pat
+            | None, Some _ -> patientData |> Patient.setEstimatedHeight today height
+            | _ -> patientData
 
 
     /// Builds the patient data from the tool input. A weight or height that is missing is
@@ -170,14 +170,14 @@ module GenOrderTools =
     /// The filter options for a patient already built and checked, so a caller that has just validated one
     /// (createOrderContext) asks for the options of the same patient, without a second check. The patient
     /// fields of the input are not read.
-    let filterOptionsFor provider patient (input: FilterOptionsInput) : FilterOptionsOutput =
+    let filterOptionsFor provider patientData (input: FilterOptionsInput) : FilterOptionsOutput =
         let filter =
             { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                Patient = patient
+                PatientData = patientData
             }
 
         let opts =
@@ -412,7 +412,7 @@ module GenOrderTools =
             let filterOpts =
                 filterOptionsFor
                     provider
-                    result.Patient
+                    result.PatientData
                     {
                         Generic = result.Filter.Generic
                         Indication = result.Filter.Indication

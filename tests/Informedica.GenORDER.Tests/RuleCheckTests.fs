@@ -75,7 +75,7 @@ module Fixture =
         let p, ctx = start ()
 
         ctx
-        |> OrderContext.rulesFor logger p ctx.Patient
+        |> OrderContext.rulesFor logger p ctx.PatientData
         |> Result.defaultWith (fun msgs -> failtest $"no rules: %A{msgs}")
 
     /// A solution rule to compare with.
@@ -115,7 +115,7 @@ module Fixture =
     let verdict provider current (ctx: OrderContext) =
         let rules pat = ctx |> OrderContext.rulesFor logger provider pat
 
-        OrderContext.rulesVerdict logger order.Value (rules ctx.Patient) (rules current)
+        OrderContext.rulesVerdict logger order.Value (rules ctx.PatientData) (rules current)
 
     let check provider start current =
         context provider (patient start) |> verdict provider (patient current)
@@ -141,7 +141,7 @@ let tests =
                 let p, ctx = Fixture.start ()
                 let _, found = ctx |> OrderContext.getRules Fixture.logger p
 
-                match found, ctx |> OrderContext.rulesFor Fixture.logger p ctx.Patient with
+                match found, ctx |> OrderContext.rulesFor Fixture.logger p ctx.PatientData with
                 | Ok a, Ok b -> PrescriptionRule.sameRules Fixture.counted a b |> Expect.isTrue "the same"
                 | other -> failtest $"no rules: %A{other}"
             }
@@ -202,10 +202,10 @@ let tests =
 
             test "a data update calculates the order and the context keeps its patient" {
                 let p, ctx = Fixture.start ()
-                let current = ctx.Patient |> SamplePatients.withWeightInKg 20m
+                let current = ctx.PatientData |> SamplePatients.withWeightInKg 20m
                 let after = ctx |> Fixture.onData p current
 
-                after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
+                after.PatientData |> Expect.equal "the patient of the rules" ctx.PatientData
 
                 after.Scenarios[0].Order
                 |> Order.adjustValue

@@ -13,7 +13,7 @@ module OrderPlanMapper =
     /// the date today.
     let ofModel today (plan: OrderPlan) : OrderPlan.Dto.Dto =
         {
-            Patient = plan.Patient |> Patient.ofModel today
+            PatientData = plan.Patient |> Patient.ofModel today
             Filtered = plan.Filtered
             Contexts = plan.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
             Totals = plan.Totals |> OrderContextMapper.totals
@@ -24,7 +24,7 @@ module OrderPlanMapper =
     /// context is the server's.
     let toModel (demo: bool) (dto: OrderPlan.Dto.Dto) : OrderPlan =
         {
-            Patient = dto.Patient |> Patient.toModel
+            Patient = dto.PatientData |> Patient.toModel
             Filtered = dto.Filtered
             OrderContexts = dto.Contexts |> Array.map (OrderContextMapper.toModel demo)
             Totals = dto.Totals |> OrderContextMapper.totalsBack

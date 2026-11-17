@@ -31,7 +31,7 @@ module Fixture =
         OrderPlan.create pat [| PlanContext.create "c1" OrderCategory.Medication (context provider pat) |]
 
     let follow provider pat (plan: OrderPlan) =
-        { plan with Patient = pat } |> OrderPlan.followPatientData logger provider
+        { plan with PatientData = pat } |> OrderPlan.followPatientData logger provider
 
     let followed provider pat plan = plan |> follow provider pat
 
@@ -119,10 +119,10 @@ let tests =
                 let start = patient 10N
                 let after = Fixture.plan p start |> Fixture.followed p (patient 20N)
 
-                after.Patient
+                after.PatientData
                 |> CorePatientData.weightInKg
                 |> Expect.equal "the plan" (Some(kg 20N))
-                after.Contexts[0].Context.Patient |> Expect.equal "the context" start
+                after.Contexts[0].Context.PatientData |> Expect.equal "the context" start
 
                 after.Contexts[0].Context.Scenarios[0].Order
                 |> Order.adjustValue
@@ -173,7 +173,7 @@ let tests =
                 let empty = PlanContext.create "c2" OrderCategory.Medication (OrderContext.create logger p start)
                 let after = OrderPlan.create start [| empty |] |> Fixture.followed p (patient 20N)
 
-                after.Contexts[0].Context.Patient
+                after.Contexts[0].Context.PatientData
                 |> CorePatientData.weightInKg
                 |> Expect.equal "new" (Some(kg 20N))
             }
@@ -343,7 +343,7 @@ let tests =
 
                 let marked =
                     { onValue with
-                        Patient = RuleCheckTests.Fixture.patient (21N / 2N)
+                        PatientData = RuleCheckTests.Fixture.patient (21N / 2N)
                         Scenarios = onValue.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
                     }
 
