@@ -237,7 +237,9 @@ module Product =
 
         let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
             rs
-            |> Array.filter (matches routeMapping filter.Patient.Location filter.Patient.Department filter.Route)
+            |> Array.filter (
+                matches routeMapping filter.Patient.Location (filter.Patient |> PatientData.department) filter.Route
+            )
 
 
     let createSubstance logger name conc unit formUnit unitMapping =

@@ -13,6 +13,7 @@ open ServerApi
 open Informedica.GenOrder.Lib
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 
 
@@ -81,7 +82,7 @@ let insertOutcome (cs: string) (nonce: string) (outcome: string) (attempt: strin
 let patient =
     Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubPatientData.patient
 
-let patientJson = patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+let patientJson = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
 /// The rows an open leaves behind; the writer that returns them from the machine's writes is
@@ -805,6 +806,21 @@ let writerTests =
 
                 SqlEhrData.readEhr t0 (SqlEhrData.ehrJsonVersion + 1) (SqlEhrData.ehrJson ehr)
                 |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "patient data of structure version 1 is refused" {
+                SqlSessions.readPatient t0 1 patientJson
+                |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
+            }
+
+            test "patient data of a newer structure version is refused" {
+                SqlSessions.readPatient t0 (SqlSessions.patientJsonVersion + 1) patientJson
+                |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "patient data reads back from its JSON" {
+                SqlSessions.readPatient t0 SqlSessions.patientJsonVersion (SqlSessions.patientJson patient)
+                |> Expect.equal "the same patient data" (Ok patient)
             }
 
             test "EHR data reads back from its JSON, with an access and a renal function" {
@@ -1665,7 +1681,7 @@ let flightWriteTests =
 
                     scalarOf cs "select json_version from data_notice"
                     |> unbox<int64>
-                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientJsonWritten)
+                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientJsonVersion)
 
                     scalarOf cs "select digest from challenge"
                     |> unbox<string>

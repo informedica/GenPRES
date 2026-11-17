@@ -14,8 +14,10 @@ module Types =
 
     /// Type alias for Gender from Informedica.GenForm.Lib.Types
     type Gender = Informedica.GenForm.Lib.Types.Gender
-    /// Type alias for Patient from Informedica.GenForm.Lib.Types
-    type Patient = Informedica.GenForm.Lib.Types.Patient
+    /// Type alias for PatientData from Informedica.GenForm.Lib.Types
+    type PatientData = Informedica.GenForm.Lib.Types.PatientData
+    /// Type alias for PatientDataError from Informedica.GenCore.Lib.Patients
+    type PatientDataError = Informedica.GenCore.Lib.Patients.PatientDataError
     /// Type alias for PrescriptionRule from Informedica.GenForm.Lib.Types
     type PrescriptionRule = Informedica.GenForm.Lib.Types.PrescriptionRule
     /// Type alias for ComponentSelection from Informedica.GenForm.Lib.Types
@@ -935,7 +937,7 @@ module Types =
             /// The filter for selecting scenarios
             Filter: Filter
             /// The patient information
-            Patient: Patient
+            Patient: PatientData
             /// The list of available scenarios
             Scenarios: OrderScenario[]
             /// What the clinician wrote when the dose left what the rules allow; none until
@@ -1035,7 +1037,7 @@ module Types =
     type OrderPlan =
         {
             /// The patient data as shown, the data a version is signed on
-            Patient: Patient
+            Patient: PatientData
             /// The ids of the contexts the row filter keeps; empty for all of them
             Filtered: string[]
             /// Every order context of the plan, drug and nutrition alike
@@ -1104,10 +1106,13 @@ module Types =
         | OrderNotCreated of string
         /// An order category string the Dto carries that names no category
         | UnknownCategory of string
-        /// A nested Dto a serializer left null, by field name
+        /// A Dto that is null after JSON deserialization, with the name of the field or the path of
+        /// the array item
         | Missing of string
-        /// The patient of a context or an order plan is none
-        | Patient of Informedica.GenForm.Lib.Types.PatientError
+        /// The patient data has an invalid value. The string is the error message of GenCORE.
+        | PatientData of string
+        /// The patient data is not enough to select rules.
+        | PatientDataNotEnough of PatientDataError
         /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
         /// with the reader's message, its line and its column
         | Unreadable of message: string

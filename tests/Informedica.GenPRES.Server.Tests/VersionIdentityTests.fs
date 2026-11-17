@@ -9,15 +9,21 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
+open Informedica.GenPRES.Server.Tests.TestDates
 
 module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
-module GenFormPatient = Informedica.GenForm.Lib.Patient
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+module CoreConversions = Informedica.GenCore.Lib.Conversions
+
+type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
 
 
 /// The date of the open, and the sign a day later. The EHR data is read at the open, so it has the
@@ -50,10 +56,8 @@ let unidentified =
 
 /// The plan as signed: the projection at the open, the age the Session held.
 let plan =
-    Informedica.GenPRES.Shared.Models.OrderPlan.create
-        (port.patient ehr |> GenFormPatient.Dto.toDto |> Patient.toModel)
-        [||]
-    |> OrderPlanCommand.parsePlan
+    Informedica.GenPRES.Shared.Models.OrderPlan.create (port.patient ehr |> Patient.ofPatientData) [||]
+    |> OrderPlanCommand.parsePlan readAt
     |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
 
@@ -136,13 +140,15 @@ let signedIn zone at (record: string * Session.SessionRecord) (challenge: Sessio
 let signedAt record challenge = signedIn TimeZoneInfo.Utc tomorrow record challenge
 
 
-let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Age
+let ageInDays pat =
+    pat
+    |> CorePatientData.ageInDays
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
 
 
-let weightInKg (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Weight
+let weightInKg pat =
+    pat
+    |> CorePatientData.weightInKg
     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram >> ValueUnit.getValue >> Array.head)
 
 
@@ -205,7 +211,7 @@ let localDateTests =
                             }
 
                     let moment = utc (2026, 11, 7, 23, 30)
-                    let pat = Informedica.GenForm.Lib.Patient.patient
+                    let pat = CorePatientData.unknown
 
                     test "on the local date the patient is 18 years, 6570 days" {
                         pat
@@ -316,14 +322,13 @@ let tests =
                 [
                     let later = today.AddYears 2
                     let readable = StoredVersion.Readable(version, identity)
-                    let days n =
-                        n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+                    let days n = n |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
                     let openedLater head = opened "s-1" None head |> shownAt later
 
-                    let withoutAges (pat: Informedica.GenForm.Lib.Types.Patient) =
+                    let withoutAges (pat: CorePatientData) =
                         { pat with
                             Age = None
-                            PMAge = None
+                            PostMenstrualAge = None
                         }
 
                     let premature =
@@ -332,8 +337,8 @@ let tests =
                                 { version.Plan with
                                     Patient =
                                         { version.Plan.Patient with
-                                            GestAge = Some(days 210)
-                                            PMAge = Some(days 1)
+                                            GestationalAge = Some(days 210)
+                                            PostMenstrualAge = Some(days 1)
                                         }
                                 }
                         }
@@ -358,12 +363,14 @@ let tests =
 
                     test "has no post-menstrual age from 1 year, also with a gestational age" {
                         openedLater (Some(StoredVersion.Readable(premature, identity)))
-                        |> Option.bind _.PMAge
+                        |> Option.bind _.PostMenstrualAge
                         |> Expect.isNone "the gestational age is ignored from 1 year"
                     }
 
                     test "has no post-menstrual age without a gestational age" {
-                        openedLater (Some readable) |> Option.bind _.PMAge |> Expect.isNone "none"
+                        openedLater (Some readable)
+                        |> Option.bind _.PostMenstrualAge
+                        |> Expect.isNone "none"
                     }
 
                     test "stays as signed without an identity" {
@@ -428,14 +435,18 @@ let tests =
             testList
                 "the record of a sign"
                 [
+                    let thirtyKg source =
+                        CoreWeightValue.weightInKg 30m
+                        |> CoreWeightAtDate.create today
+                        |> source
+                        |> Some
+                        |> CoreWeight.create [] None []
+
                     let typed =
                         { version with
                             Plan =
                                 { version.Plan with
-                                    Patient =
-                                        { version.Plan.Patient with
-                                            Weight = 30N |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        }
+                                    Patient = { version.Plan.Patient with Weight = thirtyKg CoreSource.Measured }
                                 }
                         }
 
@@ -452,13 +463,7 @@ let tests =
                         let estimated =
                             { typed with
                                 Plan =
-                                    { typed.Plan with
-                                        Patient =
-                                            { signed with
-                                                WeightMeasured = false
-                                                HeightMeasured = true
-                                            }
-                                    }
+                                    { typed.Plan with Patient = { signed with Weight = thirtyKg CoreSource.Estimated } }
                             }
 
                         let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(estimated, identity)))
@@ -473,7 +478,7 @@ let tests =
                         |> Option.bind weightInKg
                         |> Expect.isNone "a new age, no old estimate"
 
-                        (shown tomorrow |> Option.bind _.Height, signed.Height)
+                        (shown tomorrow |> Option.bind CorePatientData.heightInCm, signed |> CorePatientData.heightInCm)
                         |> fun (shownHeight, signedHeight) ->
                             shownHeight |> Expect.equal "the measured height stays" signedHeight
                     }

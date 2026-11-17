@@ -272,11 +272,6 @@ module Resources =
             |> ofNamed
 
 
-        /// The department a patient is prescribed for: the one given, or the default.
-        let forPatient (departments: Departments) (department: string option) =
-            department |> Option.orElse (Some departments.Default)
-
-
         /// Whether a department is one the rules know, for an input to be checked against.
         let isKnown (departments: Departments) (department: string) = departments.Names |> Array.contains department
 

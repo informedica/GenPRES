@@ -15,6 +15,7 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
 /// The date of the open: a September day, half a year past the day the stub patient is 3650 days old.
@@ -164,8 +165,9 @@ let over (sid: string option) (cmd: 'cmd) : 'cmd =
     |> Option.defaultWith (fun () -> failtest "the handler was not reached")
 
 
-let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Age
+let ageInDays pat =
+    pat
+    |> CorePatientData.ageInDays
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
 
 

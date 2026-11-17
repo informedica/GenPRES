@@ -472,7 +472,7 @@ module Export =
         // annotate: `Check` is a field on both DoseRule and DoseRuleData, so the
         // record-update target must be pinned to DoseRule.
         let check (dr: DoseRule) : DoseRule =
-            let signals = dr |> Check.checkDoseRuleWithProvider gStand Patient.patient |> _.signals
+            let signals = dr |> Check.checkDoseRuleWithProvider gStand PatientData.unknown |> _.signals
 
             // Messages for the severities matching `keep`, deduped and joined; None when
             // empty. dataToCsv collapses tabs/newlines, so " | " keeps multiple messages

@@ -10,23 +10,22 @@ open Informedica.GenPRES.Shared.Api
 /// The plan member: the one plan, nutrition included, over the plan port.
 module OrderPlanCommand =
 
-    /// The contract model's plan parsed into the domain, or the reasons it is none in the
-    /// server's words; an argumentation over the cap on any context is refused first, so a
-    /// plan submitted for signing is held to it too.
-    let parsePlan (plan: OrderPlan) : Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]> =
+    /// Reads the order plan of the contract on today's date. Returns the messages when it is
+    /// invalid. An argumentation that is too long is refused first.
+    let parsePlan today (plan: OrderPlan) : Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]> =
         plan.OrderContexts
         |> OrderContextService.Argumentation.checkAll
         |> Result.bind (fun () ->
             plan
-            |> OrderPlanMapper.ofModel
-            |> Informedica.GenOrder.Lib.OrderPlan.Dto.fromDto
+            |> OrderPlanMapper.ofModel today
+            |> Informedica.GenOrder.Lib.OrderPlan.Dto.fromDto today
             |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
         )
 
 
     /// The contexts parsed, all of them or the first refusal.
-    let parseContexts (contexts: OrderContext[]) : Result<PlanContext[], string[]> =
-        contexts |> Array.traverseResultM OrderContextService.parse
+    let parseContexts today (contexts: OrderContext[]) : Result<PlanContext[], string[]> =
+        contexts |> Array.traverseResultM (OrderContextService.parse today)
 
 
     let private both a b =
@@ -53,9 +52,9 @@ module OrderPlanCommand =
         answerWith (Informedica.GenOrder.Lib.OrderPlan.Dto.toDto >> OrderPlanMapper.toModel env.demo) parsed run
 
 
-    /// The port function asked over the plan, a draft that is none refused first.
+    /// Runs the port function on the plan when every patient of the plan passes the check.
     let overPlan (env: AppEnv) run (plan: OrderPlan) =
-        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) run)
+        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan (env.today ()) plan) run)
 
 
     /// The plan as it is, its totals recalculated over its orders.
@@ -67,6 +66,8 @@ module OrderPlanCommand =
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's
     /// demo flag. A draft that is none, or a plan the domain does not read, is refused.
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
+        let today = env.today ()
+
         match cmd with
         // the server writes the patient and the rows; the client sends the plan as answered
         | OrderPlanCommand.UpdatePatient(pat, plan) ->
@@ -109,7 +110,7 @@ module OrderPlanCommand =
                     (fun () ->
                         answer
                             env
-                            (both (parsePlan plan) (OrderContextService.parse ctx))
+                            (both (parsePlan today plan) (OrderContextService.parse today ctx))
                             (fun (p, pc) ->
                                 env.orderPlan.evaluateContext
                                     p
@@ -124,20 +125,22 @@ module OrderPlanCommand =
                 (fun () ->
                     answer
                         env
-                        (both (parsePlan plan) (both (OrderContextService.parse ctx) (parseContexts linked)))
+                        (both
+                            (parsePlan today plan)
+                            (both (OrderContextService.parse today ctx) (parseContexts today linked)))
                         (fun (p, (pc, pcs)) -> env.orderPlan.addOrderContexts p pc pcs)
                 )
         | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
             Patient.overAll
                 (Patient.ofPlan plan)
-                (fun () -> answer env (parsePlan plan) (fun p -> env.orderPlan.removeOrderContexts p ids))
+                (fun () -> answer env (parsePlan today plan) (fun p -> env.orderPlan.removeOrderContexts p ids))
         | OrderPlanCommand.Open(pat, contexts) ->
             Patient.overAll
                 (pat :: (contexts |> Array.map _.Patient |> Array.toList))
                 (fun () ->
                     answer
                         env
-                        (both (Patient.parse (env.today ()) pat) (parseContexts contexts))
+                        (both (Patient.parse today pat) (parseContexts today contexts))
                         (fun (p, pcs) -> env.orderPlan.openWith p pcs)
                 )
 
@@ -145,11 +148,13 @@ module OrderPlanCommand =
     /// The totals over the orders of the query, from the plan port. The patient of the query and of every
     /// context are checked first, as for a plan command.
     let processTotals (env: AppEnv) (query: TotalsQuery) =
+        let today = env.today ()
+
         Patient.overAll
             (query.Patient :: (query.OrderContexts |> Array.map _.Patient |> Array.toList))
             (fun () ->
                 answerWith
                     (Totals.Dto.toDto >> OrderContextMapper.totalsBack)
-                    (both (Patient.parse (env.today ()) query.Patient) (parseContexts query.OrderContexts))
+                    (both (Patient.parse today query.Patient) (parseContexts today query.OrderContexts))
                     (fun (pat, pcs) -> env.orderPlan.totals pat pcs)
             )

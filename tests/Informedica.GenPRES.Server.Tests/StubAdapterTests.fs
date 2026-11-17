@@ -79,7 +79,7 @@ module StubAdapters =
     /// tests keep stating the contract model.
     let portContext (ctx: OrderContext) =
         ctx
-        |> OrderContextService.parse
+        |> OrderContextService.parse readAt
         |> Result.defaultWith (fun e -> failtest $"no plan context: %A{e}")
 
 
@@ -87,7 +87,7 @@ module StubAdapters =
     /// counterpart of `portContext` for the order plan port.
     let portPlan (plan: OrderPlan) =
         plan
-        |> OrderPlanCommand.parsePlan
+        |> OrderPlanCommand.parsePlan readAt
         |> Result.defaultWith (fun e -> failtest $"no order plan: %A{e}")
 
 
@@ -394,6 +394,9 @@ module SessionStubTests =
 
     let t0 = DateTime(2026, 9, 9, 12, 0, 0, DateTimeKind.Utc)
 
+    /// The date of the clock. The patients of these tests are read on this date.
+    let today0 = t0.Date
+
     let keyA = PublicKey "key-A"
     let keyB = PublicKey "key-B"
 
@@ -456,21 +459,27 @@ module SessionStubTests =
     /// The contract model's plan parsed into the domain, as the signing handler does it.
     let parsed (plan: OrderPlan) =
         plan
-        |> OrderPlanCommand.parsePlan
+        |> OrderPlanCommand.parsePlan today0
         |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
 
     /// The contract model's patient parsed into the domain, as the adapters do it.
     let parsePatient (p: Patient) =
         p
-        |> Patient.parse readAt
+        |> Patient.parse today0
         |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
+
+
+    /// The patient data the stub EHR gives for the stub patient.
+    let ehrPatient =
+        StubPatientData.data StubPatientData.measuredOn "stub-patient"
+        |> StubAdapters.patientData.patient
 
 
     /// A signed order plan as the record holds it: parsed at load.
     let versionOfSigned (v: SignedOrderPlan) =
         v
-        |> SessionMapper.ofSigned
+        |> SessionMapper.ofSigned today0
         |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
 
@@ -1067,7 +1076,7 @@ module SessionStubTests =
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].Opened
                             |> Session.sessionPatient t0 StubAdapters.patientData
-                            |> Expect.equal "the platform's" (Some(parsePatient StubPatientData.patient))
+                            |> Expect.equal "the platform's" (Some ehrPatient)
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -2762,9 +2771,7 @@ module SessionStubTests =
                             <| (OrderPlan.create otherData [||], token "s-1")
 
                         answer
-                        |> Expect.equal
-                            "changed: told"
-                            (SigningOutcome.DataNotice("n-1", Some(parsePatient stubPatient)))
+                        |> Expect.equal "changed: told" (SigningOutcome.DataNotice("n-1", Some ehrPatient))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
 
@@ -2774,7 +2781,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
-                                Data = Some(parsePatient stubPatient)
+                                Data = Some ehrPatient
                                 Expiry = t0 + minutes 2.0
                             }
 
@@ -2822,8 +2829,7 @@ module SessionStubTests =
                         let state, told =
                             ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
 
-                        told
-                        |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
+                        told |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some ehrPatient))
 
                         state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
                     }
@@ -2872,17 +2878,17 @@ module SessionStubTests =
 
                         askWith "n-9" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
+                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some ehrPatient))
 
                         askWith "n-1" (t0 + minutes 3.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some(parsePatient stubPatient)))
+                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some ehrPatient))
 
                         let spent, _ = askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         askWith "n-1" (t0 + seconds 10.0) nonces spent "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some(parsePatient stubPatient)))
+                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some ehrPatient))
 
                         // a notice told over another read than the EHR's now does not fit
                         let other =
@@ -2899,7 +2905,7 @@ module SessionStubTests =
 
                         askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some(parsePatient stubPatient)))
+                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some ehrPatient))
                     }
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
@@ -3418,7 +3424,7 @@ module SessionStubTests =
 
                             state.Sessions["s-1"].Opened
                             |> Session.sessionPatient t0 StubPatientData.port
-                            |> Option.bind _.Department
+                            |> Option.bind PatientData.department
                             |> Expect.equal "the data signed, not the data opened on" otherData.Department
                         | other -> failtest $"expected Submitted, got {other}"
                     }
@@ -3656,7 +3662,10 @@ module SessionStubTests =
         directory,
         outbox,
 
-        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with session = port }
+        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with
+            session = port
+            today = fun () -> today0
+        }
 
 
     let envWithStub newStore () =

@@ -367,78 +367,8 @@ module Types =
         }
 
 
-    /// A specific Patient to filter DoseRules.
-    type Patient =
-        {
-            /// The Location of the Patient
-            Location: string option
-            /// The Department of the Patient
-            Department: string option
-            /// A list of Diagnoses of the Patient
-            Diagnoses: string[]
-            /// The Gender of the Patient
-            Gender: Gender
-            /// The Age in days of the Patient
-            Age: ValueUnit option
-            /// The Weight in grams of the Patient
-            Weight: ValueUnit option
-            /// The Height in cm of the Patient
-            Height: ValueUnit option
-            /// Whether the Weight held was measured; false for an estimate, from age or
-            /// entered. With no Weight the flag says nothing.
-            WeightMeasured: bool
-            /// Whether the Height held was measured; false for an estimate
-            HeightMeasured: bool
-            /// Whether the user marked the patient as an adult. The mark counts from 16 years and for
-            /// a patient without an age; from 18 years a patient is an adult without the mark.
-            MarkedAdult: bool
-            /// The Gestational Age in days of the Patient
-            GestAge: ValueUnit option
-            /// The Post Menstrual Age in days of the Patient
-            PMAge: ValueUnit option
-            /// The administration access devices of the Patient
-            Access: AccessDevice list
-            /// The Renal Function of the Patient
-            RenalFunction: RenalFunction option
-        }
-
-
-        static member Gender_ = (fun (p: Patient) -> p.Gender), (fun g (p: Patient) -> { p with Gender = g })
-
-        static member Age_ = (fun (p: Patient) -> p.Age), (fun a (p: Patient) -> { p with Age = a })
-
-        static member Weight_ = (fun (p: Patient) -> p.Weight), (fun w (p: Patient) -> { p with Weight = w })
-
-        static member Height_ = (fun (p: Patient) -> p.Height), (fun b (p: Patient) -> { p with Height = b })
-
-        static member GestAge_ = (fun (p: Patient) -> p.GestAge), (fun a (p: Patient) -> { p with GestAge = a })
-
-        static member PMAge_ = (fun (p: Patient) -> p.PMAge), (fun a (p: Patient) -> { p with PMAge = a })
-
-        static member Department_ =
-            (fun (p: Patient) -> p.Department), (fun d (p: Patient) -> { p with Department = d })
-
-        static member Access_ = (fun (p: Patient) -> p.Access), (fun a (p: Patient) -> { p with Access = a })
-
-        static member RenalFunction_ =
-            (fun (p: Patient) -> p.RenalFunction), (fun r (p: Patient) -> { p with RenalFunction = r })
-
-        static member Location_ = (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
-
-
-    /// Why a value is no patient, or why a Dto does not parse to one.
-    [<RequireQualifiedAccess>]
-    type PatientError =
-        /// Below the minimum data: no age, and no measured weight with a measured height
-        | NoAgeOrMeasuredWeightAndHeight
-        /// A gender string the Dto carries that names no gender
-        | UnknownGender of string
-        /// An access string the Dto carries that names no access device
-        | UnknownAccess of string
-        /// A renal function string the Dto carries that names no renal function
-        | UnknownRenalFunction of string
-        /// A patient marked as an adult who is younger than 16 years
-        | MarkedAdultBelowSixteen
+    /// The GenCORE patient data. The rules are selected with it.
+    type PatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
     type ProductId =
@@ -750,7 +680,7 @@ module Types =
             /// is made
             Components: ComponentSelection
             /// the patient to filter on
-            Patient: Patient
+            Patient: PatientData
         }
 
 
@@ -782,7 +712,7 @@ module Types =
             Indication: string option
             DoseType: DoseType option
             /// the patient
-            Patient: Patient
+            Patient: PatientData
             /// the diluent to dilute the component
             Diluent: string option
             /// The MinMax Dose range of the SolutionRule
@@ -793,7 +723,7 @@ module Types =
     /// with a DoseRule and a list of SolutionRules.
     type PrescriptionRule =
         {
-            Patient: Patient
+            Patient: PatientData
             DoseRule: DoseRule
             SolutionRules: SolutionRule[]
             RenalRules: RenalRule[]

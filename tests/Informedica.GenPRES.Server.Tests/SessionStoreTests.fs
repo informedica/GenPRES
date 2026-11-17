@@ -12,6 +12,7 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 let t0 = DateTime(2026, 9, 17, 12, 0, 0, DateTimeKind.Utc)
@@ -256,7 +257,7 @@ let tests =
                     |> OrderPlan.Dto.toDto
                     |> Canonical.serialize
                     |> Canonical.deserialize<OrderPlan.Dto.Dto>
-                    |> OrderPlan.Dto.fromDto
+                    |> OrderPlan.Dto.fromDto readAt
                     |> Result.defaultWith (fun e -> failtest $"%A{e}")
 
                 StubDatabase.digest (parsed plan)
@@ -436,6 +437,7 @@ let tests =
                           (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                         session = port
                         demo = demo
+                        today = fun () -> SessionStubTests.today0
                     }
 
                 let cookie: SessionCookie =
@@ -603,6 +605,7 @@ let tests =
                                   (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty)
                                   (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                                 session = port
+                                today = fun () -> SessionStubTests.today0
                             }
 
                         let cookie: SessionCookie =

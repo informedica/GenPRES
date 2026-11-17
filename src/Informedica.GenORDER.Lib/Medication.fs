@@ -17,6 +17,8 @@ module Medication =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
     /// Unit validation helpers for deterministic field parsing
     module UnitValidation =
 
@@ -940,7 +942,7 @@ module Medication =
 
 
     /// Add an optional solution rule to a medication order
-    let addSolutionRule logger (pat: Patient) solRule med =
+    let addSolutionRule logger (pat: PatientData) solRule med =
         match solRule with
         | None -> med
         | Some solRule ->
@@ -996,7 +998,7 @@ module Medication =
                                 |> Option.map (fun dilutionLimit ->
                                     { dilutionLimit with
                                         Quantity =
-                                            match pat.Weight with
+                                            match pat |> CorePatientData.weightInKg with
                                             | None -> dilutionLimit.Quantity
                                             | Some w ->
                                                 match
@@ -1019,7 +1021,7 @@ module Medication =
 
 
     /// Create a Medication Order from patient information and dose rules
-    let create logger (pat: Patient) au dose (dr: DoseRule) (solRule: SolutionRule option) =
+    let create logger (pat: PatientData) au dose (dr: DoseRule) (solRule: SolutionRule option) =
         { template with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> Generic.toString
@@ -1047,9 +1049,9 @@ module Medication =
             Dose = dose
             Adjust =
                 if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
-                    pat.Weight
+                    pat |> CorePatientData.weightInKg
                 else
-                    pat |> Patient.calcBSA
+                    pat |> CorePatientData.bodySurfaceArea
         //AdjustUnit = Some au
         }
         |> addSolutionRule logger pat solRule

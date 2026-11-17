@@ -100,12 +100,11 @@ module Fixture =
 
 
     let child =
-        { Patient.patient with
-            Age = Some(ValueUnit.singleWithUnit Units.Time.day 365N)
-            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 10N)
-            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 75N)
-            Department = Some Resources.Departments.defaultDepartment
-        }
+        PatientData.unknown
+        |> Patient.setAge [ Patient.AgeParts.Days 365 ]
+        |> SamplePatients.withWeightInKg 10m
+        |> SamplePatients.withHeightInCm 75m
+        |> Patient.setDepartment (Some Resources.Departments.defaultDepartment)
 
 
     let withoutDivisibleContext =
@@ -326,7 +325,11 @@ let tests =
                     test "the mark survives the Dto of a context, which a signed version stores" {
                         let ctx = markedContext
 
-                        match ctx |> OrderContext.Dto.toDto |> OrderContext.Dto.fromDto with
+                        match
+                            ctx
+                            |> OrderContext.Dto.toDto
+                            |> OrderContext.Dto.fromDto SamplePatients.measuredOn
+                        with
                         | Ok ctx ->
                             ctx.Scenarios
                             |> Array.map _.FitsOnlyWithoutDivisible
@@ -347,7 +350,11 @@ let tests =
                         |> Array.map _.FitsOnlyWithoutDivisible
                         |> Expect.equal "in the plan" [| true |]
 
-                        match added |> PlanContext.Dto.toDto |> PlanContext.Dto.fromDto with
+                        match
+                            added
+                            |> PlanContext.Dto.toDto
+                            |> PlanContext.Dto.fromDto SamplePatients.measuredOn
+                        with
                         | Ok pc ->
                             pc.Context.Scenarios
                             |> Array.map _.FitsOnlyWithoutDivisible

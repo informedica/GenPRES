@@ -18,11 +18,11 @@ open Informedica.GenOrder.Lib.Types
 /// Every error of a list of results, or every value.
 module DtoResult =
 
-    /// A reference field a serializer left null is read as absent, never dereferenced.
+    /// The array, or an empty array when the array is null after JSON deserialization.
     let orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
 
 
-    /// A string a serializer left null is read as blank.
+    /// The string, or an empty string when the string is null after JSON deserialization.
     let orBlank (s: string) = if isNull s then "" else s
 
 
@@ -46,7 +46,9 @@ module DtoResult =
             Error errors
 
 
-/// A Dto a serializer left null, the root or a nested one, is an error, by its name.
+/// Reads Dtos that can be null after JSON deserialization. A null Dto, whether the top-level Dto
+/// or one in a field, becomes the error Missing with the name of the field, so it is never
+/// dereferenced.
 module Nested =
 
     let required name (dto: 'a) (read: 'a -> Result<'b, DtoError list>) =
@@ -56,9 +58,10 @@ module Nested =
             read dto
 
 
-    /// Every item of an array a serializer left null or not, read with its index in its path,
-    /// "Components[0]"; an item left null is missing by that path. Every error of every item when
-    /// one fails.
+    /// Reads every item of an array of Dtos; a null array is read as an empty array. Each item is
+    /// read with its path, the name of the array and the index of the item, such as "Components[0]".
+    /// A null item becomes the error Missing with that path. When any item fails, the result holds
+    /// the errors of all items that failed.
     let items path read xs =
         xs
         |> DtoResult.orEmpty

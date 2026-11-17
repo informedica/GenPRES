@@ -99,7 +99,7 @@ let tests =
                 let months date (state: Session.State) =
                     state.Sessions["s1"].Opened
                     |> Session.sessionPatient date StubPatientData.port
-                    |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel >> _.Age)
+                    |> Option.bind (Patient.ofPatientData >> _.Age)
                     |> Option.map _.Months
 
                 before

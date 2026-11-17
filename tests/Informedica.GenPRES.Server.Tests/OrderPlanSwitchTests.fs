@@ -10,6 +10,7 @@ open Informedica.GenOrder.Lib
 open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 let patient = StubPatientData.patient
@@ -386,8 +387,8 @@ let tests =
                     }
 
                 match
-                    OrderContextService.parse picked,
-                    OrderPlanCommand.parsePlan { plan with OrderContexts = [| picked |] }
+                    OrderContextService.parse readAt picked,
+                    OrderPlanCommand.parsePlan readAt { plan with OrderContexts = [| picked |] }
                 with
                 | Ok pc, Ok p ->
                     let sut = Adapters.makeAppEnv (NoRules())

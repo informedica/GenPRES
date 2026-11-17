@@ -11,6 +11,7 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="SamplePatients.fs" />
     <Compile Include="Scenarios.fs" />
     <Compile Include="GoldenOrders.fs" />
     <Compile Include="TotalsGolden.fs" />

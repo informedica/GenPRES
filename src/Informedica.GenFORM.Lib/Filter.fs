@@ -14,7 +14,7 @@ module Filter =
             DoseType = None
             Diluent = None
             Components = ComponentSelection.AllComponents
-            Patient = Patient.patient
+            Patient = PatientData.unknown
         }
 
 
@@ -26,18 +26,10 @@ module Filter =
             Indication = None
             DoseType = None
             Diluent = None
-            Patient = Patient.patient
+            Patient = PatientData.unknown
             Dose = None
         }
 
 
-    /// <summary>
-    /// Apply a Patient to a Filter.
-    /// </summary>
-    /// <param name="pat">The Patient</param>
-    /// <param name="filter">The Filter</param>
-    /// <returns>The Filter with the Patient applied</returns>
-    let setPatient (pat: Patient) (filter: DoseFilter) =
-        let pat = pat |> Patient.correctAdjustUnit
-
-        { filter with Patient = pat }
+    /// Sets the patient data of a dose filter.
+    let setPatient pat (filter: DoseFilter) = { filter with Patient = pat }

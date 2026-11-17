@@ -2191,6 +2191,97 @@ module Tests =
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+    type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
+    type EGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+    type PatientDataError = Informedica.GenCore.Lib.Patients.PatientDataError
+
+
+    /// Builds the patient data of the tests. Each function sets one value of a patient.
+    module TestPatient =
+
+        open System
+        open Informedica.GenCore.Lib
+        open Informedica.GenCore.Lib.Patients
+
+        /// The date of every weight and height in the tests.
+        let measuredOn = DateTime(2026, 1, 1)
+
+        /// A patient with nothing known.
+        let unknown = CorePatientData.unknown
+
+        /// Sets the age from a time value. The age is rounded down to whole days.
+        let withAge age (pat: PatientData) = { pat with Age = age |> AgeValue.fromValueUnit |> Some }
+
+        /// Sets the age in days.
+        let withAgeInDays days (pat: PatientData) = { pat with Age = days * 1<day> |> AgeValue.fromDays |> Some }
+
+        /// Sets the weight in kg. The source is Measured or Estimated.
+        let withWeightFrom source kg (pat: PatientData) =
+            let weight =
+                kg
+                |> BigRational.toDecimal
+                |> WeightValue.weightInKg
+                |> WeightAtDate.create measuredOn
+
+            { pat with Weight = Weight.create [] None [] (Some(source weight)) }
+
+        /// Sets a measured weight in kg.
+        let withWeightInKg kg = withWeightFrom Measured kg
+
+        /// Sets an estimated weight in kg.
+        let withEstimatedWeightInKg kg = withWeightFrom Estimated kg
+
+        /// Sets the height in cm. The source is Measured or Estimated.
+        let withHeightFrom source cm (pat: PatientData) =
+            let height =
+                cm
+                |> BigRational.toDecimal
+                |> HeightValue.heightInCm
+                |> HeightAtDate.create measuredOn
+
+            { pat with Height = Height.create [] None (Some(source height)) }
+
+        /// Sets a measured height in cm.
+        let withHeightInCm cm = withHeightFrom Measured cm
+
+        /// Sets an estimated height in cm.
+        let withEstimatedHeightInCm cm = withHeightFrom Estimated cm
+
+        /// Sets the gestational age in days.
+        let withGestationalAgeInDays days (pat: PatientData) =
+            { pat with GestationalAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
+
+        /// Sets the post-menstrual age in days.
+        let withPostMenstrualAgeInDays days (pat: PatientData) =
+            { pat with PostMenstrualAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
+
+        /// Sets the department by name. Without a name the department is unknown.
+        let withDepartment name (pat: PatientData) =
+            { pat with
+                Department =
+                    name
+                    |> Option.map Department.otherDepartment
+                    |> Option.defaultValue Department.unknown
+            }
+
+        /// Sets the gender.
+        let withGender gender (pat: PatientData) = { pat with Gender = gender }
+
+        /// Sets the access devices.
+        let withAccess access (pat: PatientData) = { pat with Access = access }
+
+        /// Sets the renal function.
+        let withRenalFunction renalFunction (pat: PatientData) = { pat with RenalFunction = Some renalFunction }
+
+        /// Marks the patient as an adult.
+        let markedAsAdult (pat: PatientData) = { pat with MarkedAdult = true }
+
 
     module DoseLimitTests =
 
@@ -2287,9 +2378,9 @@ module Tests =
         let mgPerKgPerDay = mgPerKg |> ValueUnit.per day
         let perDay = Units.Count.times |> ValueUnit.per day
 
-        let pat15kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
+        let pat15kg = TestPatient.unknown |> TestPatient.withWeightInKg 15N
 
-        let pat24kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
+        let pat24kg = TestPatient.unknown |> TestPatient.withWeightInKg 24N
 
         /// A frequency ValueUnit set (per day) from a list of frequencies.
         let freqSet (vs: bigint list) =
@@ -2498,7 +2589,6 @@ module Tests =
     module MaxQtyConflictTests =
 
         let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
 
         // --- build DoseRuleData rows programmatically, by column NAME ---
 
@@ -2735,26 +2825,24 @@ module Tests =
             | _ -> None
 
         let bsaOf w h =
-            { Patient.patient with
-                Weight = Some w
-                Height = Some h
-            }
-            |> Patient.calcBSA
+            TestPatient.unknown
+            |> TestPatient.withWeightInKg w
+            |> TestPatient.withHeightInCm h
+            |> CorePatientData.bodySurfaceArea
 
         /// A patient whose weight (kg) or BSA (m2) equals the target adjust value.
         let patientFor (dl: DoseLimit) (adjVU: ValueUnit) =
             if dl.AdjustUnit.Value |> Units.eqsUnit kg then
-                { Patient.patient with
-                    Weight = Some(adjVU |> ValueUnit.convertTo kg)
-                    Height = Some(ValueUnit.singleWithUnit cm 150N)
-                }
+                TestPatient.unknown
+                |> TestPatient.withWeightInKg (adjVU |> ValueUnit.convertTo kg |> ValueUnit.getValue |> Array.head)
+                |> TestPatient.withHeightInCm 150N
             else
-                let h = ValueUnit.singleWithUnit cm 175N
+                let h = 175N
                 let mutable w = 1
                 let mutable found = None
 
                 while found.IsNone && w <= 400 do
-                    let wv = ValueUnit.singleWithUnit kg (BigRational.fromInt w)
+                    let wv = BigRational.fromInt w
 
                     match bsaOf wv h with
                     | Some b when (b >? adjVU) || b = adjVU -> found <- Some wv
@@ -2764,10 +2852,9 @@ module Tests =
 
                 match found with
                 | Some wv ->
-                    { Patient.patient with
-                        Weight = Some wv
-                        Height = Some h
-                    }
+                    TestPatient.unknown
+                    |> TestPatient.withWeightInKg wv
+                    |> TestPatient.withHeightInCm h
                 | None ->
                     // fail loudly rather than fall back to a size that does not
                     // actually conflict, which would make the test vacuous
@@ -2794,14 +2881,14 @@ module Tests =
         ///   always satisfiable by a smaller dose; feasibility hinges on reaching
         ///   the lower target at the maximum quantity, and on the absolute PerTime
         ///   cap admitting that adjusted target.
-        let isSolvable (dl: DoseLimit) (pat: Patient) (freqVU: ValueUnit option) =
+        let isSolvable (dl: DoseLimit) pat (freqVU: ValueUnit option) =
             match dl.AdjustUnit, freqVU, dl.Quantity.Max |> Option.map Limit.getValueUnit with
             | Some au, Some fvu, Some qmax ->
                 let adj =
                     (if au |> Units.eqsUnit kg then
-                         pat.Weight
+                         pat |> CorePatientData.weightInKg
                      else
-                         pat |> Patient.calcBSA)
+                         pat |> CorePatientData.bodySurfaceArea)
                     |> Option.get
 
                 let pinned =
@@ -2906,295 +2993,40 @@ module Tests =
                 ]
 
 
-    module PatientOfPatientDataTests =
-
-        open System
-        open Expecto
-        open Expecto.Flip
-        open Informedica.Utils.Lib.BCL
-        open Informedica.GenUnits.Lib
-        open Informedica.GenCore.Lib
-        open Informedica.GenCore.Lib.Patients
-
-        module FormPatient = Informedica.GenForm.Lib.Patient
-        module FormTypes = Informedica.GenForm.Lib.Types
-
-        /// The thirteenth of March, 2026, the day a patient born on the fifteenth of March, 2016, is
-        /// 3650 days old.
-        let measuredOn = DateTime(2016, 3, 15).AddDays 3650.
-
-        /// A patient created at a moment: born 2016-03-15, 32 kg and 140 cm measured on the day the
-        /// patient is 3650 days old, nothing else known, with its ages at that moment.
-        let patientAt readAt =
-            let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
-            let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
-
-            PatientData.create
-                Department.unknown
-                [||]
-                UnknownGender
-                None
-                (Weight.create [ weight ] None [] (Some(Measured weight)))
-                (Height.create [ height ] None (Some(Measured height)))
-                None
-            |> Patient.createAt
-                readAt
-                (PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
-                 |> Some)
-
-        /// That patient created on the day it is 3650 days old.
-        let patient () = patientAt measuredOn
-
-        let days (vu: ValueUnit option) =
-            vu
-            |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
-
-        let tests =
-            testList
-                "Patient.ofPatientData"
-                [
-                    test "the projection at 3650 days is ten years, the measures, nothing else" {
-                        let pat = (patient ()).Data |> FormPatient.ofPatientData
-
-                        let expected: FormTypes.Patient =
-                            { FormPatient.patient with
-                                Gender = FormTypes.AnyGender
-                                Age = Some(3650N |> ValueUnit.singleWithUnit Units.Time.day)
-                                Weight = Some(32N |> ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                                Height = Some(140N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
-                                WeightMeasured = true
-                                HeightMeasured = true
-                            }
-
-                        pat |> Expect.equal "field for field" expected
-                    }
-
-                    test "the age is the birthdate's at the read, in days" {
-                        let at dt =
-                            (patientAt dt).Data |> FormPatient.ofPatientData |> _.Age |> days
-
-                        (at measuredOn, at (measuredOn.AddDays 1.0), at (measuredOn.AddYears 1))
-                        |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
-                    }
-
-                    test "the age value of an anonymous patient is projected as its days" {
-                        let pat = patient ()
-
-                        { pat.Data with
-                            Age = AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>) |> Some
-                        }
-                        |> FormPatient.ofPatientData
-                        |> _.Age
-                        |> days
-                        |> Expect.equal "2 years, 3 months and 4 days" (Some 824N)
-                    }
-
-                    test "a measurement without a calculation value is no measure" {
-                        let pat = patient ()
-
-                        let pat =
-                            { pat.Data with Weight = { pat.Data.Weight with Calculation = None } }
-                            |> FormPatient.ofPatientData
-
-                        (pat.Weight, pat.WeightMeasured, pat.Height.IsSome, pat.HeightMeasured)
-                        |> Expect.equal "no weight, not measured; the height as before" (None, false, true, true)
-                    }
-
-                    test "gestational age in days, PMA calculated, department named, rule values of the patient values" {
-                        let pat = patient ()
-
-                        let pat =
-                            { pat with
-                                Data =
-                                    { pat.Data with
-                                        Department = Department.pediatricICU "ICK"
-                                        Gender = Female
-                                        GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
-                                        RenalFunction = Some(EGFR From30To50)
-                                        Access = [ CVL; EnteralTube ]
-                                    }
-                            }
-                            |> Patient.calculatePostMenstrualAge
-                            |> _.Data
-                            |> FormPatient.ofPatientData
-
-                        (pat.GestAge |> days,
-                         pat.PMAge |> days,
-                         pat.Department,
-                         pat.Gender,
-                         pat.RenalFunction,
-                         pat.Access)
-                        |> Expect.equal
-                            "254 days, 254 plus the age of 3650 days, ICK, female, the eGFR, the two devices"
-                            (Some 254N,
-                             Some 3904N,
-                             Some "ICK",
-                             FormTypes.Female,
-                             Some(FormTypes.RenalFunction.EGFR(Some 30, Some 50)),
-                             [ FormTypes.CVL; FormTypes.EnteralTube ])
-                    }
-
-                    test
-                        "withAgesOf: the age in days, the gestational age and the post-menstrual age GenCORE calculated" {
-                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
-
-                        { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
-                        |> Patient.create (Some identity)
-                        |> Patient.atDate (DateTime(2026, 3, 30))
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
-                        |> fun pat -> pat.Age |> days, pat.GestAge |> days, pat.PMAge |> days
-                        |> Expect.equal "58 days, 182 days, 182 plus 58 days" (Some 58N, Some 182N, Some 240N)
-                    }
-
-                    test "withAgesOf: no gestational age, no post-menstrual age" {
-                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
-
-                        PatientData.unknown
-                        |> Patient.create (Some identity)
-                        |> Patient.atDate (DateTime(2026, 3, 30))
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
-                        |> _.PMAge
-                        |> Expect.isNone "none"
-                    }
-
-                    test "every access of a patient is the access of the same name" {
-                        [ PVL; CVL; EnteralTube ]
-                        |> List.map Informedica.GenForm.Lib.AccessDevice.ofPatient
-                        |> Expect.equal "the three accesses" [ FormTypes.PVL; FormTypes.CVL; FormTypes.EnteralTube ]
-                    }
-
-                    test "an eGFR band is the pair of its bounds" {
-                        [ Above50; From30To50; From10To30; UpTo10 ]
-                        |> List.map (EGFR >> Informedica.GenForm.Lib.RenalFunction.ofPatient)
-                        |> Expect.equal
-                            "the four bands"
-                            [
-                                FormTypes.EGFR(Some 50, None)
-                                FormTypes.EGFR(Some 30, Some 50)
-                                FormTypes.EGFR(Some 10, Some 30)
-                                FormTypes.EGFR(None, Some 10)
-                            ]
-                    }
-
-                    test "a kind of dialysis is the kind of the same name" {
-                        [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
-                        |> List.map Informedica.GenForm.Lib.RenalFunction.ofPatient
-                        |> Expect.equal
-                            "the three kinds"
-                            [
-                                FormTypes.IntermittentHemodialysis
-                                FormTypes.ContinuousHemodialysis
-                                FormTypes.PeritonealDialysis
-                            ]
-                    }
-
-                    test "a patient without a known gender matches the rules for any gender" {
-                        [ Male; Female; UnknownGender ]
-                        |> List.map Informedica.GenForm.Lib.Gender.ofPatient
-                        |> Expect.equal "the three genders" [ FormTypes.Male; FormTypes.Female; FormTypes.AnyGender ]
-                    }
-
-                    test "the location and the mark as an adult are taken over" {
-                        let pat =
-                            { (patient ()).Data with
-                                Location = Some "UMCU"
-                                MarkedAdult = true
-                            }
-                            |> FormPatient.ofPatientData
-
-                        (pat.Location, pat.MarkedAdult) |> Expect.equal "both" (Some "UMCU", true)
-                    }
-
-                    test "an estimated weight or height is not measured" {
-                        let dat = (patient ()).Data
-                        let estimated calc = calc |> Option.map (Source.value >> Estimated)
-
-                        let pat =
-                            { dat with
-                                Weight = { dat.Weight with Calculation = dat.Weight.Calculation |> estimated }
-                                Height = { dat.Height with Calculation = dat.Height.Calculation |> estimated }
-                            }
-                            |> FormPatient.ofPatientData
-
-                        (pat.Weight.IsSome, pat.WeightMeasured, pat.HeightMeasured)
-                        |> Expect.equal "the weight is there, neither measured" (true, false, false)
-                    }
-
-                    test "patient data without a weight or a height has neither measured" {
-                        let pat = PatientData.unknown |> FormPatient.ofPatientData
-
-                        (pat.WeightMeasured, pat.HeightMeasured)
-                        |> Expect.equal "neither" (false, false)
-                    }
-
-                    test "the printer writes neither the name nor the birthdate" {
-                        let printed = (patient ()).Data |> FormPatient.ofPatientData |> FormPatient.toString
-
-                        [ "Stub"; "Testpatiënt"; "2016"; "15-03"; "03-15" ]
-                        |> List.map (fun s -> printed.Contains s)
-                        |> Expect.allEqual $"nothing of the identity in: %s{printed}" false
-                    }
-                ]
-
-
     module RulesReadPatientDataTests =
 
-        open System
         open Expecto
         open Expecto.Flip
         open Informedica.Utils.Lib.BCL
         open Informedica.GenUnits.Lib
-        open Informedica.GenCore.Lib
         open Informedica.GenCore.Lib.Ranges
         open Informedica.GenCore.Lib.Patients
 
-        module FormPatient = Informedica.GenForm.Lib.Patient
         module FormData = Informedica.GenForm.Lib.PatientData
+        module FormGender = Informedica.GenForm.Lib.Gender
+        module FormRenalFunction = Informedica.GenForm.Lib.RenalFunction
         module Core = Informedica.GenCore.Lib.Patients.PatientData
 
         type CoreData = Informedica.GenCore.Lib.Patients.PatientData
 
-        /// The date the weights and the heights of these tests are measured on.
-        let measuredOn = DateTime(2026, 11, 17)
-
-        /// A weight in kg from a source, measured or estimated.
-        let weight source kg =
-            WeightAtDate.create measuredOn (WeightValue.weightInKg kg)
-            |> source
-            |> Some
-            |> Weight.create [] None []
-
-        /// A height in cm from a source, measured or estimated.
-        let height source cm =
-            HeightAtDate.create measuredOn (HeightValue.heightInCm cm)
-            |> source
-            |> Some
-            |> Height.create [] None
-
-        let ageOfDays (ds: int) = ds * 1<day> |> AgeValue.fromDays |> Some
-
-        let weeksDays ws ds = AgeWeeksDays.create (ws * 1<week>) (ds * 1<day>) |> Some
-
-        /// A child of ten years, 32 kg and 140 cm measured.
+        /// A child of ten years, 32 kg and 140 cm, both measured.
         let child =
-            { Core.unknown with
-                Age = ageOfDays 3650
-                Weight = weight Measured 32m
-                Height = height Measured 140m
-            }
+            TestPatient.unknown
+            |> TestPatient.withAgeInDays 3650
+            |> TestPatient.withWeightInKg 32N
+            |> TestPatient.withHeightInCm 140N
 
-        /// The patients the functions are compared on.
+        /// The patients of the tests, each with a name.
         let patients: (string * CoreData) list =
             [
                 "nothing known", Core.unknown
                 "a child of ten years", child
                 "a child with estimates",
-                { child with
-                    Weight = weight Estimated 30m
-                    Height = height Estimated 138m
-                }
-                "an age alone", { Core.unknown with Age = ageOfDays 3650 }
-                "a weight alone", { Core.unknown with Weight = weight Measured 3.45m }
+                child
+                |> TestPatient.withEstimatedWeightInKg 30N
+                |> TestPatient.withEstimatedHeightInCm 138N
+                "an age alone", Core.unknown |> TestPatient.withAgeInDays 3650
+                "a weight alone", Core.unknown |> TestPatient.withWeightInKg (345N / 100N)
                 "a boy", { child with Gender = Male }
                 "a girl", { child with Gender = Female }
                 "a department alone", { Core.unknown with Department = Department.otherDepartment "ICK" }
@@ -3204,56 +3036,42 @@ module Tests =
                 "a child with a central line", { child with Access = [ CVL ] }
                 "a child with a peripheral line and a tube", { child with Access = [ PVL; EnteralTube ] }
                 "a term newborn of 3 days",
-                { Core.unknown with
-                    Age = ageOfDays 3
-                    Weight = weight Measured 3.5m
-                    Height = height Measured 51m
-                    GestationalAge = weeksDays 40 0
-                    PostMenstrualAge = weeksDays 40 3
-                }
+                Core.unknown
+                |> TestPatient.withAgeInDays 3
+                |> TestPatient.withWeightInKg (35N / 10N)
+                |> TestPatient.withHeightInCm 51N
+                |> TestPatient.withGestationalAgeInDays (40 * 7)
+                |> TestPatient.withPostMenstrualAgeInDays (40 * 7 + 3)
                 "a preterm newborn of 10 days",
-                { Core.unknown with
-                    Age = ageOfDays 10
-                    Weight = weight Measured 1.2m
-                    GestationalAge = weeksDays 30 2
-                    PostMenstrualAge = weeksDays 31 5
-                }
+                Core.unknown
+                |> TestPatient.withAgeInDays 10
+                |> TestPatient.withWeightInKg (12N / 10N)
+                |> TestPatient.withGestationalAgeInDays (30 * 7 + 2)
+                |> TestPatient.withPostMenstrualAgeInDays (31 * 7 + 5)
                 "an infant of 100 days with a gestational age",
-                { Core.unknown with
-                    Age = ageOfDays 100
-                    Weight = weight Estimated 5.6m
-                    GestationalAge = weeksDays 38 0
-                }
+                Core.unknown
+                |> TestPatient.withAgeInDays 100
+                |> TestPatient.withEstimatedWeightInKg (56N / 10N)
+                |> TestPatient.withGestationalAgeInDays (38 * 7)
                 "15 years, marked as an adult",
-                { child with
-                    Age = ageOfDays (15 * 365)
-                    MarkedAdult = true
-                }
-                "16 years", { child with Age = ageOfDays (16 * 365) }
+                child |> TestPatient.withAgeInDays (15 * 365) |> TestPatient.markedAsAdult
+                "16 years", child |> TestPatient.withAgeInDays (16 * 365)
                 "16 years, marked as an adult",
-                { child with
-                    Age = ageOfDays (16 * 365)
-                    MarkedAdult = true
-                }
+                child |> TestPatient.withAgeInDays (16 * 365) |> TestPatient.markedAsAdult
                 "17 years, marked as an adult, with a gestational age",
-                { child with
-                    Age = ageOfDays (17 * 365 + 200)
-                    MarkedAdult = true
-                    GestationalAge = weeksDays 39 0
-                }
-                "18 years", { child with Age = ageOfDays (18 * 365) }
+                child
+                |> TestPatient.withAgeInDays (17 * 365 + 200)
+                |> TestPatient.markedAsAdult
+                |> TestPatient.withGestationalAgeInDays (39 * 7)
+                "18 years", child |> TestPatient.withAgeInDays (18 * 365)
                 "40 years, 80 kg and 180 cm",
-                { Core.unknown with
-                    Age = ageOfDays (40 * 365)
-                    Weight = weight Measured 80m
-                    Height = height Measured 180m
-                }
-                "no age, marked as an adult", { Core.unknown with MarkedAdult = true }
+                Core.unknown
+                |> TestPatient.withAgeInDays (40 * 365)
+                |> TestPatient.withWeightInKg 80N
+                |> TestPatient.withHeightInCm 180N
+                "no age, marked as an adult", Core.unknown |> TestPatient.markedAsAdult
                 "no age, marked as an adult, with a weight",
-                { Core.unknown with
-                    MarkedAdult = true
-                    Weight = weight Measured 70m
-                }
+                Core.unknown |> TestPatient.markedAsAdult |> TestPatient.withWeightInKg 70N
             ]
 
         let days (n: int) = BigRational.fromInt n |> ValueUnit.singleWithUnit Units.Time.day
@@ -3303,54 +3121,611 @@ module Tests =
             ]
 
 
+        /// The expected results of the rule functions for one patient.
+        type Expected =
+            {
+                /// The patient is an adult.
+                IsAdult: bool
+                /// The patient is matched as an adult.
+                MatchedAsAdult: bool
+                /// The weight in kg. This is the adjust value per kg.
+                WeightInKg: BigRational option
+                /// The body surface area in m2. This is the adjust value per m2.
+                BsaInM2: BigRational option
+                /// The patient as text.
+                Text: string
+                /// The categories that match when location and gender are not checked.
+                Matches: string list
+                /// The categories in Matches that fail on the location or the gender.
+                NoMatchByLocationOrGender: string list
+            }
+
+        /// The expected results by the name of the patient.
+        let expected =
+            [
+                "nothing known",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = ""
+                    Matches =
+                        [
+                            "all patients"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child of ten years",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child with estimates",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 30N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 30 kg, lengte 138 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "an age alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = "10 jaar"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a weight alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(69N / 20N)
+                    BsaInM2 = None
+                    Text = "gewicht 3.45 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a boy",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "man, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "girls" ]
+                }
+                "a girl",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "vrouw, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys" ]
+                }
+                "a department alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = "ICK"
+                    Matches =
+                        [
+                            "all patients"
+                            "department ICK"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child on the ICK",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "ICK, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "department ICK"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                            "boys of 1 month to 18 years on the ICK"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls"; "boys of 1 month to 18 years on the ICK" ]
+                }
+                "a child on the NICU",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "NICU, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "department NICU"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child at a location",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "location ward"; "boys"; "girls" ]
+                }
+                "a child with a central line",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child with a peripheral line and a tube",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a term newborn of 3 days",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(7N / 2N)
+                    BsaInM2 = Some(21N / 100N)
+                    Text =
+                        "3 dagen, neonaten postconceptie leeftijd 40 weken, gewicht 3.5 kg, lengte 51 cm, BSA 0,21 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "up to 28 days"
+                            "gestational age from 37 weeks"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a preterm newborn of 10 days",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(6N / 5N)
+                    BsaInM2 = None
+                    Text = "1 week, prematuren postconceptie leeftijd 31 weken, gewicht 1.2 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "gestational age under 32 weeks"
+                            "post-menstrual age under 37 weeks"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = []
+                }
+                "an infant of 100 days with a gestational age",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(28N / 5N)
+                    BsaInM2 = None
+                    Text = "3 maanden, neonaten zwangerschapsduur 38 weken, gewicht 5.6 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "gestational age from 37 weeks"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "15 years, marked as an adult",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "15 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "16 years",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "16 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "from 16 to 30 years"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "16 years, marked as an adult",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "16 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "17 years, marked as an adult, with a gestational age",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "17 jaar, neonaten zwangerschapsduur 39 weken, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "18 years",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "18 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "from 16 to 30 years"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "40 years, 80 kg and 180 cm",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = false
+                    WeightInKg = Some 80N
+                    BsaInM2 = Some 2N
+                    Text = "40 jaar, gewicht 80 kg, lengte 180 cm, BSA 2 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "no age, marked as an adult",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = ""
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "no age, marked as an adult, with a weight",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 70N
+                    BsaInM2 = None
+                    Text = "gewicht 70 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+            ]
+            |> Map.ofList
+
+
         let tests =
             testList
                 "the rules read the GenCORE patient data"
                 [
                     testList
-                        "the same result as on the GenFORM patient"
+                        "the results for each patient"
                         [
                             for name, dat in patients do
-                                let pat = dat |> FormPatient.ofPatientData
+                                let exp = expected |> Map.find name
 
                                 test $"is an adult: %s{name}" {
-                                    dat |> FormData.isAdult |> Expect.equal "is adult" (pat |> Adult.isAdult)
+                                    dat |> FormData.isAdult |> Expect.equal "is adult" exp.IsAdult
                                 }
 
                                 test $"is matched as an adult: %s{name}" {
                                     dat
                                     |> FormData.matchedAsAdult
-                                    |> Expect.equal "matched as adult" (pat |> Adult.matchedAsAdult)
+                                    |> Expect.equal "matched as adult" exp.MatchedAsAdult
                                 }
 
                                 test $"the patient as an adult: %s{name}" {
-                                    dat
-                                    |> FormData.asAdult
-                                    |> FormPatient.ofPatientData
-                                    |> Expect.equal "as adult" (pat |> PatientCategory.asAdult)
+                                    let adult = dat |> FormData.asAdult
+
+                                    (adult |> Core.ageInDays, adult.GestationalAge, adult.PostMenstrualAge)
+                                    |> Expect.equal
+                                        "18 years of 365 days, no gestational age, no post-menstrual age"
+                                        (Some(days 6570), None, None)
+
+                                    { adult with
+                                        Age = dat.Age
+                                        GestationalAge = dat.GestationalAge
+                                        PostMenstrualAge = dat.PostMenstrualAge
+                                    }
+                                    |> Expect.equal "the other values stay" dat
                                 }
 
                                 test $"the adjust value: %s{name}" {
-                                    for u in [ None; Some Units.Weight.kiloGram; Some Units.BSA.m2 ] do
-                                        FormData.adjustValue dat u
-                                        |> Expect.equal "adjust value" (FormPatient.adjustValue pat u)
+                                    FormData.adjustValue dat None |> Expect.isNone "no adjust unit"
+
+                                    FormData.adjustValue dat (Some Units.Weight.kiloGram)
+                                    |> Expect.equal
+                                        "per kg"
+                                        (exp.WeightInKg |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram))
+
+                                    FormData.adjustValue dat (Some Units.BSA.m2)
+                                    |> Expect.equal
+                                        "per m2"
+                                        (exp.BsaInM2 |> Option.map (ValueUnit.singleWithUnit Units.BSA.m2))
                                 }
 
-                                test $"the text: %s{name}" {
-                                    dat |> FormData.toString |> Expect.equal "text" (pat |> FormPatient.toString)
-                                }
+                                test $"the text: %s{name}" { dat |> FormData.toString |> Expect.equal "text" exp.Text }
 
                                 for catName, patCat in categories do
                                     test $"the match of %s{name} with the category %s{catName}" {
+                                        let matches = exp.Matches |> List.contains catName
+
                                         FormData.matchesCategoryWithoutLocationAndGender dat patCat
-                                        |> Expect.equal
-                                            "without location and gender"
-                                            (PatientCategory.filterPatient pat patCat)
+                                        |> Expect.equal "without location and gender" matches
 
                                         FormData.matchesCategory dat patCat
                                         |> Expect.equal
                                             "with location and gender"
-                                            (PatientCategory.filter { Filter.doseFilter with Patient = pat } patCat)
+                                            (matches && exp.NoMatchByLocationOrGender |> List.contains catName |> not)
                                     }
                         ]
 
@@ -3395,6 +3770,43 @@ module Tests =
                              [ Types.CVL; Types.EnteralTube ],
                              Some(Types.RenalFunction.EGFR(Some 30, Some 50)))
                     }
+
+                    test "every access of a patient is the access of the same name" {
+                        [ PVL; CVL; EnteralTube ]
+                        |> List.map AccessDevice.ofPatient
+                        |> Expect.equal "the three accesses" [ Types.PVL; Types.CVL; Types.EnteralTube ]
+                    }
+
+                    test "an eGFR band is the pair of its bounds" {
+                        [ Above50; From30To50; From10To30; UpTo10 ]
+                        |> List.map (EGFR >> FormRenalFunction.ofPatient)
+                        |> Expect.equal
+                            "the four bands"
+                            [
+                                Types.EGFR(Some 50, None)
+                                Types.EGFR(Some 30, Some 50)
+                                Types.EGFR(Some 10, Some 30)
+                                Types.EGFR(None, Some 10)
+                            ]
+                    }
+
+                    test "a kind of dialysis is the kind of the same name" {
+                        [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
+                        |> List.map FormRenalFunction.ofPatient
+                        |> Expect.equal
+                            "the three kinds"
+                            [
+                                Types.IntermittentHemodialysis
+                                Types.ContinuousHemodialysis
+                                Types.PeritonealDialysis
+                            ]
+                    }
+
+                    test "a patient without a known gender matches the rules for any gender" {
+                        [ Male; Female; UnknownGender ]
+                        |> List.map FormGender.ofPatient
+                        |> Expect.equal "the three genders" [ Types.Male; Types.Female; Types.AnyGender ]
+                    }
                 ]
 
 
@@ -3406,69 +3818,21 @@ module Tests =
         open Informedica.GenUnits.Lib
         open Informedica.GenForm.Lib
 
-        let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
-
         let tests =
             testList
                 "Patient"
                 [
                     test "a patient has data besides the department only when more than the department is set" {
                         [
-                            Patient.patient
-                            { Patient.patient with Department = Some "ICK" }
-                            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
-                            { Patient.patient with
-                                Department = Some "ICK"
-                                Gender = Male
-                            }
+                            TestPatient.unknown
+                            TestPatient.unknown |> TestPatient.withDepartment (Some "ICK")
+                            TestPatient.unknown |> TestPatient.withWeightInKg 5N
+                            TestPatient.unknown
+                            |> TestPatient.withDepartment (Some "ICK")
+                            |> TestPatient.withGender CoreGender.Male
                         ]
-                        |> List.map Patient.hasDataBesidesDepartment
+                        |> List.map PatientData.hasDataBesidesDepartment
                         |> Expect.equal "none, none, a weight, a gender" [ false; false; true; true ]
-                    }
-
-                    test "the empty patient has both measured flags set" {
-                        Patient.patient.WeightMeasured |> Expect.isTrue "weight counts as measured"
-                        Patient.patient.HeightMeasured |> Expect.isTrue "height counts as measured"
-                    }
-
-                    test "a patient built as a copy keeps counting as measured" {
-                        let pat =
-                            { Patient.patient with
-                                Weight = Some(ValueUnit.singleWithUnit kg 15N)
-                                Height = Some(ValueUnit.singleWithUnit cm 100N)
-                            }
-
-                        pat.WeightMeasured |> Expect.isTrue "the weight is measured"
-                        pat.HeightMeasured |> Expect.isTrue "the height is measured"
-                        pat.Weight |> Expect.isSome "the weight is held"
-                    }
-
-                    test "an estimate is the held value with its flag clear, and survives copies" {
-                        let estimated =
-                            { Patient.patient with
-                                Age = Some(ValueUnit.singleWithUnit Units.Time.year 10N)
-                                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                                WeightMeasured = false
-                            }
-
-                        let copied = { estimated with Department = Some "ICK" }
-
-                        copied.WeightMeasured |> Expect.isFalse "still an estimate after a copy"
-                        copied.HeightMeasured |> Expect.isTrue "the other flag is untouched"
-                        copied.Weight |> Expect.equal "the estimate is the held value" estimated.Weight
-                    }
-
-                    test "the measured flags are independent" {
-                        let pat =
-                            { Patient.patient with
-                                Weight = Some(ValueUnit.singleWithUnit kg (35N / 10N))
-                                Height = Some(ValueUnit.singleWithUnit cm 50N)
-                                HeightMeasured = false
-                            }
-
-                        (pat.WeightMeasured, pat.HeightMeasured)
-                        |> Expect.equal "measured weight, estimated height" (true, false)
                     }
                 ]
 
@@ -3484,182 +3848,60 @@ module Tests =
 
         module Fixtures =
 
-            let kg = Units.Weight.kiloGram
-            let cm = Units.Height.centiMeter
-            let day = Units.Time.day
-
             /// A ten-year-old, weight and height measured, on a PVL.
             let child =
-                { Patient.patient with
-                    Department = Some "ICK"
-                    Gender = Male
-                    Age = Some(ValueUnit.singleWithUnit day 3650N)
-                    Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                    Height = Some(ValueUnit.singleWithUnit cm 140N)
-                    Access = [ PVL ]
-                }
-
-            /// A premature of two days, 30 weeks gestation, 1.2 kg.
-            let premature =
-                { Patient.patient with
-                    Gender = Female
-                    Age = Some(ValueUnit.singleWithUnit day 2N)
-                    GestAge = Some(ValueUnit.singleWithUnit day 210N)
-                    PMAge = Some(ValueUnit.singleWithUnit day 212N)
-                    Weight = Some(ValueUnit.singleWithUnit kg (12N / 10N))
-                    Height = Some(ValueUnit.singleWithUnit cm 38N)
-                    Access = [ CVL ]
-                    RenalFunction = Some(EGFR(Some 30, Some 50))
-                }
+                TestPatient.unknown
+                |> TestPatient.withDepartment (Some "ICK")
+                |> TestPatient.withGender CoreGender.Male
+                |> TestPatient.withAgeInDays 3650
+                |> TestPatient.withWeightInKg 32N
+                |> TestPatient.withHeightInCm 140N
+                |> TestPatient.withAccess [ CoreAccess.PVL ]
 
             /// No age, but a measured weight and height.
             let measuredOnly =
-                { Patient.patient with
-                    Weight = Some(ValueUnit.singleWithUnit kg 70N)
-                    Height = Some(ValueUnit.singleWithUnit cm 175N)
-                }
+                TestPatient.unknown
+                |> TestPatient.withWeightInKg 70N
+                |> TestPatient.withHeightInCm 175N
 
 
         let tests =
             testList
-                "Patient validate and Dto"
+                "Patient minimum data and string forms"
                 [
                     testList
-                        "validate"
+                        "the minimum data"
                         [
                             test "an age alone is a patient" {
-                                { Patient.patient with Age = Some(ValueUnit.singleWithUnit Fixtures.day 3650N) }
-                                |> Patient.validate
+                                TestPatient.unknown
+                                |> TestPatient.withAgeInDays 3650
+                                |> CorePatientData.checkMinimumData
                                 |> Result.isOk
                                 |> Expect.isTrue "a patient"
                             }
 
                             test "a measured weight and height without an age is a patient" {
                                 Fixtures.measuredOnly
-                                |> Patient.validate
+                                |> CorePatientData.checkMinimumData
                                 |> Result.isOk
                                 |> Expect.isTrue "a patient"
                             }
 
                             test "an estimated weight without an age is no patient" {
-                                { Fixtures.measuredOnly with WeightMeasured = false }
-                                |> Patient.validate
+                                Fixtures.measuredOnly
+                                |> TestPatient.withEstimatedWeightInKg 70N
+                                |> CorePatientData.checkMinimumData
                                 |> Expect.equal
                                     "below the minimum data"
-                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
 
                             test "the empty patient is no patient" {
-                                Patient.patient
-                                |> Patient.validate
+                                TestPatient.unknown
+                                |> CorePatientData.checkMinimumData
                                 |> Expect.equal
                                     "below the minimum data"
-                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
-                            }
-                        ]
-
-                    testList
-                        "L1, fromDto (toDto x) = Ok x"
-                        [
-                            for name, pat in
-                                [
-                                    "a child", Fixtures.child
-                                    "a premature", Fixtures.premature
-                                    "measured only", Fixtures.measuredOnly
-                                ] do
-                                test $"{name} round-trips" {
-                                    pat
-                                    |> Patient.Dto.toDto
-                                    |> Patient.Dto.fromDto
-                                    |> Expect.equal "the same patient" (Ok pat)
-                                }
-                        ]
-
-                    testList
-                        "L2, fromDto d |> Result.map toDto = Ok d"
-                        [
-                            for name, pat in [ "a child", Fixtures.child; "a premature", Fixtures.premature ] do
-                                test $"{name}'s Dto round-trips" {
-                                    let dto = pat |> Patient.Dto.toDto
-
-                                    dto
-                                    |> Patient.Dto.fromDto
-                                    |> Result.map Patient.Dto.toDto
-                                    |> Expect.equal "the same Dto" (Ok dto)
-                                }
-                        ]
-
-                    testList
-                        "fromDto refuses"
-                        [
-                            test "an unknown gender string" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with Gender = "x" }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "named" (Error [ PatientError.UnknownGender "x" ])
-                            }
-
-                            test "an unknown access string, and every error is reported" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = "x"
-                                    Access = [| "pvl"; "tube" |]
-                                    RenalFunction = Some "egfr:a:b"
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "all three"
-                                    (Error
-                                        [
-                                            PatientError.UnknownGender "x"
-                                            PatientError.UnknownAccess "tube"
-                                            PatientError.UnknownRenalFunction "egfr:a:b"
-                                        ])
-                            }
-
-                            test "a null gender or access string is an unknown one, never a crash" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = null
-                                    Access = [| null |]
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "both named"
-                                    (Error [ PatientError.UnknownGender ""; PatientError.UnknownAccess "" ])
-                            }
-
-                            test "null arrays are read as empty" {
-                                let dto =
-                                    { (Fixtures.child |> Patient.Dto.toDto) with
-                                        Access = null
-                                        Diagnoses = null
-                                    }
-
-                                match dto |> Patient.Dto.fromDto with
-                                | Ok pat ->
-                                    pat.Access |> Expect.isEmpty "no access"
-                                    pat.Diagnoses |> Expect.isEmpty "no diagnoses"
-                                | Error e -> failtest $"expected a patient, got {e}"
-                            }
-
-                            test "an unknown string and the minimum data are reported together" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = "x"
-                                    AgeDays = None
-                                    WeightMeasured = false
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "both"
-                                    (Error
-                                        [ PatientError.UnknownGender "x"; PatientError.NoAgeOrMeasuredWeightAndHeight ])
-                            }
-
-                            test "a draft with no age and no measured weight and height" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    AgeDays = None
-                                    WeightMeasured = false
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "no patient" (Error [ PatientError.NoAgeOrMeasuredWeightAndHeight ])
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
                         ]
 
@@ -3687,18 +3929,6 @@ module Tests =
                                         PeritonealDialysis
                                      ]
                                      |> List.map Some)
-                            }
-
-                            test "toDto converts to the canonical units" {
-                                let dto =
-                                    { Fixtures.child with
-                                        Weight = Some(ValueUnit.singleWithUnit Units.Weight.gram 32000N)
-                                        Age = Some(ValueUnit.singleWithUnit Units.Time.week 10N)
-                                    }
-                                    |> Patient.Dto.toDto
-
-                                dto.WeightKg |> Expect.equal "kilograms" (Some 32N)
-                                dto.AgeDays |> Expect.equal "days" (Some 70N)
                             }
                         ]
                 ]
@@ -3756,18 +3986,17 @@ module Tests =
                             ]
 
                         let matches access =
-                            categories
-                            |> List.map (
-                                PatientCategory.filterPatient { PatientDtoTests.Fixtures.child with Access = access }
-                            )
+                            let pat = PatientDtoTests.Fixtures.child |> TestPatient.withAccess access
 
-                        matches [ PVL ]
+                            categories |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
+
+                        matches [ CoreAccess.PVL ]
                         |> Expect.equal "PVL: the PVL and any categories" [ true; false; true ]
 
-                        matches [ PVL; EnteralTube ]
+                        matches [ CoreAccess.PVL; CoreAccess.EnteralTube ]
                         |> Expect.equal "PVL and a tube: the same" [ true; false; true ]
 
-                        matches [ EnteralTube ]
+                        matches [ CoreAccess.EnteralTube ]
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
@@ -3833,11 +4062,12 @@ module Tests =
                 DoseType = None
                 Diluent = None
                 Components = ComponentSelection.AllComponents
-                Patient = { PatientDtoTests.Fixtures.child with Department = department }
+                Patient = PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
             }
 
 
-        let patientFor department = { PatientDtoTests.Fixtures.child with Department = department }
+        let patientFor department =
+            PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
 
 
         let categories =
@@ -3867,14 +4097,16 @@ module Tests =
         /// department: ICK, NICU, any.
         let matchers =
             [
-                "PatientCategory.filter",
+                "PatientData.matchesCategory",
                 fun dep ->
                     categories
-                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor dep))
-                "PatientCategory.filterPatient",
+                    |> List.map (fun (_, cat) -> cat |> PatientData.matchesCategory (patientFor dep))
+                "PatientData.matchesCategoryWithoutLocationAndGender",
                 fun dep ->
                     categories
-                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filterPatient (patientFor dep))
+                    |> List.map (fun (_, cat) ->
+                        cat |> PatientData.matchesCategoryWithoutLocationAndGender (patientFor dep)
+                    )
                 "Reconstitution.matches",
                 fun dep -> reconstitutions |> List.map (Product.Reconstitution.matches [||] None dep None)
                 "Reconstitution.filter",
@@ -3942,7 +4174,7 @@ module Tests =
                         [
                             test "a rule that names a location still matches a patient with none" {
                                 { PatientCategory.empty with Location = Some "OK" }
-                                |> PatientCategory.filter (filterFor None)
+                                |> PatientData.matchesCategory (patientFor None)
                                 |> Expect.isTrue "the location comparison is untouched"
                             }
 
@@ -4031,24 +4263,26 @@ module Tests =
                         }
 
                     test "an empty filter and empty patient category" {
-                        patCat |> PatientCategory.filter filter |> Expect.isTrue "should return true"
+                        patCat
+                        |> PatientData.matchesCategory filter.Patient
+                        |> Expect.isTrue "should return true"
                     }
 
                     test "an empty filter and patient category with female gender" {
                         { patCat with Gender = Female }
-                        |> PatientCategory.filter filter
+                        |> PatientData.matchesCategory filter.Patient
                         |> Expect.isFalse "should return false"
                     }
 
                     test "a filter with female gender and patient category with female gender" {
                         { patCat with Gender = Female }
-                        |> PatientCategory.filter { filter with DoseFilter.Patient.Gender = Female }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withGender CoreGender.Female)
                         |> Expect.isTrue "should return true"
                     }
 
                     test "a filter with female gender and patient category with no gender" {
                         { patCat with Gender = AnyGender }
-                        |> PatientCategory.filter { filter with DoseFilter.Patient.Gender = Female }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withGender CoreGender.Female)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4056,7 +4290,10 @@ module Tests =
 
                     let adults = { patCat with Age = IsAdult }
 
-                    let aged age = { filter with DoseFilter.Patient.Age = age }
+                    let aged age =
+                        match age with
+                        | Some age -> TestPatient.unknown |> TestPatient.withAge age
+                        | None -> TestPatient.unknown
 
                     test "the adult threshold is the domain's eighteen years, in days as a patient's age is written" {
                         Utils.ValueUnit.ageAdult
@@ -4069,11 +4306,13 @@ module Tests =
                         n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
 
                     let neonate age gestAge pmAge =
-                        { Patient.patient with
-                            Age = age |> Option.map inDays
-                            GestAge = gestAge |> Option.map inDays
-                            PMAge = pmAge |> Option.map inDays
-                        }
+                        let set f value pat =
+                            value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+                        TestPatient.unknown
+                        |> set TestPatient.withAgeInDays age
+                        |> set TestPatient.withGestationalAgeInDays gestAge
+                        |> set TestPatient.withPostMenstrualAgeInDays pmAge
 
                     let pmaRule =
                         { patCat with
@@ -4084,7 +4323,7 @@ module Tests =
                                 }
                         }
 
-                    let matches rule pat = rule |> PatientCategory.filter { filter with Patient = pat }
+                    let matches rule pat = rule |> PatientData.matchesCategory pat
 
                     test "a post-menstrual age rule matches the patient's exact post-menstrual age" {
                         [
@@ -4117,8 +4356,8 @@ module Tests =
                         [
                             noAge |> matches gestRule
                             noAge |> matches pmaRule
-                            PatientCategory.filterPatient noAge gestRule
-                            PatientCategory.filterPatient noAge pmaRule
+                            PatientData.matchesCategoryWithoutLocationAndGender noAge gestRule
+                            PatientData.matchesCategoryWithoutLocationAndGender noAge pmaRule
                         ]
                         |> Expect.allEqual "no match" false
                     }
@@ -4128,7 +4367,10 @@ module Tests =
                         let locationRule = { patCat with Location = Some "UMCU" }
                         let pat = neonate None (Some 210) None
 
-                        [ pat |> matches locationRule; PatientCategory.filterPatient pat locationRule ]
+                        [
+                            pat |> matches locationRule
+                            PatientData.matchesCategoryWithoutLocationAndGender pat locationRule
+                        ]
                         |> Expect.allEqual "left out, as a patient with an age is" false
                     }
 
@@ -4142,7 +4384,8 @@ module Tests =
                     test "setting a patient on a filter keeps the patient's post-menstrual age" {
                         Filter.doseFilter
                         |> Filter.setPatient (neonate (Some 45) (Some 196) (Some 242))
-                        |> _.Patient.PMAge
+                        |> _.Patient
+                        |> CorePatientData.postMenstrualAgeInDays
                         |> Expect.equal "242 days, not recalculated" (Some(inDays 242))
                     }
 
@@ -4162,31 +4405,31 @@ module Tests =
                         "a patient entered as eighteen, 6570 days by the contract model, is an adult; a day less is not" {
                         let days n = n |> ValueUnit.singleWithUnit Units.Time.day
 
-                        (adults |> PatientCategory.filter (aged (Some(days 6570N))),
-                         adults |> PatientCategory.filter (aged (Some(days 6569N))))
+                        (adults |> PatientData.matchesCategory (aged (Some(days 6570N))),
+                         adults |> PatientData.matchesCategory (aged (Some(days 6569N))))
                         |> Expect.equal "the threshold day in, the day before out" (true, false)
                     }
 
                     test "an adult rule matches a patient of eighteen and over" {
                         [ 18N; 40N; 90N ]
-                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> List.map (fun y -> adults |> PatientData.matchesCategory (aged (Some(years y))))
                         |> Expect.allEqual "all adults" true
                     }
 
                     test "an adult rule matches no child" {
                         [ 0N; 1N; 10N; 17N ]
-                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> List.map (fun y -> adults |> PatientData.matchesCategory (aged (Some(years y))))
                         |> Expect.allEqual "no child" false
                     }
 
                     test "an adult rule does not match a patient with no age" {
                         adults
-                        |> PatientCategory.filter (aged None)
+                        |> PatientData.matchesCategory (aged None)
                         |> Expect.isFalse "unknown is not an adult"
                     }
 
                     test "a rule with no age bound still matches a patient with no age" {
-                        patCat |> PatientCategory.filter (aged None) |> Expect.isTrue "everyone"
+                        patCat |> PatientData.matchesCategory (aged None) |> Expect.isTrue "everyone"
                     }
 
                     test "an adult rule and a children's rule ending at the threshold never both match one patient" {
@@ -4207,7 +4450,7 @@ module Tests =
 
                         let both age =
                             let f = aged (Some age)
-                            adults |> PatientCategory.filter f, children |> PatientCategory.filter f
+                            adults |> PatientData.matchesCategory f, children |> PatientData.matchesCategory f
 
                         [ years 0N; years 5N; years 17N; days 6569N; days 6570N; days 6571N; years 30N ]
                         |> List.map both
@@ -4237,7 +4480,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter filter
+                        |> PatientData.matchesCategory filter.Patient
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4249,10 +4492,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4264,10 +4504,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4280,10 +4517,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4298,10 +4532,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4316,27 +4547,21 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Gender = Female
-                                        Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withGender CoreGender.Female
+                            |> TestPatient.withAgeInDays 5
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
                     test "a filter with age 0 and gestational age 30 weeks with an empty patient category" {
                         patCat
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4349,14 +4574,11 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4370,16 +4592,13 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 28N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        Weight = (115N / 100N) |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        Height = 45N |> ValueUnit.singleWithUnit Units.Height.centiMeter |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (28 * 7)
+                            |> TestPatient.withWeightInKg (115N / 100N)
+                            |> TestPatient.withHeightInCm 45N
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4398,14 +4617,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4424,14 +4640,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 33N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (33 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4450,14 +4663,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 8
+                            |> TestPatient.withGestationalAgeInDays (27 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4476,15 +4686,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 210N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 210
+                        )
 
                         |> Expect.isTrue "should return true"
                     }
@@ -4504,15 +4711,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 259N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (37 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 259
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
@@ -4532,15 +4736,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 197N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 8
+                            |> TestPatient.withGestationalAgeInDays (27 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 197
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4563,19 +4764,12 @@ module Tests =
                                 }
                             GestAge.Max = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight =
-                                            1.45m
-                                            |> BigRational.FromDecimal
-                                            |> ValueUnit.singleWithUnit Units.Weight.kiloGram
-                                            |> Some
-                                        GestAge = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (145N / 100N)
+                            |> TestPatient.withGestationalAgeInDays (32 * 7)
+                        )
 
                         |> Expect.isTrue "should return true"
                     }
@@ -4590,15 +4784,12 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight = (145N / 10N) |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        GestAge = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (145N / 10N)
+                            |> TestPatient.withGestationalAgeInDays (32 * 7)
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
@@ -4618,14 +4809,11 @@ module Tests =
                                     Max = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Exclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight = 3500N |> ValueUnit.singleWithUnit Units.Weight.gram |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (3500N / 1000N)
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
@@ -4759,9 +4947,12 @@ module Tests =
 
         let kg n = n |> ValueUnit.singleWithUnit Units.Weight.kiloGram
 
-        let aged age = { Patient.patient with Age = age }
+        let aged age =
+            match age with
+            | Some age -> TestPatient.unknown |> TestPatient.withAge age
+            | None -> TestPatient.unknown
 
-        let marked (pat: Patient) = { pat with MarkedAdult = true }
+        let marked = TestPatient.markedAsAdult
 
         let ageRange min max : MinMax =
             {
@@ -4819,13 +5010,10 @@ module Tests =
                         Some(years 17N)
                         Some(years 40N)
                     ] do
-                    for weight in [ None; Some(kg 3N); Some(kg 60N) ] do
-                        { aged age with
-                            Weight = weight
-                            Height =
-                                weight
-                                |> Option.map (fun _ -> 150N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
-                        }
+                    for weight in [ None; Some 3N; Some 60N ] do
+                        match weight with
+                        | Some kg -> aged age |> TestPatient.withWeightInKg kg |> TestPatient.withHeightInCm 150N
+                        | None -> aged age
             ]
 
 
@@ -4834,67 +5022,55 @@ module Tests =
                 "Adult"
                 [
                     testList
-                        "Adult.isAdult"
+                        "PatientData.isAdult"
                         [
                             test "a patient of 18 years without the mark is an adult" {
-                                aged (Some(years 18N)) |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 18N)) |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 17 years with the mark is an adult" {
-                                aged (Some(years 17N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 17N)) |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient without an age with the mark is an adult" {
-                                aged None |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged None |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 17 years without the mark is not an adult" {
-                                aged (Some(years 17N)) |> Adult.isAdult |> Expect.isFalse "not an adult"
+                                aged (Some(years 17N)) |> PatientData.isAdult |> Expect.isFalse "not an adult"
                             }
 
                             test "a patient of exactly 16 years with the mark is an adult" {
-                                aged (Some(years 16N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 16N)) |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 16 years less one day with the mark is refused and is not an adult" {
                                 let pat = aged (Some(days 5839N)) |> marked
 
-                                pat |> Adult.isAdult |> Expect.isFalse "not an adult"
+                                pat |> PatientData.isAdult |> Expect.isFalse "not an adult"
 
                                 pat
-                                |> Patient.validate
-                                |> Expect.equal "validate refuses" (Error PatientError.MarkedAdultBelowSixteen)
-
-                                pat
-                                |> Patient.Dto.toDto
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "fromDto refuses" (Error [ PatientError.MarkedAdultBelowSixteen ])
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.equal "the mark is refused" (Error PatientDataError.MarkedAdultBelowSixteen)
                             }
                         ]
 
                     testList
                         "the minimum data"
                         [
-                            test "a marked patient without an age passes validate and fromDto" {
-                                let pat = aged None |> marked
-
-                                pat |> Patient.validate |> Expect.isOk "validate accepts"
-                                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto |> Expect.isOk "fromDto accepts"
-                            }
-
-                            test "the mark survives the Dto" {
-                                let pat = aged (Some(years 17N)) |> marked
-
-                                pat
-                                |> Patient.Dto.toDto
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "the same patient" (Ok pat)
+                            test "a marked patient without an age has the minimum data" {
+                                aged None
+                                |> marked
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.isOk "accepted"
                             }
 
                             test "an unmarked patient without an age is refused as before" {
                                 aged None
-                                |> Patient.validate
-                                |> Expect.equal "no minimum data" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.equal
+                                    "no minimum data"
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
                         ]
 
@@ -4906,54 +5082,55 @@ module Tests =
 
                                 test $"a marked patient %s{name} matches the adult, the all-age and the from-18 rules" {
                                     [ adults; allAges; fromEighteen ]
-                                    |> List.map (PatientCategory.filter (filterFor pat))
-                                    |> Expect.allEqual "filter matches" true
+                                    |> List.map (PatientData.matchesCategory pat)
+                                    |> Expect.allEqual "matches" true
 
                                     [ adults; allAges; fromEighteen ]
-                                    |> List.map (PatientCategory.filterPatient pat)
-                                    |> Expect.allEqual "filterPatient matches" true
+                                    |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
+                                    |> Expect.allEqual "matches without location and gender" true
                                 }
 
                                 test $"a marked patient %s{name} does not match a rule of 12 to 25 years" {
                                     twelveToTwentyFive
-                                    |> PatientCategory.filter (filterFor pat)
-                                    |> Expect.isFalse "filter does not match"
+                                    |> PatientData.matchesCategory pat
+                                    |> Expect.isFalse "does not match"
 
                                     twelveToTwentyFive
-                                    |> PatientCategory.filterPatient pat
-                                    |> Expect.isFalse "filterPatient does not match"
+                                    |> PatientData.matchesCategoryWithoutLocationAndGender pat
+                                    |> Expect.isFalse "does not match without location and gender"
                                 }
 
                             test
                                 "a marked patient of 17 with a weight matches the adult rules and not a rule for children" {
-                                let pat = { aged (Some(years 17N)) with Weight = Some(kg 60N) } |> marked
+                                let pat = aged (Some(years 17N)) |> TestPatient.withWeightInKg 60N |> marked
 
                                 [ adults; childrenOneToEighteen ]
-                                |> List.map (PatientCategory.filter (filterFor pat))
+                                |> List.map (PatientData.matchesCategory pat)
                                 |> Expect.equal "the adult rule only" [ true; false ]
 
                                 [ adults; childrenOneToEighteen ]
-                                |> List.map (PatientCategory.filterPatient pat)
+                                |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
                                 |> Expect.equal "the adult rule only" [ true; false ]
                             }
 
                             test "a marked patient with a preterm gestational age matches the adult rules" {
-                                let pat = { aged (Some(years 17N)) with GestAge = Some(days (30N * 7N)) } |> marked
+                                let pat =
+                                    aged (Some(years 17N))
+                                    |> TestPatient.withGestationalAgeInDays (30 * 7)
+                                    |> marked
+
+                                adults |> PatientData.matchesCategory pat |> Expect.isTrue "matches"
 
                                 adults
-                                |> PatientCategory.filter (filterFor pat)
-                                |> Expect.isTrue "filter matches"
-
-                                adults
-                                |> PatientCategory.filterPatient pat
-                                |> Expect.isTrue "filterPatient matches"
+                                |> PatientData.matchesCategoryWithoutLocationAndGender pat
+                                |> Expect.isTrue "matches without location and gender"
                             }
 
                             test "a marked patient without a weight does not match a rule with a weight range" {
                                 let byWeight = category IsAdult { MinMax.empty with Min = Some(Inclusive(kg 50N)) }
 
                                 byWeight
-                                |> PatientCategory.filter (filterFor (aged None |> marked))
+                                |> PatientData.matchesCategory (aged None |> marked)
                                 |> Expect.isFalse "no weight, no match"
                             }
 
@@ -4961,13 +5138,13 @@ module Tests =
                                 let cats = demoCategories.Value
                                 cats |> Array.isEmpty |> Expect.isFalse "the fixtures hold dose rules"
 
-                                for pat in demoPatients |> List.filter Adult.isAdult do
+                                for pat in demoPatients |> List.filter PatientData.isAdult do
                                     for cat in cats do
                                         cat
-                                        |> PatientCategory.filter (filterFor (pat |> marked))
+                                        |> PatientData.matchesCategory (pat |> marked)
                                         |> Expect.equal
                                             "the mark changes nothing"
-                                            (cat |> PatientCategory.filter (filterFor pat))
+                                            (cat |> PatientData.matchesCategory pat)
                             }
                         ]
 
@@ -4992,7 +5169,7 @@ module Tests =
                             let adultRenal = renalRule (ageRange (Some(years 18N)) None)
                             let twelveToTwentyFiveRenal = renalRule (ageRange (Some(years 12N)) (Some(years 25N)))
 
-                            let reduced (pat: Patient) = { pat with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+                            let reduced = TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                             let selected pat rule =
                                 [| rule |]
@@ -5094,7 +5271,9 @@ module Tests =
         let reducedRule = renalRule (EGFR(Some 10, Some 30))
 
         let patient weight =
-            { Patient.patient with Weight = weight |> Option.map (ValueUnit.singleWithUnit kg) }
+            match weight with
+            | Some kg -> TestPatient.unknown |> TestPatient.withWeightInKg kg
+            | None -> TestPatient.unknown
 
         let adjust weight rl dl =
             dl |> RenalRule.adjustDoseLimit (patient weight) (reducedRule rl)
@@ -5257,12 +5436,14 @@ module Tests =
                     test "a per m2 renal maximum on a per kg dose limit is applied at the BSA" {
                         let m2 = Units.BSA.m2
 
-                        let pat =
-                            { patient (Some 30N) with
-                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
-                            }
+                        let pat = patient (Some 30N) |> TestPatient.withHeightInCm 130N
 
-                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+                        let bsa =
+                            pat
+                            |> CorePatientData.bodySurfaceArea
+                            |> Option.get
+                            |> ValueUnit.getValue
+                            |> Array.head
 
                         let dl =
                             { doseLimit with
@@ -5282,12 +5463,14 @@ module Tests =
                     }
 
                     test "a converted per m2 renal maximum below the absolute renal maximum wins" {
-                        let pat =
-                            { patient (Some 30N) with
-                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
-                            }
+                        let pat = patient (Some 30N) |> TestPatient.withHeightInCm 130N
 
-                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+                        let bsa =
+                            pat
+                            |> CorePatientData.bodySurfaceArea
+                            |> Option.get
+                            |> ValueUnit.getValue
+                            |> Array.head
 
                         let renal maxMg =
                             { replace with
@@ -5877,7 +6060,7 @@ module Tests =
         /// The severities of the signals the check of the sample dose rule, amoxicillin IV at most
         /// 50 mg/kg per dose, gives for the dosages.
         let private severitiesOf dosages =
-            (Check.checkDoseRuleWithProvider (providerOf dosages) Patient.patient sampleDoseRule.Value).signals
+            (Check.checkDoseRuleWithProvider (providerOf dosages) TestPatient.unknown sampleDoseRule.Value).signals
             |> Array.map fst
             |> Array.distinct
 
@@ -5952,13 +6135,14 @@ module Tests =
                         [
                             for d, months in [ 6570N, 216.; 6569N, 215.99; 365N, 12.; 364N, 11.99 ] do
                                 test $"%s{d |> BigRational.toString} days is %.2f{months} months" {
-                                    { Patient.patient with Age = Some(day d) }
+                                    TestPatient.unknown
+                                    |> TestPatient.withAge (day d)
                                     |> Check.ageInMonths
                                     |> Expect.equal "months" (Some months)
                                 }
 
                             test "a patient without an age has no age in months" {
-                                Patient.patient |> Check.ageInMonths |> Expect.isNone "none"
+                                TestPatient.unknown |> Check.ageInMonths |> Expect.isNone "none"
                             }
                         ]
 
@@ -6149,7 +6333,8 @@ module Tests =
                                 calls <- calls + 1
                                 Seq.empty
 
-                        let result = Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
+                        let result =
+                            Check.checkDoseRuleWithProvider fakeProvider TestPatient.unknown sampleDoseRule.Value
 
                         calls > 0 |> Expect.isTrue "injected provider was invoked"
 
@@ -6521,15 +6706,6 @@ module Tests =
                         |> Expect.equal "ICK" Departments.defaultDepartment
                     }
 
-                    test "a patient without a department is prescribed for in the default, one with keeps it" {
-                        let deps = Departments.ofNamed [ Some "NEO" ]
-                        None |> Departments.forPatient deps |> Expect.equal "the default" (Some "ICK")
-                        Some "NEO" |> Departments.forPatient deps |> Expect.equal "kept" (Some "NEO")
-                        Some "OTHER"
-                        |> Departments.forPatient deps
-                        |> Expect.equal "kept, known or not" (Some "OTHER")
-                    }
-
                     test "a department is known when a rule names it or it is the default" {
                         let deps = Departments.ofNamed [ Some "NEO" ]
                         "NEO" |> Departments.isKnown deps |> Expect.isTrue "NEO"
@@ -6572,9 +6748,8 @@ module Tests =
                         let matched (department: string option) =
                             { Filter.solutionFilter "paracetamol" with
                                 Patient =
-                                    { PatientDtoTests.Fixtures.child with
-                                        Department = department |> Departments.forPatient deps
-                                    }
+                                    PatientDtoTests.Fixtures.child
+                                    |> TestPatient.withDepartment (department |> Option.orElse (Some deps.Default))
                             }
                             |> fun filter -> rules |> SolutionRule.filter [||] filter
                             |> Array.map _.PatientCategory.Department
@@ -6713,14 +6888,13 @@ module Tests =
 
         /// A child of 10 years, 32 kg and 140 cm, on the ICK.
         let child =
-            { Patient.patient with
-                Department = Some "ICK"
-                Gender = Male
-                Age = Some(ValueUnit.singleWithUnit day 3650N)
-                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 140N)
-                Access = [ PVL ]
-            }
+            TestPatient.unknown
+            |> TestPatient.withDepartment (Some "ICK")
+            |> TestPatient.withGender CoreGender.Male
+            |> TestPatient.withAgeInDays 3650
+            |> TestPatient.withWeightInKg 32N
+            |> TestPatient.withHeightInCm 140N
+            |> TestPatient.withAccess [ CoreAccess.PVL ]
 
 
         /// The indications of the rules a lookup for the patient finds.
@@ -6736,13 +6910,14 @@ module Tests =
                 [
                     test
                         "a lookup without a patient returns every solution rule, also those with an age or weight range" {
-                        Patient.patient
+                        TestPatient.unknown
                         |> matched
                         |> Expect.equal "all five" [| "any"; "neonate"; "under 10 kg"; "ICK"; "NEO neonate" |]
                     }
 
                     test "a department alone selects the rules for that department and the rules for any" {
-                        { Patient.patient with Department = Some "NEO" }
+                        TestPatient.unknown
+                        |> TestPatient.withDepartment (Some "NEO")
                         |> matched
                         |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
                     }
@@ -6752,21 +6927,24 @@ module Tests =
                     }
 
                     test "a child without a department gets only the rule for any" {
-                        { child with Department = None } |> matched |> Expect.equal "any" [| "any" |]
+                        child
+                        |> TestPatient.withDepartment None
+                        |> matched
+                        |> Expect.equal "any" [| "any" |]
                     }
 
                     test "a neonate on the NEO gets the rule for any, the ranges and the NEO rule" {
-                        { child with
-                            Department = Some "NEO"
-                            Age = Some(ValueUnit.singleWithUnit day 10N)
-                            Weight = Some(ValueUnit.singleWithUnit kg 3N)
-                        }
+                        child
+                        |> TestPatient.withDepartment (Some "NEO")
+                        |> TestPatient.withAgeInDays 10
+                        |> TestPatient.withWeightInKg 3N
                         |> matched
                         |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
                     }
 
                     test "a patient with only a weight gets the rule for any and the weight range" {
-                        { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
+                        TestPatient.unknown
+                        |> TestPatient.withWeightInKg 5N
                         |> matched
                         |> Expect.equal "any and under 10 kg" [| "any"; "under 10 kg" |]
                     }
@@ -6854,7 +7032,7 @@ module Tests =
 
                         let reg = Map [ Keys.gStandProvider.Name, derive (fun _ -> fake) ]
                         let gstand: Check.GStandProvider = LoadEngine(reg).Resolve Keys.gStandProvider
-                        let out = gstand Patient.patient "paracetamol" "tablet" "iv"
+                        let out = gstand TestPatient.unknown "paracetamol" "tablet" "iv"
 
                         out |> Seq.isEmpty |> Expect.isTrue "fake provider returns empty"
                         called |> Expect.isTrue "function-valued resource was invoked"
@@ -7002,10 +7180,12 @@ module Tests =
         let private m2 n = n |> ValueUnit.singleWithUnit Units.BSA.m2
 
         let private patient weight height =
-            { Patient.patient with
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            }
+            let set f value pat =
+                value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+            TestPatient.unknown
+            |> set TestPatient.withWeightInKg weight
+            |> set TestPatient.withHeightInCm height
 
         let private noWeight = patient None None
         let private weightOnly = patient (Some 70N) None
@@ -7021,8 +7201,7 @@ module Tests =
             }
 
         let private both pat (cat: PatientCategory) =
-            cat |> PatientCategory.filterPatient pat,
-            cat |> PatientCategory.filter { Filter.doseFilter with Patient = pat }
+            cat |> PatientData.matchesCategoryWithoutLocationAndGender pat, cat |> PatientData.matchesCategory pat
 
 
         let tests =
@@ -7206,10 +7385,9 @@ module Tests =
             }
 
         let private measured =
-            { Patient.patient with
-                Weight = Some(ValueUnit.singleWithUnit kg 70N)
-                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 175N)
-            }
+            TestPatient.unknown
+            |> TestPatient.withWeightInKg 70N
+            |> TestPatient.withHeightInCm 175N
 
         let private noLogger = Informedica.Logging.Lib.Logging.noOp
 
@@ -7576,7 +7754,7 @@ module Tests =
 
                         let dr = doseRuleWith (Some kg) dl |> RenalRule.adjustDoseRule measured rr
                         let dl = dr |> substanceLimits |> Array.head
-                        let bsa = Patient.calcBSA measured |> Option.get
+                        let bsa = CorePatientData.bodySurfaceArea measured |> Option.get
 
                         dr.AdjustUnit |> Expect.equal "the rule keeps kg" (Some kg)
                         dl.AdjustUnit |> Expect.equal "the limit keeps kg" (Some kg)
@@ -7607,11 +7785,13 @@ module Tests =
         let private years n = ValueUnit.singleWithUnit RR.day (n * 365N)
 
         let private patient weight height =
-            { Patient.patient with
-                Age = Some(years 5N)
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit RR.kg)
-                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            }
+            let set f value pat =
+                value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+            TestPatient.unknown
+            |> TestPatient.withAge (years 5N)
+            |> set TestPatient.withWeightInKg weight
+            |> set TestPatient.withHeightInCm height
 
         let private noWeight = patient None None
         let private weightOnly = patient (Some 30N) None
@@ -7640,7 +7820,8 @@ module Tests =
                 (demoRules.Value
                  |> Array.find (fun dr ->
                      dr.Generic |> Generic.genericName = "paracetamol"
-                     && dr.PatientCategory |> PatientCategory.filterPatient noWeight
+                     && dr.PatientCategory
+                        |> PatientData.matchesCategoryWithoutLocationAndGender noWeight
                  ))
 
         /// The demo prescription rule of paracetamol with the given substance limit, for the patient.
@@ -7887,7 +8068,9 @@ module Tests =
                             |> RenalRule.map noLogger
                             |> Result.defaultValue [||]
 
-                        let pat = { measured with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+                        let pat =
+                            measured
+                            |> TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                         let prs =
                             { filterFor pat with
@@ -8159,10 +8342,9 @@ module Tests =
 
                         for weight, height, age in [ 3N, 50N, 1N / 10N; 20N, 115N, 6N; 70N, 175N, 30N ] do
                             let pat =
-                                { patient (Some weight) (Some height) with
-                                    Age = Some(years age)
-                                    RenalFunction = Some(EGFR(Some 20, Some 20))
-                                }
+                                patient (Some weight) (Some height)
+                                |> TestPatient.withAge (years age)
+                                |> TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                             let prs =
                                 filterFor pat
@@ -10484,9 +10666,6 @@ module Tests =
         open RuleCheckTests
 
 
-        let gram = Units.Weight.gram
-
-
         let componentLimit name limit : ComponentLimit =
             {
                 Name = name
@@ -10557,7 +10736,7 @@ module Tests =
 
         let prescriptionRule dr solRules : PrescriptionRule =
             {
-                Patient = Patient.patient
+                Patient = TestPatient.unknown
                 DoseRule = dr
                 SolutionRules = solRules
                 RenalRules = [||]
@@ -10565,7 +10744,9 @@ module Tests =
 
 
         let patient weight =
-            { Patient.patient with Weight = weight |> Option.map (fun w -> w * 1000N |> ValueUnit.singleWithUnit gram) }
+            match weight with
+            | Some kg -> TestPatient.unknown |> TestPatient.withWeightInKg kg
+            | None -> TestPatient.unknown
 
 
         let filterFor weight solRules =
@@ -10865,10 +11046,11 @@ module Tests =
 
 
         let patient weight =
-            { Patient.patient with
-                Department = Some "ICK"
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
-            }
+            let onICK = TestPatient.unknown |> TestPatient.withDepartment (Some "ICK")
+
+            match weight with
+            | Some gram -> onICK |> TestPatient.withWeightInKg (gram / 1000N)
+            | None -> onICK
 
 
         let tests =
@@ -11477,7 +11659,6 @@ module Tests =
                 AdultTests.tests
                 RenalReductionTests.tests
                 PatientTests.tests
-                PatientOfPatientDataTests.tests
                 RulesReadPatientDataTests.tests
                 PatientDtoTests.tests
                 AccessDeviceTests.tests

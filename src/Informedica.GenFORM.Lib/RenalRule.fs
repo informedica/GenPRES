@@ -12,6 +12,8 @@ module RenalRule =
 
     open Utils
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
 
     module DoseReduction =
 
@@ -365,37 +367,22 @@ module RenalRule =
 
 
     let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
-        let pat, ageHolds = filter.Patient |> PatientCategory.forAdultMatch
+        let pat, ageHolds = filter.Patient |> PatientData.forAdultMatch
+        let age = pat |> CorePatientData.ageInDays
 
         [|
             fun (rr: RenalRule) ->
                 ageHolds rr.Age
-                && pat.Age |> MinMax.inRange rr.Age
+                && age |> MinMax.inRange rr.Age
                 // renal rules only apply to patients of at least 28 days of age
-                && pat.Age
+                && age
                    |> Option.forall (fun a -> Units.Time.day |> ValueUnit.singleWithValue 28N <=? a)
             appliesTo mapping filter.Generic filter.Route filter.Indication filter.DoseType
+            // A rule applies when its renal function is the renal function of the patient.
             fun (rr: RenalRule) ->
-                filter.Patient.RenalFunction
-                |> Option.map (fun rf ->
-                    match rr.RenalFunction with
-                    | ContinuousHemodialysis
-                    | IntermittentHemodialysis
-                    | PeritonealDialysis -> rr.RenalFunction = rf
-                    | EGFR(rmin, rmax) ->
-                        match rf with
-                        | EGFR(pmin, pmax) ->
-                            if pmin = pmax then
-                                match pmin with
-                                | None -> false
-                                | Some v ->
-                                    (rmin |> Option.map (fun rmin -> v >= rmin) |> Option.defaultValue true)
-                                    && (rmax |> Option.map (fun rmax -> v <= rmax) |> Option.defaultValue true)
-                            else
-                                pmin = rmin && pmax = rmax
-                        | _ -> false
-                )
-                |> Option.defaultValue false
+                filter.Patient
+                |> PatientData.renalFunction
+                |> Option.exists ((=) rr.RenalFunction)
         |]
         |> Array.fold (fun (acc: RenalRule[]) pred -> acc |> Array.filter pred) renalRules
 
@@ -488,7 +475,7 @@ module RenalRule =
         reduced, reducedAdj
 
 
-    let adjustDoseLimit (pat: Patient) (renalRule: RenalRule) (dl: DoseLimit) =
+    let adjustDoseLimit (pat: PatientData) (renalRule: RenalRule) (dl: DoseLimit) =
         let relative mmNew mmOrig =
             if mmOrig = MinMax.empty || mmNew = MinMax.empty then
                 mmOrig
@@ -514,7 +501,7 @@ module RenalRule =
         let ownMeasure (renal: MinMax, renalAdj: MinMax) =
             match dl.AdjustUnit, renalAdj |> measureOf with
             | Some du, Some ru when not (sameMeasure du ru) ->
-                match Some ru |> Patient.adjustValue pat with
+                match Some ru |> PatientData.adjustValue pat with
                 | Some v ->
                     let abs = renalAdj |> MinMax.apply (fun vu -> vu * v)
 
@@ -541,7 +528,7 @@ module RenalRule =
                 | NoReduction -> dl
                 | Replace ->
                     let adjUnit = rl |> adjustUnit
-                    let adj = adjUnit |> Patient.adjustValue pat
+                    let adj = adjUnit |> PatientData.adjustValue pat
 
                     let dose renal = replaceDose adj (ownMeasure renal)
 

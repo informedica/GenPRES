@@ -9,6 +9,8 @@ open Informedica.GenPRES.Shared.Types
 /// patient, and what the client keeps of an open Session from the parts the state will hold.
 module SessionMapper =
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
     /// The signer of a version. A version does not store the role: only a Prescriber signs.
     let signer (user: UserContext) : Signer =
         {
@@ -25,17 +27,18 @@ module SessionMapper =
         }
 
 
-    /// The version of a signed order plan from the client, or the errors of its order plan. The
-    /// client sends no filter, no totals and no EHR data, so the version has none.
-    let ofSigned (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
+    /// Maps a signed order plan from the client to a version, read on the date today. Returns the
+    /// errors when the order plan is invalid. The client sends no filter, no totals and no EHR
+    /// data, so the version has none.
+    let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
         ({
-            Patient = signed.Patient |> Patient.ofModel
+            Patient = signed.Patient |> Patient.ofModel today
             Filtered = [||]
-            Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
+            Contexts = signed.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
             Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
         }
         : OrderPlan.Dto.Dto)
-        |> OrderPlan.Dto.fromDto
+        |> OrderPlan.Dto.fromDto today
         |> Result.map (fun plan ->
             {
                 Id = signed.Head.Id
@@ -88,12 +91,11 @@ module SessionMapper =
         }
 
 
-    /// The patient data a notice is about, as the Dto; none when the reading could not be
-    /// read.
-    let noticeData (notice: DataNotice) = notice.Data |> Option.map Patient.ofModel
+    /// The patient data of a data notice as a Dto, dated today.
+    let noticeData today (notice: DataNotice) = notice.Data |> Option.map (Patient.ofModel today)
 
 
-    let notice (token: string) (data: Informedica.GenForm.Lib.Patient.Dto.Dto option) : DataNotice =
+    let notice (token: string) (data: CorePatientData.Dto.Dto option) : DataNotice =
         {
             Data = data |> Option.map Patient.toModel
             Token = token
@@ -113,10 +115,7 @@ module SessionMapper =
                     {
                         PatientId = id
                         Identity = opened |> OpenedSession.identity |> Option.map identity
-                        Patient =
-                            opened
-                            |> sessionPatient
-                            |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel)
+                        Patient = opened |> sessionPatient |> Option.map Patient.ofPatientData
                     }
                 )
             OpenedToken = opened.OpenedToken

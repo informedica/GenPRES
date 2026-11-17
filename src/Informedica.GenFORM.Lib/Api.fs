@@ -7,6 +7,8 @@ module Api =
 
     open Resources
 
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+
 
     let private logGenFormMessages (logger: Logger) (provider: IResourceProvider) =
         provider.GetResourceInfo().Messages
@@ -76,10 +78,12 @@ module Api =
     // Filtering functions using cached mappings
 
 
-    /// The patient with its own department, else the provider's default. The rule lookups match
-    /// with it; the patient a caller holds keeps the department it has.
-    let withDefaultDepartment (provider: IResourceProvider) (pat: Patient) =
-        { pat with Department = pat.Department |> Departments.forPatient (provider.GetDepartments()) }
+    /// The patient data with the default department of the provider when it has no department
+    /// name.
+    let withDefaultDepartment (provider: IResourceProvider) (pat: PatientData) =
+        match pat |> PatientData.department with
+        | Some _ -> pat
+        | None -> { pat with Department = (provider.GetDepartments()).Default |> CoreDepartment.otherDepartment }
 
 
     let filterDoseRules (provider: IResourceProvider) (filter: DoseFilter) doseRules =

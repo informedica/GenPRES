@@ -301,16 +301,16 @@ module OrderContextMapper =
         }
 
 
-    /// Total: the contract model's order context as the plan context's Dto, nothing dropped,
-    /// the argumentation and the link as written.
-    let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
+    /// Maps an order context of the contract to the plan context Dto. The weight and the height
+    /// get today's date.
+    let ofModel today (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
             Category = ctx.Category |> Category.toDomain |> OrderCategoryDto.toString
             Context =
                 {
                     Filter = ctx.Filter |> filter
-                    Patient = ctx.Patient |> Patient.ofModel
+                    Patient = ctx.Patient |> Patient.ofModel today
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
@@ -520,7 +520,8 @@ module OrderContextMapper =
     /// patient's can come from the client's panel; the rest name a Dto from elsewhere.
     let words =
         function
-        | DtoError.Patient e -> Patient.words e
+        | DtoError.PatientData s -> s
+        | DtoError.PatientDataNotEnough e -> e |> Patient.notEnoughMessage
         | DtoError.OrderNotCreated m -> $"De order kon niet worden gemaakt: %s{m}"
         | DtoError.UnknownDoseType s -> $"Onbekend doseertype: %s{s}"
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"

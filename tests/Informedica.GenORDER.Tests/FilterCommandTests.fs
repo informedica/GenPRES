@@ -2,6 +2,7 @@
 /// below it, and the scenarios go; a command picks a field's option by its index.
 module FilterCommandTests
 
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 open Expecto
@@ -135,7 +136,7 @@ let tests =
                 let cleared = context options |> OrderContext.clearAll
 
                 (cleared.Patient, cleared.Filter, cleared.Scenarios.Length, cleared.Argumentation)
-                |> Expect.equal "patient kept" (Patient.patient, OrderContext.emptyFilter, 0, None)
+                |> Expect.equal "patient kept" (PatientData.unknown, OrderContext.emptyFilter, 0, None)
             }
         ]
 

@@ -7,6 +7,8 @@ module PrescriptionRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
     /// The measurements the per kg and per m2 bounds of a dose limit need: a weight unit for a per kg
     /// bound, a BSA unit for a per m2 bound. A limit with an adjust unit and only absolute bounds needs
     /// none.
@@ -30,13 +32,13 @@ module PrescriptionRule =
             for rl in pr.RenalRules |> Array.collect _.RenalLimits do
                 yield! rl |> RenalRule.limitMeasures
         ]
-        |> List.forall (Some >> Patient.adjustValue pat >> Option.isSome)
+        |> List.forall (Some >> PatientData.adjustValue pat >> Option.isSome)
 
 
     /// The dose limit adjusted to the patient, when the patient has the measurement its per kg or per m2
     /// bounds need; otherwise the dose limit as it is.
     let adjustDoseLimitToPatient freqs pat dl =
-        match dl |> doseLimitMeasures |> List.tryHead |> Patient.adjustValue pat with
+        match dl |> doseLimitMeasures |> List.tryHead |> PatientData.adjustValue pat with
         | None -> dl
         | Some adj ->
             // The frequency that minimizes the per administration dose (highest
@@ -191,8 +193,8 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    let adjustSolutionRuleToPatient (pat: Patient) (solRule: SolutionRule) =
-        match pat.Weight with
+    let adjustSolutionRuleToPatient (pat: PatientData) (solRule: SolutionRule) =
+        match pat |> CorePatientData.weightInKg with
         | None -> solRule
         | Some w ->
             let sl = solRule.SolutionLimit
@@ -329,7 +331,9 @@ module PrescriptionRule =
         doseRules
         |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
-            let dr, newWarns = dr |> DoseRule.reconstitute routeMapping pat.Location pat.Department
+            let dr, newWarns =
+                dr
+                |> DoseRule.reconstitute routeMapping pat.Location (pat |> PatientData.department)
 
             warns.AddRange(newWarns)
 
@@ -441,7 +445,7 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (pat: Patient) =
+    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (pat: PatientData) =
         Filter.doseFilter
         |> Filter.setPatient pat
         |> filter isAdditive doseRules solutionRules renalRules routeMapping
@@ -461,7 +465,7 @@ module PrescriptionRule =
                     |]
                 )
         ]
-        |> List.append [ prs[0].Patient |> Patient.toString ]
+        |> List.append [ prs[0].Patient |> PatientData.toString ]
         |> String.concat "\n"
 
 

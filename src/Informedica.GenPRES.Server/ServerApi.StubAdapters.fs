@@ -335,7 +335,7 @@ module StubPatientData =
     let portAt now : PatientDataPort =
         {
             read = read now
-            patient = _.Data >> Informedica.GenForm.Lib.Patient.ofPatientData
+            patient = _.Data
         }
 
 
