@@ -1,5 +1,6 @@
 namespace ServerApi
 
+open System
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Api
 
@@ -8,6 +9,15 @@ open Informedica.GenPRES.Shared.Api
 module GenOrder = Informedica.GenOrder.Lib.Types
 module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
 module GenForm = Informedica.GenForm.Lib.Types
+
+/// The logger of the logging library.
+type Logger = Informedica.Logging.Lib.Logger
+
+/// The identity of a patient, of GenCORE.
+type CorePatientIdentity = Informedica.GenCore.Lib.Patients.PatientIdentity
+
+/// The normal-value tables of weight and height, of GenCORE.
+type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
 
 
 type FormularyPort =
@@ -82,7 +92,7 @@ type AdminPort =
         // not GENPRES_PROD: the mode the admin tokens are signed under, so that a token of a demo or
         // development server never opens a production server that shares its password
         demo: bool
-        now: unit -> System.DateTimeOffset
+        now: unit -> DateTimeOffset
         listLogFiles: unit -> Async<Result<LogFileInfo[], string[]>>
         analyzeLogFile: string -> Async<Result<string, string[]>>
         // the resource provider reloaded: the formulary and, later, the knowledge sheets
@@ -158,10 +168,10 @@ type UnreadableVersion =
         PatientId: string
         Base: string option
         SignedBy: Signer
-        SignedAt: System.DateTime
+        SignedAt: DateTime
         /// the patient's name and birthdate from the columns; none for a version signed in a
         /// Session without an identity, and for a row from before the columns
-        Identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+        Identity: CorePatientIdentity option
         Reason: string
     }
 
@@ -173,7 +183,7 @@ type UnreadableVersion =
 /// the plan's JSON; none for a version signed in a Session without an identity.
 [<RequireQualifiedAccess>]
 type StoredVersion =
-    | Readable of OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+    | Readable of OrderPlanVersion * identity: CorePatientIdentity option
     | Unreadable of UnreadableVersion
 
 
@@ -305,7 +315,7 @@ type SigningOutcome =
     /// Session's patient after the sign
     | Submitted of
         version: OrderPlanVersion *
-        identity: Informedica.GenCore.Lib.Patients.PatientIdentity option *
+        identity: CorePatientIdentity option *
         OpenedToken *
         patient: GenForm.Patient
     | Refused of SigningRefusal
@@ -346,7 +356,7 @@ type CallbackResult =
     | Superseded of redirect: string
     /// the launch suspended at the PIN question: the attempt for the enrolment cookie, and
     /// how long the code it is bound to lives
-    | Enrolling of attemptId: string * redirect: string * until: System.DateTime
+    | Enrolling of attemptId: string * redirect: string * until: DateTime
 
 
 /// The answer to a supplied PIN: the Session that opened, or why not.
@@ -434,7 +444,7 @@ type LaunchStateCookie =
 type EnrolmentCookie =
     {
         read: unit -> string option
-        write: string -> System.DateTime -> unit
+        write: string -> DateTime -> unit
         delete: unit -> unit
     }
 
@@ -453,9 +463,12 @@ type AppEnv =
         demo: bool
         // the departments the loaded rules name and the default; only the default while the
         // rules are not loaded
-        departments: unit -> Informedica.GenForm.Lib.Types.Departments
+        departments: unit -> GenForm.Departments
         // the normal values of weight and height the server estimates from; none until the
         // resources are loaded. Asking may load
-        normalValues: unit -> Informedica.GenCore.Lib.Patients.NormalValueTables option
-        logger: Informedica.Logging.Lib.Logger
+        normalValues: unit -> CoreNormalValueTables option
+        // the calendar date in the time zone of the hospital: the date the weight and the height of
+        // a patient from the client get
+        today: unit -> DateTime
+        logger: Logger
     }

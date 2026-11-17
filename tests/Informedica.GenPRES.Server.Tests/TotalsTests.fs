@@ -7,6 +7,9 @@ open Expecto
 open Informedica.GenForm.Lib
 open Swensen.Unquote
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 type TotalsSpy() =
     let mutable callCount = 0
     member this.CallCount = callCount
@@ -69,7 +72,7 @@ type EvaluatingTotalsSpy() =
 
 /// The stub platform's patient in the domain: the port is typed on domain values.
 let patient () =
-    ServerApi.Patient.parse ServerApi.StubPatientData.patient
+    ServerApi.Patient.parse readAt ServerApi.StubPatientData.patient
     |> Result.defaultWith (fun e -> invalidOp $"no patient: %A{e}")
 
 

@@ -24,8 +24,7 @@ let withRecord (f: string -> 'a) =
     )
 
 
-/// The moment the rows are read at; nothing stored is dated after it.
-let readAt = DateTime(2026, 11, 17)
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 let v1 = lazy (versionOf 1 prescriber t0 domainPlan.Value)

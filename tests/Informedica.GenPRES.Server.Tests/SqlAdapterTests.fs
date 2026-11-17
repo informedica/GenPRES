@@ -17,6 +17,7 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 open Informedica.GenPRES.Server.Tests.SqlRecordTests
+open Informedica.GenPRES.Server.Tests.TestDates
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 

@@ -13,25 +13,22 @@ module FormularyService =
     open Informedica.GenPRES.Shared
 
 
-    let mapFormularyToFilter (form: Formulary) =
-        { Informedica.GenForm.Lib.Filter.doseFilter with
-            Generic = form.Generic
-            Indication = form.Indication
-            Route = form.Route
-            Form = form.Form
-            DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
-            // the patient through the mapping every request uses; the Formulary command refuses a
-            // draft that is no patient before it gets here. No patient is the empty patient
-            Patient =
-                form.Patient
-                |> Option.map (
-                    ServerApi.Patient.toDomain
-                    >> Result.defaultWith (fun errs ->
-                        invalidOp $"The Formulary command let through a draft that is no patient: %A{errs}"
-                    )
-                )
-                |> Option.defaultValue Patient.patient
-        }
+    /// The dose filter of the formulary request, with the patient of the request at a date through
+    /// the mapping every request uses, or why the patient is none. No patient is the empty patient.
+    let mapFormularyToFilter today (form: Formulary) =
+        form.Patient
+        |> Option.map (ServerApi.Patient.toDomain today)
+        |> Option.defaultValue (Ok Patient.patient)
+        |> Result.map (fun pat ->
+            { Informedica.GenForm.Lib.Filter.doseFilter with
+                Generic = form.Generic
+                Indication = form.Indication
+                Route = form.Route
+                Form = form.Form
+                DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
+                Patient = pat
+            }
+        )
 
 
     let selectIfOne sel xs =
@@ -147,9 +144,8 @@ module FormularyService =
             | xs -> xs
 
 
-    let get (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (form: Formulary) =
-        let filter = form |> mapFormularyToFilter
-
+    /// The formulary of the dose rules a filter selects.
+    let getFiltered provider (form: Formulary) (filter: DoseFilter) =
         $"""
 
 Formulary filter:
@@ -229,6 +225,11 @@ DoseTypes: {form.DoseTypes |> Array.length}
         |> writeDebugMessage
 
         Ok form
+
+
+    /// The formulary of the request at a date, or why the patient of the request is none.
+    let get today provider (form: Formulary) =
+        form |> mapFormularyToFilter today |> Result.bind (getFiltered provider form)
 
 
 module ParenteraliaService =
