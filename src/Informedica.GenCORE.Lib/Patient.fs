@@ -1386,9 +1386,11 @@ module Access =
 
 module EGFRBand =
 
-    /// The band of a calculated eGFR; none for an eGFR below zero or one that is no number.
+    /// The band of a calculated eGFR; none for an eGFR below zero, an infinite one, or one that is
+    /// no number.
     let ofEGFR (eGfr: float<mL / min / normalM2>) =
         match float eGfr with
+        | x when x |> Double.IsFinite |> not -> None
         | x when x > 50. -> Some Above50
         | x when x > 30. -> Some From30To50
         | x when x > 10. -> Some From10To30

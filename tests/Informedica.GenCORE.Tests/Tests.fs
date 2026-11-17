@@ -848,6 +848,11 @@ module Tests =
                                 test "an eGFR that is no number has no band" {
                                     nan |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "no number"
                                 }
+
+                                test "an infinite eGFR has no band" {
+                                    infinity |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "infinite"
+                                    -infinity |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "minus infinite"
+                                }
                             ]
 
                         testList
