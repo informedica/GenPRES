@@ -713,6 +713,7 @@ module Tests =
                     Department.neonatalICU
                     Department.adultDepartment
                     Department.pediatricDepartment
+                    Department.otherDepartment
                 ]
 
             let tests =
@@ -733,21 +734,51 @@ module Tests =
 
                         for f in deps do
                             test $"can create without a name {noName |> f}" {
-                                let s = noName |> f |> Department.toString
-
-                                s |> Department.fromString |> Expect.isOk "should be ok"
-
-                                s
+                                noName
+                                |> f
+                                |> Department.toString
                                 |> Department.fromString
-                                |> Expect.equal "and comes back without one" (Ok(noName |> f))
+                                |> Expect.equal "comes back without one" (Ok(noName |> f))
                             }
 
                         for f in deps do
                             test $"can create with a name {name |> f}" {
-                                let s = name |> f |> Department.toString
-
-                                s |> Department.fromString |> Expect.isOk "should be ok"
+                                name
+                                |> f
+                                |> Department.toString
+                                |> Department.fromString
+                                |> Expect.equal "comes back with the name" (Ok(name |> f))
                             }
+
+                        test "a department whose kind is not known has the string of its name after one word" {
+                            Department.otherDepartment "ICK"
+                            |> Department.toString
+                            |> Expect.equal "the string" "Department ICK"
+                        }
+
+                        test "a department whose kind is not known keeps a name that starts with the words of a kind" {
+                            for name in [ "Adult ICU 3"; "Pediatric Department"; "Department" ] do
+                                let dep = Department.otherDepartment name
+
+                                dep
+                                |> Department.toString
+                                |> Department.fromString
+                                |> Expect.equal $"there and back: %s{name}" (Ok dep)
+                        }
+
+                        test "the name of a department whose kind is not known is its own; none when blank" {
+                            for dep, exp in
+                                [
+                                    Department.otherDepartment "ICK", Some "ICK"
+                                    Department.otherDepartment "", None
+                                    Department.otherDepartment "  ", None
+                                ] do
+                                dep |> Department.name |> Expect.equal "the name" exp
+                        }
+
+                        test "a string that names no department is refused" {
+                            "ICK" |> Department.fromString |> Expect.isError "no kind word in front"
+                        }
 
                     ]
 
