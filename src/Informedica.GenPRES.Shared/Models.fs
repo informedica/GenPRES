@@ -55,8 +55,8 @@ module Models =
     /// - This module holds the patient logic the client runs, and the server runs too for
     ///   validate
     /// - The Client UI uses these functions directly for the patient input form
-    /// - The Server reads this record in ServerApi.Patient.ofModel, which maps it to the domain
-    ///   patient with the ages counted by GenCORE
+    /// - The Server reads this record in ServerApi.Patient.toCore, which maps it to the GenCORE
+    ///   patient data
     /// - Server-only logic (dose rules, eGFR formulas) lives in GenFORM/GenCORE
     /// - Any new patient logic must decide: needed on client? → put here.
     ///   Server-only? → put in GenFORM.Patient or GenCORE.Calculations

@@ -59,9 +59,9 @@ module Adapters =
         }
 
 
-    let private makeFormularyPort logger (provider: Resources.IResourceProvider) : FormularyPort =
+    let private makeFormularyPort logger today (provider: Resources.IResourceProvider) : FormularyPort =
         {
-            getFormulary = fun form -> async { return form |> FormularyService.get provider }
+            getFormulary = fun form -> async { return form |> FormularyService.get (today ()) provider }
 
             getParenteralia =
                 fun par ->
@@ -470,9 +470,10 @@ module Adapters =
         let orderLogger = Logging.getLogger Logging.OrderLogger
         let orderPlanLogger = Logging.getLogger Logging.OrderPlanLogger
         let parenteraliaLogger = Logging.getLogger Logging.ParenteraliaLogger
+        let today () = DateTime.UtcNow |> LocalDate.ofUtc zone
 
         {
-            formulary = makeFormularyPort parenteraliaLogger provider
+            formulary = makeFormularyPort parenteraliaLogger today provider
             orderContext = makeOrderContextPort orderLogger provider (fun () -> DateTime.UtcNow)
             orderPlan =
                 makeOrderPlanPort
@@ -529,6 +530,7 @@ module Adapters =
                 }
             requireLoaded = fun () -> notLoaded provider
             normalValues = normalValuesOf provider
+            today = today
             departments = fun () -> provider.GetDepartments()
             // a stub with a two-minute Launch lifetime; its sessions live as long as this
             // AppEnv, and the record as long as its store
@@ -562,8 +564,8 @@ module Adapters =
                     directory.registry
                     // the platform's reading estimated at the boundary, from the tables as loaded;
                     // the test patients measured on the local date
-                    (StubPatientData.portAt (fun () -> DateTime.UtcNow |> LocalDate.ofUtc zone)
-                     |> Patient.estimating (normalValuesOf provider))
+                    (StubPatientData.portAt today
+                     |> Patient.estimating today (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (

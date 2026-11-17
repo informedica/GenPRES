@@ -12,6 +12,9 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 let order: Order =
     Scenarios.pcmSupp
     |> Medication.toOrderDto Scenarios.testStart
@@ -209,7 +212,7 @@ let tests =
 
                 let shown _ =
                     StubPatientData.patient
-                    |> Patient.parse
+                    |> Patient.parse readAt
                     |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
                     |> Some
 

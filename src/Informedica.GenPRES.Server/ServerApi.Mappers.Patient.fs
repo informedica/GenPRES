@@ -12,6 +12,7 @@ open Informedica.GenPRES.Shared.Models
 /// date, so these are the rules for an age value.
 module Age =
 
+    module Measures = Informedica.GenPRES.Shared.Measures
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
@@ -48,11 +49,11 @@ module Age =
 
         let nonZero n = if n > 0 then Some n else None
 
-        Informedica.GenPRES.Shared.Models.Patient.Age.create
-            (ys |> Informedica.GenPRES.Shared.Measures.toYear)
-            (ms |> nonZero |> Option.map Informedica.GenPRES.Shared.Measures.toMonth)
-            (ws |> nonZero |> Option.map Informedica.GenPRES.Shared.Measures.toWeek)
-            (ds |> nonZero |> Option.map Informedica.GenPRES.Shared.Measures.toDay)
+        Patient.Age.create
+            (ys |> Measures.toYear)
+            (ms |> nonZero |> Option.map Measures.toMonth)
+            (ws |> nonZero |> Option.map Measures.toWeek)
+            (ds |> nonZero |> Option.map Measures.toDay)
 
 
     /// A weeks-and-days age of the contract model, a gestational or a post-menstrual age, as
@@ -68,7 +69,7 @@ module Age =
 
 
     /// The gestational age in days of the contract model's patient, as GenCORE counts it.
-    let gestAgeInDays (model: Informedica.GenPRES.Shared.Types.Patient) =
+    let gestAgeInDays (model: Patient) =
         model.GestationalAge |> GestationalAge.value |> Option.map weeksDaysInDays
 
 
@@ -77,8 +78,8 @@ module Age =
         let awd = days |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
 
         {
-            Weeks = int awd.Weeks |> Informedica.GenPRES.Shared.Measures.toWeek
-            Days = int awd.Days |> Informedica.GenPRES.Shared.Measures.toDay
+            Weeks = int awd.Weeks |> Measures.toWeek
+            Days = int awd.Days |> Measures.toDay
         }
 
 
@@ -122,7 +123,7 @@ module Age =
 
     /// The estimates GenCORE gives for the contract model's patient from the tables: by its age,
     /// its post-menstrual age and its gender.
-    let estimates tables (model: Informedica.GenPRES.Shared.Types.Patient) =
+    let estimates tables (model: Patient) =
         CoreEstimates.ofAge
             tables
             (model.Gender |> coreGender)
@@ -133,9 +134,11 @@ module Age =
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
 /// a draft becomes a patient here, or the request is refused, so that no draft reaches the
 /// services and the rules below them. Every member that receives patient data runs this
-/// before anything else. The mapping is two steps: ofModel, the contract model as the
-/// domain's Dto, total; then the Dto's own fromDto, which reports every reason the data is
-/// no patient. toModel is the way back.
+/// before anything else. The mapping is in steps: coreDto, the contract model as the
+/// GenCORE Dto of patient data, total; the fromDto of that Dto at a date, which reports every
+/// reason the data does not read; the check of the minimum data; then the GenFORM patient of the
+/// patient data. ofModel and toModel are the way to and from the GenFORM Dto that the Dtos of
+/// an order context and an order plan carry.
 module Patient =
 
     module Lib = Informedica.GenForm.Lib.Types
@@ -143,6 +146,25 @@ module Patient =
     module LibGender = Informedica.GenForm.Lib.Gender
     module LibAccess = Informedica.GenForm.Lib.AccessDevice
     module LibRenal = Informedica.GenForm.Lib.RenalFunction
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    module CoreAccess = Informedica.GenCore.Lib.Patients.Access
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreRenal = Informedica.GenCore.Lib.Patients.RenalFunction
+    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+    module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+    module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+    module Measures = Informedica.GenPRES.Shared.Measures
+
+    type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+    type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
+    type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
+    type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
 
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
@@ -230,7 +252,7 @@ module Patient =
     /// contract model carries it, the weight and height the measured ones when
     /// there are any and the estimates otherwise, with the flags saying which; the department
     /// as given, an empty one staying empty; the mark as an adult as given.
-    let ofModel (model: Informedica.GenPRES.Shared.Types.Patient) : LibPatient.Dto.Dto =
+    let ofModel (model: Patient) : LibPatient.Dto.Dto =
         {
             Location = model.Location
             Department = model.Department
@@ -262,15 +284,13 @@ module Patient =
     /// and height as measured or as an estimate by the flag, the strings read back. What the
     /// contract model holds beside this, the other estimates, is not on the Dto and comes back
     /// empty.
-    let toModel (dto: LibPatient.Dto.Dto) : Informedica.GenPRES.Shared.Types.Patient =
+    let toModel (dto: LibPatient.Dto.Dto) : Patient =
         let measured (flag: bool) v = if flag then v else None
         let estimated (flag: bool) v = if flag then None else v
 
-        let grams =
-            dto.WeightKg
-            |> Option.map (fun kg -> kg * thousand |> toInt |> Informedica.GenPRES.Shared.Measures.toGram)
+        let grams = dto.WeightKg |> Option.map (fun kg -> kg * thousand |> toInt |> Measures.toGram)
 
-        let cms = dto.HeightCm |> Option.map (toInt >> Informedica.GenPRES.Shared.Measures.toCm)
+        let cms = dto.HeightCm |> Option.map (toInt >> Measures.toCm)
 
         let age = dto.AgeDays |> Option.map (toInt >> Age.ofDays)
 
@@ -323,17 +343,119 @@ module Patient =
         | Lib.PatientError.MarkedAdultBelowSixteen -> markedBelowSixteen
 
 
-    /// The contract model's patient as the domain patient, or the Dto's reasons it is none.
-    let toDomain model = model |> ofModel |> LibPatient.Dto.fromDto
+    /// The GenCORE department of the name the contract model holds: a department of a kind that
+    /// is not known, since the contract model has no kind; an unknown department without a name.
+    let department (name: string option) =
+        match name with
+        | Some s when s |> String.notEmpty -> CoreDepartment.otherDepartment s
+        | _ -> CoreDepartment.unknown
 
 
-    /// The patient the contract model's data is, or why it is none: the Dto's reasons in the
-    /// server's words, and the server's own gate that the rules are looked up for an adult, and
-    /// for a child with a weight, measured or estimated.
-    let parse (model: Informedica.GenPRES.Shared.Types.Patient) : Result<Lib.Patient, string[]> =
+    /// The GenCORE access of the contract model's access.
+    let coreAccess =
+        function
+        | CVL -> CoreAccess.CVL
+        | PVL -> CoreAccess.PVL
+        | EnteralTube -> CoreAccess.EnteralTube
+
+
+    /// The contract model's renal function as the string GenCORE reads. A kind of dialysis is the
+    /// string of the GenCORE case. An eGFR is written here as its minimum and maximum, since a pair
+    /// that is no band has no GenCORE value; such a pair is refused when the string is read.
+    let renalString =
+        let bound = Option.map string >> Option.defaultValue ""
+
+        function
+        | EGFR(min, max) -> $"egfr:%s{bound min}:%s{bound max}"
+        | IntermittentHemodialysis -> CoreRenalFunction.IntermittentHemodialysis |> CoreRenal.toString
+        | ContinuousHemodialysis -> CoreRenalFunction.ContinuousHemodialysis |> CoreRenal.toString
+        | PeritonealDialysis -> CoreRenalFunction.PeritonealDialysis |> CoreRenal.toString
+
+
+    /// Total: the contract model's patient as the GenCORE Dto of patient data, nothing checked.
+    /// The weight and the height are the measured ones when there are any and the estimates
+    /// otherwise, dated on the date passed in, since the contract model has no date for them.
+    let coreDto today (model: Patient) =
+        let dto = CorePatientData.Dto.dto ()
+
+        let weeksDays = Age.weeksDays >> CoreAgeWeeksDays.Dto.toDto
+
+        let source measured v =
+            if measured then
+                CoreSource.Measured v
+            else
+                CoreSource.Estimated v
+
+        dto.Location <- model.Location
+        dto.Department <- model.Department |> department |> CoreDepartment.toString
+        dto.Gender <- model.Gender |> Age.coreGender |> CoreGender.toString
+        dto.Age <- model.Age |> Option.map (Age.ageValue >> CoreAgeValue.Dto.toDto)
+        dto.MarkedAdult <- model.AdultMark = AdultMark.MarkableAdult true
+        dto.GestationalAge <- model.GestationalAge |> GestationalAge.value |> Option.map weeksDays
+        dto.PostMenstrualAge <- model.PostMenstrualAge |> Option.map weeksDays
+        dto.Access <- model.Access |> List.map (coreAccess >> CoreAccess.toString) |> List.toArray
+        dto.RenalFunction <- model.RenalFunction |> Option.map renalString
+
+        dto.Weight <-
+            model
+            |> Patient.getWeight
+            |> Option.map (
+                int
+                >> decimal
+                >> CoreWeightValue.weightInGram
+                >> CoreWeightAtDate.create today
+                >> source model.Weight.Measured.IsSome
+            )
+            |> CoreWeight.create [] None []
+            |> CoreWeight.Dto.toDto
+
+        dto.Height <-
+            model
+            |> Patient.getHeight
+            |> Option.map (
+                int
+                >> decimal
+                >> CoreHeightValue.heightInCm
+                >> CoreHeightAtDate.create today
+                >> source model.Height.Measured.IsSome
+            )
+            |> CoreHeight.create [] None
+            |> CoreHeight.Dto.toDto
+
+        dto
+
+
+    /// The server's words for a reason the patient data is not enough.
+    let coreWords =
+        function
+        | CoreError.NoAgeOrMeasuredWeightAndHeight -> noPatient
+        | CoreError.MarkedAdultBelowSixteen -> markedBelowSixteen
+
+
+    /// The GenCORE patient data of the contract model's patient at a date, or why it is none:
+    /// the reasons of the GenCORE Dto as GenCORE words them, and the reason the data is not enough
+    /// in the server's words.
+    let toCore today model =
         model
-        |> toDomain
-        |> Result.mapError (List.map words >> List.toArray)
+        |> coreDto today
+        |> CorePatientData.Dto.fromDto today
+        |> Result.mapError (Validus.ValidationErrors.toList >> List.toArray)
+        |> Result.bind (
+            CorePatientData.checkMinimumData
+            >> Result.mapError (coreWords >> Array.singleton)
+        )
+
+
+    /// The contract model's patient as the domain patient at a date, or why it is none.
+    let toDomain today model = model |> toCore today |> Result.map LibPatient.ofPatientData
+
+
+    /// The patient the contract model's data is at a date, or why it is none, with the server's
+    /// own gate that the rules are looked up for an adult, and for a child with a weight, measured
+    /// or estimated.
+    let parse today model =
+        model
+        |> toDomain today
         |> Result.bind (fun pat ->
             if pat |> Informedica.GenOrder.Lib.OrderContext.selectsRules then
                 Ok pat
@@ -348,9 +470,9 @@ module Patient =
     let withEstimates tables (model: Patient) : Patient =
         let est = model |> Age.estimates tables
 
-        let toGram (g: int<Informedica.GenCore.Lib.Measures.gram>) = int g |> Informedica.GenPRES.Shared.Measures.toGram
+        let toGram (g: int<Informedica.GenCore.Lib.Measures.gram>) = int g |> Measures.toGram
 
-        let toCm (c: int<Informedica.GenCore.Lib.Measures.cm>) = int c |> Informedica.GenPRES.Shared.Measures.toCm
+        let toCm (c: int<Informedica.GenCore.Lib.Measures.cm>) = int c |> Measures.toCm
 
         { model with
             Weight =
@@ -375,9 +497,9 @@ module Patient =
 
 
     /// The domain patient with the weight and height estimates GenCORE gives for its age,
-    /// post-menstrual age and sex; everything else as given. A measured value is untouched, and a
-    /// patient the contract model cannot read back stays as it was.
-    let estimated tables (pat: Lib.Patient) : Lib.Patient =
+    /// post-menstrual age and sex, dated on the date passed in; everything else as given. A measured
+    /// value is untouched, and a patient the contract model cannot read back stays as it was.
+    let estimated today tables (pat: Lib.Patient) : Lib.Patient =
         let withMeasuresOf (est: Lib.Patient) =
             { pat with
                 Weight = est.Weight
@@ -390,7 +512,7 @@ module Patient =
         |> LibPatient.Dto.toDto
         |> toModel
         |> withEstimates tables
-        |> toDomain
+        |> toDomain today
         // only the weight and the height: the contract model has no post-menstrual age and no
         // diagnoses, so the way back would count the post-menstrual age again from the calendar
         // age and drop the diagnoses
@@ -398,17 +520,18 @@ module Patient =
         |> Result.defaultValue pat
 
 
-    /// The EHR port with every projection estimated: the inbound boundary, so no child's reading
-    /// with an age alone reaches the rules without a weight. A reading of a patient older than
-    /// 18 years is left as read. Unestimated while the tables are not loaded.
-    let estimating normalValues (port: PatientDataPort) : PatientDataPort =
+    /// The EHR port with every projection estimated on the calendar date the function passed in
+    /// gives: the inbound boundary, so no child's reading with an age alone reaches the rules
+    /// without a weight. A reading of a patient older than 18 years is left as read. Unestimated
+    /// while the tables are not loaded.
+    let estimating today normalValues (port: PatientDataPort) : PatientDataPort =
         { port with
             patient =
                 fun ehr ->
                     let pat = port.patient ehr
 
                     match normalValues () with
-                    | Some tables -> pat |> estimated tables
+                    | Some tables -> pat |> estimated (today ()) tables
                     | None -> pat
         }
 

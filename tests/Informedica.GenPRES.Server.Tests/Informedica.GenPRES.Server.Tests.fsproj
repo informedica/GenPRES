@@ -9,6 +9,7 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TestDates.fs" />
     <Compile Include="ResourceErrorTests.fs" />
     <Compile Include="../Informedica.GenORDER.Tests/Scenarios.fs" />
     <Compile Include="../Informedica.GenORDER.Tests/FilterFixtures.fs" />

@@ -43,6 +43,9 @@ module Machine =
         |> answered
 
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 module StubAdapters =
 
     let private notStubbed _ = raise (System.NotImplementedException "not stubbed")
@@ -175,6 +178,7 @@ module StubAdapters =
             departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
             // no normal values: a patient is estimated only where a test gives them
             normalValues = fun () -> None
+            today = fun () -> readAt
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -205,6 +209,7 @@ module StubAdapters =
             requireLoaded = fun () -> Some msgs
             departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
             normalValues = fun () -> None
+            today = fun () -> readAt
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -458,7 +463,7 @@ module SessionStubTests =
     /// The contract model's patient parsed into the domain, as the adapters do it.
     let parsePatient (p: Patient) =
         p
-        |> Patient.parse
+        |> Patient.parse readAt
         |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
 
 

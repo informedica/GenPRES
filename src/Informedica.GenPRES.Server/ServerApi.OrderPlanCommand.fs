@@ -137,7 +137,7 @@ module OrderPlanCommand =
                 (fun () ->
                     answer
                         env
-                        (both (Patient.parse pat) (parseContexts contexts))
+                        (both (Patient.parse (env.today ()) pat) (parseContexts contexts))
                         (fun (p, pcs) -> env.orderPlan.openWith p pcs)
                 )
 
@@ -150,6 +150,6 @@ module OrderPlanCommand =
             (fun () ->
                 answerWith
                     (Totals.Dto.toDto >> OrderContextMapper.totalsBack)
-                    (both (Patient.parse query.Patient) (parseContexts query.OrderContexts))
+                    (both (Patient.parse (env.today ()) query.Patient) (parseContexts query.OrderContexts))
                     (fun (pat, pcs) -> env.orderPlan.totals pat pcs)
             )

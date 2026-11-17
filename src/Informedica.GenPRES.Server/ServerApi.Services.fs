@@ -13,7 +13,7 @@ module FormularyService =
     open Informedica.GenPRES.Shared
 
 
-    let mapFormularyToFilter (form: Formulary) =
+    let mapFormularyToFilter today (form: Formulary) =
         { Informedica.GenForm.Lib.Filter.doseFilter with
             Generic = form.Generic
             Indication = form.Indication
@@ -25,7 +25,7 @@ module FormularyService =
             Patient =
                 form.Patient
                 |> Option.map (
-                    ServerApi.Patient.toDomain
+                    ServerApi.Patient.toDomain today
                     >> Result.defaultWith (fun errs ->
                         invalidOp $"The Formulary command let through a draft that is no patient: %A{errs}"
                     )
@@ -147,8 +147,8 @@ module FormularyService =
             | xs -> xs
 
 
-    let get (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (form: Formulary) =
-        let filter = form |> mapFormularyToFilter
+    let get today provider (form: Formulary) =
+        let filter = form |> mapFormularyToFilter today
 
         $"""
 

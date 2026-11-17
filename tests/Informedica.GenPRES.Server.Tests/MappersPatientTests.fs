@@ -20,6 +20,9 @@ module GA = Informedica.GenPRES.Shared.Models.GestationalAge
 module LibPatient = Informedica.GenForm.Lib.Patient
 
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 let stub = ServerApi.StubPatientData.patient
 
 /// Every field the mapping carries, in the shape the contract model gives back: a patient of 20
@@ -49,13 +52,14 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
 /// The patient the Formulary filter is made for.
 let formularyPatient model =
     (ServerApi.FormularyService.mapFormularyToFilter
+        readAt
         { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model })
         .Patient
 
 
 let domain model =
     model
-    |> ServerApi.Patient.parse
+    |> ServerApi.Patient.parse readAt
     |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
 
 
@@ -290,11 +294,11 @@ let tests =
 
             test "the refusals keep the server's words" {
                 Informedica.GenPRES.Shared.Models.Patient.empty
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no patient" (Error [| ServerApi.Patient.noPatient |])
 
                 { Informedica.GenPRES.Shared.Models.Patient.empty with Age = stub.Age }
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no weight" (Error [| ServerApi.Patient.noWeight |])
             }
         ]
@@ -346,7 +350,7 @@ let estimateTests =
                     Patient.patient
                     |> Patient.setAge [ Years 2 ]
                     |> Patient.setGender Lib.Male
-                    |> ServerApi.Patient.estimated tables
+                    |> ServerApi.Patient.estimated readAt tables
                     |> dto
 
                 (pat.WeightKg, pat.HeightCm, pat.WeightMeasured, pat.HeightMeasured)
@@ -359,7 +363,7 @@ let estimateTests =
                     |> Patient.setAge [ Years 2 ]
                     |> Patient.setGender Lib.Male
                     |> Patient.setWeight (Some(Kilogram 20m))
-                    |> ServerApi.Patient.estimated tables
+                    |> ServerApi.Patient.estimated readAt tables
                     |> dto
 
                 (pat.WeightKg, pat.WeightMeasured, pat.HeightCm, pat.HeightMeasured)
@@ -375,7 +379,7 @@ let estimateTests =
                     }
                     |> Patient.setAge [ Years 2 ]
                     |> Patient.setGender Lib.Female
-                    |> ServerApi.Patient.estimated tables
+                    |> ServerApi.Patient.estimated readAt tables
 
                 (pat.Department, pat.Gender, pat.Access, pat.Diagnoses)
                 |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ], [| "sepsis" |])
@@ -383,7 +387,7 @@ let estimateTests =
 
             test "a reading that is no patient stays as it was" {
                 Patient.patient
-                |> ServerApi.Patient.estimated tables
+                |> ServerApi.Patient.estimated readAt tables
                 |> Expect.equal "unchanged" Patient.patient
             }
 
@@ -402,7 +406,8 @@ let estimateTests =
 
                 let port = ServerApi.StubPatientData.port
                 let projected = port.patient premature
-                let estimated = (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient premature
+                let estimated =
+                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient premature
 
                 (estimated.Age, estimated.GestAge, estimated.PMAge, estimated.Weight.IsSome)
                 |> Expect.equal
@@ -422,11 +427,11 @@ let estimateTests =
 
                 let port = ServerApi.StubPatientData.port
 
-                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient bare
+                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient bare
                 |> _.Weight.IsSome
                 |> Expect.isTrue "estimated"
 
-                (port |> ServerApi.Patient.estimating (fun () -> None)).patient bare
+                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> None)).patient bare
                 |> Expect.equal "as projected" (port.patient bare)
             }
         ]
@@ -508,14 +513,14 @@ let adultTests =
 
                 adult
                 |> ServerApi.Patient.estimate (fun () -> Some tables)
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.Weight, p.Height)
                 |> Expect.equal "no weight, no height" (Ok(None, None))
             }
 
             test "an adult with a weight and no height passes" {
                 draft (Some(40 * 365)) false (Some 70) None
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.Weight.IsSome, p.Height.IsSome)
                 |> Expect.equal "weight, no height" (Ok(true, false))
             }
@@ -526,7 +531,7 @@ let adultTests =
                 child |> ServerApi.Patient.patient |> Expect.equal "passes" (Ok child)
 
                 child
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Result.map _.Height.IsSome
                 |> Expect.equal "no height" (Ok false)
             }
@@ -539,14 +544,14 @@ let adultTests =
                 |> Expect.equal "refused at the gate" (Error [| ServerApi.Patient.noWeight |])
 
                 child
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Expect.equal "refused" (Error [| ServerApi.Patient.noWeight |])
             }
 
             test "a child of 2 without measures is estimated and passes" {
                 draft (Some(2 * 365)) false None None
                 |> ServerApi.Patient.estimate (fun () -> Some tables)
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.Weight.IsSome, p.Height.IsSome)
                 |> Expect.equal "both estimated" (Ok(true, true))
             }
@@ -555,7 +560,7 @@ let adultTests =
                 let marked = draft (Some(17 * 365)) true None None
 
                 marked
-                |> ServerApi.Patient.parse
+                |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.MarkedAdult, p |> Adult.isAdult)
                 |> Expect.equal "marked, an adult" (Ok(true, true))
 
@@ -667,10 +672,10 @@ let adultTests =
             test "the EHR reading of an adult keeps the weight it has and is never marked" {
                 let reading =
                     draft (Some(40 * 365)) false (Some 70) None
-                    |> ServerApi.Patient.parse
+                    |> ServerApi.Patient.parse readAt
                     |> Result.defaultWith (fun _ -> failtest "a patient")
 
-                let estimated = reading |> ServerApi.Patient.estimated tables
+                let estimated = reading |> ServerApi.Patient.estimated readAt tables
 
                 (estimated.Weight, estimated.Height, estimated.MarkedAdult)
                 |> Expect.equal "as read" (reading.Weight, None, false)
@@ -770,5 +775,197 @@ let withEstimatesTests =
                      Some(Informedica.GenPRES.Shared.Measures.toGram 32000),
                      Some(Informedica.GenPRES.Shared.Measures.toGram 40000),
                      Some(Informedica.GenPRES.Shared.Measures.toCm 140))
+            }
+        ]
+
+
+module Measures = Informedica.GenPRES.Shared.Measures
+
+type CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
+
+
+/// An age in weeks and days of the contract model.
+let weeksDays ws ds : AgeWeeksDays =
+    {
+        Weeks = Measures.toWeek ws
+        Days = Measures.toDay ds
+    }
+
+/// A weight with nothing given.
+let noWeight: Weight =
+    {
+        EstimatedP3 = None
+        Estimated = None
+        EstimatedP97 = None
+        Measured = None
+    }
+
+/// A height with nothing given.
+let noHeight: Height =
+    {
+        EstimatedP3 = None
+        Estimated = None
+        EstimatedP97 = None
+        Measured = None
+    }
+
+/// The contract patients the two mappings are compared on.
+let fixtures =
+    [
+        "the stub patient", stub
+        "every field", full
+        "an estimated weight and height",
+        { stub with
+            Weight = { noWeight with Estimated = Some(Measures.toGram 32000) }
+            Height = { noHeight with Estimated = Some(Measures.toCm 140) }
+        }
+        "a measured weight beside an estimate",
+        { stub with
+            Weight =
+                { noWeight with
+                    Estimated = Some(Measures.toGram 30000)
+                    Measured = Some(Measures.toGram 32500)
+                }
+        }
+        "an age alone",
+        { stub with
+            Weight = noWeight
+            Height = noHeight
+        }
+        "a weight in grams that is no whole number of kg",
+        { stub with Weight = { noWeight with Measured = Some(Measures.toGram 3450) } }
+        "an adult of 40 years", { stub with Age = Some(ServerApi.Age.ofDays (40 * 365)) }
+        "marked as an adult without an age",
+        { stub with
+            Age = None
+            AdultMark = AdultMark.MarkableAdult true
+        }
+        "a measured weight and height without an age", { stub with Age = None }
+        "an unknown gender", { stub with Gender = UnknownGender }
+        "a male", { stub with Gender = Male }
+        "every access", { stub with Access = [ CVL; PVL; EnteralTube ] }
+        for name, renal in
+            [
+                "above 50", EGFR(Some 50, None)
+                "30 to 50", EGFR(Some 30, Some 50)
+                "10 to 30", EGFR(Some 10, Some 30)
+                "up to 10", EGFR(None, Some 10)
+                "intermittent hemodialysis", IntermittentHemodialysis
+                "continuous hemodialysis", ContinuousHemodialysis
+                "peritoneal dialysis", PeritonealDialysis
+            ] do
+            $"renal function %s{name}", { stub with RenalFunction = Some renal }
+        "a location and a department",
+        { stub with
+            Location = Some "UMCU"
+            Department = Some "NEO"
+        }
+    ]
+
+
+[<Tests>]
+let coreTests =
+    testList
+        "the contract patient as GenCORE patient data"
+        [
+            testList
+                "the rules get the same patient as through the GenFORM Dto"
+                [
+                    for name, model in fixtures do
+                        test name {
+                            model
+                            |> ServerApi.Patient.toDomain readAt
+                            |> Result.mapError (fun errs -> $"%A{errs}")
+                            |> Expect.equal
+                                "the same patient"
+                                (model
+                                 |> ServerApi.Patient.ofModel
+                                 |> LibPatient.Dto.fromDto
+                                 |> Result.mapError (fun errs -> $"%A{errs}"))
+                        }
+                ]
+
+            test "a department name is a department of a kind that is not known" {
+                Some "ICK"
+                |> ServerApi.Patient.department
+                |> Expect.equal "the name" (CoreDepartment.OtherDepartment "ICK")
+            }
+
+            test "no department name, or a blank one, is an unknown department" {
+                for name in [ None; Some ""; Some "  " ] do
+                    name
+                    |> ServerApi.Patient.department
+                    |> Expect.equal "unknown" CoreDepartment.UnknownDepartment
+            }
+
+            test "a blank department name reaches the rules as no department" {
+                { stub with Department = Some "" }
+                |> ServerApi.Patient.toDomain readAt
+                |> Result.map _.Department
+                |> Expect.equal "no department" (Ok None)
+            }
+
+            test "the weight and the height get the date passed in" {
+                let dat =
+                    stub
+                    |> ServerApi.Patient.toCore readAt
+                    |> Result.defaultWith (fun errs -> failtest $"no patient data: %A{errs}")
+
+                match dat.Weight.Calculation, dat.Height.Calculation with
+                | Some(CoreSource.Measured w), Some(CoreSource.Measured h) ->
+                    (w.Date, h.Date) |> Expect.equal "the date" (readAt, readAt)
+                | other -> failtest $"no measured weight and height: %A{other}"
+            }
+
+            test "an estimated weight is an estimate in GenCORE" {
+                let dat =
+                    { stub with Weight = { noWeight with Estimated = Some(Measures.toGram 32000) } }
+                    |> ServerApi.Patient.toCore readAt
+                    |> Result.defaultWith (fun errs -> failtest $"no patient data: %A{errs}")
+
+                match dat.Weight.Calculation with
+                | Some(CoreSource.Estimated _) -> ()
+                | other -> failtest $"no estimate: %A{other}"
+            }
+
+            test "a draft without an age and without a measured weight and height is no patient" {
+                { stub with
+                    Age = None
+                    Weight = noWeight
+                }
+                |> ServerApi.Patient.toCore readAt
+                |> Expect.equal "the server's words" (Error [| ServerApi.Patient.noPatient |])
+            }
+
+            test "a patient marked as an adult below 16 years is refused" {
+                { stub with
+                    Age = Some(ServerApi.Age.ofDays (10 * 365))
+                    AdultMark = AdultMark.MarkableAdult true
+                }
+                |> ServerApi.Patient.toCore readAt
+                |> Expect.equal "the server's words" (Error [| ServerApi.Patient.markedBelowSixteen |])
+            }
+
+            test "an eGFR that is no band of GenCORE is refused, in GenCORE's words" {
+                { stub with RenalFunction = Some(EGFR(Some 20, Some 40)) }
+                |> ServerApi.Patient.toCore readAt
+                |> Expect.equal "refused" (Error [| "Renal function is unknown: egfr:20:40" |])
+            }
+
+            test "a weight outside the bounds of GenCORE is refused" {
+                { stub with Weight = { noWeight with Measured = Some(Measures.toGram 300000) } }
+                |> ServerApi.Patient.toCore readAt
+                |> Expect.isError "300 kg"
+            }
+
+            test "a child without a weight is refused with the weight named" {
+                { stub with
+                    Age = Some(ServerApi.Age.ofDays (2 * 365))
+                    Weight = noWeight
+                    Height = noHeight
+                }
+                |> ServerApi.Patient.parse readAt
+                |> Expect.equal "the weight" (Error [| ServerApi.Patient.noWeight |])
             }
         ]
