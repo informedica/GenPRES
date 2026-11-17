@@ -32,7 +32,7 @@ module SessionMapper =
     /// data, so the version has none.
     let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
         ({
-            PatientData = signed.Patient |> Patient.ofModel today
+            PatientData = signed.PatientData |> Patient.ofModel today
             Filtered = [||]
             Contexts = signed.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
             Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
@@ -56,7 +56,7 @@ module SessionMapper =
 
     /// The identity on the wire, beside the id the context carries: the name and the birthdate
     /// as three integers.
-    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
+    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : PatientIdentity =
         {
             Name = id.Name
             BirthYear = int id.BirthDate.Year
@@ -85,19 +85,19 @@ module SessionMapper =
             PatientId = v.PatientId
             Base = v.Base
             OrderContexts = plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
-            Patient = plan.PatientData |> Patient.toModel
-            Identity = whom |> Option.map identity
+            PatientData = plan.PatientData |> Patient.toModel
+            PatientIdentity = whom |> Option.map identity
             Verified = v.Verified
         }
 
 
     /// The patient data of a data notice as a Dto, dated today.
-    let noticeData today (notice: DataNotice) = notice.Data |> Option.map (Patient.ofModel today)
+    let noticeData today (notice: DataNotice) = notice.PatientData |> Option.map (Patient.ofModel today)
 
 
     let notice (token: string) (data: CorePatientData.Dto.Dto option) : DataNotice =
         {
-            Data = data |> Option.map Patient.toModel
+            PatientData = data |> Option.map Patient.toModel
             Token = token
         }
 
@@ -113,8 +113,8 @@ module SessionMapper =
                 |> Option.map (fun id ->
                     {
                         PatientId = id
-                        Identity = opened |> OpenedSession.identity |> Option.map identity
-                        Patient = opened |> sessionPatientData |> Option.map Patient.ofPatientData
+                        PatientIdentity = opened |> OpenedSession.identity |> Option.map identity
+                        PatientData = opened |> sessionPatientData |> Option.map Patient.ofPatientData
                     }
                 )
             OpenedToken = opened.OpenedToken

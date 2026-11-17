@@ -63,7 +63,7 @@ module LoaderMachine =
             PatientExpected: bool
             /// The patient the server last answered, which the formulary is asked for and whose presence
             /// lets a page's choice seed the workbench.
-            Patient: Patient option
+            Patient: PatientData option
             /// The failures of the drug names since they last loaded.
             DrugNameFailures: int
             /// Whether the server answered its last check.
@@ -105,7 +105,7 @@ module LoaderMachine =
         /// The server's answer, or the error of a server that did not answer.
         | ServerChecked of Result<unit, string>
         /// The patient the server answered, or none once cleared.
-        | PatientSet of Patient option
+        | PatientSet of PatientData option
         /// A new patient is on its way; the clear before it asks for no pages.
         | PatientExpected
         /// The filter the workbench answered.
@@ -259,7 +259,8 @@ module LoaderMachine =
 
     /// The formulary asked for again over the one shown, for the patient the server answered.
     let startFormulary (state: LoaderState) =
-        let form = { (state.Formulary |> Deferred.defaultValue Formulary.empty) with Patient = state.Patient }
+        let form =
+            { (state.Formulary |> Deferred.defaultValue Formulary.empty) with PatientData = state.Patient }
 
         let reading, effects = state.Formulary |> start (LoaderEffect.FetchFormulary form)
         { state with Formulary = reading }, effects
@@ -507,7 +508,7 @@ module LoaderMachine =
             let state =
                 { state with
                     Patient = patient
-                    Formulary = Resolved { Formulary.empty with Patient = patient }
+                    Formulary = Resolved { Formulary.empty with PatientData = patient }
                     Parenteralia = Resolved Parenteralia.empty
                     FormularyAskAgain = None
                     ParenteraliaAskAgain = None

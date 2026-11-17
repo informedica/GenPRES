@@ -22,7 +22,7 @@ let ctx: OrderContext =
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
-        Patient = patient
+        PatientData = patient
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
@@ -179,7 +179,7 @@ let tests =
                             None,
                             None
                          ),
-                         { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty })
+                         { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty })
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 asked.Value |> Expect.isFalse "the port never asked"

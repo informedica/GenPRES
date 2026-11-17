@@ -114,7 +114,7 @@ let tests =
                     SigningState.noticed
                         SigningFixtures.plan
                         {
-                            Data = None
+                            PatientData = None
                             Token = "d-1"
                         }
 

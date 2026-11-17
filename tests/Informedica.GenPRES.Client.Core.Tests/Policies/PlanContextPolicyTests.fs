@@ -18,14 +18,14 @@ module PlanContextPolicyTests =
     let scenario = OrderFixtures.scenario
 
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
-    let eleven = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 11<year> }
-    let patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
+    let eleven = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 11<year> }
+    let patient = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
     let context id name =
         { Informedica.GenPRES.Shared.Models.OrderContext.empty with
             Id = id
-            Patient = patient
+            PatientData = patient
             Scenarios = [| scenario $"o-{id}" name |]
         }
 

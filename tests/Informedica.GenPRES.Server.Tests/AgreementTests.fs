@@ -75,7 +75,7 @@ let planOf (shape: Shape) : OrderPlan =
             { Informedica.GenPRES.Shared.Models.OrderContext.empty with
                 Id = $"c-{i}"
                 Category = category
-                Patient = StubEhrPatient.contractPatient
+                PatientData = StubEhrPatient.contractPatient
                 Scenarios = Array.init scenarios (fun k -> SessionStubTests.scenarioWithOrder $"o-{i}-{k}")
             }
         )

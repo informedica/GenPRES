@@ -20,7 +20,7 @@ let ctx: OrderContext =
         Id = "c-1"
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
-        Patient = patient
+        PatientData = patient
     }
 
 let plan: OrderPlan =
@@ -149,12 +149,12 @@ let tests =
                 let! answer =
                     OrderPlanCommand.processCmd
                         (envOver true (echoPort seen))
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatientData(updated, plan))
 
                 seen.Value |> Expect.equal "every order on the patient" [ "followPatientData" ]
 
                 answer
-                |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)
+                |> Result.map (fun p -> p.PatientData.Department, p.OrderContexts |> Array.map _.PatientData.Department)
                 |> Expect.equal
                     "the plan's patient updated, the context's kept"
                     (Ok(Some "NEO", [| patient.Department |]))
@@ -193,7 +193,9 @@ let tests =
                         (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
                             plan,
                             ctx,
-                            [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                            [|
+                                { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                            |]
                         ))
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
@@ -224,7 +226,7 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = patient
+                            PatientData = patient
                             OrderContexts = [| ctx; { ctx with Id = "l-1" } |]
                         }
 
@@ -241,7 +243,7 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = Informedica.GenPRES.Shared.Models.Patient.empty
+                            PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty
                             OrderContexts = [| ctx |]
                         }
 
@@ -256,8 +258,11 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = patient
-                            OrderContexts = [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                            PatientData = patient
+                            OrderContexts =
+                                [|
+                                    { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                                |]
                         }
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])

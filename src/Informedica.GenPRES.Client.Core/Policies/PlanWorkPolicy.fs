@@ -23,7 +23,7 @@ module PlanWorkPolicy =
         /// patient update does not by itself: its answer shows whether the orders changed.
         let changedBy (cmd: OrderPlanCommand) =
             match cmd with
-            | OrderPlanCommand.UpdatePatient _
+            | OrderPlanCommand.UpdatePatientData _
             | OrderPlanCommand.FilterRows _
             | OrderPlanCommand.Open _ -> false
             | OrderPlanCommand.EvaluateContext _

@@ -16,7 +16,7 @@ module FormularyService =
     /// The dose filter of the formulary request, with the patient of the request at a date through
     /// the mapping every request uses, or why the patient is none. No patient is the empty patient.
     let mapFormularyToFilter today (form: Formulary) =
-        form.Patient
+        form.PatientData
         |> Option.map (ServerApi.Patient.toCore today)
         |> Option.defaultValue (Ok PatientData.unknown)
         |> Result.map (fun pat ->

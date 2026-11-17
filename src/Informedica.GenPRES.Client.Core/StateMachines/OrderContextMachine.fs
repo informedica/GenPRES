@@ -32,10 +32,10 @@ module OrderContextMachine =
         | NoPatientData of urlSeed: FilterSeed option
         /// The patient and the context last evaluated for it, which a failed change goes back to: the
         /// empty context during the first evaluation and after a reset.
-        | Evaluated of Patient * OrderContext
+        | Evaluated of PatientData * OrderContext
         /// The patient and the context the server refused, as sent, with its picks and without its
         /// scenarios, and the reason.
-        | Refused of Patient * OrderContext * OrderContextRefusal
+        | Refused of PatientData * OrderContext * OrderContextRefusal
 
 
     /// Functions over OrderContextWorkbench.
@@ -43,7 +43,7 @@ module OrderContextMachine =
 
         /// An empty context of the category for the patient.
         let emptyOf category pat =
-            { (OrderContext.empty |> OrderContext.setPatient pat) with Category = category }
+            { (OrderContext.empty |> OrderContext.setPatientData pat) with Category = category }
 
 
         /// The context narrowed to the scenario and its form, as it goes into the plan.
@@ -186,7 +186,7 @@ module OrderContextMachine =
     [<RequireQualifiedAccess>]
     type OrderContextMsg =
         /// The patient data set, changed or cleared; the workbench is evaluated for it.
-        | PatientDataChanged of Patient option * request: string
+        | PatientDataChanged of PatientData option * request: string
         /// A seed of the filter, sent as a command over the context shown; without patient data the seed
         /// is stored and sent with the first patient data.
         | SeedFilter of FilterSeed * request: string
@@ -299,7 +299,7 @@ module OrderContextMachine =
             { evaluated pat before with
                 InFlight =
                     RequestUnderWay.create
-                        (OrderContextCommand.Command(cmd, { sent with Patient = pat }))
+                        (OrderContextCommand.Command(cmd, { sent with PatientData = pat }))
                         request
                         RequestFor.Context
                     |> Some
@@ -605,7 +605,7 @@ module OrderContextMachine =
             | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None ->
                 call
                     cmd
-                    { ctx with Patient = pat }
+                    { ctx with PatientData = pat }
                     request
                     { state with
                         Workbench = OrderContextWorkbench.Evaluated(pat, ctx)
@@ -619,7 +619,7 @@ module OrderContextMachine =
                 | Some offer ->
                     { state with BeforeRecalculation = beforeRecalculation cmd }
                     |> send
-                        (OrderContextCommand.Command(cmd, { offer.Context with Patient = pat }))
+                        (OrderContextCommand.Command(cmd, { offer.Context with PatientData = pat }))
                         request
                         (RequestFor.Offer index)
                 | None -> state, []

@@ -310,7 +310,7 @@ module TitleBar =
             |> Option.bind (fun opened ->
                 opened.PatientContext
                 |> Option.bind (fun context ->
-                    context.Identity
+                    context.PatientIdentity
                     |> Option.map (fun who ->
                         let identity = $"{context.PatientId} · {who.Name} · {Global.birthDateText who}"
 

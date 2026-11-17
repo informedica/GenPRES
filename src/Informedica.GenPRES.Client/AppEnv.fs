@@ -117,24 +117,24 @@ type INutrition =
 type IPatient =
     /// the patient data as the panel edits it and the lists read it, with the estimates the
     /// server answered after an edit that renews them
-    abstract Draft: Patient option
+    abstract Draft: PatientData option
     /// a patient change is under way: the panel takes no edit until it is answered
     abstract Changing: bool
     /// the patient the server answered, the one the orders are calculated on, with the estimates
     /// of every weight and height, next to a measured one too: what the summary shows, not what
     /// the fields show
-    abstract Current: Patient option
+    abstract Current: PatientData option
     /// the draft, with the weight and height the user did not enter estimated again by the
     /// server: after an edit of the age, the gender or the gestational age
-    abstract UpdatePatient: Patient option -> unit
+    abstract UpdatePatient: PatientData option -> unit
     /// the draft with its estimates as they are: after any other edit, so that a weight or a
     /// height the user cleared stays cleared
-    abstract EditPatient: Patient option -> unit
+    abstract EditPatient: PatientData option -> unit
     /// whether an edit asks first, since it is taken as a new patient and orders or a selection
     /// would be lost
     abstract AsksNewPatient: bool
     /// a new patient, with what becomes of the estimates; the plan and the workbench go
-    abstract NewPatient: Patient option * PatientDraftPolicy.Estimates -> unit
+    abstract NewPatient: PatientData option * PatientDraftPolicy.Estimates -> unit
 
 
 /// Formulary data and updates
@@ -200,7 +200,7 @@ type ISigning =
     /// whether the patient was no longer active in the EHR at the challenge; told before the PIN
     abstract EhrMovedOn: bool
     /// who the patient being signed for is; none for a patient the EHR did not identify
-    abstract SignedFor: NameAndBirthDate option
+    abstract SignedFor: PatientIdentity option
     /// the data notice answered: the EHR's data taken, or the plan's kept
     abstract TakeEhrData: unit -> unit
     abstract KeepPlanData: unit -> unit

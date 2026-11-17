@@ -223,7 +223,7 @@ open StubAdapters
 /// The stub's patient, since the dispatchers refuse a context or a plan whose data is none.
 let patient = StubEhrPatient.contractPatient
 
-let emptyCtx = { Models.OrderContext.empty with Patient = patient }
+let emptyCtx = { Models.OrderContext.empty with PatientData = patient }
 
 let emptyPlan = OrderPlan.create patient [||]
 
@@ -450,7 +450,7 @@ module SessionStubTests =
         |> Array.mapi (fun i sc ->
             { OrderContext.empty with
                 Id = $"c-{i}"
-                Patient = pat
+                PatientData = pat
                 Scenarios = [| sc |]
             }
         )
@@ -465,7 +465,7 @@ module SessionStubTests =
 
 
     /// The contract model's patient parsed into the domain, as the adapters do it.
-    let parsePatient (p: Patient) =
+    let parsePatient (p: PatientData) =
         p
         |> Patient.parse today0
         |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
@@ -494,7 +494,7 @@ module SessionStubTests =
         (patientId: string)
         (baseId: string option)
         (contexts: OrderContext[])
-        (pat: Patient)
+        (pat: PatientData)
         (verified: bool)
         : SignedOrderPlan
         =
@@ -509,15 +509,15 @@ module SessionStubTests =
             PatientId = patientId
             Base = baseId
             OrderContexts = contexts
-            Patient = pat
-            Identity = None
+            PatientData = pat
+            PatientIdentity = None
             Verified = verified
         }
 
 
     /// The version `plan-<no>` of a patient, over `plan-<no-1>` after the first, holding no
     /// contexts, signed on the patient data given at the time given, verified.
-    let signedAt (patientId: string) (pat: Patient) (by: UserContext) (no: int) (at: DateTime) =
+    let signedAt (patientId: string) (pat: PatientData) (by: UserContext) (no: int) (at: DateTime) =
         versionOf $"plan-{no}" no by at patientId (if no > 1 then Some $"plan-{no - 1}" else None) [||] pat true
 
 
@@ -548,7 +548,7 @@ module SessionStubTests =
 
     /// The EHR data the stub would have read for the id, with the ward the contract model names,
     /// so that a fixture stated as a contract patient has the EHR data its projection came from.
-    let ehrOf (pid: string) (p: Patient) : Informedica.GenCore.Lib.Patients.Patient =
+    let ehrOf (pid: string) (p: PatientData) : Informedica.GenCore.Lib.Patients.Patient =
         let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn pid
 
         { ehr with
@@ -566,9 +566,9 @@ module SessionStubTests =
     /// data and the contexts given, issued over the EHR data the reading came from.
     let challengeOf
         (nonce: string)
-        (pat: Patient)
+        (pat: PatientData)
         (contexts: OrderContext[])
-        (reading: Patient option)
+        (reading: PatientData option)
         (expiry: DateTime)
         : Session.Challenge
         =
@@ -581,7 +581,7 @@ module SessionStubTests =
 
 
     /// A data notice as the store holds it, told over the EHR data the data came from.
-    let noticeOf (nonce: string) (data: Patient option) (expiry: DateTime) : Session.Notice =
+    let noticeOf (nonce: string) (data: PatientData option) (expiry: DateTime) : Session.Notice =
         {
             Nonce = nonce
             EhrPatient = data |> Option.map (ehrOf "stub-patient")
@@ -595,7 +595,7 @@ module SessionStubTests =
     let sessionOf
         (sid: string)
         (user: UserContext option)
-        (patient: (string * Patient option) option)
+        (patient: (string * PatientData option) option)
         (openedWith: string option)
         : Session.SessionRecord
         =
@@ -2619,7 +2619,7 @@ module SessionStubTests =
             let reader = userOf "reader" UserRole.Reader
 
             /// A Session as the store holds it after an open.
-            let session sid (user: UserContext option) (patient: (string * Patient) option) openedWith =
+            let session sid (user: UserContext option) (patient: (string * PatientData) option) openedWith =
                 sid, sessionOf sid user (patient |> Option.map (fun (pid, data) -> pid, Some data)) openedWith
 
             let signedBy (user: UserContext) no (at: DateTime) = signedAt "stub-patient" stubPatient user no at
@@ -2684,10 +2684,10 @@ module SessionStubTests =
                     }
 
                     test "a context that followed the data, with the patient of its rules, gets a challenge" {
-                        let contextOn (data: Patient) id =
+                        let contextOn (data: PatientData) id =
                             { OrderContext.empty with
                                 Id = id
-                                Patient = data
+                                PatientData = data
                                 Scenarios = [| scenarioWithOrder $"o-{id}" |]
                             }
 
@@ -2938,7 +2938,7 @@ module SessionStubTests =
                             { OrderContext.empty with
                                 Id = "c-1"
                                 Category = OrderCategory.Nutrition NutritionCategory.TPN
-                                Patient = stubPatient
+                                PatientData = stubPatient
                             }
 
                         let drug = planOf stubPatient [| scenarioWithOrder "o-drug" |]
@@ -3311,7 +3311,7 @@ module SessionStubTests =
                             |> Array.mapi (fun i sc ->
                                 { OrderContext.empty with
                                     Id = $"c-{i}"
-                                    Patient = stubPatient
+                                    PatientData = stubPatient
                                     Scenarios = [| sc |]
                                 }
                             )
@@ -3340,7 +3340,7 @@ module SessionStubTests =
                         let context stepped =
                             { OrderContext.empty with
                                 Id = "c-1"
-                                Patient = stubPatient
+                                PatientData = stubPatient
                                 OrderContext.Filter.Generic = Some stepped
                                 Scenarios = once
                             }
@@ -4499,7 +4499,7 @@ module SessionStubTests =
             // the plan carries the Session's data, or, without any, data entered by hand
             let patient =
                 opened.PatientContext
-                |> Option.bind _.Patient
+                |> Option.bind _.PatientData
                 |> Option.defaultValue StubEhrPatient.contractPatient
 
             SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], opened.OpenedToken.Value, None)
@@ -4582,7 +4582,7 @@ module SessionStubTests =
 
                     match! SigningCommand.processCmd env cookie (challengeOver opened) with
                     | SigningResponse.DataNotice notice ->
-                        notice.Data |> Expect.isNone "unreadable"
+                        notice.PatientData |> Expect.isNone "unreadable"
 
                         let accepted =
                             SigningCommand.RequestSignChallenge(
@@ -4729,7 +4729,7 @@ module SessionStubTests =
                                 Plan =
                                     OrderPlan.create
                                         (opened.PatientContext
-                                         |> Option.bind _.Patient
+                                         |> Option.bind _.PatientData
                                          |> Option.defaultValue StubEhrPatient.contractPatient)
                                         [||]
                                 Opened = opened.OpenedToken.Value
@@ -5509,7 +5509,7 @@ module PlanTests =
             Scenarios = scenarios
         }
 
-    let plan contexts = OrderPlan.create Models.Patient.empty contexts
+    let plan contexts = OrderPlan.create Models.PatientData.empty contexts
 
     let ids (p: OrderPlan) = OrderPlan.orders p |> Array.map _.Order.Id
 
@@ -5619,7 +5619,9 @@ module PlanTests =
                     OrderPlanCommand.toString (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1"; "c-2" |]))
                     |> Expect.equal "the count" "RemoveOrderContexts 2"
 
-                    OrderPlanCommand.toString (OrderPlanCommand.Open(Models.Patient.empty, [| OrderContext.empty |]))
+                    OrderPlanCommand.toString (
+                        OrderPlanCommand.Open(Models.PatientData.empty, [| OrderContext.empty |])
+                    )
                     |> Expect.equal "the count, never the contexts" "Open 1"
                 }
             ]
@@ -5627,12 +5629,12 @@ module PlanTests =
 
 /// A draft becomes a patient at the ingress, or the request is refused before any port is asked.
 let ingressTests =
-    let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+    let ten = { PatientData.Age.ageZero with Age.Years = 10<year> }
 
-    let estimated (dto: Patient) =
+    let estimated (dto: PatientData) =
         { dto with
-            Patient.Weight.Estimated = Some 32000<gram>
-            Patient.Height.Estimated = Some 140<cm>
+            PatientData.Weight.Estimated = Some 32000<gram>
+            PatientData.Height.Estimated = Some 140<cm>
         }
 
     let refusedAs (msg: string) (result: Result<'a, string[]>) =
@@ -5642,25 +5644,25 @@ let ingressTests =
         "the ingress"
         [
             test "the blank draft is refused as no patient" {
-                Patient.empty |> Patient.patient |> refusedAs Patient.noPatient
+                PatientData.empty |> Patient.patient |> refusedAs Patient.noPatient
             }
 
             test "an age of a child without an estimate is refused, the weight named" {
-                { Patient.empty with Age = Some ten }
+                { PatientData.empty with Age = Some ten }
                 |> Patient.patient
                 |> refusedAs Patient.noWeight
             }
 
             test "an age with the estimate, or a measured weight and height, is a patient" {
-                { Patient.empty with Age = Some ten }
+                { PatientData.empty with Age = Some ten }
                 |> estimated
                 |> Patient.patient
                 |> Result.isOk
                 |> Expect.isTrue "estimated"
 
-                { Patient.empty with
-                    Patient.Weight.Measured = Some 32000<gram>
-                    Patient.Height.Measured = Some 140<cm>
+                { PatientData.empty with
+                    PatientData.Weight.Measured = Some 32000<gram>
+                    PatientData.Height.Measured = Some 140<cm>
                 }
                 |> Patient.patient
                 |> Result.isOk
@@ -5669,7 +5671,7 @@ let ingressTests =
 
             test "no data is no patient and no refusal; data that is none is refused" {
                 None |> Patient.patientOption |> Expect.equal "none" (Ok None)
-                Some Patient.empty |> Patient.patientOption |> refusedAs Patient.noPatient
+                Some PatientData.empty |> Patient.patientOption |> refusedAs Patient.noPatient
             }
 
             testAsync "the order context is refused over a draft, its port never asked" {
@@ -5729,7 +5731,7 @@ let ingressTests =
 
                 removed |> refusedAs Patient.noPatient
 
-                let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(Patient.empty, [||]))
+                let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(PatientData.empty, [||]))
                 opened |> refusedAs Patient.noPatient
             }
 
@@ -5789,7 +5791,8 @@ let ingressTests =
                 let! unfiltered = FormularyCommand.processCmd env Formulary.empty
                 unfiltered |> Result.isOk |> Expect.isTrue "unfiltered"
 
-                let! refused = FormularyCommand.processCmd env { Formulary.empty with Patient = Some Patient.empty }
+                let! refused =
+                    FormularyCommand.processCmd env { Formulary.empty with PatientData = Some PatientData.empty }
 
                 refused |> refusedAs Patient.noPatient
             }

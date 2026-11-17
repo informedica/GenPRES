@@ -22,7 +22,7 @@ module PatientDataSummaryPolicy =
     /// with orders, since without orders there is nothing to report.
     let summaryOf (sent: OrderPlanCommand) (tp: OrderPlan) =
         match sent with
-        | OrderPlanCommand.UpdatePatient _ ->
+        | OrderPlanCommand.UpdatePatientData _ ->
             match OrderPlan.orders tp with
             | [||] -> None
             | orders ->

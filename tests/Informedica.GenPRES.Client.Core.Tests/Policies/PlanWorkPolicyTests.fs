@@ -13,7 +13,7 @@ module PlanWorkPolicyTests =
     open PlanWorkPolicy
 
 
-    let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+    let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
     let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
     let context = Informedica.GenPRES.Shared.Models.OrderContext.empty
 
@@ -21,7 +21,7 @@ module PlanWorkPolicyTests =
 
     let add = OrderPlanCommand.AddOrderContext(plan, context, [||])
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
-    let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
+    let updatePatient = OrderPlanCommand.UpdatePatientData(patient, plan)
     let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)
 
 

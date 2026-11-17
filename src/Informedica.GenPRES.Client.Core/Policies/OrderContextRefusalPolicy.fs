@@ -91,7 +91,7 @@ module OrderContextRefusalPolicy =
     /// measurement.
     let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
         match refusal with
-        | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> Patient.selectsRules |> not -> None
+        | OrderContextRefusal.NoDoseRulesForPatient when ctx.PatientData |> PatientData.selectsRules |> not -> None
         | _ when refusal |> refusesChange -> None
         | _ ->
             Some

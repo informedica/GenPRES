@@ -244,7 +244,7 @@ let tests =
                 |> List.exists (
                     function
                     | LanesStep.Patient(PatientMsg.Changed(p, PatientDraftPolicy.Estimates.Renewed, _), _, _) ->
-                        p = (session.PatientContext |> Option.bind _.Patient)
+                        p = (session.PatientContext |> Option.bind _.PatientData)
                     | _ -> false
                 )
                 |> Expect.isTrue "the patient machine got the Session's patient"
@@ -264,7 +264,8 @@ let tests =
 
             test "a sign that renews an estimate: the plan follows and is a change to sign" {
                 let newId = counter ()
-                let estimated (kg: int) (p: Patient) = { p with Patient.Weight.Estimated = Some(kg * 1000<gram>) }
+                let estimated (kg: int) (p: PatientData) =
+                    { p with PatientData.Weight.Estimated = Some(kg * 1000<gram>) }
                 let young = draft |> estimated 12
                 let session = SessionMachineTests.full
                 let aged = { young with Age = Some { ten with Age.Years = 11<year> } }
@@ -295,7 +296,7 @@ let tests =
                             SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, SessionMachineTests.signedVersion)
                         ))
 
-                let cleared = aged |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None
+                let cleared = aged |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None
 
                 let request =
                     effects
@@ -313,7 +314,7 @@ let tests =
                     effects
                     |> List.pick (
                         function
-                        | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient _, request)) ->
+                        | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatientData _, request)) ->
                             Some request
                         | _ -> None
                     )
@@ -345,7 +346,9 @@ let tests =
                             Head = Some head
                             PatientContext =
                                 session.PatientContext
-                                |> Option.map (fun c -> { c with Patient = Some { measured with Age = Some older } })
+                                |> Option.map (fun c ->
+                                    { c with PatientData = Some { measured with Age = Some older } }
+                                )
                         }
 
                     let sent (effects: LanesEffect list) =
@@ -448,7 +451,7 @@ let tests =
                         Head = Some head
                         PatientContext =
                             SessionMachineTests.full.PatientContext
-                            |> Option.map (fun context -> { context with Patient = Some measured })
+                            |> Option.map (fun context -> { context with PatientData = Some measured })
                     }
 
                 let newId = counter ()
@@ -516,7 +519,7 @@ let tests =
                     { SessionMachineTests.full with
                         PatientContext =
                             SessionMachineTests.full.PatientContext
-                            |> Option.map (fun context -> { context with Patient = None })
+                            |> Option.map (fun context -> { context with PatientData = None })
                         Head = Some head
                     }
 
@@ -823,7 +826,7 @@ let tests =
             test "a signature over the patient data the lanes hold sends nothing more once the token is renewed" {
                 let newId = counter ()
                 let pat = measured |> asPatient
-                let ctx = { OrderContextMachineTests.Fixtures.paracetamol with Patient = pat }
+                let ctx = { OrderContextMachineTests.Fixtures.paracetamol with PatientData = pat }
 
                 // the patient set and answered, the workbench and the plan answered for it
                 let lanes, _, _ =
@@ -846,7 +849,7 @@ let tests =
                     |> List.last
 
                 // the signature answered with the patient as signed, the same data
-                let signed = { SigningFixtures.signed with Patient = pat }
+                let signed = { SigningFixtures.signed with PatientData = pat }
 
                 let submitted =
                     SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Submitted(signed, OpenedToken "t2", pat)))
@@ -883,7 +886,7 @@ let tests =
                     { session with
                         PatientContext =
                             session.PatientContext
-                            |> Option.map (fun c -> { c with Patient = Some measured })
+                            |> Option.map (fun c -> { c with PatientData = Some measured })
                         Head = Some head
                     }
 
@@ -923,7 +926,7 @@ let tests =
                 effects
                 |> List.exists (
                     function
-                    | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient _, _)) -> true
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatientData _, _)) -> true
                     | _ -> false
                 )
                 |> Expect.isTrue "the plan updated to the patient"
@@ -1078,7 +1081,7 @@ let tests =
 
                 let lanes =
                     { Lanes.initial (Some draft) with
-                        OrderPlan = recalculating one None "r-0" (OrderPlanCommand.UpdatePatient(patient, one))
+                        OrderPlan = recalculating one None "r-0" (OrderPlanCommand.UpdatePatientData(patient, one))
                         OrderContext = OrderContextState.evaluated patient workbench
                     }
 
@@ -1181,7 +1184,8 @@ let tests =
 /// The nutrition slots on the lanes: each the order context machine with a nutrition category.
 module SlotLaneFixtures =
 
-    let pat: Patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Department = Some "NEO" }
+    let pat: PatientData =
+        { Informedica.GenPRES.Shared.Models.PatientData.empty with Department = Some "NEO" }
 
     let tpn = OrderCategory.Nutrition NutritionCategory.TPN
 
@@ -1221,7 +1225,7 @@ module SlotLaneFixtures =
             | LanesEffect.Slot(slot, OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request)) when
                 slot = id
                 ->
-                Some(cmd, ctx.Category, ctx.Patient, request)
+                Some(cmd, ctx.Category, ctx.PatientData, request)
             | _ -> None
         )
 

@@ -14,7 +14,7 @@ module OrderContextCommand =
     /// or a context the domain does not read, is a failure.
     let evaluated (env: AppEnv) (viewCmd: OrderViewCommand) (ctx: OrderContext) domainCmd =
         Patient.over
-            ctx.Patient
+            ctx.PatientData
             (fun () ->
                 match ctx |> OrderContextService.parse (env.today ()), domainCmd with
                 | Error errs, _ -> async { return Error errs }

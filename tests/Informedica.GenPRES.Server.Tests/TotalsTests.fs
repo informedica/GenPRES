@@ -82,7 +82,7 @@ let emptyPlan () = Informedica.GenOrder.Lib.OrderPlan.create (patient ()) [||]
 let emptyContext () =
     ServerApi.OrderContextService.parse
         readAt
-        { Models.OrderContext.empty with Patient = ServerApi.StubEhrPatient.contractPatient }
+        { Models.OrderContext.empty with PatientData = ServerApi.StubEhrPatient.contractPatient }
     |> Result.defaultWith (fun e -> invalidOp $"no plan context: %A{e}")
 
 [<Tests>]

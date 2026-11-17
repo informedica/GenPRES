@@ -807,7 +807,7 @@ module ViewHelpers =
 
 
         /// The patient's weight for the print, or the caller's word for not known.
-        let patientWeight (unknown: string) (patient: Patient option) =
+        let patientWeight (unknown: string) (patient: PatientData option) =
             patient
             |> Option.bind PatientRead.getWeightInKg
             |> Option.map (fun w ->

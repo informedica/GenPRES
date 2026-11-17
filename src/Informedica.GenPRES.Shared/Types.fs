@@ -39,7 +39,7 @@ module Types =
         | FloatOptionData
 
 
-    module Patient =
+    module PatientData =
 
         type Age =
             {
@@ -78,14 +78,14 @@ module Types =
             | RequiredGestationalAge of AgeWeeksDays option
 
 
-    type Age = Patient.Age
-    type AgeWeeksDays = Patient.AgeWeeksDays
-    type AdultMark = Patient.AdultMark
-    type GestationalAge = Patient.GestationalAge
+    type Age = PatientData.Age
+    type AgeWeeksDays = PatientData.AgeWeeksDays
+    type AdultMark = PatientData.AdultMark
+    type GestationalAge = PatientData.GestationalAge
 
-    /// The patient as the wire carries it and the panel edits it: every field optional, so a
-    /// value of this type is a draft or a reading, not yet a patient.
-    type Patient =
+    /// The patient data the client sends and edits. Every field is optional, so the data can be
+    /// incomplete; the server checks it before the rules use it.
+    type PatientData =
         {
             Age: Age option
             /// The gestational age with the need for it the server set from the age; the client asks
@@ -594,7 +594,7 @@ module Types =
             /// The pick lists and the picks that select the scenarios
             Filter: Filter
             /// The patient the context is evaluated for
-            Patient: Patient
+            PatientData: PatientData
             /// The scenarios the picks leave; one when the context is narrowed to one order
             Scenarios: OrderScenario[]
             /// The totals over the one scenario the context is narrowed to
@@ -619,7 +619,7 @@ module Types =
     /// The one plan: every order for the patient, nutrition included, which is what is signed.
     type OrderPlan =
         {
-            Patient: Patient
+            PatientData: PatientData
             // the contexts shown and counted, by id; empty for all of them
             Filtered: string[]
             // the order contexts of the plan, drug and nutrition alike, each saying what it holds
@@ -644,7 +644,7 @@ module Types =
             Form: string option
             DoseType: DoseType option
             PatientCategory: string option
-            Patient: Patient option
+            PatientData: PatientData option
             Markdown: string
             DoseCheck: TextBlock[]
         }
@@ -703,7 +703,7 @@ module Types =
     /// Who the patient of a Session is, beside the id: the full name and the birthdate as
     /// three integers, as the url already carries one. Shown in full: the user sits at the EHR
     /// that launched the Session.
-    type NameAndBirthDate =
+    type PatientIdentity =
         {
             Name: string
             BirthYear: int
@@ -719,8 +719,8 @@ module Types =
         {
             PatientId: string
             /// None for a patient the EHR did not identify: an anonymous Session
-            Identity: NameAndBirthDate option
-            Patient: Patient option
+            PatientIdentity: PatientIdentity option
+            PatientData: PatientData option
         }
 
 
@@ -747,10 +747,10 @@ module Types =
             Base: string option
             // every context of the plan as signed: a reopen is the plan as it was
             OrderContexts: OrderContext[]
-            Patient: Patient
+            PatientData: PatientData
             /// the patient's name and birthdate as the version names them; none for a version
             /// signed in a Session without an identity
-            Identity: NameAndBirthDate option
+            PatientIdentity: PatientIdentity option
             Verified: bool
         }
 
@@ -871,12 +871,12 @@ module Types =
         | PlanUnreadable
 
 
-    /// The patient data as it stands, told before a challenge is issued when it is not what
-    /// the Session opened with. `Data = None`: the platform cannot be read, the data is
-    /// unverified. The User proceeds by returning the token with the next request.
+    /// The current patient data, shown before a challenge when it differs from the data the
+    /// Session opened with. None when the EHR cannot be read; the data is then not verified. The
+    /// user goes on by sending the token back with the next request.
     type DataNotice =
         {
-            Data: Patient option
+            PatientData: PatientData option
             Token: string
         }
 
@@ -901,11 +901,11 @@ module Types =
         // the challenge over exactly this plan; comes back with the PIN. ehrMovedOn: the patient of
         // the Session is no longer the patient active in the EHR, which is told before the PIN
         | ChallengeIssued of challenge: string * ehrMovedOn: bool
-        // no challenge yet; the data as it stands, to show and to accept or not
+        // no challenge yet: the current patient data, for the user to accept or not
         | DataNotice of DataNotice
-        // the version committed, a fresh OpenedToken over it, and the Session's patient after
-        // the sign: the age computed again
-        | Submitted of SignedOrderPlan * OpenedToken * Patient
+        // the version is stored; a new OpenedToken, and the patient data the Session shows after
+        // the signing, with the age calculated again
+        | Submitted of SignedOrderPlan * OpenedToken * PatientData
         | Refused of SigningRefusal
 
 

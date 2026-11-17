@@ -6,8 +6,8 @@ module PatientText =
     open Informedica.GenPRES.Shared
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
-    open Informedica.GenPRES.Shared.Models.Patient
-    open Informedica.GenPRES.Shared.Types.Patient
+    open Informedica.GenPRES.Shared.Models.PatientData
+    open Informedica.GenPRES.Shared.Types.PatientData
 
 
     /// The English of the patient terms, used when the sheet has no row for a term or has not
@@ -96,7 +96,7 @@ module PatientText =
                 | _ -> $"{y}"
 
 
-    let calcBSA (pat: Patient) =
+    let calcBSA (pat: PatientData) =
         match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
         | None, None, _, _
         | _, _, None, None -> None
@@ -109,7 +109,7 @@ module PatientText =
 
     /// The word for the patient's gender and age group: an adult by the Shared adult test, the
     /// mark as an adult included.
-    let genderWord tr (pat: Patient) =
+    let genderWord tr (pat: PatientData) =
         let adult = pat |> isAdult
 
         let term =
@@ -166,7 +166,7 @@ module PatientText =
             |> Option.map (fun s -> $"%s{estimatedWord}: %s{s}")
 
 
-    let toString terms lang markDown (pat: Patient) =
+    let toString terms lang markDown (pat: PatientData) =
         let bold s = s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
         let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)

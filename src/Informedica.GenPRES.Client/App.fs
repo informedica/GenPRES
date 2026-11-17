@@ -423,8 +423,8 @@ module private Effects =
         | PatientEffect.CallPatient(pat, request) ->
             opened
             |> underSession
-                serverApi.processPatient
-                (Api.PatientCommand.ChangePatient pat)
+                serverApi.processPatientData
+                (Api.PatientDataCommand.ChangePatientData pat)
                 (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs

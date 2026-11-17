@@ -7,7 +7,7 @@ open Informedica.GenPRES.Shared.Types
 open SigningMachine
 
 
-let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
 let otherData = { patient with Department = Some "ICU" }
 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
 
@@ -30,8 +30,8 @@ let signed: SignedOrderPlan =
         PatientId = "stub-patient"
         Base = None
         OrderContexts = [||]
-        Patient = patient
-        Identity = None
+        PatientData = patient
+        PatientIdentity = None
         Verified = true
     }
 

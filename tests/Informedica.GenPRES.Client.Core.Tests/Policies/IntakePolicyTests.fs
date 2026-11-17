@@ -98,7 +98,7 @@ module IntakePolicyTests =
 
                             let planOf contexts =
                                 Informedica.GenPRES.Shared.Models.OrderPlan.create
-                                    Informedica.GenPRES.Shared.Models.Patient.empty
+                                    Informedica.GenPRES.Shared.Models.PatientData.empty
                                     contexts
 
                             main false
@@ -194,7 +194,7 @@ module IntakePolicyTests =
                 Scenarios = [| scenario |]
             }
 
-        Informedica.GenPRES.Shared.Models.OrderPlan.create Informedica.GenPRES.Shared.Models.Patient.empty [| ctx |]
+        Informedica.GenPRES.Shared.Models.OrderPlan.create Informedica.GenPRES.Shared.Models.PatientData.empty [| ctx |]
 
 
     /// A TPN in a plan of one, calculated or not.

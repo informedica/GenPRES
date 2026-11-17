@@ -48,7 +48,7 @@ module Url =
     type UrlParts =
         {
             /// The patient, when the url gives a birth date or an age.
-            Patient: Patient option
+            Patient: PatientData option
             /// The page, when the url names one.
             Page: Page.Page option
             /// The language, when the url names one.
@@ -158,7 +158,7 @@ module Url =
         | yrs, mos, wks, dys ->
             let value p = p |> Option.flatten |> Option.defaultValue 0
 
-            Patient.Age.create
+            PatientData.Age.create
                 (value yrs * 1<year>)
                 (Some(value mos * 1<month>))
                 (Some(value wks * 1<week>))
@@ -167,13 +167,13 @@ module Url =
 
 
     /// The anonymous patient of a "#/patient?..." url of this age.
-    let parsePatient (age: Patient.Age) parameters =
+    let parsePatient (age: PatientData.Age) parameters =
         let cvl =
             match parameters |> Map.tryFind "cvl" with
             | Some "y" -> [ CVL ]
             | _ -> []
 
-        Patient.create
+        PatientData.create
             (Some age.Years)
             (Some age.Months)
             (Some age.Weeks)
