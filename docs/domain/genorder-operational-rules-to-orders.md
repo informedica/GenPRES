@@ -8,7 +8,7 @@
 | *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable, constraint-based representation of expert medication (and other clinical) knowledge produced by GenFORM. |
 | *Selection Constraint* | A categorical constraint used to determine which OKRs apply to a given Order Context (e.g., indication, generic, route, form, setting). |
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
-| *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. |
+| *Order Context* | The bounded clinical context; composed of Patient Data, indication(s), and selection constraints from which Order Scenarios are generated. The Patient Data is matched against Patient Categories in OKRs. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
 | *Plan Context* | An Order Context as held in an Order Plan: its id in the plan, its Order Category (a drug, or a nutrition category), the Order Context, and its intake. |
 | *Order Plan* | The one plan for a Patient: the patient data as shown, its Plan Contexts, the contexts the row filter keeps, and the totals over the orders of the filtered contexts. (See [Core Domain Model](core-domain.md#core-definitions)) |
@@ -246,7 +246,7 @@ Expert Knowledge → Operational Knowledge Rules → Orders → Exposure → Out
 
 * Transforms OKRs into executable Order Scenarios  
 * Constructs symbolic equation systems
-* Matches Patient instances against Patient Category ranges
+* Matches Patient Data against Patient Category ranges
 * Orchestrates solver execution  
 * Produces workflow-ready clinical orders
 

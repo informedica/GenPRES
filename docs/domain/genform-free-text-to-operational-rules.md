@@ -222,7 +222,7 @@ GenFORM occupies the **first transformation stage**, responsible for:
 
 GenFORM defines **Patient Categories** (also referred to as "Patient" in rule tables)—these are *types* of patients characterized by demographic ranges (age, weight, BSA, gestational age). A Patient Category is not a specific individual but rather a classification used to determine which rules apply.
 
-In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with a specific **Patient** instance—an actual individual with concrete demographic values. GenORDER matches the Patient's attributes against GenFORM's Patient Categories to select the applicable OKRs.
+In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with the **Patient Data** of one patient: concrete values such as an age and a weight. GenORDER matches the Patient Data against GenFORM's Patient Categories to select the applicable OKRs. Neither GenFORM nor GenORDER knows who the patient is; the Patient Identity stays in the server.
 
 For a specific patient, a matching property like BSA can be calculated from weight and height (e.g., Mosteller: $\mathrm{BSA}(m^2)=\sqrt{(\mathrm{height}_{cm}\cdot\mathrm{weight}_{kg})/3600}$).
 
