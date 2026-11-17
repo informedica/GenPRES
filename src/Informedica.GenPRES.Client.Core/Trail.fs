@@ -127,7 +127,7 @@ module Trail =
         /// estimated rather than measured, so that two patients that differ show as different. A patient carries no
         /// identity, and the trail shows none. The department and the location are left out: both can arrive as free
         /// text in the url, and the location can name a bed.
-        let patient (p: Patient) =
+        let patient (p: PatientData) =
             let age =
                 p
                 |> PatientRead.getAgeInYears
@@ -162,7 +162,7 @@ module Trail =
 
 
         /// The patient by age and weight, or no patient.
-        let patientOption (p: Patient option) = p |> Option.map patient |> Option.defaultValue "no patient"
+        let patientOption (p: PatientData option) = p |> Option.map patient |> Option.defaultValue "no patient"
 
 
         /// The dose type with its name.
@@ -328,7 +328,7 @@ module Trail =
         /// A plan command by what it does, with a context as describeContext tells it; never the plan.
         let planCommand (describeContext: OrderContext -> string) (cmd: OrderPlanCommand) =
             match cmd with
-            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.UpdatePatientData _ -> "UpdatePatientData"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, ctx) ->
                 // an effect describes the context by its id, which the line already shows
@@ -457,7 +457,7 @@ module Trail =
         let response (r: SigningResponse) =
             match r with
             | SigningResponse.ChallengeIssued _ -> "ChallengeIssued"
-            | SigningResponse.DataNotice n -> $"DataNotice %s{Part.patientOption n.Data}"
+            | SigningResponse.DataNotice n -> $"DataNotice %s{Part.patientOption n.PatientData}"
             | SigningResponse.Submitted(s, _, _) -> $"Submitted %s{Part.signed s}"
             | SigningResponse.Refused r -> $"Refused %s{Part.signingRefusal r}"
 
@@ -497,7 +497,7 @@ module Trail =
             match view with
             | SigningView.Idle -> "Idle"
             | SigningView.RequestingChallenge -> "RequestingChallenge"
-            | SigningView.DataChanged(p, n) -> $"DataChanged %s{Part.plan p} %s{Part.patientOption n.Data}"
+            | SigningView.DataChanged(p, n) -> $"DataChanged %s{Part.plan p} %s{Part.patientOption n.PatientData}"
             | SigningView.AskingPin(p, r) ->
                 $"AskingPin %s{Part.plan p} refusal %s{r |> Part.orNone Part.signingRefusal}"
             | SigningView.Submitting p -> $"Submitting %s{Part.plan p}"
@@ -783,7 +783,7 @@ module Trail =
         let formulary (f: Formulary) =
             let n = choices [ f.Indication; f.Generic; f.Route; f.Form ]
             let n = if f.DoseType.IsSome then n + 1 else n
-            $"%i{n} choices %s{Part.patientOption f.Patient}"
+            $"%i{n} choices %s{Part.patientOption f.PatientData}"
 
 
         /// The parenteralia page by how many choices it holds.

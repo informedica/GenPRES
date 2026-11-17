@@ -43,8 +43,13 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (ParenteraliaCommand.processCmd env)
 
-            processPatient =
-                Compute.bound env cookie PatientCommand.toString PatientCommand.gate (PatientCommand.processCmd env)
+            processPatientData =
+                Compute.bound
+                    env
+                    cookie
+                    PatientDataCommand.toString
+                    PatientDataCommand.gate
+                    (PatientDataCommand.processCmd env)
 
             // the one plan, nutrition included
             processOrderPlan =

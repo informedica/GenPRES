@@ -24,7 +24,7 @@ let planOf scenarios =
     |> plan
 
 
-let update tp = OrderPlanCommand.UpdatePatient(other, tp)
+let update tp = OrderPlanCommand.UpdatePatientData(other, tp)
 
 
 [<Tests>]

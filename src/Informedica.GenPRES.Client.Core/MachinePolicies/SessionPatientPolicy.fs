@@ -17,7 +17,7 @@ module SessionPatientPolicy =
 
 
     /// Who the EHR says the patient is; none for a patient it did not identify.
-    let identity session = patientContext session |> Option.bind _.Identity
+    let identity session = patientContext session |> Option.bind _.PatientIdentity
 
 
     /// Whether the EHR identified the patient.

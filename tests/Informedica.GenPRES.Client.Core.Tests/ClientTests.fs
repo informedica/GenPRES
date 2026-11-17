@@ -109,7 +109,7 @@ let tests =
         [
             test "a draft with only a weight is the current patient, so the summary shows it" {
                 let weightOnly =
-                    { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 12000<gram> } }
+                    { PatientData.empty with Weight = { PatientData.empty.Weight with Measured = Some 12000<gram> } }
 
                 let state, _, _ = loaded { Url.none with Patient = Some weightOnly }
 
@@ -715,7 +715,7 @@ let tests =
                     test "taking the EHR's data with an unsigned order reads the EHR again and removes nothing" {
                         let notice =
                             {
-                                Data = Some patient
+                                PatientData = Some patient
                                 Token = "d-1"
                             }
 

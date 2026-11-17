@@ -16,9 +16,9 @@ let named (term: Terms) = $"<{term}>"
 
 /// A patient the rules can match: a weight and a height.
 let measured =
-    { Models.Patient.empty with
-        Weight = { Models.Patient.empty.Weight with Measured = Some 12000<gram> }
-        Height = { Models.Patient.empty.Height with Measured = Some 90<cm> }
+    { Models.PatientData.empty with
+        Weight = { Models.PatientData.empty.Weight with Measured = Some 12000<gram> }
+        Height = { Models.PatientData.empty.Height with Measured = Some 90<cm> }
     }
 
 
@@ -55,7 +55,7 @@ let salbutamol =
                 Generic = Some "salbutamol"
                 Route = Some "intraveneus"
             }
-        Patient = measured
+        PatientData = measured
     }
 
 
@@ -188,7 +188,7 @@ let tests =
 
             test "a patient the rules are not looked up for gets no notice for the patient case" {
                 // the page's own notice above the picks already says what to enter
-                let incomplete = { salbutamol with Patient = Models.Patient.empty }
+                let incomplete = { salbutamol with PatientData = Models.PatientData.empty }
 
                 notice english incomplete OrderContextRefusal.NoDoseRulesForPatient
                 |> Expect.isNone "nothing to add to the missing weight"
@@ -199,9 +199,9 @@ let tests =
                 notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
                 |> Expect.isSome "with a weight and a height the patient case is said"
 
-                let noHeight = { measured with Height = Models.Patient.empty.Height }
+                let noHeight = { measured with Height = Models.PatientData.empty.Height }
 
-                notice english { salbutamol with Patient = noHeight } OrderContextRefusal.NoDoseRulesForPatient
+                notice english { salbutamol with PatientData = noHeight } OrderContextRefusal.NoDoseRulesForPatient
                 |> Expect.isSome "a height alone missing: the rules are looked up, so the patient case is said"
             }
 

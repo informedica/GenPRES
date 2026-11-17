@@ -70,8 +70,8 @@ module OrderPlanCommand =
 
         match cmd with
         // the server writes the patient and the rows; the client sends the plan as answered
-        | OrderPlanCommand.UpdatePatient(pat, plan) ->
-            { plan with Patient = pat } |> overPlan env env.orderPlan.followPatientData
+        | OrderPlanCommand.UpdatePatientData(pat, plan) ->
+            { plan with PatientData = pat } |> overPlan env env.orderPlan.followPatientData
         | OrderPlanCommand.FilterRows(ids, plan) -> recalculate env { plan with Filtered = ids }
         | OrderPlanCommand.EvaluateContext(plan, contextId, ctxCmd, ctx) ->
             match ctxCmd with
@@ -106,7 +106,7 @@ module OrderPlanCommand =
                     | _ -> plan, ctx
 
                 Patient.overAll
-                    (Patient.ofPlan plan @ [ ctx.Patient ])
+                    (Patient.ofPlan plan @ [ ctx.PatientData ])
                     (fun () ->
                         answer
                             env
@@ -121,7 +121,7 @@ module OrderPlanCommand =
                     )
         | OrderPlanCommand.AddOrderContext(plan, ctx, linked) ->
             Patient.overAll
-                (Patient.ofPlan plan @ ((ctx :: Array.toList linked) |> List.map _.Patient))
+                (Patient.ofPlan plan @ ((ctx :: Array.toList linked) |> List.map _.PatientData))
                 (fun () ->
                     answer
                         env
@@ -136,7 +136,7 @@ module OrderPlanCommand =
                 (fun () -> answer env (parsePlan today plan) (fun p -> env.orderPlan.removeOrderContexts p ids))
         | OrderPlanCommand.Open(pat, contexts) ->
             Patient.overAll
-                (pat :: (contexts |> Array.map _.Patient |> Array.toList))
+                (pat :: (contexts |> Array.map _.PatientData |> Array.toList))
                 (fun () ->
                     answer
                         env
@@ -151,10 +151,11 @@ module OrderPlanCommand =
         let today = env.today ()
 
         Patient.overAll
-            (query.Patient :: (query.OrderContexts |> Array.map _.Patient |> Array.toList))
+            (query.PatientData
+             :: (query.OrderContexts |> Array.map _.PatientData |> Array.toList))
             (fun () ->
                 answerWith
                     (Totals.Dto.toDto >> OrderContextMapper.totalsBack)
-                    (both (Patient.parse today query.Patient) (parseContexts today query.OrderContexts))
+                    (both (Patient.parse today query.PatientData) (parseContexts today query.OrderContexts))
                     (fun (pat, pcs) -> env.orderPlan.totals pat pcs)
             )

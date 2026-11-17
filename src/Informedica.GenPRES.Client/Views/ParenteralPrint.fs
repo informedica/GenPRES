@@ -41,7 +41,7 @@ module ParenteralPrint =
             |})
         =
         let printLabels = Global.printLabels ()
-        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown (props.plan.Patient |> Some)
+        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown (props.plan.PatientData |> Some)
 
         let parenteralContexts = props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 

@@ -24,7 +24,7 @@ module Age =
 
 
     /// Maps the age of the contract to a GenCORE age value.
-    let ageValue (age: Informedica.GenPRES.Shared.Types.Patient.Age) =
+    let ageValue (age: Informedica.GenPRES.Shared.Types.PatientData.Age) =
         CoreAgeValue.zero
         |> CoreAgeValue.SetGet.setIntYears (int age.Years)
         |> CoreAgeValue.SetGet.setIntMonths (int age.Months)
@@ -47,7 +47,7 @@ module Age =
 
         let nonZero n = if n > 0 then Some n else None
 
-        Patient.Age.create
+        PatientData.Age.create
             (ys |> Measures.toYear)
             (ms |> nonZero |> Option.map Measures.toMonth)
             (ws |> nonZero |> Option.map Measures.toWeek)
@@ -66,7 +66,7 @@ module Age =
 
 
     /// The gestational age of the contract patient in days.
-    let gestAgeInDays (model: Patient) =
+    let gestAgeInDays (model: PatientData) =
         model.GestationalAge |> GestationalAge.value |> Option.map weeksDaysInDays
 
 
@@ -126,7 +126,7 @@ module Age =
 
 
     /// The weight and height estimates of GenCORE for the contract patient.
-    let estimates tables (model: Patient) =
+    let estimates tables (model: PatientData) =
         CoreEstimates.ofAge
             tables
             (model.Gender |> coreGender)
@@ -178,18 +178,18 @@ module Patient =
 
     /// Checks the contract patient: an adult, or a child with a weight. Returns the message when
     /// the check fails.
-    let patient (dto: Patient) : Result<Patient, string[]> =
-        match dto |> Patient.validate with
+    let patient (dto: PatientData) : Result<PatientData, string[]> =
+        match dto |> PatientData.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
         | Ok pat ->
-            if pat |> Patient.selectsRules then
+            if pat |> PatientData.selectsRules then
                 Ok pat
             else
                 Error [| noWeight |]
 
 
     /// Checks a contract patient that may be absent. None passes.
-    let patientOption (dto: Patient option) : Result<Patient option, string[]> =
+    let patientOption (dto: PatientData option) : Result<PatientData option, string[]> =
         match dto with
         | None -> Ok None
         | Some dto -> dto |> patient |> Result.map Some
@@ -242,7 +242,7 @@ module Patient =
 
     /// Maps the contract patient to the GenCORE Dto of patient data. Nothing is checked. A measured
     /// weight or height is used when there is one, otherwise the estimate. Both get the date today.
-    let ofModel today (model: Patient) =
+    let ofModel today (model: PatientData) =
         let dto = CorePatientData.Dto.dto ()
 
         let weeksDays = Age.weeksDays >> CoreAgeWeeksDays.Dto.toDto
@@ -265,7 +265,7 @@ module Patient =
 
         dto.Weight <-
             model
-            |> Patient.getWeight
+            |> PatientData.getWeight
             |> Option.map (
                 int
                 >> decimal
@@ -278,7 +278,7 @@ module Patient =
 
         dto.Height <-
             model
-            |> Patient.getHeight
+            |> PatientData.getHeight
             |> Option.map (
                 int
                 >> decimal
@@ -313,7 +313,7 @@ module Patient =
     /// Maps the GenCORE Dto of patient data to the patient of the contract. A string that GenCORE
     /// cannot read is left out. The Dto has no 3rd and 97th percentile estimates, so those are
     /// empty in the result.
-    let toModel (dto: CorePatientData.Dto.Dto) : Patient =
+    let toModel (dto: CorePatientData.Dto.Dto) : PatientData =
         let weeksDays (awd: CoreAgeWeeksDays.Dto.Dto) : AgeWeeksDays =
             {
                 Weeks = awd.Weeks |> Measures.toWeek
@@ -438,7 +438,7 @@ module Patient =
 
     /// Adds the weight and height estimates of GenCORE to the contract patient. An estimate is
     /// replaced when GenCORE gives one. A measured value is kept.
-    let withEstimates tables (model: Patient) : Patient =
+    let withEstimates tables (model: PatientData) : PatientData =
         let est = model |> Age.estimates tables
 
         let toGram (g: int<Informedica.GenCore.Lib.Measures.gram>) = int g |> Measures.toGram
@@ -510,7 +510,7 @@ module Patient =
 
     /// Runs the request when every contract patient passes the check. Otherwise returns the first
     /// message.
-    let overAll (dtos: Patient list) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
+    let overAll (dtos: PatientData list) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
         let refused =
             dtos
             |> List.tryPick (fun dto ->
@@ -525,21 +525,22 @@ module Patient =
 
 
     /// Runs the request when the contract patient passes the check. Otherwise returns the message.
-    let over (dto: Patient) run = overAll [ dto ] run
+    let over (dto: PatientData) run = overAll [ dto ] run
 
 
     /// The contract patients of an order plan: the patient of the plan and of every order context.
     let ofPlan (plan: OrderPlan) =
-        plan.Patient :: (plan.OrderContexts |> Array.map _.Patient |> Array.toList)
+        plan.PatientData
+        :: (plan.OrderContexts |> Array.map _.PatientData |> Array.toList)
 
 
     /// Keeps a contract patient read from the platform only when it passes the check.
-    let reading (dto: Patient option) = dto |> Option.filter (Patient.validate >> Result.isOk)
+    let reading (dto: PatientData option) = dto |> Option.filter (PatientData.validate >> Result.isOk)
 
 
     /// Adds the weight and height estimates to the contract patient when the normal-value tables
     /// are loaded.
-    let estimate normalValues (draft: Patient) : Patient =
+    let estimate normalValues (draft: PatientData) : PatientData =
         match normalValues () with
         | Some tables -> draft |> withEstimates tables
         | None -> draft

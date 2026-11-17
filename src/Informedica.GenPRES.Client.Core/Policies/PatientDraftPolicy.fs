@@ -60,15 +60,15 @@ module PatientDraftPolicy =
 
     /// The department chosen for the draft, or none, which leaves the server's default in force.
     /// Clearing what was never a draft stays no draft.
-    let setDepartment (s: string option) (p: Patient option) : Patient option =
+    let setDepartment (s: string option) (p: PatientData option) : PatientData option =
         match p, s with
         | None, None -> None
-        | _ -> { (p |> Option.defaultValue Patient.empty) with Department = s } |> Some
+        | _ -> { (p |> Option.defaultValue PatientData.empty) with Department = s } |> Some
 
 
     /// The draft after one edit. The setters blank both estimates, so the result is what the App
     /// receives, not what it shows: keepEstimates or the App's estimate completes it.
-    let update (msg: Msg) (draft: Patient option) : Patient option =
+    let update (msg: Msg) (draft: PatientData option) : PatientData option =
         match msg with
         | Msg.Clear -> None
         | Msg.UpdateYear s -> draft |> PatientEdit.setYear s
@@ -113,7 +113,7 @@ module PatientDraftPolicy =
     /// The edited draft with the weight and the height the edit does not set as they were in the
     /// draft, estimates included. The setters blank both estimates; the measure an edit sets or
     /// clears keeps none, so a cleared weight or height shows nothing.
-    let keepEstimates (msg: Msg) (draft: Patient option) (edited: Patient option) : Patient option =
+    let keepEstimates (msg: Msg) (draft: PatientData option) (edited: PatientData option) : PatientData option =
         match draft, edited with
         | Some d, Some e ->
             match msg with
@@ -130,5 +130,5 @@ module PatientDraftPolicy =
 
     /// Whether the draft is a patient: an age, or a measured weight and height; an estimate does
     /// not stand in for a measurement, so the minimum decides.
-    let canCalculate (draft: Patient option) : bool =
-        draft |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
+    let canCalculate (draft: PatientData option) : bool =
+        draft |> Option.bind (PatientData.validate >> Result.toOption) |> Option.isSome

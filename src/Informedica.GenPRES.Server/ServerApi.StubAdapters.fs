@@ -157,8 +157,8 @@ module StubEhrPatient =
 
     /// The stub patient as a contract patient on the day the patient is 3650 days old: ten years,
     /// 32 kg and 140 cm measured, nothing else known.
-    let contractPatient: Patient =
-        Informedica.GenPRES.Shared.Models.Patient.create
+    let contractPatient: PatientData =
+        Informedica.GenPRES.Shared.Models.PatientData.create
             (Some(Informedica.GenPRES.Shared.Measures.toYear 10))
             None
             None
@@ -171,7 +171,7 @@ module StubEhrPatient =
             []
             None
             None
-        |> Option.defaultValue Informedica.GenPRES.Shared.Models.Patient.empty
+        |> Option.defaultValue Informedica.GenPRES.Shared.Models.PatientData.empty
         // the mark as an adult as the server sets it for the age
         |> fun pat -> { pat with AdultMark = pat.AdultMark |> Age.adultMark pat.Age }
 

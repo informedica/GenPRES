@@ -22,14 +22,14 @@ module PatientMachine =
     type PatientMsg =
         /// The patient data from the panel, the url or the Session, with what becomes of the
         /// estimates once the change is answered.
-        | Changed of Patient option * PatientDraftPolicy.Estimates * request: string
+        | Changed of PatientData option * PatientDraftPolicy.Estimates * request: string
         /// The patient data read from the EHR by a refresh. The EHR does not hold the mark as an adult,
         /// so the mark of the draft stays, unless the age read is below the age a mark is allowed at.
-        | Refreshed of Patient option * request: string
+        | Refreshed of PatientData option * request: string
         /// The age the Session took at a version opened: the panel keeps its data and takes the age.
-        | AgeTaken of Patient option * request: string
+        | AgeTaken of PatientData option * request: string
         /// The server's answer, or the failure, for a request.
-        | Answered of request: string * Result<Patient, string[]>
+        | Answered of request: string * Result<PatientData, string[]>
         /// The plan could not follow the patient answered, so the same data can be given again.
         | PlanNotFollowed
         /// The data of the draft asked again, for a plan that did not follow them.
@@ -40,14 +40,14 @@ module PatientMachine =
     [<RequireQualifiedAccess>]
     type PatientEffect =
         /// Send the patient change under this request id.
-        | CallPatient of Patient * request: string
+        | CallPatient of PatientData * request: string
         /// Put the patient data on the workbench, the plan and the formulary and parenteralia pages;
         /// none clears them.
-        | SetPatientData of Patient option
+        | SetPatientData of PatientData option
         /// Tell the user what went wrong.
         | TellError of string[]
         /// Give the plan the patient it can open a waiting version for, without any change of data.
-        | GivePlan of Patient
+        | GivePlan of PatientData
 
 
     /// Everything the patient machine holds.
@@ -55,21 +55,21 @@ module PatientMachine =
         private
             {
                 /// The patient data as the panel edits it and the lists read it.
-                Draft: Patient option
+                Draft: PatientData option
                 /// The patient as the server last answered it, the one the workbench, the plan and the
                 /// pages have; None once the plan could not follow it, so the same data given again goes
                 /// out.
-                Answered: Patient option
+                Answered: PatientData option
                 /// What becomes of the estimates when the change under way is answered, the draft it
                 /// started from, which a failure puts back, and the request id its answer must name.
-                InFlight: (PatientDraftPolicy.Estimates * Patient option * string) option
+                InFlight: (PatientDraftPolicy.Estimates * PatientData option * string) option
             }
 
 
     module PatientState =
 
         /// The draft as the App starts with it, from the url or none.
-        let init (draft: Patient option) =
+        let init (draft: PatientData option) =
             {
                 Draft = draft
                 Answered = None
@@ -95,7 +95,8 @@ module PatientMachine =
 
 
         /// The patient the draft is: one with an age, or a measured weight and height.
-        let patient (state: PatientState) = state.Draft |> Option.bind (Patient.validate >> Result.toOption)
+        let patient (state: PatientState) =
+            state.Draft |> Option.bind (PatientData.validate >> Result.toOption)
 
 
         /// The patient the plan can go on with: the one last answered, else the one the draft is.
@@ -175,7 +176,7 @@ module PatientMachine =
                         | PatientDraftPolicy.Estimates.Renewed -> Some pat
                         | PatientDraftPolicy.Estimates.Kept -> state.Draft
 
-                    if pat |> Patient.selectsRules then
+                    if pat |> PatientData.selectsRules then
                         {
                             Draft = draft
                             Answered = Some pat

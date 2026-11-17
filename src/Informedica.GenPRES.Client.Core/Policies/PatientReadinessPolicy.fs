@@ -56,21 +56,21 @@ module PatientReadinessPolicy =
     /// field leaves a draft; this reads it as nothing entered. A draft with any of the other data
     /// is not blank, so the notice then says what makes it a patient: an age, or a weight and a
     /// height.
-    let isBlank (p: Patient) = p = Patient.empty
+    let isBlank (p: PatientData) = p = PatientData.empty
 
 
     /// What the calculations of a patient still miss, in the order the notice says it. A weight or
     /// a height counts measured or estimated, as the rules read it. An adult misses no age, since
     /// the rules match an adult without one.
-    let missingOf (p: Patient) : Missing list =
-        let adult = p |> Patient.isAdult
+    let missingOf (p: PatientData) : Missing list =
+        let adult = p |> PatientData.isAdult
 
         [
             if not adult && p.Age.IsNone then
                 Missing.Age
-            if (p |> Patient.getWeight).IsNone then
+            if (p |> PatientData.getWeight).IsNone then
                 Missing.Weight
-            if (p |> Patient.getHeight).IsNone then
+            if (p |> PatientData.getHeight).IsNone then
                 Missing.Height
             if p.GestationalAge |> GestationalAge.isMissing then
                 Missing.GestationalAge
@@ -79,12 +79,12 @@ module PatientReadinessPolicy =
 
     /// What the draft is ready for. The age or a measured weight and height decide between a
     /// patient and a draft, as Patient.validate does; a patient carries what it still misses.
-    let readiness (draft: Patient option) : Readiness =
+    let readiness (draft: PatientData option) : Readiness =
         match draft with
         | None -> Readiness.NoData
         | Some p when p |> isBlank -> Readiness.NoData
         | Some p ->
-            match p |> Patient.validate with
+            match p |> PatientData.validate with
             | Error _ -> Readiness.NoPatient
             | Ok p -> Readiness.Patient(missingOf p)
 

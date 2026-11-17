@@ -111,7 +111,7 @@ module SigningMachine =
         /// Renew the session after the signature: the new token, the patient as signed, and the
         /// version signed, with the identity it names, which the EHR may have changed in the data the
         /// user accepted.
-        | RenewSessionToken of OpenedToken * Patient * SignedOrderPlan
+        | RenewSessionToken of OpenedToken * PatientData * SignedOrderPlan
         /// End the session: the server ended it at the wrong-PIN limit.
         | EndSession of SessionEnding
         /// Tell the user the plan is signed; the plan took no change while the signature was under
@@ -271,7 +271,7 @@ module SigningMachine =
                 idle, [ SigningEffect.TellError reason ]
             | SigningMsg.ChallengeAnswered _, _, _ -> state, []
 
-            | SigningMsg.TakeEhrData, SigningPhase.DataChanged(_, { Data = Some _ }), None ->
+            | SigningMsg.TakeEhrData, SigningPhase.DataChanged(_, { PatientData = Some _ }), None ->
                 idle, [ SigningEffect.ReadEhrAgain ]
             | SigningMsg.TakeEhrData, _, _ -> state, []
 

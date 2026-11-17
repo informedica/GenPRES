@@ -7,10 +7,10 @@ module PatientEdit =
     open Informedica.GenPRES.Shared
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
-    open Informedica.GenPRES.Shared.Models.Patient
+    open Informedica.GenPRES.Shared.Models.PatientData
 
 
-    let toggle item (p: Patient option) : Patient option =
+    let toggle item (p: PatientData option) : PatientData option =
         p
         |> Option.map (fun p ->
             { p with
@@ -32,8 +32,8 @@ module PatientEdit =
     let toggleET = toggle EnteralTube
 
 
-    let setRenal (s: string option) (p: Patient option) : Patient option =
-        let set rf (p: Patient option) =
+    let setRenal (s: string option) (p: PatientData option) : PatientData option =
+        let set rf (p: PatientData option) =
             match p with
             | None -> p
             | Some p -> { p with RenalFunction = rf } |> Some
@@ -47,7 +47,7 @@ module PatientEdit =
 
     /// The gender chosen: the estimates go, since they follow the gender; the measured values
     /// stay, since they do not.
-    let setGender (s: string) (p: Patient option) : Patient option =
+    let setGender (s: string) (p: PatientData option) : PatientData option =
         let gender =
             match s with
             | "male" -> Male
@@ -63,7 +63,7 @@ module PatientEdit =
 
     /// The patient with its estimates cleared when its age is not the one before, since an estimate
     /// belongs to its age and the server estimates again; a measured value stays.
-    let renewEstimates (before: Patient) (p: Patient) =
+    let renewEstimates (before: PatientData) (p: PatientData) =
         if p.Age = before.Age then
             p
         else
@@ -75,7 +75,7 @@ module PatientEdit =
     /// that was measured is never lost to an edit of another field, and an estimate is never
     /// written back as a measured value; the estimates follow the age and the gender, and the
     /// server fills them again in its answer.
-    let edit (change: Patient -> Patient) (p: Patient option) : Patient option =
+    let edit (change: PatientData -> PatientData) (p: PatientData option) : PatientData option =
         p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
 
 
@@ -83,7 +83,7 @@ module PatientEdit =
     /// part is given and stays without one when it is not; a part cleared while the age
     /// exists reads as zero, so the age is never lost by emptying one field of it. The server
     /// sets the mark as an adult for the new age.
-    let editAgePart (write: int -> Age -> Age) (s: string option) (p: Patient) =
+    let editAgePart (write: int -> Age -> Age) (s: string option) (p: PatientData) =
         match p.Age, s |> Option.bind tryParse with
         | None, None -> p
         | age, v ->
@@ -92,25 +92,25 @@ module PatientEdit =
             { p with Age = Some age }
 
 
-    let setYear s (p: Patient option) =
+    let setYear s (p: PatientData option) =
         p |> edit (editAgePart (fun v a -> { a with Years = v |> Measures.toYear }) s)
 
 
-    let setMonth s (p: Patient option) =
+    let setMonth s (p: PatientData option) =
         p |> edit (editAgePart (fun v a -> { a with Months = v |> Measures.toMonth }) s)
 
 
-    let setWeek s (p: Patient option) =
+    let setWeek s (p: PatientData option) =
         p |> edit (editAgePart (fun v a -> { a with Weeks = v |> Measures.toWeek }) s)
 
 
-    let setDay s (p: Patient option) =
+    let setDay s (p: PatientData option) =
         p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
 
 
     /// The mark as an adult set or cleared on a patient the user may mark; any other mark stays as
     /// the server set it.
-    let setMarkedAdult marked (p: Patient option) =
+    let setMarkedAdult marked (p: PatientData option) =
         p
         |> edit (fun p ->
             match p.AdultMark with
@@ -122,7 +122,7 @@ module PatientEdit =
     /// One part of the gestational age written from the field, as the age parts are, with
     /// the term values, 37 weeks and 0 days, for a part that was never given. Only a gestational
     /// age the server asks for is written.
-    let editGestAgePart (write: int option -> AgeWeeksDays -> AgeWeeksDays) (s: string option) (p: Patient) =
+    let editGestAgePart (write: int option -> AgeWeeksDays -> AgeWeeksDays) (s: string option) (p: PatientData) =
         let v = s |> Option.bind tryParse
 
         let editValue ga =
@@ -140,7 +140,7 @@ module PatientEdit =
         { p with GestationalAge = p.GestationalAge |> GestationalAge.map editValue }
 
 
-    let setGAWeek s (p: Patient option) =
+    let setGAWeek s (p: PatientData option) =
         p
         |> edit (
             editGestAgePart
@@ -149,7 +149,7 @@ module PatientEdit =
         )
 
 
-    let setGADay s (p: Patient option) =
+    let setGADay s (p: PatientData option) =
         p
         |> edit (
             editGestAgePart
@@ -159,7 +159,7 @@ module PatientEdit =
 
 
     /// The measured weight in grams from the field; the height, measured or not, untouched.
-    let setWeight s (p: Patient option) =
+    let setWeight s (p: PatientData option) =
         p
         |> edit (fun p ->
             { p with Weight = { p.Weight with Measured = s |> Option.bind tryParse |> Option.map Measures.toGram } }
@@ -167,7 +167,7 @@ module PatientEdit =
 
 
     /// The measured height in centimetres from the field; the weight, measured or not, untouched.
-    let setHeight s (p: Patient option) =
+    let setHeight s (p: PatientData option) =
         p
         |> edit (fun p ->
             { p with Height = { p.Height with Measured = s |> Option.bind tryParse |> Option.map Measures.toCm } }

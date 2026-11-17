@@ -246,20 +246,20 @@ module Api =
         let toString (OrderContextCommand.Command(cmd, ctx)) = OrderViewCommand.toString (cmd, ctx)
 
 
-    /// The patient command family: a patient change on the panel, answered with the patient made
-    /// complete.
+    /// Sends the patient data edited on the panel. The server answers with the patient data
+    /// completed with the estimates.
     [<RequireQualifiedAccess>]
-    type PatientCommand =
-        /// The patient as the panel changed it.
-        | ChangePatient of patient: Patient
+    type PatientDataCommand =
+        /// The patient data as edited on the panel.
+        | ChangePatientData of patientData: PatientData
 
 
-    module PatientCommand =
+    module PatientDataCommand =
 
         /// For the log: the command alone, never the patient.
-        let toString (cmd: PatientCommand) =
+        let toString (cmd: PatientDataCommand) =
             match cmd with
-            | PatientCommand.ChangePatient _ -> "ChangePatient"
+            | PatientDataCommand.ChangePatientData _ -> "ChangePatientData"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
@@ -388,7 +388,7 @@ module Api =
     /// The patient and the order contexts whose orders are counted in the totals; the plan is not changed.
     type TotalsQuery =
         {
-            Patient: Patient
+            PatientData: PatientData
             OrderContexts: OrderContext[]
         }
 
@@ -417,9 +417,9 @@ module Api =
     /// The plan command family: the order plan, nutrition included.
     [<RequireQualifiedAccess>]
     type OrderPlanCommand =
-        // the patient updated: the plan recalculated for the patient the patient command answered;
-        // the patient of each context in it stays the one it was evaluated for
-        | UpdatePatient of Patient * OrderPlan
+        // the patient data changed: the plan is recalculated for the patient data the patient data
+        // command returned. Each order context keeps the patient data it was evaluated for.
+        | UpdatePatientData of PatientData * OrderPlan
         // the contexts the rows keep, by id: the totals recalculated over them
         | FilterRows of ids: string[] * OrderPlan
         // an order-context command evaluated over the context named, in that context's own
@@ -433,7 +433,7 @@ module Api =
         | RemoveOrderContexts of OrderPlan * ids: string[]
         // the signed version as it was, nothing evaluated: the contexts as given, their orders
         // derived; the patient with no contexts is the empty plan
-        | Open of Patient * OrderContext[]
+        | Open of PatientData * OrderContext[]
 
 
     module OrderPlanCommand =
@@ -441,7 +441,7 @@ module Api =
         /// For the log: never the plan.
         let toString cmd =
             match cmd with
-            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.UpdatePatientData _ -> "UpdatePatientData"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.EvaluateContext(_, _, ctxCmd, _) -> $"EvaluateContext {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
@@ -476,8 +476,8 @@ module Api =
             processOrderContext: Request<OrderContextCommand> -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
-            // a patient change, answered with the patient made complete
-            processPatient: Request<PatientCommand> -> Async<Result<Reply<Patient>, string[]>>
+            // patient data edited on the panel, answered with the completed patient data
+            processPatientData: Request<PatientDataCommand> -> Async<Result<Reply<PatientData>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
             // the one plan, nutrition included
             processOrderPlan: Request<OrderPlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>

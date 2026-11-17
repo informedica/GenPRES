@@ -174,7 +174,7 @@ module SessionMachine =
         /// A signature renewed the token. The patient after the signature comes with it, and the
         /// version signed, the last signed order plan from now on, with the identity it names,
         /// which the session is for from now on.
-        | SignatureRenewedToken of OpenedToken * Patient * SignedOrderPlan
+        | SignatureRenewedToken of OpenedToken * PatientData * SignedOrderPlan
         /// Open the version a notice named; it becomes the version the session opened with.
         | OpenSignedPlan of id: string
         /// The answer to OpenSignedPlan: the session as it now is, None when there was nothing to open,
@@ -210,11 +210,11 @@ module SessionMachine =
         /// Go to the url the server redirected to.
         | GoToIdentityProvider of url: string
         /// Set the patient data, so everything derived from it reloads.
-        | SetPatientData of Patient option
+        | SetPatientData of PatientData option
         /// Give the patient data read from the EHR by a refresh to the patient machine.
-        | SetPatientDataRead of Patient option
+        | SetPatientDataRead of PatientData option
         /// Give the patient of a version opened to the patient machine, for its age alone.
-        | TakeAge of Patient option
+        | TakeAge of PatientData option
         /// Keep this private key and remove the others.
         | KeepBrowserKey of thumbprint: string
         /// The orders of the version the session opened with go into the cart; the patient reaches the
@@ -478,7 +478,7 @@ module SessionMachine =
         let onOpened (session: SessionOpened) =
             opened session None,
             [
-                SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.Patient)
+                SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.PatientData)
                 match session.KeyThumbprint with
                 | Some thumbprint -> SessionEffect.KeepBrowserKey thumbprint
                 | None -> ()
@@ -668,8 +668,8 @@ module SessionMachine =
                             session.PatientContext
                             |> Option.map (fun c ->
                                 { c with
-                                    Patient = Some patient
-                                    Identity = signed.Identity
+                                    PatientData = Some patient
+                                    PatientIdentity = signed.PatientIdentity
                                 }
                             )
                     }
@@ -697,7 +697,7 @@ module SessionMachine =
                     [
                         // the version first: it waits for the patient the age gives
                         SessionEffect.LoadSignedPlan head
-                        SessionEffect.TakeAge(session.PatientContext |> Option.bind _.Patient)
+                        SessionEffect.TakeAge(session.PatientContext |> Option.bind _.PatientData)
                         SessionEffect.TellSignedPlanOpened head.Head
                     ]
                 | _ -> opened session state.NewerPlan, []
@@ -720,7 +720,7 @@ module SessionMachine =
                 ->
                 opened session state.NewerPlan,
                 [
-                    SessionEffect.SetPatientDataRead(session.PatientContext |> Option.bind _.Patient)
+                    SessionEffect.SetPatientDataRead(session.PatientContext |> Option.bind _.PatientData)
                 ]
             // the user asked for the refresh, so a refresh that did not happen is told
             | SessionMsg.PatientRefreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when

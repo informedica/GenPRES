@@ -10,15 +10,15 @@ open Informedica.GenPRES.Client.Core.Models
 
 
 /// A ten-year-old's age, as in the Shared patient tests.
-let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+let ten = { PatientData.Age.ageZero with Age.Years = 10<year> }
 
 
 /// The estimates of a ten-year-old boy, as the server answers them.
 module EstimateFixtures =
 
-    let estimated (dto: Patient) =
+    let estimated (dto: PatientData) =
         dto
-        |> Patient.withEstimates (Some(25000<gram>, 32000<gram>, 40000<gram>)) (Some(130<cm>, 140<cm>, 150<cm>))
+        |> PatientData.withEstimates (Some(25000<gram>, 32000<gram>, 40000<gram>)) (Some(130<cm>, 140<cm>, 150<cm>))
 
 
 open EstimateFixtures
@@ -42,7 +42,7 @@ module NeonatalEstimateFixtures =
 
 /// A patient with everything set, measured and estimated, so that every field has something
 /// to lose.
-let fullPatient: Patient =
+let fullPatient: PatientData =
     {
         Age =
             Some
@@ -99,7 +99,7 @@ let ageSetters =
     ]
 
 
-let patient (p: Patient option) = p |> Option.defaultWith (fun () -> failtest "no patient")
+let patient (p: PatientData option) = p |> Option.defaultWith (fun () -> failtest "no patient")
 
 
 [<Tests>]
@@ -194,11 +194,13 @@ let ageSetterTests =
                         |> patient
                         |> Expect.equal
                             "five years, nothing else"
-                            { Patient.empty with Age = Some { Patient.Age.ageZero with Years = 5<year> } }
+                            { PatientData.empty with Age = Some { PatientData.Age.ageZero with Years = 5<year> } }
                     }
 
                     test "a blank draft with a year cleared is the blank draft, as it was" {
-                        None |> PatientEdit.setYear None |> Expect.equal "blank" (Some Patient.empty)
+                        None
+                        |> PatientEdit.setYear None
+                        |> Expect.equal "blank" (Some PatientData.empty)
                     }
 
                     test "a newborn on day zero is a patient with an age" {
@@ -206,7 +208,7 @@ let ageSetterTests =
                         |> PatientEdit.setDay (Some "0")
                         |> patient
                         |> _.Age
-                        |> Expect.equal "age zero" (Some Patient.Age.ageZero)
+                        |> Expect.equal "age zero" (Some PatientData.Age.ageZero)
                     }
 
                     test "clearing one age part keeps the age with that part zero" {
@@ -241,7 +243,7 @@ let measureSetters =
 
 /// The full patient with the measures estimated only: what the panel holds after an age and a
 /// gender were typed and the tables answered.
-let estimatedPatient: Patient =
+let estimatedPatient: PatientData =
     { fullPatient with
         Weight = { fullPatient.Weight with Measured = None }
         Height = { fullPatient.Height with Measured = None }
@@ -381,7 +383,7 @@ let measureSetterTests =
                 "a draft's gestational age and measures"
                 [
                     test "a gestational age started from its days alone is a term one" {
-                        Some { Patient.empty with GestationalAge = GestationalAge.RequiredGestationalAge None }
+                        Some { PatientData.empty with GestationalAge = GestationalAge.RequiredGestationalAge None }
                         |> PatientEdit.setGADay (Some "2")
                         |> patient
                         |> _.GestationalAge
@@ -399,7 +401,7 @@ let measureSetterTests =
                     test "a gestational age the server does not ask for is not written" {
                         None
                         |> PatientEdit.setGAWeek (Some "30")
-                        |> Expect.equal "the blank draft" (Some Patient.empty)
+                        |> Expect.equal "the blank draft" (Some PatientData.empty)
                     }
 
                     test "clearing the gestational weeks reads as term" {
@@ -419,7 +421,9 @@ let measureSetterTests =
                     }
 
                     test "a blank draft with the gestational days cleared is the blank draft" {
-                        None |> PatientEdit.setGADay None |> Expect.equal "blank" (Some Patient.empty)
+                        None
+                        |> PatientEdit.setGADay None
+                        |> Expect.equal "blank" (Some PatientData.empty)
                     }
 
                     test "a blank draft given a weight is a patient of that weight alone" {
@@ -428,7 +432,9 @@ let measureSetterTests =
                         |> patient
                         |> Expect.equal
                             "13000 grams, nothing else"
-                            { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 13000<gram> } }
+                            { PatientData.empty with
+                                Weight = { PatientData.empty.Weight with Measured = Some 13000<gram> }
+                            }
                     }
 
                     test "a measure cleared is a measure gone, the other kept" {
@@ -455,10 +461,10 @@ let estimateTests =
         [
             test "a gender chosen keeps the measured values and drops the estimates" {
                 let dto =
-                    { Patient.empty with
+                    { PatientData.empty with
                         Age = Some ten
                         Gender = Male
-                        Patient.Weight.Measured = Some 30000<gram>
+                        PatientData.Weight.Measured = Some 30000<gram>
                     }
                     |> estimated
 
@@ -471,13 +477,13 @@ let estimateTests =
             test "a gender chosen first is a draft with the gender and nothing else" {
                 None
                 |> PatientEdit.setGender "male"
-                |> Expect.equal "the gender alone" (Some { Patient.empty with Gender = Male })
+                |> Expect.equal "the gender alone" (Some { PatientData.empty with Gender = Male })
             }
 
             test "an age typed after the gestational age keeps it and drops the estimates for the server to give again" {
                 Some(
-                    { Patient.empty with
-                        Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                    { PatientData.empty with
+                        Age = Some { PatientData.Age.ageZero with Weeks = 1<week> }
                         GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature)
                         Gender = Male
                     }
@@ -514,7 +520,7 @@ let markTests =
             test "the mark is not changed when the server set the patient as not an adult or an adult" {
                 [ AdultMark.NotAdult; AdultMark.Adult ]
                 |> List.map (fun mark ->
-                    Some { Patient.empty with AdultMark = mark }
+                    Some { PatientData.empty with AdultMark = mark }
                     |> PatientEdit.setMarkedAdult true
                     |> Option.map _.AdultMark
                 )
@@ -522,7 +528,7 @@ let markTests =
             }
 
             test "an age edit leaves the mark to the server" {
-                Some { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
+                Some { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
                 |> PatientEdit.setYear (Some "15")
                 |> Option.map _.AdultMark
                 |> Expect.equal "unchanged" (Some(AdultMark.MarkableAdult true))

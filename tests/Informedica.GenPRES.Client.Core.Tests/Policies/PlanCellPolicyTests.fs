@@ -57,14 +57,14 @@ module PlanCellPolicyTests =
     let onceTimed = discontinuous |> scheduled (fun s -> { s with IsOnceTimed = true })
     let continuous = discontinuous |> scheduled (fun s -> { s with IsContinuous = true })
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
-    let patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
+    let patient = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
     /// A context in the plan contributing the order.
     let contextOf (ord: Order) =
         { Informedica.GenPRES.Shared.Models.OrderContext.empty with
             Id = "c-1"
-            Patient = patient
+            PatientData = patient
             Scenarios = [| { OrderFixtures.scenario "o-1" "test" with Order = ord } |]
         }
 
@@ -190,7 +190,7 @@ module PlanCellPolicyTests =
 
                         test "a context on other patient data than the plan steps as any other" {
                             let ctx =
-                                { contextOf discontinuous with Patient = { patient with Department = Some "ICK" } }
+                                { contextOf discontinuous with PatientData = { patient with Department = Some "ICK" } }
 
                             stepable (planOf ctx) ctx Column.Frequency
                             |> Expect.equal "steps as any other" steppingFrequency

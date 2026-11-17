@@ -14,7 +14,7 @@ open PatientReadinessPolicy
 let named (term: Terms) = $"<{term}>"
 
 
-let empty = Models.Patient.empty
+let empty = Models.PatientData.empty
 
 
 /// An age of five years, nothing else.
@@ -22,7 +22,7 @@ let aged = PatientEdit.setYear (Some "5") None
 
 
 /// The draft with the gestational age the server answers for its age.
-let answered ga (p: Patient option) = p |> Option.map (fun p -> { p with GestationalAge = ga })
+let answered ga (p: PatientData option) = p |> Option.map (fun p -> { p with GestationalAge = ga })
 
 
 /// An age of ten days, nothing else: younger than 28 days, so the server needs the gestational age.
@@ -31,18 +31,18 @@ let infant =
     |> answered (GestationalAge.RequiredGestationalAge None)
 
 
-let withWeight (p: Patient option) = p |> PatientEdit.setWeight (Some "18000")
+let withWeight (p: PatientData option) = p |> PatientEdit.setWeight (Some "18000")
 
 
-let withHeight (p: Patient option) = p |> PatientEdit.setHeight (Some "110")
+let withHeight (p: PatientData option) = p |> PatientEdit.setHeight (Some "110")
 
 
-let withGestationalAge (p: Patient option) = p |> PatientEdit.setGAWeek (Some "36")
+let withGestationalAge (p: PatientData option) = p |> PatientEdit.setGAWeek (Some "36")
 
 
 /// The weight and the height estimated, as the App fills them in from the age. Applied last,
 /// since a setter blanks the estimates as the panel's edit does.
-let estimated (p: Patient option) =
+let estimated (p: PatientData option) =
     p
     |> Option.map (fun p ->
         { p with

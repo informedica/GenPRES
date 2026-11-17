@@ -18,7 +18,7 @@ module SigningCommand =
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {
-                    Data = data |> Option.map ServerApi.Patient.ofPatientData
+                    PatientData = data |> Option.map ServerApi.Patient.ofPatientData
                     Token = token
                 }
         | SigningOutcome.Submitted(version, whom, token, patient) ->

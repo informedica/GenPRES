@@ -25,10 +25,10 @@ module OrderPlanMachine =
     type OrderPlanCart =
         /// No patient data. The session's version, the patient it was signed on and its contexts, is
         /// stored here and opened with the first patient data, since the version arrives first.
-        | NoPatientData of signedVersion: (Patient * OrderContext[]) option
+        | NoPatientData of signedVersion: (PatientData * OrderContext[]) option
         /// The plan of the last response, which a failed change goes back to. While an open is under way, this
         /// is the empty plan on the current patient, and the version travels in the request.
-        | Opened of Patient * OrderPlan
+        | Opened of PatientData * OrderPlan
 
 
     /// What a page wants of the plan, never the plan it was shown: the machine builds the wire
@@ -94,7 +94,7 @@ module OrderPlanMachine =
     [<RequireQualifiedAccess>]
     type OrderPlanMsg =
         /// The patient data set, changed or cleared; the plan follows.
-        | PatientDataChanged of Patient option * request: string
+        | PatientDataChanged of PatientData option * request: string
         /// The version the session opened with; it replaces the plan and any request.
         | OpenSignedPlan of SignedOrderPlan * request: string
         /// What a page wants of the plan, built over the plan in the cart.
@@ -227,7 +227,7 @@ module OrderPlanMachine =
         /// with the orders calculated on it, and a version the patient it was signed on.
         let landedOn sent pat =
             match sent with
-            | OrderPlanCommand.UpdatePatient(updated, _)
+            | OrderPlanCommand.UpdatePatientData(updated, _)
             | OrderPlanCommand.Open(updated, _) -> updated
             | _ -> pat
 
@@ -270,7 +270,7 @@ module OrderPlanMachine =
         /// the cart.
         let meanwhile tp sent =
             match sent with
-            | OrderPlanCommand.UpdatePatient(pat, sent) -> { sent with Patient = pat }
+            | OrderPlanCommand.UpdatePatientData(pat, sent) -> { sent with PatientData = pat }
             | OrderPlanCommand.FilterRows(ids, sent) -> { sent with Filtered = ids }
             | _ -> tp
 
@@ -399,7 +399,7 @@ module OrderPlanMachine =
 
                 let patientUpdate =
                     match sent with
-                    | OrderPlanCommand.UpdatePatient _ -> true
+                    | OrderPlanCommand.UpdatePatientData _ -> true
                     | _ -> false
 
                 match result with
@@ -451,7 +451,7 @@ module OrderPlanMachine =
                     match follow with
                     | Some current ->
                         // under the id of the open, whose response has landed: the state makes no ids
-                        let state, call = state |> send (OrderPlanCommand.UpdatePatient(current, tp)) request
+                        let state, call = state |> send (OrderPlanCommand.UpdatePatientData(current, tp)) request
                         { state with Following = true }, effects @ call
                     | None -> state, effects
                 | Error errs ->
@@ -495,7 +495,7 @@ module OrderPlanMachine =
             // is sent again
             | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.Opened(_, tp), None ->
                 send
-                    (OrderPlanCommand.UpdatePatient(pat, tp))
+                    (OrderPlanCommand.UpdatePatientData(pat, tp))
                     request
                     { state with
                         Selected = None
@@ -507,7 +507,7 @@ module OrderPlanMachine =
             // patient data
             | OrderPlanMsg.OpenSignedPlan(head, _), _, None ->
                 { state with
-                    Cart = OrderPlanCart.NoPatientData(Some(head.Patient, head.OrderContexts))
+                    Cart = OrderPlanCart.NoPatientData(Some(head.PatientData, head.OrderContexts))
                     Work = PlanWork.AsSigned
                     Opened = [||]
                     Selected = None

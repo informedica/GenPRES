@@ -188,7 +188,7 @@ module SignDialog =
         let noticeTable =
             match notice with
             | Some(plan, notice) ->
-                match noticeRows tr plan.Patient notice with
+                match noticeRows tr plan.PatientData notice with
                 | [] -> null
                 | rows ->
                     let lines =
@@ -360,7 +360,7 @@ module SignDialog =
         let primary =
             match notice with
             // an unverified notice has nothing to take
-            | Some(_, { Data = None }) ->
+            | Some(_, { PatientData = None }) ->
                 JSX.jsx
                     $"""
                 <Button key="keep" variant="contained" color="primary" onClick={onKeep}>

@@ -25,7 +25,7 @@ module Patient =
     module private Elmish =
 
 
-        module Patient = Patient
+        module Patient = PatientData
 
 
         /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
@@ -94,7 +94,7 @@ module Patient =
 
         // the data of a new patient, while the question whether to lose the orders is open; the
         // draft stays as it is, so that cancel leaves the panel on the previous data
-        let newPatient, setNewPatient = React.useState (None: (Patient option * Estimates) option)
+        let newPatient, setNewPatient = React.useState (None: (PatientData option * Estimates) option)
 
         let dispatch msg =
             let renewal = estimates msg
@@ -475,7 +475,7 @@ module Patient =
         let adultOffered = adultMark <> AdultMark.NotAdult
 
         let adultSwitch =
-            let adultChecked = pat |> Option.exists Patient.isAdult
+            let adultChecked = pat |> Option.exists PatientData.isAdult
             let adultDisabled = adultMark = AdultMark.Adult
 
             let changeMarkedAdult =
@@ -510,7 +510,7 @@ module Patient =
                 |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
                 |> createAgeSelect
                     (Terms.``Patient Age years`` |> getTerm "years")
-                    (pat |> Option.bind Patient.getAgeYears)
+                    (pat |> Option.bind PatientData.getAgeYears)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateYear |> dispatch
@@ -520,7 +520,7 @@ module Patient =
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
                     (Terms.``Patient Age months`` |> getTerm "months")
-                    (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
+                    (pat |> Option.bind PatientData.getAgeMonths |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateMonth |> dispatch
@@ -530,7 +530,7 @@ module Patient =
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
                     (Terms.``Patient Age weeks`` |> getTerm "weeks")
-                    (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
+                    (pat |> Option.bind PatientData.getAgeWeeks |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateWeek |> dispatch
@@ -540,7 +540,7 @@ module Patient =
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createAgeSelect
                     (Terms.``Patient Age days`` |> getTerm "days")
-                    (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
+                    (pat |> Option.bind PatientData.getAgeDays |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateDay |> dispatch

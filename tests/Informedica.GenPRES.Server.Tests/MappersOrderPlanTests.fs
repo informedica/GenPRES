@@ -54,7 +54,7 @@ let context id category name : OrderContext =
         Category = category
         DemoVersion = false
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
-        Patient = StubEhrPatient.contractPatient
+        PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario name |]
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
@@ -62,7 +62,7 @@ let context id category name : OrderContext =
 
 let plan: OrderPlan =
     {
-        Patient = StubEhrPatient.contractPatient
+        PatientData = StubEhrPatient.contractPatient
         Filtered = [| "c-1" |]
         OrderContexts =
             [|
@@ -93,8 +93,8 @@ let signed: SignedOrderPlan =
         PatientId = "stub-patient"
         Base = Some "plan-1"
         OrderContexts = plan.OrderContexts
-        Patient = StubEhrPatient.contractPatient
-        Identity = None
+        PatientData = StubEhrPatient.contractPatient
+        PatientIdentity = None
         Verified = true
     }
 
@@ -179,7 +179,7 @@ let tests =
             test "a data notice's patient goes through the patient mapper, none stays none" {
                 let n =
                     {
-                        Data = Some StubEhrPatient.contractPatient
+                        PatientData = Some StubEhrPatient.contractPatient
                         Token = "t-1"
                     }
 
@@ -187,7 +187,7 @@ let tests =
                 data |> Option.isSome |> Expect.isTrue "a reading"
                 SessionMapper.notice "t-1" data |> Expect.equal "the same notice" n
 
-                { n with Data = None }
+                { n with PatientData = None }
                 |> SessionMapper.noticeData readAt
                 |> Expect.equal "unreadable" None
             }
@@ -226,8 +226,8 @@ let tests =
                     (Some
                         {
                             PatientId = "stub-patient"
-                            Identity = None
-                            Patient = Some StubEhrPatient.contractPatient
+                            PatientIdentity = None
+                            PatientData = Some StubEhrPatient.contractPatient
                         })
 
                 let identified =
@@ -235,7 +235,7 @@ let tests =
                     |> SessionMapper.toOpened false shown
 
                 identified.PatientContext
-                |> Option.bind _.Identity
+                |> Option.bind _.PatientIdentity
                 |> Expect.equal
                     "the identity, the birthdate as three integers"
                     (Some(
@@ -245,7 +245,7 @@ let tests =
                             BirthMonth = 3
                             BirthDay = 15
                         }
-                        : NameAndBirthDate
+                        : PatientIdentity
                     ))
 
                 opened.OpenedToken |> Expect.equal "token" (Some(OpenedToken "opened-1"))

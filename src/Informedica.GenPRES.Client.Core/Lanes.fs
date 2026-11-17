@@ -66,7 +66,7 @@ module Lanes =
         /// and the signing are emptied, as when the page loads with this patient, and the Session is
         /// closed. A launch is not part of this message: the App presents it to the Session once its
         /// browser key is made, and the Session opens it after the close has answered.
-        | StartOver of draft: Patient option
+        | StartOver of draft: PatientData option
 
 
     /// The machines' effects, each as its machine emitted it.
@@ -174,7 +174,7 @@ module Lanes =
             let expected =
                 match SessionState.view next with
                 | SessionView.Open opened when
-                    opensOverPatient && (opened.PatientContext |> Option.bind _.Patient).IsSome
+                    opensOverPatient && (opened.PatientContext |> Option.bind _.PatientData).IsSome
                     ->
                     [ LanesEffect.PatientExpected ]
                 | _ -> []

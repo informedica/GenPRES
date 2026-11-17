@@ -29,8 +29,8 @@ let idle =
 
 
 let pat =
-    { Informedica.GenPRES.Shared.Models.Patient.empty with
-        Age = Some { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+    { Informedica.GenPRES.Shared.Models.PatientData.empty with
+        Age = Some { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
     }
 
 

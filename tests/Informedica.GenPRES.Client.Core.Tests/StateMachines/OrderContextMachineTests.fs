@@ -13,13 +13,13 @@ open OrderContextMachine
 
 module Fixtures =
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
 
     /// The data a context carries, and the patient it is: an age makes the draft a patient.
-    let draft = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let draft = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
-    let asPatient (dto: Patient) =
-        match dto |> Informedica.GenPRES.Shared.Models.Patient.validate with
+    let asPatient (dto: PatientData) =
+        match dto |> Informedica.GenPRES.Shared.Models.PatientData.validate with
         | Ok pat -> pat
         | Error err -> invalidOp $"the fixture is no patient: %A{err}"
 
@@ -790,7 +790,7 @@ let reCalcTests =
                     [
                         callContext (
                             OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time,
-                            { c1 with Patient = patient },
+                            { c1 with PatientData = patient },
                             "r-1"
                         )
                     ]
@@ -1426,7 +1426,7 @@ let offerCommandTests =
                     "the offer sent"
                     [
                         OrderContextEffect.CallContext(
-                            OrderContextCommand.Command(doseStep, { atalurenEvening with Patient = patient }),
+                            OrderContextCommand.Command(doseStep, { atalurenEvening with PatientData = patient }),
                             "r-2"
                         )
                     ]

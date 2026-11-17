@@ -44,16 +44,16 @@ let planTests =
 
 module PatientFixtures =
 
-    let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+    let ten = { PatientData.Age.ageZero with Age.Years = 10<year> }
 
     /// An age of whole years.
-    let years n = Patient.Age.create (n * 1<year>) None None None |> Some
+    let years n = PatientData.Age.create (n * 1<year>) None None None |> Some
 
 
-    let measured (w: int<gram>) (h: int<cm>) (dto: Patient) =
+    let measured (w: int<gram>) (h: int<cm>) (dto: PatientData) =
         { dto with
-            Patient.Weight.Measured = Some w
-            Patient.Height.Measured = Some h
+            PatientData.Weight.Measured = Some w
+            PatientData.Height.Measured = Some h
         }
 
 
@@ -66,55 +66,55 @@ let patientTests =
         "Patient.validate"
         [
             test "an age alone is a patient" {
-                { Patient.empty with Age = Some ten }
-                |> Patient.validate
+                { PatientData.empty with Age = Some ten }
+                |> PatientData.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
             }
 
             test "a measured weight and height without an age is a patient" {
-                Patient.empty
+                PatientData.empty
                 |> measured 32000<gram> 140<cm>
-                |> Patient.validate
+                |> PatientData.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
             }
 
             test "a weight alone is not: the height is needed too" {
-                { Patient.empty with Patient.Weight.Measured = Some 32000<gram> }
-                |> Patient.validate
+                { PatientData.empty with PatientData.Weight.Measured = Some 32000<gram> }
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "an estimated weight and height do not count: the estimate follows an age" {
-                { Patient.empty with
-                    Patient.Weight.Estimated = Some 32000<gram>
-                    Patient.Height.Estimated = Some 140<cm>
+                { PatientData.empty with
+                    PatientData.Weight.Estimated = Some 32000<gram>
+                    PatientData.Height.Estimated = Some 140<cm>
                 }
-                |> Patient.validate
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "the blank draft is not a patient" {
-                Patient.empty
-                |> Patient.validate
+                PatientData.empty
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "a patient is the draft unchanged: validate adds nothing" {
                 let dto =
-                    { Patient.empty with
+                    { PatientData.empty with
                         Age = Some ten
                         Department = Some "ICK"
                     }
                     |> measured 32000<gram> 140<cm>
 
-                dto |> Patient.validate |> Expect.equal "the same draft" (Ok dto)
+                dto |> PatientData.validate |> Expect.equal "the same draft" (Ok dto)
             }
 
             test "a patient marked as an adult without an age is a patient" {
-                { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
-                |> Patient.validate
+                { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
+                |> PatientData.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
             }
@@ -128,23 +128,23 @@ let selectsRulesTests =
         [
             test "the rules are selected for an adult, and for a child with a weight" {
                 [
-                    { Patient.empty with
+                    { PatientData.empty with
                         Age = years 40
                         AdultMark = AdultMark.Adult
                     }
-                    { Patient.empty with
+                    { PatientData.empty with
                         Age = years 17
                         AdultMark = AdultMark.MarkableAdult true
                     }
-                    { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
-                    { Patient.empty with
+                    { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
+                    { PatientData.empty with
                         Age = years 5
-                        Patient.Weight.Estimated = Some 18000<gram>
+                        PatientData.Weight.Estimated = Some 18000<gram>
                     }
-                    { Patient.empty with Age = years 5 }
-                    { Patient.empty with Age = years 17 }
+                    { PatientData.empty with Age = years 5 }
+                    { PatientData.empty with Age = years 17 }
                 ]
-                |> List.map Patient.selectsRules
+                |> List.map PatientData.selectsRules
                 |> Expect.equal "adults and a child with a weight" [ true; true; true; true; false; false ]
             }
         ]
@@ -162,7 +162,7 @@ let isAdultTests =
                     AdultMark.MarkableAdult true
                     AdultMark.Adult
                 ]
-                |> List.map (fun mark -> { Patient.empty with AdultMark = mark } |> Patient.isAdult)
+                |> List.map (fun mark -> { PatientData.empty with AdultMark = mark } |> PatientData.isAdult)
                 |> Expect.equal "the adults" [ false; false; true; true ]
             }
         ]

@@ -95,7 +95,7 @@ module SigningPolicy =
 
 
     /// The warning before the PIN, with the name of the patient being signed for if there is one.
-    let ehrMovedOnSentence (tr: Terms -> string) (who: NameAndBirthDate option) =
+    let ehrMovedOnSentence (tr: Terms -> string) (who: PatientIdentity option) =
         match who with
         | Some who -> tr Terms.``Signing Ehr Moved On`` |> TermText.fill [ who.Name ]
         | None -> tr Terms.``Signing Ehr Moved On Unnamed``
@@ -133,7 +133,7 @@ module SigningPolicy =
 
     /// The lines of the data notice: every field that differs. The age and the mark as an adult are
     /// left out, since the EHR holds neither. An unverified notice has no lines.
-    let noticeRows (tr: Terms -> string) (patient: Patient) (notice: DataNotice) =
+    let noticeRows (tr: Terms -> string) (patient: PatientData) (notice: DataNotice) =
         let text value show = value |> Option.map show |> Option.defaultValue "-"
 
         let row label held ehr show =
@@ -179,7 +179,7 @@ module SigningPolicy =
                 |> List.map (PatientText.accessText (tr Terms.``Patient Enteral Tube``))
                 |> String.concat ", "
 
-        match notice.Data with
+        match notice.PatientData with
         | None -> []
         | Some ehr ->
             [
@@ -212,7 +212,7 @@ module SigningPolicy =
 
     /// The sentence of the data notice: the EHR's data differ, or could not be verified.
     let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
-        match notice.Data with
+        match notice.PatientData with
         | Some _ -> tr Terms.``Signing Data Changed``
         | None -> tr Terms.``Signing Data Unverified``
 

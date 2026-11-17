@@ -60,13 +60,13 @@ module Models =
     /// - Server-only logic (dose rules, eGFR formulas) lives in GenFORM/GenCORE
     /// - Any new patient logic must decide: needed on client? → put here.
     ///   Server-only? → put in GenFORM.Patient or GenCORE.Calculations
-    module Patient =
+    module PatientData =
 
         open System
 
 
         /// The blank draft: the one value with every field empty.
-        let empty: Patient =
+        let empty: PatientData =
             {
                 Age = None
                 GestationalAge = GestationalAge.NoGestationalAge
@@ -96,7 +96,7 @@ module Models =
 
         module Age =
 
-            open Patient
+            open PatientData
 
             let (>>=) r f = Result.bind f r
 
@@ -131,7 +131,7 @@ module Models =
             let getDays { Age.Days = ds } = ds
 
 
-        let apply f (p: Patient) = f p
+        let apply f (p: PatientData) = f p
 
 
         let get = apply id
@@ -160,7 +160,7 @@ module Models =
 
         /// Whether the patient is an adult by the mark the server set: from 18 years, or marked as an
         /// adult by the user.
-        let isAdult (pat: Patient) =
+        let isAdult (pat: PatientData) =
             match pat.AdultMark with
             | AdultMark.Adult
             | AdultMark.MarkableAdult true -> true
@@ -171,7 +171,7 @@ module Models =
         /// Whether a draft is a patient. With an age or the mark as an adult the rest can be
         /// estimated or left out; without either, a measured weight and a measured height are
         /// needed. Below that there is no patient.
-        let validate (pat: Patient) =
+        let validate (pat: PatientData) =
             if
                 pat |> isAdult
                 || pat.Age.IsSome
@@ -184,7 +184,7 @@ module Models =
 
         /// Get either the measured weight or the
         /// estimated weight if measured weight = 0
-        let getWeight (pat: Patient) =
+        let getWeight (pat: PatientData) =
             if pat.Weight.Measured.IsSome then
                 pat.Weight.Measured
             else
@@ -193,7 +193,7 @@ module Models =
 
         /// Get either the measured height or the
         /// estimated height if measured weight = 0
-        let getHeight (pat: Patient) =
+        let getHeight (pat: PatientData) =
             if pat.Height.Measured.IsSome then
                 pat.Height.Measured
             else
@@ -202,10 +202,10 @@ module Models =
 
         /// Whether the rules are looked up for the patient: an adult always, a child only with a
         /// weight, measured or estimated. The same test as the server's gate and GenORDER's.
-        let selectsRules (pat: Patient) = pat |> isAdult || pat |> getWeight |> Option.isSome
+        let selectsRules (pat: PatientData) = pat |> isAdult || pat |> getWeight |> Option.isSome
 
 
-        let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
+        let create years months weeks days weight height gw gd gend cvl gfr dep : PatientData option =
             let a =
                 if
                     Option.isNone years
@@ -229,8 +229,8 @@ module Models =
                     GestationalAge.NoGestationalAge
                 else
                     {
-                        Patient.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
-                        Patient.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
+                        PatientData.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
+                        PatientData.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
                     }
                     |> Some
                     |> GestationalAge.OptionalGestationalAge
@@ -267,7 +267,7 @@ module Models =
         let withEstimates
             (ew: (int<gram> * int<gram> * int<gram>) option)
             (eh: (int<cm> * int<cm> * int<cm>) option)
-            (pat: Patient)
+            (pat: PatientData)
             =
             { pat with
                 Weight =
@@ -1075,14 +1075,14 @@ module Models =
                 Category = OrderCategory.Medication
                 DemoVersion = true
                 Filter = filter
-                Patient = Patient.empty
+                PatientData = PatientData.empty
                 Scenarios = [||]
                 Totals = Totals.empty
                 Argumentation = None
                 LinkedTo = None
             }
 
-        let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
+        let setPatientData pat ctx : OrderContext = { ctx with PatientData = pat }
 
 
         /// The nutrition category of a context, none for a medication. A display copy of the
@@ -1531,7 +1531,7 @@ module Models =
 
 
         /// The whole filter emptied, the patient kept.
-        let clearAll (ctx: OrderContext) = empty |> setPatient ctx.Patient
+        let clearAll (ctx: OrderContext) = empty |> setPatientData ctx.PatientData
 
 
         /// The filter's choices set from outside its own fields, with the rule of their source. A
@@ -1632,14 +1632,14 @@ module Models =
 
         let create pat contexts : OrderPlan =
             {
-                Patient = pat
+                PatientData = pat
                 Filtered = [||]
                 OrderContexts = contexts
                 Totals = Totals.empty
             }
 
 
-        let empty = create Patient.empty [||]
+        let empty = create PatientData.empty [||]
 
 
         /// The orders the plan's contexts contribute: the one scenario of every context narrowed
@@ -1676,7 +1676,7 @@ module Models =
                 Form = None
                 DoseType = None
                 PatientCategory = None
-                Patient = None
+                PatientData = None
                 Markdown = ""
                 DoseCheck = [||]
             }

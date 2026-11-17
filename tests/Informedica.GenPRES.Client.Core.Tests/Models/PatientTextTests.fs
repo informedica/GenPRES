@@ -6,7 +6,7 @@ module Informedica.GenPRES.Client.Core.Tests.Models.PatientTextTests
 open Informedica.GenPRES.Shared.Localization
 open Informedica.GenPRES.Shared.Models
 open Informedica.GenPRES.Shared.Types
-open Informedica.GenPRES.Shared.Types.Patient
+open Informedica.GenPRES.Shared.Types.PatientData
 open Informedica.GenPRES.Client.Core.Models
 open Expecto
 
@@ -3971,7 +3971,7 @@ let toStringTests =
     |> List.map (fun (terms, lang, (years, months, weeks, days), expected) ->
         test $"Age.toString returns {expected}" {
             let age =
-                Patient.Age.create
+                PatientData.Age.create
                     (years * 1<year>)
                     (Some(months * 1<month>))
                     (Some(weeks * 1<week>))
@@ -3989,9 +3989,11 @@ let tests = testList "PatientText.Age.toString" toStringTests
 
 
 /// A patient of an age in years, with the mark as an adult the server set, of a gender.
-let patientOf (years: int option) mark gender : Patient =
-    { Patient.empty with
-        Age = years |> Option.map (fun y -> Patient.Age.create (y * 1<year>) None None None)
+let patientOf (years: int option) mark gender : PatientData =
+    { PatientData.empty with
+        Age =
+            years
+            |> Option.map (fun y -> PatientData.Age.create (y * 1<year>) None None None)
         AdultMark = mark
         Gender = gender
     }
@@ -4185,8 +4187,8 @@ let centimeters (n: int) = n * 1<cm> |> Some
 let estimatedTerm = [| [| "Patient Estimated"; "estimated"; "geschat"; ""; ""; ""; "" |] |]
 
 
-let patientWith weight height : Patient =
-    { Patient.empty with
+let patientWith weight height : PatientData =
+    { PatientData.empty with
         Weight = weight
         Height = height
     }
@@ -4263,7 +4265,7 @@ let weightInUseTests =
 
 /// An age of years, months, weeks and days.
 let ageOf (y, m, w, d) =
-    Patient.Age.create (y * 1<year>) (Some(m * 1<month>)) (Some(w * 1<week>)) (Some(d * 1<day>))
+    PatientData.Age.create (y * 1<year>) (Some(m * 1<month>)) (Some(w * 1<week>)) (Some(d * 1<day>))
 
 
 [<Tests>]
@@ -4272,10 +4274,10 @@ let ageWordTests =
         "PatientText age words"
         [
             let patient =
-                { Patient.empty with
+                { PatientData.empty with
                     Age = Some(ageOf (6, 2, 0, 3))
-                    Weight = { Patient.empty.Weight with Measured = Some 20000<gram> }
-                    Height = { Patient.empty.Height with Measured = Some 115<cm> }
+                    Weight = { PatientData.empty.Weight with Measured = Some 20000<gram> }
+                    Height = { PatientData.empty.Height with Measured = Some 115<cm> }
                 }
 
             test "an age is written in the language" {

@@ -21,14 +21,14 @@ module PatientDraftPolicyTests =
         /// What the server answers for every draft the App sends: the estimates filled again,
         /// the same for every age and both sexes, so that a change of gender keeps them; none
         /// without an age.
-        let appStep (draft: Patient option) =
+        let appStep (draft: PatientData option) =
             draft
             |> Option.map (fun p ->
                 match p.Age with
-                | None -> p |> Patient.withEstimates None None
+                | None -> p |> PatientData.withEstimates None None
                 | Some _ ->
                     p
-                    |> Patient.withEstimates
+                    |> PatientData.withEstimates
                         (Some(25000<gram>, 32000<gram>, 40000<gram>))
                         (Some(130<cm>, 140<cm>, 150<cm>))
             )
@@ -37,7 +37,7 @@ module PatientDraftPolicyTests =
         /// What the App holds after the panel's edit: estimated again after an edit of the age,
         /// the gender or the gestational age (UpdatePatient), taken as sent after any other
         /// (EditPatient).
-        let afterEdit msg (draft: Patient option) =
+        let afterEdit msg (draft: PatientData option) =
             let edited = draft |> update msg
 
             match estimates msg with
@@ -57,17 +57,17 @@ module PatientDraftPolicyTests =
         let weighedBoy = estimatedBoy |> PatientEdit.setWeight (Some "30000") |> appStep
 
 
-        let weight (draft: Patient option) = draft |> Option.map _.Weight
+        let weight (draft: PatientData option) = draft |> Option.map _.Weight
 
-        let height (draft: Patient option) = draft |> Option.map _.Height
+        let height (draft: PatientData option) = draft |> Option.map _.Height
 
-        let estimatedWeight (draft: Patient option) = draft |> Option.bind _.Weight.Estimated
+        let estimatedWeight (draft: PatientData option) = draft |> Option.bind _.Weight.Estimated
 
-        let estimatedHeight (draft: Patient option) = draft |> Option.bind _.Height.Estimated
+        let estimatedHeight (draft: PatientData option) = draft |> Option.bind _.Height.Estimated
 
-        let measuredWeight (draft: Patient option) = draft |> Option.bind _.Weight.Measured
+        let measuredWeight (draft: PatientData option) = draft |> Option.bind _.Weight.Measured
 
-        let measuredHeight (draft: Patient option) = draft |> Option.bind _.Height.Measured
+        let measuredHeight (draft: PatientData option) = draft |> Option.bind _.Height.Measured
 
 
     open Informedica.GenPRES.Shared.Types
@@ -188,7 +188,7 @@ module PatientDraftPolicyTests =
     // The edit alone: what the panel sends to the App. The setters blank both estimates, so the
     // edit's result is compared with the draft it was applied to, estimates blanked on both sides.
     let editTests =
-        let blanked (draft: Patient option) = draft |> Option.map (Patient.withEstimates None None)
+        let blanked (draft: PatientData option) = draft |> Option.map (PatientData.withEstimates None None)
 
         testList
             "the edit alone"
@@ -225,7 +225,7 @@ module PatientDraftPolicyTests =
 
                     edited
                     |> update (Msg.UpdateMarkedAdult false)
-                    |> Expect.equal "otherwise the blank patient" (Some Patient.empty)
+                    |> Expect.equal "otherwise the blank patient" (Some PatientData.empty)
                 }
 
                 test "the mark set on the ten-year-old boy the server set as not an adult is not set" {

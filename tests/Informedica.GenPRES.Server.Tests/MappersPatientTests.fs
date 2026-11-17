@@ -38,7 +38,7 @@ let stub = ServerApi.StubEhrPatient.contractPatient
 
 /// Every field the mapping carries, in the shape the contract model gives back: a patient of 20
 /// days, so that the gestational age is needed.
-let full: Informedica.GenPRES.Shared.Types.Patient =
+let full: Informedica.GenPRES.Shared.Types.PatientData =
     { stub with
         Age = Some(ServerApi.Age.ofDays 20)
         Gender = Female
@@ -62,7 +62,7 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
 
 /// The patient the Formulary filter is made for.
 let formularyPatient model =
-    { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model }
+    { Informedica.GenPRES.Shared.Models.Formulary.empty with PatientData = model }
     |> ServerApi.FormularyService.mapFormularyToFilter readAt
     |> Result.map _.PatientData
     |> Result.defaultWith (fun errs -> failtest $"no filter: %A{errs}")
@@ -325,11 +325,11 @@ let tests =
             }
 
             test "the refusals keep the server's words" {
-                Informedica.GenPRES.Shared.Models.Patient.empty
+                Informedica.GenPRES.Shared.Models.PatientData.empty
                 |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no patient" (Error [| ServerApi.Patient.noPatient |])
 
-                { Informedica.GenPRES.Shared.Models.Patient.empty with Age = stub.Age }
+                { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no weight" (Error [| ServerApi.Patient.noWeight |])
             }
@@ -500,8 +500,8 @@ let estimateTests =
 
 /// The draft with an age in days, the mark as an adult as the server sets it for the choice of the
 /// user, and the measured weight in kg and height in cm.
-let draft days marked weight height : Informedica.GenPRES.Shared.Types.Patient =
-    let empty = Informedica.GenPRES.Shared.Models.Patient.empty
+let draft days marked weight height : Informedica.GenPRES.Shared.Types.PatientData =
+    let empty = Informedica.GenPRES.Shared.Models.PatientData.empty
     let age = days |> Option.map ServerApi.Age.ofDays
 
     { empty with
@@ -534,13 +534,13 @@ let adultTests =
                                 with
                                 | Ok lib ->
                                     shared
-                                    |> Informedica.GenPRES.Shared.Models.Patient.isAdult
+                                    |> Informedica.GenPRES.Shared.Models.PatientData.isAdult
                                     |> Expect.equal $"%i{days} days, marked %b{marked}" (lib |> PatientData.isAdult)
                                 | Error errs -> failtest $"%i{days} days, marked %b{marked}: %A{errs}"
 
                 for marked in [ false; true ] do
                     draft None marked None None
-                    |> Informedica.GenPRES.Shared.Models.Patient.isAdult
+                    |> Informedica.GenPRES.Shared.Models.PatientData.isAdult
                     |> Expect.equal $"no age, marked %b{marked}" marked
             }
 
@@ -557,7 +557,7 @@ let adultTests =
                                 let shared = draft age marked weight height
 
                                 shared
-                                |> Informedica.GenPRES.Shared.Models.Patient.validate
+                                |> Informedica.GenPRES.Shared.Models.PatientData.validate
                                 |> Result.map ignore
                                 |> Result.mapError libError
                                 |> Expect.equal
@@ -672,7 +672,7 @@ let adultTests =
                 [ 191; 192; 215; 216 ]
                 |> List.map (fun months ->
                     let age =
-                        Informedica.GenPRES.Shared.Models.Patient.Age.create
+                        Informedica.GenPRES.Shared.Models.PatientData.Age.create
                             (Informedica.GenPRES.Shared.Measures.toYear 0)
                             (Some(Informedica.GenPRES.Shared.Measures.toMonth months))
                             None
@@ -821,11 +821,11 @@ let withEstimatesTests =
                     }
 
                 let model =
-                    { Informedica.GenPRES.Shared.Models.Patient.empty with
+                    { Informedica.GenPRES.Shared.Models.PatientData.empty with
                         Age = Some(ServerApi.Age.ofDays (10 * 365))
                         Gender = Male
                         Height =
-                            { Informedica.GenPRES.Shared.Models.Patient.empty.Height with
+                            { Informedica.GenPRES.Shared.Models.PatientData.empty.Height with
                                 Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
                             }
                     }
@@ -941,7 +941,7 @@ let coreTests =
 
             test "the Formulary filter of a patient GenCORE refuses is that refusal, not an exception" {
                 { Informedica.GenPRES.Shared.Models.Formulary.empty with
-                    Patient = Some { stub with RenalFunction = Some(EGFR(Some 20, Some 40)) }
+                    PatientData = Some { stub with RenalFunction = Some(EGFR(Some 20, Some 40)) }
                 }
                 |> ServerApi.FormularyService.mapFormularyToFilter readAt
                 |> Result.map ignore

@@ -130,9 +130,9 @@ module ShellMachine =
         | LaunchRefused of LaunchRefusal
         /// Start the patient, the workbench, the plan, its interactions and the signing over, on this
         /// patient, and leave the Session.
-        | StartOver of Patient option
+        | StartOver of PatientData option
         /// The patient of the url, for the patient panel unless a Session holds the patient.
-        | PatientFromUrl of Patient option
+        | PatientFromUrl of PatientData option
         /// Seed the workbench with the medication of the url, once there is a patient.
         | SeedWorkbench of FilterSeed
         /// Resume the Session on the cookie.

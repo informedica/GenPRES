@@ -69,7 +69,7 @@ let context: OrderContext =
                 SelectedComponents = Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
-        Patient = StubEhrPatient.contractPatient
+        PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario |]
         Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
@@ -100,7 +100,7 @@ module LinkFixtures =
 
     let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
         {
-            PatientData = context.Patient |> ServerApi.Patient.ofModel readAt
+            PatientData = context.PatientData |> ServerApi.Patient.ofModel readAt
             Filtered = [||]
             Contexts = contexts |> Array.map (OrderContextMapper.ofModel readAt)
             Totals = Totals.empty |> Totals.Dto.toDto

@@ -24,7 +24,7 @@ let at = DateTime(2026, 9, 30, 10, 41, 7, 311)
 
 /// A patient of 3 years and 14 kg.
 let pat =
-    { Patient.empty with
+    { PatientData.empty with
         Age =
             Some
                 {
@@ -33,7 +33,7 @@ let pat =
                     Weeks = 0<week>
                     Days = 0<day>
                 }
-        Weight = { Patient.empty.Weight with Measured = Some 14000<gram> }
+        Weight = { PatientData.empty.Weight with Measured = Some 14000<gram> }
     }
 
 let ctx = OrderContext.empty
@@ -49,7 +49,7 @@ let ctxPicked =
             }
     }
 
-let identity: NameAndBirthDate =
+let identity: PatientIdentity =
     {
         Name = "Jan Jansen"
         BirthYear = 2023
@@ -279,8 +279,8 @@ let tests =
 
                     let signed =
                         { SessionMachineTests.signedVersion with
-                            Patient = pat
-                            Identity = Some identity
+                            PatientData = pat
+                            PatientIdentity = Some identity
                         }
 
                     let user: UserContext =
@@ -297,8 +297,8 @@ let tests =
                                 Some
                                     {
                                         PatientId = "1234"
-                                        Identity = Some identity
-                                        Patient = Some pat
+                                        PatientIdentity = Some identity
+                                        PatientData = Some pat
                                     }
                             OpenedToken = token
                             KeyThumbprint = Some "thumb"
@@ -563,7 +563,7 @@ let tests =
             test "a dropped client message says so, never the patient data" {
                 Client.ClientStep.Dropped(
                     Client.ClientMsg.PanelChanged(
-                        Some Informedica.GenPRES.Shared.Models.Patient.empty,
+                        Some Informedica.GenPRES.Shared.Models.PatientData.empty,
                         PatientDraftPolicy.Estimates.Kept,
                         "p-1"
                     )
@@ -585,7 +585,7 @@ let tests =
                 let url =
                     { Url.none with
                         Page = Some Page.Page.Prescribe
-                        Patient = Some Informedica.GenPRES.Shared.Models.Patient.empty
+                        Patient = Some Informedica.GenPRES.Shared.Models.PatientData.empty
                         Launch = Some(Url.LaunchUrl.Launch(Launch "secret"))
                     }
 

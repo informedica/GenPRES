@@ -12,25 +12,25 @@ open Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 
 /// The answer to a patient data update in the Session named, with the normal values given.
-let changed normalValues (sid: string option) (pat: Patient) =
+let changed normalValues (sid: string option) (pat: PatientData) =
     let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
 
     Compute.bound
         env
         (cookieOf sid)
-        PatientCommand.toString
-        PatientCommand.gate
-        (PatientCommand.processCmd env)
+        PatientDataCommand.toString
+        PatientDataCommand.gate
+        (PatientDataCommand.processCmd env)
         {
             Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
-            Command = PatientCommand.ChangePatient pat
+            Command = PatientDataCommand.ChangePatientData pat
         }
     |> Async.RunSynchronously
     |> Result.map _.Response
     |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
-let withWeight grams (pat: Patient) = { pat with Weight = { pat.Weight with Measured = Some grams } }
+let withWeight grams (pat: PatientData) = { pat with Weight = { pat.Weight with Measured = Some grams } }
 
 
 [<Tests>]
@@ -74,7 +74,7 @@ let tests =
 
                 let answer days =
                     let pat =
-                        { Informedica.GenPRES.Shared.Models.Patient.empty with
+                        { Informedica.GenPRES.Shared.Models.PatientData.empty with
                             Age = days |> Option.map ServerApi.Age.ofDays
                             GestationalAge = GestationalAge.OptionalGestationalAge(Some ga30)
                         }
@@ -100,7 +100,7 @@ let tests =
 
             test "every patient change waits for the normal values, a measured one too" {
                 [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
-                |> List.map (PatientCommand.ChangePatient >> PatientCommand.gate)
+                |> List.map (PatientDataCommand.ChangePatientData >> PatientDataCommand.gate)
                 |> Expect.equal "loaded for all three" [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.RequiresLoaded ]
             }
         ]

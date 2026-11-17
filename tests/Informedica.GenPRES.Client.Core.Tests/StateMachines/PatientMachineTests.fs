@@ -10,10 +10,10 @@ open PatientMachine
 
 module Fixtures =
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
 
     /// An age makes the draft a patient.
-    let draft = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let draft = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
     /// The patient the server answers: the draft with an estimated weight and height.
     let answered =
@@ -23,7 +23,7 @@ module Fixtures =
         }
 
     /// Below the minimum: no age, no measured weight and height.
-    let below = Informedica.GenPRES.Shared.Models.Patient.empty
+    let below = Informedica.GenPRES.Shared.Models.PatientData.empty
 
     let renewed = PatientDraftPolicy.Estimates.Renewed
     let kept = PatientDraftPolicy.Estimates.Kept
@@ -71,15 +71,15 @@ let tests =
             testList
                 "the age and the estimates"
                 [
-                    let child = { Fixtures.answered with Patient.Weight.Measured = None }
+                    let child = { Fixtures.answered with PatientData.Weight.Measured = None }
 
                     let older = { Fixtures.ten with Age.Years = 11<year> }
 
                     test "a new age clears the estimates for the server to renew, a measured value stays" {
-                        let measured = { child with Patient.Height.Measured = Some 141<cm> }
+                        let measured = { child with PatientData.Height.Measured = Some 141<cm> }
                         let aged = { measured with Age = Some older }
 
-                        let expected = aged |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None
+                        let expected = aged |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None
 
                         PatientState.init (Some measured)
                         |> PatientState.transition (PatientMsg.Changed(Some aged, Fixtures.renewed, "r-1"))
@@ -97,7 +97,7 @@ let tests =
                     }
 
                     test "a version opened takes the age, not the data" {
-                        let typed = { child with Patient.Weight.Measured = Some 40000<gram> }
+                        let typed = { child with PatientData.Weight.Measured = Some 40000<gram> }
                         let session =
                             { Fixtures.answered with
                                 Age = Some older
@@ -112,7 +112,7 @@ let tests =
                             [
                                 PatientEffect.CallPatient(
                                     { typed with Age = Some older }
-                                    |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None,
+                                    |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None,
                                     "r-1"
                                 )
                             ]
@@ -232,7 +232,8 @@ let tests =
                 // an adult as the server answers it, with the mark set from the age
                 let adult =
                     { below with
-                        Age = Some { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 40<year> }
+                        Age =
+                            Some { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 40<year> }
                         AdultMark = AdultMark.Adult
                     }
 

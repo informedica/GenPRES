@@ -70,11 +70,11 @@ module Client =
         /// The user chose a page; the settings page only shows to a user logged in.
         | PageChosen of Page
         /// The patient panel changed the patient data, with what becomes of the estimates.
-        | PanelChanged of Patient option * PatientDraftPolicy.Estimates * request: string
+        | PanelChanged of PatientData option * PatientDraftPolicy.Estimates * request: string
         /// A new patient from the panel, once the prescriber agreed. This is not a patient data
         /// update, in which the orders follow the data: the patient goes first, so everything clears,
         /// and the new data follow.
-        | NewPatient of Patient option * PatientDraftPolicy.Estimates * request: string
+        | NewPatient of PatientData option * PatientDraftPolicy.Estimates * request: string
         /// The url changed in the address bar, as segments and as read.
         | UrlChanged of string list * Url.UrlParts
         /// An item chosen on the emergency list.
@@ -153,7 +153,7 @@ module Client =
             // the record is the shared contract's query, whose fields the plan's record shares
             let query: Informedica.GenPRES.Shared.Api.TotalsQuery =
                 {
-                    Patient = plan.Patient
+                    PatientData = plan.PatientData
                     OrderContexts = Array.append (plan |> Models.OrderPlan.filtered) slotOrders
                 }
 
