@@ -3137,6 +3137,267 @@ module Tests =
                 ]
 
 
+    module RulesReadPatientDataTests =
+
+        open System
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenCore.Lib
+        open Informedica.GenCore.Lib.Ranges
+        open Informedica.GenCore.Lib.Patients
+
+        module FormPatient = Informedica.GenForm.Lib.Patient
+        module FormData = Informedica.GenForm.Lib.PatientData
+        module Core = Informedica.GenCore.Lib.Patients.PatientData
+
+        type CoreData = Informedica.GenCore.Lib.Patients.PatientData
+
+        /// The date the weights and the heights of these tests are measured on.
+        let measuredOn = DateTime(2026, 11, 17)
+
+        /// A weight in kg from a source, measured or estimated.
+        let weight source kg =
+            WeightAtDate.create measuredOn (WeightValue.weightInKg kg)
+            |> source
+            |> Some
+            |> Weight.create [] None []
+
+        /// A height in cm from a source, measured or estimated.
+        let height source cm =
+            HeightAtDate.create measuredOn (HeightValue.heightInCm cm)
+            |> source
+            |> Some
+            |> Height.create [] None
+
+        let ageOfDays (ds: int) = ds * 1<day> |> AgeValue.fromDays |> Some
+
+        let weeksDays ws ds = AgeWeeksDays.create (ws * 1<week>) (ds * 1<day>) |> Some
+
+        /// A child of ten years, 32 kg and 140 cm measured.
+        let child =
+            { Core.unknown with
+                Age = ageOfDays 3650
+                Weight = weight Measured 32m
+                Height = height Measured 140m
+            }
+
+        /// The patients the functions are compared on.
+        let patients: (string * CoreData) list =
+            [
+                "nothing known", Core.unknown
+                "a child of ten years", child
+                "a child with estimates",
+                { child with
+                    Weight = weight Estimated 30m
+                    Height = height Estimated 138m
+                }
+                "an age alone", { Core.unknown with Age = ageOfDays 3650 }
+                "a weight alone", { Core.unknown with Weight = weight Measured 3.45m }
+                "a boy", { child with Gender = Male }
+                "a girl", { child with Gender = Female }
+                "a department alone", { Core.unknown with Department = Department.otherDepartment "ICK" }
+                "a child on the ICK", { child with Department = Department.pediatricICU "ICK" }
+                "a child on the NICU", { child with Department = Department.otherDepartment "NICU" }
+                "a child at a location", { child with Location = Some "OK" }
+                "a child with a central line", { child with Access = [ CVL ] }
+                "a child with a peripheral line and a tube", { child with Access = [ PVL; EnteralTube ] }
+                "a term newborn of 3 days",
+                { Core.unknown with
+                    Age = ageOfDays 3
+                    Weight = weight Measured 3.5m
+                    Height = height Measured 51m
+                    GestationalAge = weeksDays 40 0
+                    PostMenstrualAge = weeksDays 40 3
+                }
+                "a preterm newborn of 10 days",
+                { Core.unknown with
+                    Age = ageOfDays 10
+                    Weight = weight Measured 1.2m
+                    GestationalAge = weeksDays 30 2
+                    PostMenstrualAge = weeksDays 31 5
+                }
+                "an infant of 100 days with a gestational age",
+                { Core.unknown with
+                    Age = ageOfDays 100
+                    Weight = weight Estimated 5.6m
+                    GestationalAge = weeksDays 38 0
+                }
+                "15 years, marked as an adult",
+                { child with
+                    Age = ageOfDays (15 * 365)
+                    MarkedAdult = true
+                }
+                "16 years", { child with Age = ageOfDays (16 * 365) }
+                "16 years, marked as an adult",
+                { child with
+                    Age = ageOfDays (16 * 365)
+                    MarkedAdult = true
+                }
+                "17 years, marked as an adult, with a gestational age",
+                { child with
+                    Age = ageOfDays (17 * 365 + 200)
+                    MarkedAdult = true
+                    GestationalAge = weeksDays 39 0
+                }
+                "18 years", { child with Age = ageOfDays (18 * 365) }
+                "40 years, 80 kg and 180 cm",
+                { Core.unknown with
+                    Age = ageOfDays (40 * 365)
+                    Weight = weight Measured 80m
+                    Height = height Measured 180m
+                }
+                "no age, marked as an adult", { Core.unknown with MarkedAdult = true }
+                "no age, marked as an adult, with a weight",
+                { Core.unknown with
+                    MarkedAdult = true
+                    Weight = weight Measured 70m
+                }
+            ]
+
+        let days (n: int) = BigRational.fromInt n |> ValueUnit.singleWithUnit Units.Time.day
+
+        let range unit (min: decimal option) (max: decimal option) : MinMax =
+            let limit = BigRational.fromDecimal >> ValueUnit.singleWithUnit unit >> Limit.Inclusive
+
+            {
+                Min = min |> Option.map limit
+                Max = max |> Option.map limit
+            }
+
+        let ageRange min max =
+            range Units.Time.day (min |> Option.map decimal) (max |> Option.map decimal)
+
+        /// The patient categories the patients are matched with.
+        let categories: (string * PatientCategory) list =
+            let empty = PatientCategory.empty
+
+            [
+                "all patients", empty
+                "adults", { empty with Age = IsAdult }
+                "from 18 years, by days", { empty with Age = AbsoluteAge(ageRange (Some(18 * 365)) None) }
+                "from 16 to 30 years", { empty with Age = AbsoluteAge(ageRange (Some(16 * 365)) (Some(30 * 365))) }
+                "1 month to 18 years", { empty with Age = AbsoluteAge(ageRange (Some 30) (Some(18 * 365))) }
+                "up to 28 days", { empty with Age = AbsoluteAge(ageRange None (Some 28)) }
+                "10 to 40 kg", { empty with Weight = range Units.Weight.kiloGram (Some 10m) (Some 40m) }
+                "under 2 kg", { empty with Weight = range Units.Weight.kiloGram None (Some 2m) }
+                "body surface area 1 to 1.5 m2", { empty with BSA = range Units.BSA.m2 (Some 1m) (Some 1.5m) }
+                "gestational age under 32 weeks", { empty with GestAge = ageRange None (Some(32 * 7)) }
+                "gestational age from 37 weeks", { empty with GestAge = ageRange (Some(37 * 7)) None }
+                "post-menstrual age under 37 weeks", { empty with PMAge = ageRange None (Some(37 * 7)) }
+                "department ICK", { empty with Department = Some "ICK" }
+                "department NICU", { empty with Department = Some "NICU" }
+                "location OK", { empty with Location = Some "OK" }
+                "location ward", { empty with Location = Some "ward" }
+                "boys", { empty with Gender = Types.Male }
+                "girls", { empty with Gender = Types.Female }
+                "central line", { empty with Access = Types.CVL }
+                "peripheral line", { empty with Access = Types.PVL }
+                "boys of 1 month to 18 years on the ICK",
+                { empty with
+                    Gender = Types.Male
+                    Department = Some "ICK"
+                    Age = AbsoluteAge(ageRange (Some 30) (Some(18 * 365)))
+                }
+            ]
+
+
+        let tests =
+            testList
+                "the rules read the GenCORE patient data"
+                [
+                    testList
+                        "the same result as on the GenFORM patient"
+                        [
+                            for name, dat in patients do
+                                let pat = dat |> FormPatient.ofPatientData
+
+                                test $"is an adult: %s{name}" {
+                                    dat |> FormData.isAdult |> Expect.equal "is adult" (pat |> Adult.isAdult)
+                                }
+
+                                test $"is matched as an adult: %s{name}" {
+                                    dat
+                                    |> FormData.matchedAsAdult
+                                    |> Expect.equal "matched as adult" (pat |> Adult.matchedAsAdult)
+                                }
+
+                                test $"the patient as an adult: %s{name}" {
+                                    dat
+                                    |> FormData.asAdult
+                                    |> FormPatient.ofPatientData
+                                    |> Expect.equal "as adult" (pat |> PatientCategory.asAdult)
+                                }
+
+                                test $"the adjust value: %s{name}" {
+                                    for u in [ None; Some Units.Weight.kiloGram; Some Units.BSA.m2 ] do
+                                        FormData.adjustValue dat u
+                                        |> Expect.equal "adjust value" (FormPatient.adjustValue pat u)
+                                }
+
+                                test $"the text: %s{name}" {
+                                    dat |> FormData.toString |> Expect.equal "text" (pat |> FormPatient.toString)
+                                }
+
+                                for catName, patCat in categories do
+                                    test $"the match of %s{name} with the category %s{catName}" {
+                                        FormData.matchesCategoryWithoutLocationAndGender dat patCat
+                                        |> Expect.equal
+                                            "without location and gender"
+                                            (PatientCategory.filterPatient pat patCat)
+
+                                        FormData.matchesCategory dat patCat
+                                        |> Expect.equal
+                                            "with location and gender"
+                                            (PatientCategory.filter { Filter.doseFilter with Patient = pat } patCat)
+                                    }
+                        ]
+
+                    test "a patient without data, or with a department alone, has no data besides the department" {
+                        for dat in
+                            [
+                                Core.unknown
+                                { Core.unknown with Department = Department.otherDepartment "ICK" }
+                            ] do
+                            dat |> FormData.hasDataBesidesDepartment |> Expect.isFalse "no data"
+                    }
+
+                    test "a patient with any other value has data besides the department" {
+                        for dat in
+                            [
+                                child
+                                { Core.unknown with Location = Some "OK" }
+                                { Core.unknown with Gender = Male }
+                                { Core.unknown with MarkedAdult = true }
+                                { Core.unknown with Access = [ CVL ] }
+                            ] do
+                            dat |> FormData.hasDataBesidesDepartment |> Expect.isTrue "data"
+                    }
+
+                    test "the values of the patient as the rules name them" {
+                        let dat =
+                            { child with
+                                Department = Department.pediatricICU "ICK"
+                                Gender = Female
+                                Access = [ CVL; EnteralTube ]
+                                RenalFunction = Some(RenalFunction.EGFR From30To50)
+                            }
+
+                        (dat |> FormData.department,
+                         dat |> FormData.gender,
+                         dat |> FormData.access,
+                         dat |> FormData.renalFunction)
+                        |> Expect.equal
+                            "as the rules name them"
+                            (Some "ICK",
+                             Types.Female,
+                             [ Types.CVL; Types.EnteralTube ],
+                             Some(Types.RenalFunction.EGFR(Some 30, Some 50)))
+                    }
+                ]
+
+
     module PatientTests =
 
         open Expecto
@@ -11217,6 +11478,7 @@ module Tests =
                 RenalReductionTests.tests
                 PatientTests.tests
                 PatientOfPatientDataTests.tests
+                RulesReadPatientDataTests.tests
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests
