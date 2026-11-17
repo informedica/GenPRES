@@ -325,7 +325,8 @@ let tests =
                                 persist =
                                     fun writes ->
                                         match versionOf writes with
-                                        | Some _ -> SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                        | Some _ ->
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         | None -> inner.persist writes
                             }
 
@@ -494,7 +495,7 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist cs [ Session.WriteVersion(v1, None) ] |> ignore
+                        SqlDatabase.persist readAt cs [ Session.WriteVersion(v1, None) ] |> ignore
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.currentFixtureText ()
 
@@ -797,7 +798,7 @@ let tests =
                                 persist =
                                     fun writes ->
                                         if refusing.Value then
-                                            SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         else
                                             inner.persist writes
                             }

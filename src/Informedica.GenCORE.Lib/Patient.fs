@@ -763,7 +763,8 @@ module BirthDate =
         let dto () = Dto()
 
 
-        let fromDto (dto: Dto) =
+        /// The birthdate of a Dto: a real date, at most 120 years before the date passed in.
+        let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! y = Validation.yearValidator "Year" dto.Year
                 let! m = Validation.monthValidator "Month" dto.Month
@@ -771,7 +772,7 @@ module BirthDate =
 
                 let! _ = Validators.dateValidator "Valid date" (y, m, d)
 
-                and! _ = Validation.ageValidator "Valid Age" (DateTime.Now, y, m, d)
+                and! _ = Validation.ageValidator "Valid Age" (today, y, m, d)
 
                 return create y m d
             }
@@ -910,13 +911,6 @@ module WeightAtDate =
         let weight = (fun (w: WeightAtDate) -> w.Weight), (fun wv w -> { w with WeightAtDate.Weight = wv })
 
 
-    module Validation =
-
-        open Validus
-
-        let dateValidator dt = Check.DateTime.lessThanOrEqualTo dt
-
-
     module SetGet =
 
         open Informedica.Utils.Lib.Optics
@@ -938,16 +932,18 @@ module WeightAtDate =
         open Validus
 
         type Dto() =
-            member val DateTime = DateTime.Now with get, set
+            member val DateTime = DateTime.MinValue with get, set
             member val WeightValue = WeightValue.Dto.dto () with get, set
 
         let dto () = Dto()
 
 
-        let fromDto (dto: Dto) =
+        /// The dated weight of a Dto: a weight within the bounds, dated on or before the calendar
+        /// date passed in.
+        let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! wv = WeightValue.Dto.fromDto dto.WeightValue
-                let! dt = Validation.dateValidator DateTime.Now "Date" dto.DateTime
+                let! dt = Validators.notAfterValidator today "Date" dto.DateTime
                 return create dt wv
             }
 
@@ -1061,6 +1057,9 @@ module Weight =
 
     module Dto =
 
+        open Validus
+        open FsToolkit.ErrorHandling
+
         type Dto() =
             member val Actual: WeightAtDate.Dto.Dto list = [] with get, set
             member val Calculation: WeightAtDate.Dto.Dto option = None with get, set
@@ -1073,21 +1072,17 @@ module Weight =
         let dto () = Dto()
 
 
-        let fromDto (dto: Dto) =
-            let act = dto.Actual |> List.choose (WeightAtDate.Dto.fromDto >> Result.toOption)
+        /// The weights of a Dto, or the error of the first weight that does not read: a value outside
+        /// the bounds, or a date after the read date.
+        let fromDto today (dto: Dto) =
+            validate {
+                let! act = dto.Actual |> List.traverseResultM (WeightAtDate.Dto.fromDto today)
+                let! calc = dto.Calculation |> Option.traverseResult (WeightAtDate.Dto.fromDto today)
+                let! birth = dto.Birth |> Option.traverseResult WeightValue.Dto.fromDto
+                let! adm = dto.Admission |> List.traverseResultM (WeightAtDate.Dto.fromDto today)
 
-            let calc =
-                dto.Calculation
-                |> Option.map WeightAtDate.Dto.fromDto
-                |> Option.bind Result.toOption
-                |> Option.map (Source.fromDto dto.CalculationEstimated)
-
-            let birth = dto.Birth |> Option.map WeightValue.Dto.fromDto |> Option.bind Result.toOption
-
-            let adm = dto.Admission |> List.choose (WeightAtDate.Dto.fromDto >> Result.toOption)
-
-
-            create act birth adm calc
+                return create act birth adm (calc |> Option.map (Source.fromDto dto.CalculationEstimated))
+            }
 
 
         let toDto (w: Weight) =
@@ -1227,13 +1222,6 @@ module HeightAtDate =
         let height = (fun (h: HeightAtDate) -> h.Height), (fun hv h -> { h with HeightAtDate.Height = hv })
 
 
-    module Validation =
-
-        open Validus
-
-        let dateValidator dt = Check.DateTime.lessThanOrEqualTo dt
-
-
     module SetGet =
 
         open Informedica.Utils.Lib.Optics
@@ -1255,16 +1243,18 @@ module HeightAtDate =
         open Validus
 
         type Dto() =
-            member val DateTime = DateTime.Now with get, set
+            member val DateTime = DateTime.MinValue with get, set
             member val HeightValue = HeightValue.Dto.dto () with get, set
 
         let dto () = Dto()
 
 
-        let fromDto (dto: Dto) =
+        /// The dated height of a Dto: a height within the bounds, dated on or before the calendar
+        /// date passed in.
+        let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! wv = HeightValue.Dto.fromDto dto.HeightValue
-                let! dt = Validation.dateValidator DateTime.Now "Date" dto.DateTime
+                let! dt = Validators.notAfterValidator today "Date" dto.DateTime
                 return create dt wv
             }
 
@@ -1345,6 +1335,9 @@ module Height =
 
     module Dto =
 
+        open Validus
+        open FsToolkit.ErrorHandling
+
         type Dto() =
             member val Actual: HeightAtDate.Dto.Dto list = [] with get, set
             member val Birth: HeightValue.Dto.Dto option = None with get, set
@@ -1356,18 +1349,16 @@ module Height =
         let dto () = Dto()
 
 
-        let fromDto (dto: Dto) =
-            let act = dto.Actual |> List.choose (HeightAtDate.Dto.fromDto >> Result.toOption)
+        /// The heights of a Dto, or the error of the first height that does not read: a value outside
+        /// the bounds, or a date after the read date.
+        let fromDto today (dto: Dto) =
+            validate {
+                let! act = dto.Actual |> List.traverseResultM (HeightAtDate.Dto.fromDto today)
+                let! calc = dto.Calculation |> Option.traverseResult (HeightAtDate.Dto.fromDto today)
+                let! birth = dto.Birth |> Option.traverseResult HeightValue.Dto.fromDto
 
-            let birth = dto.Birth |> Option.map HeightValue.Dto.fromDto |> Option.bind Result.toOption
-
-            let calc =
-                dto.Calculation
-                |> Option.map HeightAtDate.Dto.fromDto
-                |> Option.bind Result.toOption
-                |> Option.map (Source.fromDto dto.CalculationEstimated)
-
-            create act birth calc
+                return create act birth (calc |> Option.map (Source.fromDto dto.CalculationEstimated))
+            }
 
 
         let toDto (w: Height) =
@@ -2210,9 +2201,10 @@ module PatientData =
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// The patient data of a Dto. The post-menstrual age is read back as it was calculated, with
-        /// the bounds of a post-menstrual age.
-        let fromDto (dto: Dto) =
+        /// The patient data of a Dto read at a date: no weight or height may be dated after it. The
+        /// post-menstrual age is read back as it was calculated, with the bounds of a post-menstrual
+        /// age.
+        let fromDto today (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
@@ -2234,8 +2226,8 @@ module PatientData =
 
                 let! age = dto.Age |> Option.traverseResult AgeValue.Dto.fromDto
 
-                let wght = dto.Weight |> Weight.Dto.fromDto
-                let hght = dto.Height |> Height.Dto.fromDto
+                let! wght = dto.Weight |> Weight.Dto.fromDto today
+                let! hght = dto.Height |> Height.Dto.fromDto today
 
                 return
                     { create dep dto.Diagnoses gend age wght hght gest with
@@ -2398,11 +2390,11 @@ module Patient =
         let dto () = Dto()
 
 
-        /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none of
-        /// the three; a part of an identity is an error.
-        let fromDto (dto: Dto) =
+        /// The patient of a Dto read at a date: identified with an id, a name and a birthdate,
+        /// anonymous with none of the three; a part of an identity is an error.
+        let fromDto today (dto: Dto) =
             validate {
-                let! dat = dto.Data |> PatientData.Dto.fromDto
+                let! dat = dto.Data |> PatientData.Dto.fromDto today
 
                 let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)
@@ -2411,7 +2403,8 @@ module Patient =
                 and! idn =
                     dto.BirthDate
                     |> Option.traverseResult (
-                        BirthDate.Dto.fromDto >> Result.map (PatientIdentity.create dto.Id dto.Name)
+                        BirthDate.Dto.fromDto today
+                        >> Result.map (PatientIdentity.create dto.Id dto.Name)
                     )
 
                 return create idn dat

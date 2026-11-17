@@ -24,6 +24,10 @@ let withRecord (f: string -> 'a) =
     )
 
 
+/// The moment the rows are read at; nothing stored is dated after it.
+let readAt = DateTime(2026, 11, 17)
+
+
 let v1 = lazy (versionOf 1 prescriber t0 domainPlan.Value)
 
 
@@ -102,11 +106,12 @@ let tests =
                 withRecord (fun cs ->
                     let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
 
-                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, whom) ]
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, whom) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     let identityOf () =
-                        SqlDatabase.loadRecords cs "stub-patient" |> List.map StoredVersion.identity
+                        SqlDatabase.loadRecords readAt cs "stub-patient"
+                        |> List.map StoredVersion.identity
 
                     identityOf () |> Expect.equal "the identity, on the readable version" [ whom ]
 
@@ -116,7 +121,7 @@ let tests =
                     // naming its patient
                     run "update order_plan set json_version = 15"
 
-                    (SqlDatabase.loadRecords cs "stub-patient"
+                    (SqlDatabase.loadRecords readAt cs "stub-patient"
                      |> List.map reasonOf
                      |> List.map Option.isSome,
                      identityOf ())
@@ -130,13 +135,13 @@ let tests =
                     // the columns half present, and a date the calendar does not have: a reason
                     run "update order_plan set patient_name = 'Stub'"
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.map reasonOf
                     |> Expect.equal "not all present" [ Some "the patient's name and birthdate are not all present" ]
 
                     run "update order_plan set birth_year = 2016, birth_month = 2, birth_day = 30"
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.map reasonOf
                     |> Expect.equal "no date" [ Some "the birthdate 2016-2-30 is no date" ]
 
@@ -144,14 +149,14 @@ let tests =
                     // not a failed load of the whole record
                     run "update order_plan set birth_year = 9999999999, birth_day = 28"
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.map reasonOf
                     |> Expect.equal "too wide" [ Some "the birthdate 9999999999-2-28 is no date" ]
 
                     // all four present but the name blank: nobody is named so
                     run "update order_plan set birth_year = 2016, patient_name = ' '"
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.map reasonOf
                     |> Expect.equal "empty name" [ Some "the patient's name is empty" ]
                 )
@@ -168,7 +173,7 @@ let tests =
 
                     insertRow cs "plan-1" 1 14 (currentFixtureText ())
 
-                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Readable(v, whom) ] ->
                         (v.Id, whom) |> Expect.equal "readable, naming none" ("plan-1", None)
                     | other -> failtest $"expected one readable row, got %A{other}"
@@ -177,15 +182,15 @@ let tests =
 
             test "a persisted order plan version loads back as written" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ]
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     // compared in the stored form: a DateTime reads back as the same instant in UTC
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.map storedForm
                     |> Expect.equal "the one version, readable" [ Some(SqlDatabase.toJson v1.Value) ]
 
-                    SqlDatabase.loadRecords cs "another-patient"
+                    SqlDatabase.loadRecords readAt cs "another-patient"
                     |> Expect.isEmpty "another patient has none"
                 )
             }
@@ -198,17 +203,17 @@ let tests =
                             EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                         }
 
-                    SqlDatabase.persist cs [ Session.WriteVersion(v, None) ]
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> Expect.equal "the version" [ StoredVersion.Readable(v, None) ]
                 )
             }
 
             test "the column plan holds the order plan Dto alone, under structure version 14" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ]
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     scalar cs "select plan from order_plan"
@@ -227,7 +232,7 @@ let tests =
                     let run = run cs
 
                     let reason () =
-                        SqlDatabase.loadRecords cs "stub-patient"
+                        SqlDatabase.loadRecords readAt cs "stub-patient"
                         |> List.exactlyOne
                         |> reasonOf
                         |> Option.defaultValue ""
@@ -245,11 +250,12 @@ let tests =
             test "the time of signing reads back to the millisecond" {
                 withRecord (fun cs ->
                     SqlDatabase.persist
+                        readAt
                         cs
                         [ Session.WriteVersion({ v1.Value with SignedAt = t0.AddTicks 12345L }, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
-                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Readable(v, _) ] ->
                         v.SignedAt |> Expect.equal "whole milliseconds" (t0.AddMilliseconds 1.0)
                     | other -> failtest $"expected one readable row, got %A{other}"
@@ -258,7 +264,7 @@ let tests =
 
             test "a second version with the same number is a conflict with the head" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
                     let rival =
                         { v1.Value with
@@ -270,7 +276,7 @@ let tests =
                                 }
                         }
 
-                    match SqlDatabase.persist cs [ Session.WriteVersion(rival, None) ] with
+                    match SqlDatabase.persist readAt cs [ Session.WriteVersion(rival, None) ] with
                     | Session.StoreOutcome.Conflict winner ->
                         winner
                         |> storedForm
@@ -281,9 +287,9 @@ let tests =
 
             test "a second version with the same id and a new number fails, it is no conflict" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
+                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
-                    match SqlDatabase.persist cs [ Session.WriteVersion({ v1.Value with No = 2 }, None) ] with
+                    match SqlDatabase.persist readAt cs [ Session.WriteVersion({ v1.Value with No = 2 }, None) ] with
                     | Session.StoreOutcome.Failed reason ->
                         reason
                         |> Expect.stringContains "the reason names the column" "order_plan.version_id"
@@ -295,11 +301,12 @@ let tests =
                 withRecord (fun cs ->
                     let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
-                    match SqlDatabase.persist readOnly [ Session.WriteVersion(v1.Value, None) ] with
+                    match SqlDatabase.persist readAt readOnly [ Session.WriteVersion(v1.Value, None) ] with
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "a reason"
                     | other -> failtest $"expected Failed, got %A{other}"
 
-                    SqlDatabase.loadRecords cs "stub-patient" |> Expect.isEmpty "nothing written"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
+                    |> Expect.isEmpty "nothing written"
                 )
             }
 
@@ -317,7 +324,7 @@ let tests =
 
                     insertRow cs "plan-3" 3 14 noTotals
 
-                    let loaded = SqlDatabase.loadRecords cs "stub-patient"
+                    let loaded = SqlDatabase.loadRecords readAt cs "stub-patient"
 
                     loaded
                     |> List.map StoredVersion.id
@@ -352,7 +359,7 @@ let tests =
                     currentFixtureText().Replace("\"WeightKg\":\"32/1\"", "\"WeightKg\":\"x/y\"")
                     |> insertRow cs "plan-1" 1 14
 
-                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] -> u.Reason |> Expect.stringContains "the reason" "does not read"
                     | other -> failtest $"expected one unreadable row, got %A{other}"
                 )
@@ -362,7 +369,7 @@ let tests =
                 withRecord (fun cs ->
                     insertRowAt cs Int64.MaxValue "plan-1" 1 14 (currentFixtureText ())
 
-                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
                         u.SignedAt |> Expect.equal "the earliest time" DateTime.MinValue
                         u.Reason |> Expect.stringContains "the reason" "out of range"
@@ -394,7 +401,7 @@ let tests =
                 withRecord (fun cs ->
                     insertRow cs "plan-1" 1 13 text
 
-                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
                         u.Reason |> Expect.stringContains "the reason" "older than this release reads"
                     | other -> failtest $"expected one unreadable row, got %A{other}"
@@ -443,7 +450,7 @@ let tests =
                     let texts (v: OrderPlanVersion) =
                         v.Plan.Contexts |> Array.map _.Context.Argumentation |> Array.choose id
 
-                    SqlDatabase.loadRecords cs "stub-patient"
+                    SqlDatabase.loadRecords readAt cs "stub-patient"
                     |> List.choose (
                         function
                         | StoredVersion.Readable(v, _) -> Some(v.Id, texts v)
