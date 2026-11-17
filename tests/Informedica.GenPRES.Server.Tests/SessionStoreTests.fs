@@ -76,7 +76,7 @@ let domainPlan = lazy (parsed plan)
 let session sid (user: UserContext) openedWith =
     sid, SessionStubTests.sessionOf sid (Some user) (Some("stub-patient", Some stubPatient)) openedWith
 
-let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.OrderPlanVersion =
+let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : OrderPlanVersion =
     {
         Id = $"plan-{no}"
         No = no

@@ -20,6 +20,7 @@
     <Compile Include="MappersPatientTests.fs" />
     <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
+    <Compile Include="OrderPlanVersionTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="RequiredLinksTests.fs" />

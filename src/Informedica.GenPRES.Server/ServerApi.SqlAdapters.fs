@@ -186,7 +186,7 @@ module SqlDatabase =
 
 
     /// The JSON this release writes for an order plan version.
-    let toJson (v: Types.OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+    let toJson (v: OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
 
 
     /// An order_plan row as read, before its JSON is parsed.
@@ -348,7 +348,7 @@ module SqlDatabase =
     let insertVersion
         (conn: SqliteConnection)
         (tx: SqliteTransaction)
-        (v: Types.OrderPlanVersion)
+        (v: OrderPlanVersion)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         =
         use cmd = conn.CreateCommand()
@@ -384,7 +384,7 @@ module SqlDatabase =
         cmd.ExecuteNonQuery() |> ignore
 
 
-    let private insert (connectionString: string) (v: Types.OrderPlanVersion, whom) =
+    let private insert (connectionString: string) (v: OrderPlanVersion, whom) =
         use conn = new SqliteConnection(connectionString)
         conn.Open()
         insertVersion conn null v whom
@@ -404,7 +404,7 @@ module SqlDatabase =
     /// </summary>
     let persistVersion
         (connectionString: string)
-        (v: Types.OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        (v: OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         : Session.StoreOutcome
         =
         try

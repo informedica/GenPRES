@@ -1060,47 +1060,6 @@ module Types =
         }
 
 
-    /// Who signed an order plan version
-    type Signer =
-        {
-            /// The user id at the identity provider
-            UserId: string
-            /// The name shown for the signer
-            DisplayName: string
-        }
-
-
-    /// <summary>
-    /// An order plan version: the order plan as the prescriber signed it, as the
-    /// record holds it. A prescriber creates one by signing; it stores the whole
-    /// plan, filter, totals and each context's intake included, so a reopen restores
-    /// what the signer saw, nothing recomputed.
-    /// </summary>
-    type OrderPlanVersion =
-        {
-            /// The version's own id
-            Id: string
-            /// The version number, one above the patient's previous version
-            No: int
-            /// The patient the plan belongs to
-            PatientId: string
-            /// The id of the version this one was built on; None for the first
-            Base: string option
-            /// Who signed
-            SignedBy: Signer
-            /// When
-            SignedAt: DateTime
-            /// The order plan as signed
-            Plan: OrderPlan
-            /// Whether the patient data was verified against the platform's reading
-            /// at the challenge
-            Verified: bool
-            /// The EHR data as read at the challenge, none when they could not be read. A value the
-            /// prescriber typed shows as a difference with the patient of the plan.
-            EhrData: Informedica.GenForm.Lib.Types.EhrPatientData option
-        }
-
-
     /// Why an order plan refuses the link of a context to its main order.
     [<RequireQualifiedAccess>]
     type LinkError =
@@ -1149,8 +1108,6 @@ module Types =
         | Missing of string
         /// The patient of a context or an order plan is none
         | Patient of Informedica.GenForm.Lib.Types.PatientError
-        /// The EHR data of a version do not parse, with the reason
-        | EhrData of string
         /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
         /// with the reader's message, its line and its column
         | Unreadable of message: string

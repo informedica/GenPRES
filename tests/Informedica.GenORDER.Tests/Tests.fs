@@ -1211,42 +1211,6 @@ module TypeTests =
                     plan.Patient |> Expect.equal "the patient as shown" Patient.patient
                 }
 
-                test "an order plan version stores the whole plan and its identity" {
-                    let plan =
-                        OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication |]
-
-                    let version =
-                        {
-                            Id = "v-1"
-                            No = 1
-                            PatientId = "stub-patient"
-                            Base = None
-                            SignedBy =
-                                {
-                                    UserId = "u-1"
-                                    DisplayName = "Stub Prescriber"
-                                }
-                            SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
-                            Plan = plan
-                            Verified = true
-                            EhrData = None
-                        }
-
-                    version.Plan |> Expect.equal "the plan as signed" plan
-                    version.Base |> Expect.isNone "the first version has no base"
-                    version.SignedBy.DisplayName |> Expect.equal "the signer" "Stub Prescriber"
-
-                    let second =
-                        { version with
-                            Id = "v-2"
-                            No = 2
-                            Base = Some version.Id
-                        }
-
-                    second.Base |> Expect.equal "the second is built on the first" (Some "v-1")
-                    second.Plan |> Expect.equal "the plan is copied, not recomputed" version.Plan
-                }
-
                 test "a nutrition rule set names what its category draws from" {
                     let set =
                         {
@@ -4395,23 +4359,6 @@ module OrderPlanDtoTests =
                 Totals = totals
             }
 
-        let version: OrderPlanVersion =
-            {
-                Id = "v-1"
-                No = 1
-                PatientId = "stub-patient"
-                Base = None
-                SignedBy =
-                    {
-                        UserId = "u-1"
-                        DisplayName = "Stub Prescriber"
-                    }
-                SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
-                Plan = plan
-                Verified = true
-                EhrData = None
-            }
-
 
     let l1 name (x: 'a) (toDto: 'a -> 'd) (fromDto: 'd -> Result<'a, DtoError list>) =
         test $"L1 for {name}" { x |> toDto |> fromDto |> Expect.equal "the same value" (Ok x) }
@@ -4443,16 +4390,6 @@ module OrderPlanDtoTests =
                         l2 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
                         l1 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
                         l2 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
-                        l1
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
-                        l2
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
                     ]
 
                 testList
@@ -4518,72 +4455,35 @@ module OrderPlanDtoTests =
                             | other -> failtest $"expected one OrderNotCreated, got {other}"
                         }
 
-                        test "null nested Dtos are missing, null arrays empty, never a crash" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+                        test "a null nested Dto is missing, null arrays empty, never a crash" {
+                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
 
                             { dto with
-                                SignedBy = Unchecked.defaultof<_>
-                                Plan =
-                                    { dto.Plan with
-                                        Totals = Unchecked.defaultof<_>
-                                        Filtered = null
-                                    }
+                                Totals = Unchecked.defaultof<_>
+                                Filtered = null
                             }
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal
-                                "both named"
-                                (Error [ DtoError.Missing "SignedBy"; DtoError.Missing "Totals" ])
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal "named" (Error [ DtoError.Missing "Totals" ])
 
                             match
                                 { dto with
-                                    Plan =
-                                        { dto.Plan with
-                                            Filtered = null
-                                            Contexts = null
-                                        }
+                                    Filtered = null
+                                    Contexts = null
                                 }
-                                |> OrderPlanVersion.Dto.fromDto
+                                |> OrderPlan.Dto.fromDto
                             with
-                            | Ok v ->
-                                v.Plan.Filtered |> Expect.isEmpty "no filter"
-                                v.Plan.Contexts |> Expect.isEmpty "no contexts"
-                            | Error e -> failtest $"expected a version, got {e}"
+                            | Ok plan ->
+                                plan.Filtered |> Expect.isEmpty "no filter"
+                                plan.Contexts |> Expect.isEmpty "no contexts"
+                            | Error e -> failtest $"expected an order plan, got {e}"
                         }
                     ]
 
                 testList
                     "the stored root"
                     [
-                        test "an order plan version reads back from its canonical form, in canonical form" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
-                            let s = dto |> Canonical.serialize
-
-                            s
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> Canonical.serialize
-                            |> Expect.equal "the same form" s
-                        }
-
-                        test "a version read back parses to the version that was written" {
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            // in canonical form: a local DateTime reads back as the same instant in UTC
-                            |> Result.map (OrderPlanVersion.Dto.toDto >> Canonical.serialize)
-                            |> Expect.equal
-                                "the same version"
-                                (Ok(Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize))
-                        }
-
                         test "a null root is missing by its name, never a crash" {
                             let missing name = Error [ DtoError.Missing name ]
-
-                            "null"
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
 
                             Unchecked.defaultof<OrderPlan.Dto.Dto>
                             |> OrderPlan.Dto.fromDto
@@ -4592,10 +4492,6 @@ module OrderPlanDtoTests =
                             Unchecked.defaultof<PlanContext.Dto.Dto>
                             |> PlanContext.Dto.fromDto
                             |> Expect.equal "plan context" (missing "PlanContext")
-
-                            Unchecked.defaultof<Signer.Dto.Dto>
-                            |> Signer.Dto.fromDto
-                            |> Expect.equal "signer" (missing "Signer")
 
                             Unchecked.defaultof<Totals.Dto.Dto>
                             |> Totals.Dto.fromDto
@@ -4612,25 +4508,6 @@ module OrderPlanDtoTests =
                             Unchecked.defaultof<Filter.Dto.Dto>
                             |> Filter.Dto.fromDto
                             |> Expect.equal "filter" (missing "Filter")
-                        }
-
-                        test "two versions equal as values digest equal, a re-ordered plan does not" {
-                            let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
-
-                            let b =
-                                { Fixtures.version with
-                                    Plan =
-                                        { Fixtures.plan with Contexts = [| Fixtures.feeding; Fixtures.planContext |] }
-                                }
-                                |> OrderPlanVersion.Dto.toDto
-                                |> Canonical.serialize
-
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Expect.equal "equal" a
-
-                            a |> Expect.notEqual "a different order plan" b
                         }
                     ]
             ]

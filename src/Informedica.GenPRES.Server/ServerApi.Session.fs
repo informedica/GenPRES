@@ -591,7 +591,7 @@ module Session =
     type Persist =
         /// the order plan version of a commit; the Launch and what its callback came to
         /// the version signed, with the identity of the patient it names
-        | WriteVersion of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+        | WriteVersion of OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
         | RecordLaunch of LaunchRecord
         | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
         /// the Session opened, what it opened with, with the act that wrote it, and a request from
@@ -1682,7 +1682,7 @@ module Session =
                                     if right then
                                         let id = newId ()
 
-                                        let version: GenOrder.OrderPlanVersion =
+                                        let version: OrderPlanVersion =
                                             {
                                                 Id = id
                                                 No =
