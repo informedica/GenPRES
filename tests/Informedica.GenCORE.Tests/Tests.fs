@@ -18,6 +18,10 @@ module Tests =
     open Informedica.Utils.Lib.BCL
 
 
+    /// The date the Dtos are read at: no weight, height or birthdate in a test is after it.
+    let readAt = DateTime(2026, 11, 17)
+
+
     module CalculationTests =
 
         let bsaCalcList =
@@ -804,6 +808,29 @@ module Tests =
             let belowMinimum = Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
 
 
+            /// A dated weight Dto of a number of kg at a date.
+            let weightDto (kg: decimal) date =
+                let dto = WeightAtDate.Dto.dto ()
+                dto.DateTime <- date
+                dto.WeightValue.Weight <- kg
+                dto
+
+            /// A dated height Dto of a number of cm at a date.
+            let heightDto (cm: decimal) date =
+                let dto = HeightAtDate.Dto.dto ()
+                dto.DateTime <- date
+                dto.HeightValue.Height <- cm
+                dto.HeightValue.HeightInMeter <- false
+                dto
+
+            let later = readAt.AddDays 1.
+
+            let weights =
+                Weight.create [ weight ] (Some(WeightValue.weightInKg 3m)) [ weight ] (Some(Estimated weight))
+
+            let heights = Height.create [ height ] (Some(HeightValue.heightInCm 50m)) (Some(Measured height))
+
+
             let tests =
                 testList
                     "patient data"
@@ -904,13 +931,19 @@ module Tests =
                                 test "a measured and an estimated weight read back from the Dto" {
                                     for calc in [ Measured weight; Estimated weight ] do
                                         let w = Weight.create [ weight ] None [] (Some calc)
-                                        w |> Weight.Dto.toDto |> Weight.Dto.fromDto |> Expect.equal $"%A{calc}" w
+                                        w
+                                        |> Weight.Dto.toDto
+                                        |> Weight.Dto.fromDto readAt
+                                        |> Expect.equal $"%A{calc}" (Ok w)
                                 }
 
                                 test "a measured and an estimated height read back from the Dto" {
                                     for calc in [ Measured height; Estimated height ] do
                                         let h = Height.create [ height ] None (Some calc)
-                                        h |> Height.Dto.toDto |> Height.Dto.fromDto |> Expect.equal $"%A{calc}" h
+                                        h
+                                        |> Height.Dto.toDto
+                                        |> Height.Dto.fromDto readAt
+                                        |> Expect.equal $"%A{calc}" (Ok h)
                                 }
 
                                 test "only a measured calculation weight or height is measured" {
@@ -926,12 +959,124 @@ module Tests =
                                     |> Expect.equal "measured, estimated, none" [ true; false; false ]
                                 }
 
+                                test "a date up to and including the date passed in reads" {
+                                    for date in [ measuredOn; readAt ] do
+                                        weightDto 32m date
+                                        |> WeightAtDate.Dto.fromDto readAt
+                                        |> Expect.isOk $"weight at %A{date}"
+                                        heightDto 140m date
+                                        |> HeightAtDate.Dto.fromDto readAt
+                                        |> Expect.isOk $"height at %A{date}"
+                                }
+
+                                test "a date after the date passed in is an error" {
+                                    weightDto 32m later
+                                    |> WeightAtDate.Dto.fromDto readAt
+                                    |> Expect.isError "weight"
+                                    heightDto 140m later
+                                    |> HeightAtDate.Dto.fromDto readAt
+                                    |> Expect.isError "height"
+                                }
+
+                                test "the time of day is not looked at" {
+                                    let noon = readAt.Date.AddHours 12.
+
+                                    weightDto 32m (readAt.Date.AddHours 23.)
+                                    |> WeightAtDate.Dto.fromDto noon
+                                    |> Expect.isOk "later on the same day"
+
+                                    weightDto 32m (readAt.Date.AddDays 1.)
+                                    |> WeightAtDate.Dto.fromDto (readAt.Date.AddHours 23.)
+                                    |> Expect.isError "midnight of the next day"
+                                }
+
+                                test "weights and heights read back from their Dto" {
+                                    weights
+                                    |> Weight.Dto.toDto
+                                    |> Weight.Dto.fromDto readAt
+                                    |> Expect.equal "weights" (Ok weights)
+                                    heights
+                                    |> Height.Dto.toDto
+                                    |> Height.Dto.fromDto readAt
+                                    |> Expect.equal "heights" (Ok heights)
+                                }
+
+                                test "a weight outside the bounds is an error, wherever it is" {
+                                    let tooHeavy = weightDto 300m measuredOn
+
+                                    let inCalculation = weights |> Weight.Dto.toDto
+                                    inCalculation.Calculation <- Some tooHeavy
+
+                                    let inActual = weights |> Weight.Dto.toDto
+                                    inActual.Actual <- [ tooHeavy ]
+
+                                    let inAdmission = weights |> Weight.Dto.toDto
+                                    inAdmission.Admission <- [ tooHeavy ]
+
+                                    let inBirth = weights |> Weight.Dto.toDto
+                                    inBirth.Birth <- Some tooHeavy.WeightValue
+
+                                    for name, dto in
+                                        [
+                                            "calculation", inCalculation
+                                            "actual", inActual
+                                            "admission", inAdmission
+                                            "birth", inBirth
+                                        ] do
+                                        dto |> Weight.Dto.fromDto readAt |> Expect.isError name
+                                }
+
+                                test "a height outside the bounds is an error, wherever it is" {
+                                    let tooTall = heightDto 400m measuredOn
+
+                                    let inCalculation = heights |> Height.Dto.toDto
+                                    inCalculation.Calculation <- Some tooTall
+
+                                    let inActual = heights |> Height.Dto.toDto
+                                    inActual.Actual <- [ tooTall ]
+
+                                    let inBirth = heights |> Height.Dto.toDto
+                                    inBirth.Birth <- Some tooTall.HeightValue
+
+                                    for name, dto in
+                                        [ "calculation", inCalculation; "actual", inActual; "birth", inBirth ] do
+                                        dto |> Height.Dto.fromDto readAt |> Expect.isError name
+                                }
+
+                                test "a weight dated after the date passed in is an error" {
+                                    let dto = weights |> Weight.Dto.toDto
+                                    dto.Calculation <- Some(weightDto 32m later)
+
+                                    dto |> Weight.Dto.fromDto readAt |> Expect.isError "dated tomorrow"
+                                }
+
+                                test "weights without any value read as no weights" {
+                                    Weight.unknown
+                                    |> Weight.Dto.toDto
+                                    |> Weight.Dto.fromDto readAt
+                                    |> Expect.equal "nothing known" (Ok Weight.unknown)
+                                }
+
+                                test "a dated weight or height without a date is an error" {
+                                    let w = WeightAtDate.Dto.dto ()
+                                    w.WeightValue.Weight <- 32m
+
+                                    let h = HeightAtDate.Dto.dto ()
+                                    h.HeightValue.Height <- 140m
+                                    h.HeightValue.HeightInMeter <- false
+
+                                    w |> WeightAtDate.Dto.fromDto readAt |> Expect.isError "weight"
+                                    h |> HeightAtDate.Dto.fromDto readAt |> Expect.isError "height"
+                                }
+
                                 test "a Dto that does not say estimated reads as measured" {
                                     let dto = Weight.Dto.dto ()
                                     dto.Calculation <- weight |> WeightAtDate.Dto.toDto |> Some
 
-                                    (dto |> Weight.Dto.fromDto).Calculation
-                                    |> Expect.equal "measured" (Some(Measured weight))
+                                    dto
+                                    |> Weight.Dto.fromDto readAt
+                                    |> Result.map _.Calculation
+                                    |> Expect.equal "measured" (Ok(Some(Measured weight)))
                                 }
                             ]
 
@@ -1105,8 +1250,15 @@ module Tests =
                                             for dat in [ complete; PatientData.unknown ] do
                                                 dat
                                                 |> PatientData.Dto.toDto
-                                                |> PatientData.Dto.fromDto
+                                                |> PatientData.Dto.fromDto readAt
                                                 |> Expect.equal "the same patient data" (Ok dat)
+                                        }
+
+                                        test "patient data with a weight outside the bounds is an error" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.Weight.Calculation <- Some(weightDto 300m measuredOn)
+
+                                            dto |> PatientData.Dto.fromDto readAt |> Expect.isError "300 kg"
                                         }
 
                                         test "a Dto with an unknown access is an error" {
@@ -1114,7 +1266,7 @@ module Tests =
                                             dto.Access <- [| "pvl"; "any" |]
 
                                             dto
-                                            |> PatientData.Dto.fromDto
+                                            |> PatientData.Dto.fromDto readAt
                                             |> Expect.isError "any is no access of a patient"
                                         }
 
@@ -1122,7 +1274,7 @@ module Tests =
                                             let dto = complete |> PatientData.Dto.toDto
                                             dto.Access <- [| "any"; "xxx" |]
 
-                                            let text = dto |> PatientData.Dto.fromDto |> sprintf "%A"
+                                            let text = dto |> PatientData.Dto.fromDto readAt |> sprintf "%A"
 
                                             text |> Expect.stringContains "the first" "any"
                                             text.Contains "xxx" |> Expect.isFalse "not the second"
@@ -1132,7 +1284,7 @@ module Tests =
                                             let dto = complete |> PatientData.Dto.toDto
                                             dto.RenalFunction <- Some "egfr:20:40"
 
-                                            dto |> PatientData.Dto.fromDto |> Expect.isError "no band"
+                                            dto |> PatientData.Dto.fromDto readAt |> Expect.isError "no band"
                                         }
 
                                         test "a Dto whose access a serializer left null reads without an access" {
@@ -1140,7 +1292,7 @@ module Tests =
                                             dto.Access <- null
 
                                             dto
-                                            |> PatientData.Dto.fromDto
+                                            |> PatientData.Dto.fromDto readAt
                                             |> Result.map _.Access
                                             |> Expect.equal "no access" (Ok [])
                                         }
@@ -1161,7 +1313,7 @@ module Tests =
                                     for pat in [ identified; Patient.create None complete; Patient.unknown ] do
                                         pat
                                         |> Patient.Dto.toDto
-                                        |> Patient.Dto.fromDto
+                                        |> Patient.Dto.fromDto readAt
                                         |> Expect.equal "the same patient" (Ok pat)
                                 }
 
@@ -1169,7 +1321,24 @@ module Tests =
                                     let dto = identified |> Patient.Dto.toDto
                                     dto.Data.Access <- [| "any" |]
 
-                                    dto |> Patient.Dto.fromDto |> Expect.isError "any is no access of a patient"
+                                    dto
+                                    |> Patient.Dto.fromDto readAt
+                                    |> Expect.isError "any is no access of a patient"
+                                }
+
+                                test "a patient with a height dated after the date passed in is an error" {
+                                    let dto = identified |> Patient.Dto.toDto
+                                    dto.Data.Height.Calculation <- Some(heightDto 140m later)
+
+                                    dto |> Patient.Dto.fromDto readAt |> Expect.isError "dated tomorrow"
+                                }
+
+                                test "a patient born more than 120 years before the date passed in is an error" {
+                                    let dto = identified |> Patient.Dto.toDto
+                                    dto.BirthDate <-
+                                        BirthDate.create 1900<year> 1<month> 1<day> |> BirthDate.Dto.toDto |> Some
+
+                                    dto |> Patient.Dto.fromDto readAt |> Expect.isError "126 years"
                                 }
 
                                 test "a part of an identity is an error" {
@@ -1177,7 +1346,7 @@ module Tests =
                                     dto.Name <- ""
 
                                     dto
-                                    |> Patient.Dto.fromDto
+                                    |> Patient.Dto.fromDto readAt
                                     |> Expect.isError "an id and a birthdate without a name"
                                 }
                             ]
@@ -1263,6 +1432,15 @@ module Tests =
                 testList
                     "BirthDate"
                     [
+                        test "a birthdate is at most 120 years before the date passed in" {
+                            let dto = BirthDate.create 1900<year> 1<month> 1<day> |> BirthDate.Dto.toDto
+
+                            dto |> BirthDate.Dto.fromDto (DateTime(2010, 1, 1)) |> Expect.isOk "110 years"
+                            dto
+                            |> BirthDate.Dto.fromDto (DateTime(2026, 1, 1))
+                            |> Expect.isError "126 years"
+                        }
+
                         test "should always return a valid date" {
                             let ys = intGenerator 2200 100
                             let ms = intGenerator 20 100
@@ -1281,7 +1459,7 @@ module Tests =
                                                 dto
                                 ]
                                 |> List.forall (fun dto ->
-                                    match dto |> BirthDate.Dto.fromDto with
+                                    match dto |> BirthDate.Dto.fromDto readAt with
                                     | Ok ymd ->
                                         try
                                             let y = ymd.Year |> int
@@ -1307,13 +1485,13 @@ module Tests =
                             dto.Year <- y |> List.tryHead |> Option.defaultValue 2000
 
                             dto
-                            |> BirthDate.Dto.fromDto
+                            |> BirthDate.Dto.fromDto readAt
                             |> function
                                 | Ok ymd1 ->
 
                                     ymd1
                                     |> BirthDate.Dto.toDto
-                                    |> BirthDate.Dto.fromDto
+                                    |> BirthDate.Dto.fromDto readAt
                                     |> function
                                         | Ok ymd2 -> ymd2 = ymd1
                                         | Error _ -> false
@@ -1324,13 +1502,13 @@ module Tests =
                             let dto = BirthDate.Dto.dto ()
                             dto.Year <- 2016
 
-                            let yearAlone = dto |> BirthDate.Dto.fromDto |> Result.isError
+                            let yearAlone = dto |> BirthDate.Dto.fromDto readAt |> Result.isError
 
                             dto.Month <- 3
-                            let noDay = dto |> BirthDate.Dto.fromDto |> Result.isError
+                            let noDay = dto |> BirthDate.Dto.fromDto readAt |> Result.isError
 
                             dto.Day <- 15
-                            let complete = dto |> BirthDate.Dto.fromDto |> Result.isOk
+                            let complete = dto |> BirthDate.Dto.fromDto readAt |> Result.isOk
 
                             (yearAlone, noDay, complete)
                             |> Expect.equal "refused, refused, read" (true, true, true)
@@ -1345,12 +1523,12 @@ module Tests =
 
                         test "birthDay cannot be from person older than 120" {
                             let dto = BirthDate.Dto.dto ()
-                            dto.Year <- (DateTime.Now |> DateTime.addYears -121).Year
+                            dto.Year <- (readAt |> DateTime.addYears -121).Year
                             dto.Month <- 1
                             dto.Day <- 1
 
                             dto
-                            |> BirthDate.Dto.fromDto
+                            |> BirthDate.Dto.fromDto readAt
                             |> function
                                 | Ok ymd -> $"birthdate is too long ago: {ymd.Year}"
                                 | Error _ -> ""
@@ -1396,10 +1574,10 @@ module Tests =
                             let dto = WeightAtDate.Dto.dto ()
 
                             dto.WeightValue.Weight <- 10m
-                            dto.DateTime <- DateTime.Now.AddDays(7)
+                            dto.DateTime <- readAt.AddDays(7)
 
                             dto
-                            |> WeightAtDate.Dto.fromDto
+                            |> WeightAtDate.Dto.fromDto readAt
                             |> function
                                 | Ok _ -> false
                                 | Error _ -> true
@@ -1949,7 +2127,7 @@ module Tests =
             let stub = PatientIdentity.create "p1" "Stub Testpatiënt" (bd 2016 3 15)
 
             let thereAndBack pat =
-                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto |> Result.mapError string
+                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto readAt |> Result.mapError string
 
             testList
                 "Patient tests"
@@ -1972,7 +2150,7 @@ module Tests =
                     }
 
                     test "the newborn patient goes there and back" {
-                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender DateTime.Now
+                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender readAt
 
                         newBorn |> thereAndBack |> Expect.equal "the same" (Ok newBorn)
                     }
@@ -1992,7 +2170,7 @@ module Tests =
                             withIdentity "p1" "Stub Testpatiënt" None
                             withIdentity "" "" (Some(bd 2016 3 15))
                         ]
-                        |> List.map (Patient.Dto.fromDto >> Result.isError)
+                        |> List.map (Patient.Dto.fromDto readAt >> Result.isError)
                         |> Expect.allEqual "an error" true
                     }
 

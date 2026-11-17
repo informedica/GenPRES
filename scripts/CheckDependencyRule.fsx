@@ -128,8 +128,6 @@ let allowances =
         // Logging.Lib
         allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
         allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
-        // GenCORE.Lib
-        allowToken "src/Informedica.GenCORE.Lib/Patient.fs" "DateTime.Now" clock
         // GenSOLVER.Lib
         allowToken "src/Informedica.GenSOLVER.Lib/Utils.fs" "Environment.ProcessorCount" chunking
         // GenFORM.Lib

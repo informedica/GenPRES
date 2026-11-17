@@ -32,3 +32,11 @@ module Validus =
                     false
 
             Validator.create msg rule
+
+
+        /// A date that is given and is not after a calendar date; the time of day of either date is
+        /// not looked at. A date left at its initial value is not given.
+        let notAfterValidator (today: DateTime) =
+            let rule (dt: DateTime) = dt <> DateTime.MinValue && dt.Date <= today.Date
+
+            Validator.create (fun field -> $"%s{field} is missing or is after the date it is read on") rule
