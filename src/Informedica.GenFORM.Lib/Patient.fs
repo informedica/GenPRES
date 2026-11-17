@@ -24,6 +24,8 @@ module Gender =
 
     open Informedica.Utils.Lib.BCL
 
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+
 
     /// Map a string to a Gender.
     let fromString s =
@@ -51,6 +53,15 @@ module Gender =
         | "vrouw" -> Some Female
         | "" -> Some AnyGender
         | _ -> None
+
+
+    /// The gender a rule matches, of the gender of a patient. A patient without a known gender
+    /// matches the rules for any gender.
+    let ofPatient =
+        function
+        | CoreGender.Male -> Male
+        | CoreGender.Female -> Female
+        | CoreGender.UnknownGender -> AnyGender
 
 
     /// Check if a Filter contains a Gender.
@@ -504,6 +515,16 @@ module AccessDevice =
 
     open Informedica.Utils.Lib.BCL
 
+    type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+
+
+    /// The access a rule names, of an access of a patient.
+    let ofPatient =
+        function
+        | CoreAccess.PVL -> PVL
+        | CoreAccess.CVL -> CVL
+        | CoreAccess.EnteralTube -> EnteralTube
+
 
     let toString =
         function
@@ -527,6 +548,22 @@ module AccessDevice =
 module RenalFunction =
 
     open Informedica.Utils.Lib.BCL
+
+    type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
+    type EGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+
+
+    /// The renal function a renal rule matches, of the renal function of a patient. An eGFR band is
+    /// the pair of its bounds.
+    let ofPatient =
+        function
+        | CoreRenalFunction.EGFR EGFRBand.Above50 -> EGFR(Some 50, None)
+        | CoreRenalFunction.EGFR EGFRBand.From30To50 -> EGFR(Some 30, Some 50)
+        | CoreRenalFunction.EGFR EGFRBand.From10To30 -> EGFR(Some 10, Some 30)
+        | CoreRenalFunction.EGFR EGFRBand.UpTo10 -> EGFR(None, Some 10)
+        | CoreRenalFunction.IntermittentHemodialysis -> IntermittentHemodialysis
+        | CoreRenalFunction.ContinuousHemodialysis -> ContinuousHemodialysis
+        | CoreRenalFunction.PeritonealDialysis -> PeritonealDialysis
 
 
     let toString =
@@ -562,89 +599,6 @@ module RenalFunction =
         | _ -> None
 
 
-module EhrPatientData =
-
-    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-
-
-    let create pat renal access : EhrPatientData =
-        {
-            Patient = pat
-            RenalFunction = renal
-            Access = access
-        }
-
-
-    /// Who the patient is: the identity of the core patient, none for an anonymous patient.
-    let identity (ehr: EhrPatientData) = ehr.Patient.Identity
-
-
-    /// The serializable shape of the EHR data: the core patient's Dto, the renal function and
-    /// the access devices as the strings their modules write.
-    module Dto =
-
-        type Dto =
-            {
-                Patient: CorePatient.Dto.Dto
-                RenalFunction: string option
-                Access: string[]
-            }
-
-
-        /// Total: every EHR data has a Dto.
-        let toDto (ehr: EhrPatientData) : Dto =
-            {
-                Patient = ehr.Patient |> CorePatient.Dto.toDto
-                RenalFunction = ehr.RenalFunction |> Option.map RenalFunction.toString
-                Access = ehr.Access |> List.map AccessDevice.toString |> List.toArray
-            }
-
-
-        /// The EHR data the Dto is, or every reason it is none: the core patient's own, a
-        /// renal function or an access string that names nothing.
-        let fromDto (dto: Dto) : Result<EhrPatientData, string list> =
-            let patient =
-                dto.Patient
-                |> CorePatient.Dto.fromDto
-                |> Result.mapError (fun errs -> [ $"the patient does not parse: %A{errs}" ])
-
-            let renal =
-                match dto.RenalFunction with
-                | None -> Ok None
-                | Some s ->
-                    match RenalFunction.tryFromString s with
-                    | Some r -> Ok(Some r)
-                    | None -> Error [ $"unknown renal function: %s{s}" ]
-
-            let access =
-                // a reference field a serializer left null is read as absent
-                (if isNull dto.Access then [||] else dto.Access)
-                |> Array.toList
-                |> List.map (fun s ->
-                    match AccessDevice.tryFromString s with
-                    | Some a -> Ok a
-                    | None -> Error [ $"unknown access: %s{s}" ]
-                )
-
-            let errors =
-                [
-                    match patient with
-                    | Error e -> yield! e
-                    | Ok _ -> ()
-                    match renal with
-                    | Error e -> yield! e
-                    | Ok _ -> ()
-                    for a in access do
-                        match a with
-                        | Error e -> yield! e
-                        | Ok _ -> ()
-                ]
-
-            match patient, renal, errors with
-            | Ok pat, Ok renal, [] -> create pat renal (access |> List.choose Result.toOption) |> Ok
-            | _ -> Error errors
-
-
 module Patient =
 
     open Informedica.Utils.Lib.BCL
@@ -653,14 +607,11 @@ module Patient =
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
-    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
-    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
-    module CoreSource = Informedica.GenCore.Lib.Patients.Source
-
-    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     open Utils
 
@@ -717,57 +668,32 @@ module Patient =
     /// post-menstrual age, as GenCORE calculated them.
     let withAgesOf (core: Informedica.GenCore.Lib.Patients.Patient) (pat: Patient) =
         { pat with
-            Age = core.Data.Age |> Option.map CoreAgeValue.toValueUnit
-            GestAge = core.Data.GestationalAge |> Option.map CoreAgeWeeksDays.toValueUnit
-            PMAge = core.Data.PostMenstrualAge |> Option.map CoreAgeWeeksDays.toValueUnit
+            Age = core.Data |> CorePatientData.ageInDays
+            GestAge = core.Data |> CorePatientData.gestationalAgeInDays
+            PMAge = core.Data |> CorePatientData.postMenstrualAgeInDays
         }
 
 
-    /// The patient the EHR data is: from withAgesOf, the age, the gestational age and the
-    /// post-menstrual age the read created; weight and height from the calculation values, measured
-    /// when there are any; the department's name; renal function and access as given; the BSA left
-    /// to the calculation over weight and height.
-    let ofEhr (ehr: EhrPatientData) : Patient =
-        let gender =
-            function
-            | CoreGender.Male -> Male
-            | CoreGender.Female -> Female
-            | CoreGender.UnknownGender -> AnyGender
-
-        let core = ehr.Patient.Data
-
-        let weight =
-            core.Weight.Calculation
-            |> Option.map (fun w ->
-                (w |> CoreSource.value).Weight
-                |> CoreWeightValue.getWeightInKg
-                |> decimal
-                |> BigRational.fromDecimal
-                |> ValueUnit.singleWithUnit Units.Weight.kiloGram
-            )
-
-        let height =
-            core.Height.Calculation
-            |> Option.map (fun h ->
-                (h |> CoreSource.value).Height
-                |> CoreHeightValue.getHeightCm
-                |> decimal
-                |> BigRational.fromDecimal
-                |> ValueUnit.singleWithUnit Units.Height.centiMeter
-            )
-
-        { patient with
-            Department = core.Department |> CoreDepartment.name
-            Diagnoses = core.Diagnoses
-            Gender = core.Gender |> gender
-            Weight = weight
-            Height = height
-            WeightMeasured = weight.IsSome
-            HeightMeasured = height.IsSome
-            Access = ehr.Access
-            RenalFunction = ehr.RenalFunction
+    /// The patient of patient data: the single values GenCORE gives, a weight and a height
+    /// measured when their calculation value is, the name of the department, and the rule values
+    /// of the gender, the access and the renal function.
+    let ofPatientData (dat: Informedica.GenCore.Lib.Patients.PatientData) : Patient =
+        {
+            Location = dat.Location
+            Department = dat.Department |> CoreDepartment.name
+            Diagnoses = dat.Diagnoses
+            Gender = dat.Gender |> Gender.ofPatient
+            Age = dat |> CorePatientData.ageInDays
+            Weight = dat |> CorePatientData.weightInKg
+            Height = dat |> CorePatientData.heightInCm
+            WeightMeasured = dat.Weight |> CoreWeight.isMeasured
+            HeightMeasured = dat.Height |> CoreHeight.isMeasured
+            MarkedAdult = dat.MarkedAdult
+            GestAge = dat |> CorePatientData.gestationalAgeInDays
+            PMAge = dat |> CorePatientData.postMenstrualAgeInDays
+            Access = dat.Access |> List.map AccessDevice.ofPatient
+            RenalFunction = dat.RenalFunction |> Option.map RenalFunction.ofPatient
         }
-        |> withAgesOf ehr.Patient
 
 
     /// Get the string representation of a Patient.

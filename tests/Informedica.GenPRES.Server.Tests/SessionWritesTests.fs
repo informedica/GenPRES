@@ -636,9 +636,7 @@ let moved =
             fun pid ->
                 StubAdapterTests.StubAdapters.patientData.read pid
                 |> Option.map (fun ehr ->
-                    { ehr with
-                        Patient.Data.Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
-                    }
+                    { ehr with Data.Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU" }
                 )
     }
 
@@ -833,7 +831,7 @@ let flightWrites =
                 | SigningOutcome.Submitted _ -> ()
                 | other -> failtest $"expected Submitted, got %A{other}"
 
-                state.Sessions[sid].Opened.EhrData
+                state.Sessions[sid].Opened.EhrPatient
                 |> Expect.equal "the read just signed on" (moved.read "stub-patient")
 
                 // the read just signed on is no change: a challenge, not another notice

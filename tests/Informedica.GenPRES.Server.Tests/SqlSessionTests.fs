@@ -494,7 +494,7 @@ let sessionTests =
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Ok session)) ->
-                        session.Opened.EhrData |> Expect.isNone "no patient data"
+                        session.Opened.EhrPatient |> Expect.isNone "no patient data"
                         session.Opened.Head |> Expect.isNone "no head either"
 
                         session.Opened.User
@@ -548,7 +548,7 @@ let sessionOf sid login openedWith head : Session.SessionRecord =
                             Role = UserRole.Prescriber
                         }
                 PatientId = Some "stub-patient"
-                EhrData = None
+                EhrPatient = None
                 OpenedToken = Some(OpenedToken $"opened-%s{sid}")
                 KeyThumbprint = Some "thumb"
                 Head = head
@@ -756,7 +756,7 @@ let writerTests =
 
                     let session =
                         { sessionOf "s-1" "prescriber" None None with
-                            Opened = { (sessionOf "s-1" "prescriber" None None).Opened with EhrData = Some ehr }
+                            Opened = { (sessionOf "s-1" "prescriber" None None).Opened with EhrPatient = Some ehr }
                         }
 
                     runWrites
@@ -769,7 +769,7 @@ let writerTests =
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Ok loaded)) ->
-                        loaded.Opened.EhrData |> Expect.equal "the EHR data as read" (Some ehr)
+                        loaded.Opened.EhrPatient |> Expect.equal "the EHR data as read" (Some ehr)
                         loaded |> Expect.equal "the Session as it was" session
                     | other -> failtest $"expected the Session, got %A{other}"
 
@@ -781,22 +781,55 @@ let writerTests =
                     use r = cmd.ExecuteReader()
                     r.Read() |> Expect.isTrue "the row is there"
                     r.GetInt32 0
-                    |> Expect.equal "under the version it was written with" SqlEhrData.ehrJsonWritten
+                    |> Expect.equal "under the version it was written with" SqlEhrData.ehrJsonVersion
                     r.GetString 1
                     |> Expect.equal "the canonical form of its Dto" (SqlEhrData.ehrJson ehr)
                 )
             }
 
-            test "EHR data written before the patient data got an access list and a renal function still reads" {
+            test "EHR data of structure version 1 is older than this release reads" {
                 let json =
                     System.IO.File.ReadAllText(
                         System.IO.Path.Combine(System.AppContext.BaseDirectory, "fixtures", "ehr_data_v1.json")
                     )
 
                 SqlEhrData.readEhr 1 json
-                |> Expect.equal
-                    "the stub patient as read on 17 November 2026"
-                    (Ok(StubPatientData.data (System.DateTime(2026, 11, 17)) "stub-patient"))
+                |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
+            }
+
+            test "EHR data of a structure version after the one written is newer than this release knows" {
+                let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+
+                SqlEhrData.readEhr (SqlEhrData.ehrJsonVersion + 1) (SqlEhrData.ehrJson ehr)
+                |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "EHR data reads back from its JSON, with an access and a renal function" {
+                let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+
+                let full =
+                    { ehr with
+                        Data.Access =
+                            [
+                                Informedica.GenCore.Lib.Patients.CVL
+                                Informedica.GenCore.Lib.Patients.EnteralTube
+                            ]
+                        Data.RenalFunction =
+                            Some(Informedica.GenCore.Lib.Patients.EGFR Informedica.GenCore.Lib.Patients.From30To50)
+                    }
+
+                SqlEhrData.ehrJson full
+                |> SqlEhrData.readEhr SqlEhrData.ehrJsonVersion
+                |> Expect.equal "the same patient" (Ok full)
+            }
+
+            test "the EHR JSON holds the patient data in a field Data, after the identity" {
+                let json =
+                    StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                    |> SqlEhrData.ehrJson
+
+                json |> Expect.stringContains "the nested data" "\"Data\":{"
+                json |> Expect.stringStarts "the identity first" "{\"Id\":\"stub-patient\""
             }
 
             test "a row from before the EHR data column, or a Session opened on none, loads with no EHR data" {
@@ -805,7 +838,7 @@ let writerTests =
                     insertOpenedWith cs "s-1" (Some "plan-1")
 
                     match loadedSession cs "s-1" with
-                    | Some(Choice1Of2(Ok session)) -> session.Opened.EhrData |> Expect.isNone "no EHR data"
+                    | Some(Choice1Of2(Ok session)) -> session.Opened.EhrPatient |> Expect.isNone "no EHR data"
                     | other -> failtest $"expected the Session, got %A{other}"
                 )
             }
@@ -1562,7 +1595,7 @@ let withOpenSession (cs: string) =
 let noticeOf nonce data : Session.Notice =
     {
         Nonce = nonce
-        Ehr =
+        EhrPatient =
             data
             |> Option.map (fun _ -> StubPatientData.data StubPatientData.measuredOn "stub-patient")
         Data = data
@@ -1574,7 +1607,7 @@ let challengeOf nonce : Session.Challenge =
     {
         Nonce = nonce
         Digest = "digest-1"
-        Ehr = None
+        EhrPatient = None
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -1631,18 +1664,18 @@ let flightWriteTests =
                         cs
                         [
                             Session.WriteNotice("s-1", noticeOf "n-1" (Some patient), t0)
-                            Session.WriteChallenge("s-1", { challengeOf "c-1" with Ehr = Some ehr }, t0)
+                            Session.WriteChallenge("s-1", { challengeOf "c-1" with EhrPatient = Some ehr }, t0)
                         ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     use conn = connect cs
 
                     SqlSessions.loadNotice conn t0 "s-1"
-                    |> Option.map (Result.map _.Ehr)
+                    |> Option.map (Result.map _.EhrPatient)
                     |> Expect.equal "the notice's read" (Some(Ok(Some ehr)))
 
                     SqlSessions.loadChallenge conn t0 "s-1"
-                    |> Option.map (Result.map _.Ehr)
+                    |> Option.map (Result.map _.EhrPatient)
                     |> Expect.equal "the challenge's read" (Some(Ok(Some ehr)))
 
                     // a row written before the columns existed
@@ -1662,7 +1695,7 @@ let flightWriteTests =
                     cmd.ExecuteNonQuery() |> ignore
 
                     SqlSessions.loadChallenge conn t0 "s-1"
-                    |> Option.map (Result.map (fun c -> c.Nonce, c.Ehr))
+                    |> Option.map (Result.map (fun c -> c.Nonce, c.EhrPatient))
                     |> Expect.equal "the newest, with no read" (Some(Ok("c-0", None)))
 
                     // the notice row as one from before the columns holds it: patient data, no
@@ -1714,9 +1747,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    let whom =
-                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
                     let patient = v1.Plan.Patient |> Session.atBirthDate v1.SignedAt whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
 
@@ -1748,9 +1779,7 @@ let flightWriteTests =
                     let signedAt = DateTime(2026, 9, 26, 23, 30, 0, DateTimeKind.Utc)
                     let amsterdam = LocalDate.defaultZone ()
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
-                    let whom =
-                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
                     let patientOn zone =
                         v1.Plan.Patient |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patientOn amsterdam)

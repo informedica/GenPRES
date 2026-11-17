@@ -14,7 +14,6 @@ module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
-module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
@@ -31,23 +30,21 @@ let port = StubPatientData.port
 
 let ehr = StubPatientData.data today "stub-patient"
 
-let identity = ehr |> EhrPatientData.identity
+let identity = ehr.Identity
 
 
 /// The stub's EHR data with a weight the EHR has since changed.
 let heavier =
     let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
 
-    { ehr with
-        Patient.Data.Weight = CoreWeight.create [ w ] None [] (Some(Informedica.GenCore.Lib.Patients.Measured w))
-    }
+    { ehr with Data.Weight = CoreWeight.create [ w ] None [] (Some(Informedica.GenCore.Lib.Patients.Measured w)) }
 
 
 /// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
     { ehr with
-        Patient.Identity = None
-        Patient.Data.Age = Some CoreAgeValue.ten
+        Identity = None
+        Data.Age = Some CoreAgeValue.ten
     }
 
 
@@ -64,14 +61,14 @@ let version = Store.versionOf 1 Store.prescriber tomorrow plan
 
 
 /// A Session opened at today on the EHR data given, with the head given, seen at today.
-let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option) (head: StoredVersion option) =
+let opened (sid: string) (ehr: Informedica.GenCore.Lib.Patients.Patient option) (head: StoredVersion option) =
     sid,
     ({
         Opened =
             {
                 User = Some Store.prescriber
                 PatientId = Some "stub-patient"
-                EhrData = ehr
+                EhrPatient = ehr
                 OpenedToken = Some(Store.token sid)
                 KeyThumbprint = Some "t"
                 Head = head
@@ -102,11 +99,11 @@ let unreadable: UnreadableVersion =
     }
 
 
-let challengeOver (read: Informedica.GenForm.Lib.Types.EhrPatientData option) : Session.Challenge =
+let challengeOver (read: Informedica.GenCore.Lib.Patients.Patient option) : Session.Challenge =
     {
         Nonce = "c-s-1"
         Digest = StubDatabase.digest plan
-        Ehr = read
+        EhrPatient = read
         Expiry = tomorrow + Session.challengeLifetime
     }
 
@@ -512,8 +509,7 @@ let tests =
                     test "the version names the patient of the read signed on: a notice accepted over another name" {
                         let renamed =
                             { ehr with
-                                Patient.Identity =
-                                    ehr.Patient.Identity |> Option.map (fun idn -> { idn with Name = "Renamed" })
+                                Identity = ehr.Identity |> Option.map (fun idn -> { idn with Name = "Renamed" })
                             }
 
                         let record, _, whom, _, _ =
@@ -545,7 +541,7 @@ let tests =
                         let sid, record = opened "s-1" (Some ehr) None
                         let after, version, _, _, patient = signedAt (sid, record) (challengeOver (Some heavier))
 
-                        (version.EhrData,
+                        (version.EhrPatient,
                          patient |> weightInKg,
                          after.Opened |> Session.sessionPatient tomorrow port |> Option.bind weightInKg)
                         |> Expect.equal "the 34 kg read, the 32 kg signed" (Some heavier, Some 32N, Some 32N)

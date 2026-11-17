@@ -200,7 +200,7 @@ let tests =
                     {
                         User = Some prescriber
                         PatientId = Some "stub-patient"
-                        EhrData = None
+                        EhrPatient = None
                         OpenedToken = Some(OpenedToken "opened-1")
                         KeyThumbprint = Some "thumb"
                         Head = Some(StoredVersion.Readable(version, None))
@@ -228,7 +228,7 @@ let tests =
                         })
 
                 let identified =
-                    { stored with EhrData = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient") }
+                    { stored with EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient") }
                     |> SessionMapper.toOpened false shown
 
                 identified.PatientContext

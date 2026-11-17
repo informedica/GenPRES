@@ -196,7 +196,7 @@ module StubPatientData =
 
     /// The stub's EHR data for an id read at a moment: the fixed patient under that id, nothing else
     /// known, with its ages created at the read.
-    let data (now: DateTime) (pid: string) : Informedica.GenForm.Lib.Types.EhrPatientData =
+    let data (now: DateTime) (pid: string) : CorePatient =
         let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
         let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
 
@@ -209,7 +209,6 @@ module StubPatientData =
             (Height.create [ height ] None (Some(Measured height)))
             None
         |> Patient.createAt now (PatientIdentity.create pid name birthDate |> Some)
-        |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
     /// A patient of the stub EHR that the stub launch page offers by its PatientId.
@@ -320,7 +319,6 @@ module StubPatientData =
             (Height.create [ height ] None (Some(Measured height)))
             tp.GestationalAge
         |> Patient.createAt measuredOn identity
-        |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
     /// The EHR data for a PatientId read at a moment: a test patient's data, none for no-data,
@@ -337,7 +335,7 @@ module StubPatientData =
     let portAt now : PatientDataPort =
         {
             read = read now
-            patient = Informedica.GenForm.Lib.Patient.ofEhr
+            patient = _.Data >> Informedica.GenForm.Lib.Patient.ofPatientData
         }
 
 

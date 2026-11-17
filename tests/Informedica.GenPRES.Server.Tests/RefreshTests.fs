@@ -43,7 +43,7 @@ module Fixtures =
         {
             User = Some prescriber
             PatientId = Some "p1"
-            EhrData = Some ehr
+            EhrPatient = Some ehr
             OpenedToken = Some(OpenedToken "opened-s1")
             KeyThumbprint = Some "t"
             Head = None
@@ -141,7 +141,7 @@ let tests =
                     {
                         Nonce = "n-1"
                         Digest = "d"
-                        Ehr = None
+                        EhrPatient = None
                         Expiry = later.AddMinutes 1.0
                     }
 

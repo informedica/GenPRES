@@ -128,9 +128,9 @@ type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 /// is no reading; none is not a refusal: the Session opens without imported data.
 type PatientDataPort =
     {
-        read: string -> GenForm.EhrPatientData option
+        read: string -> CorePatient option
         /// the GenFORM patient the EHR data is; the composition root adds the estimate
-        patient: GenForm.EhrPatientData -> GenForm.Patient
+        patient: CorePatient -> GenForm.Patient
     }
 
 
@@ -257,8 +257,8 @@ type OpenedSession =
         User: UserContext option
         /// None = launch without an active patient
         PatientId: string option
-        /// the EHR data as read at the launch; none for no-data and for a launch without EHR
-        EhrData: GenForm.EhrPatientData option
+        /// the patient as the EHR gave it at the launch; none for no-data and for a launch without EHR
+        EhrPatient: CorePatient option
         OpenedToken: OpenedToken option
         /// RFC 7638 thumbprint of the public key this Session will sign requests with
         KeyThumbprint: string option
@@ -275,8 +275,8 @@ module OpenedSession =
     /// when the EHR answered none, so that a Session opened from the head is identified.
     /// EHR data without an identity is anonymous, whatever the head says.
     let identity (opened: OpenedSession) =
-        match opened.EhrData with
-        | Some ehr -> ehr |> Informedica.GenForm.Lib.EhrPatientData.identity
+        match opened.EhrPatient with
+        | Some ehr -> ehr.Identity
         | None -> opened.Head |> Option.bind StoredVersion.identity
 
 

@@ -90,7 +90,7 @@ let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : OrderPl
         SignedAt = at
         Plan = p
         Verified = true
-        EhrData = None
+        EhrPatient = None
     }
 
 let unreadable no (by: UserContext) (at: DateTime) : StoredVersion =
@@ -140,7 +140,7 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+        EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
         Expiry = at + Session.challengeLifetime
     }
 
@@ -202,9 +202,7 @@ let tests =
                     version.Verified |> Expect.isTrue "the reading stood"
 
                     // the version names the patient the Session is for
-                    let whom =
-                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
 
                     Session.headOf "stub-patient" state
                     |> Expect.equal "the head" (Some(StoredVersion.Readable(version, whom)))
