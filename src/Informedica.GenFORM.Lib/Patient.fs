@@ -658,6 +658,7 @@ module Patient =
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module CoreSource = Informedica.GenCore.Lib.Patients.Source
 
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
@@ -731,7 +732,6 @@ module Patient =
             function
             | CoreGender.Male -> Male
             | CoreGender.Female -> Female
-            | CoreGender.AnyGender
             | CoreGender.UnknownGender -> AnyGender
 
         let core = ehr.Patient.Data
@@ -739,7 +739,7 @@ module Patient =
         let weight =
             core.Weight.Calculation
             |> Option.map (fun w ->
-                w.Weight
+                (w |> CoreSource.value).Weight
                 |> CoreWeightValue.getWeightInKg
                 |> decimal
                 |> BigRational.fromDecimal
@@ -749,7 +749,7 @@ module Patient =
         let height =
             core.Height.Calculation
             |> Option.map (fun h ->
-                h.Height
+                (h |> CoreSource.value).Height
                 |> CoreHeightValue.getHeightCm
                 |> decimal
                 |> BigRational.fromDecimal

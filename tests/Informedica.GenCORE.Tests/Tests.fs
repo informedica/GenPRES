@@ -748,55 +748,234 @@ module Tests =
                     ]
 
 
-        module EnteralAccessTests =
+        module PatientDataTests =
 
-            let enteralAccessGenerator _ = Arb.generate<EnteralAccess> |> Gen.sample 0 10
+            let eGfr x = x * 1.<mL / min / normalM2>
 
-            let samples =
-                enteralAccessGenerator 10
-                |> List.mapi (fun i ea ->
-                    i,
-                    if ea = UnknownEnteral then
-                        ""
-                    else
-                        $"{ea}" |> String.toLower
-                )
+            let measuredOn = DateTime(2026, 1, 15)
+
+            let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
+
+            let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
+
+            let renalFunctions =
+                [
+                    EGFR Above50, "egfr:50:"
+                    EGFR From30To50, "egfr:30:50"
+                    EGFR From10To30, "egfr:10:30"
+                    EGFR UpTo10, "egfr::10"
+                    IntermittentHemodialysis, "intermittent-hemodialysis"
+                    ContinuousHemodialysis, "continuous-hemodialysis"
+                    PeritonealDialysis, "peritoneal-dialysis"
+                ]
+
+            /// A patient with every field set.
+            let complete =
+                { PatientData.create
+                      (Department.pediatricICU "ICK")
+                      [||]
+                      Female
+                      (Some AgeValue.ten)
+                      (Weight.create [ weight ] None [] (Some(Measured weight)))
+                      (Height.create [ height ] None (Some(Estimated height)))
+                      None with
+                    Location = Some "UMCU"
+                    MarkedAdult = true
+                    Access = [ CVL; EnteralTube ]
+                    RenalFunction = Some(EGFR From10To30)
+                }
+                |> Patient.create None
+
 
             let tests =
                 testList
-                    "EnteralAccess"
+                    "patient data"
                     [
-                        for i, ea in samples do
-                            test $"{i} can create enteral access {ea}" {
-                                ea |> EnteralAccess.fromString |> Expect.isOk "should be ok"
-                            }
 
-                        test "cannot create enteral access from xxx" {
-                            "xxx" |> EnteralAccess.fromString |> Expect.isError "should not be ok"
-                        }
-                    ]
+                        testList
+                            "Access"
+                            [
+                                test "every access reads back from its string" {
+                                    for a in [ PVL; CVL; EnteralTube ] do
+                                        a |> Access.toString |> Access.tryFromString |> Expect.equal $"%A{a}" (Some a)
+                                }
 
+                                test "the string any is no access of a patient" {
+                                    "any" |> Access.tryFromString |> Expect.isNone "any is a value of a rule only"
+                                }
+                            ]
 
-        module VenousAccessTests =
+                        testList
+                            "RenalFunction"
+                            [
+                                test "every renal function has its string" {
+                                    for r, s in renalFunctions do
+                                        r |> RenalFunction.toString |> Expect.equal $"%A{r}" s
+                                }
 
-            let venousAccessGenerator _ = Arb.generate<VenousAccess> |> Gen.sample 0 10
+                                test "every renal function reads back from its string" {
+                                    for r, s in renalFunctions do
+                                        s |> RenalFunction.tryFromString |> Expect.equal s (Some r)
+                                }
 
-            let samples =
-                venousAccessGenerator 10
-                |> List.mapi (fun i ea -> i, if ea = UnknownVenous then "" else $"{ea}" |> String.toLower)
+                                test "an eGFR that is no band does not read" {
+                                    "egfr:20:40" |> RenalFunction.tryFromString |> Expect.isNone "no band"
+                                }
+                            ]
 
-            let tests =
-                testList
-                    "venousAccess"
-                    [
-                        for i, va in samples do
-                            test $"{i} can create venous access {va}" {
-                                va |> VenousAccess.fromString |> Expect.isOk "should be ok"
-                            }
+                        testList
+                            "EGFRBand.ofEGFR"
+                            [
+                                test "a band includes its maximum" {
+                                    for x, band in
+                                        [
+                                            120., Above50
+                                            50.1, Above50
+                                            50., From30To50
+                                            30.1, From30To50
+                                            30., From10To30
+                                            10.1, From10To30
+                                            10., UpTo10
+                                            0., UpTo10
+                                        ] do
+                                        x |> eGfr |> EGFRBand.ofEGFR |> Expect.equal $"an eGFR of %f{x}" (Some band)
+                                }
 
-                        test "cannot create venous access from xxx" {
-                            "xxx" |> VenousAccess.fromString |> Expect.isError "should not be ok"
-                        }
+                                test "an eGFR below zero has no band" {
+                                    -1. |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "below zero"
+                                }
+
+                                test "an eGFR that is no number has no band" {
+                                    nan |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "no number"
+                                }
+
+                                test "an infinite eGFR has no band" {
+                                    infinity |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "infinite"
+                                    -infinity |> eGfr |> EGFRBand.ofEGFR |> Expect.isNone "minus infinite"
+                                }
+                            ]
+
+                        testList
+                            "Source"
+                            [
+                                test "the value is the same measured or estimated" {
+                                    Measured 1 |> Source.value |> Expect.equal "measured" 1
+                                    Estimated 1 |> Source.value |> Expect.equal "estimated" 1
+                                }
+
+                                test "only a measured value is measured" {
+                                    Measured 1 |> Source.isMeasured |> Expect.isTrue "measured"
+                                    Estimated 1 |> Source.isMeasured |> Expect.isFalse "estimated"
+                                }
+                            ]
+
+                        testList
+                            "Weight and Height"
+                            [
+                                test "the normal weight and height of an age category are estimates" {
+                                    let w = Child |> Weight.fromAgeType Male measuredOn
+                                    let h = Child |> Height.fromAgeType Male measuredOn
+
+                                    w.Calculation
+                                    |> Option.map Source.isMeasured
+                                    |> Expect.equal "weight" (Some false)
+                                    h.Calculation
+                                    |> Option.map Source.isMeasured
+                                    |> Expect.equal "height" (Some false)
+                                }
+
+                                test "a measured and an estimated weight read back from the Dto" {
+                                    for calc in [ Measured weight; Estimated weight ] do
+                                        let w = Weight.create [ weight ] None [] (Some calc)
+                                        w |> Weight.Dto.toDto |> Weight.Dto.fromDto |> Expect.equal $"%A{calc}" w
+                                }
+
+                                test "a measured and an estimated height read back from the Dto" {
+                                    for calc in [ Measured height; Estimated height ] do
+                                        let h = Height.create [ height ] None (Some calc)
+                                        h |> Height.Dto.toDto |> Height.Dto.fromDto |> Expect.equal $"%A{calc}" h
+                                }
+
+                                test "a Dto that does not say estimated reads as measured" {
+                                    let dto = Weight.Dto.dto ()
+                                    dto.Calculation <- weight |> WeightAtDate.Dto.toDto |> Some
+
+                                    (dto |> Weight.Dto.fromDto).Calculation
+                                    |> Expect.equal "measured" (Some(Measured weight))
+                                }
+                            ]
+
+                        testList
+                            "PatientData"
+                            [
+                                test
+                                    "the unknown patient data has no location, no mark as an adult, no access and no renal function" {
+                                    let dat = PatientData.unknown
+
+                                    dat.Location |> Expect.isNone "location"
+                                    dat.MarkedAdult |> Expect.isFalse "mark as an adult"
+                                    dat.Access |> Expect.isEmpty "access"
+                                    dat.RenalFunction |> Expect.isNone "renal function"
+                                }
+                            ]
+
+                        testList
+                            "Patient"
+                            [
+                                test "the body surface area is calculated from an estimated value too" {
+                                    complete
+                                    |> Patient.BSA.calcDuBois
+                                    |> Expect.isSome "measured weight, estimated height"
+                                }
+
+                                test "a patient with every field set reads back from the Dto" {
+                                    complete
+                                    |> Patient.Dto.toDto
+                                    |> Patient.Dto.fromDto
+                                    |> Expect.equal "the same patient" (Ok complete)
+                                }
+
+                                test "the unknown patient reads back from the Dto" {
+                                    Patient.unknown
+                                    |> Patient.Dto.toDto
+                                    |> Patient.Dto.fromDto
+                                    |> Expect.equal "the same patient" (Ok Patient.unknown)
+                                }
+
+                                test "a Dto with an unknown access is an error" {
+                                    let dto = complete |> Patient.Dto.toDto
+                                    dto.Access <- [| "pvl"; "any" |]
+
+                                    dto |> Patient.Dto.fromDto |> Expect.isError "any is no access of a patient"
+                                }
+
+                                test "a Dto with two unknown accesses reports the first" {
+                                    let dto = complete |> Patient.Dto.toDto
+                                    dto.Access <- [| "any"; "xxx" |]
+
+                                    let text = dto |> Patient.Dto.fromDto |> sprintf "%A"
+
+                                    text |> Expect.stringContains "the first" "any"
+                                    text.Contains "xxx" |> Expect.isFalse "not the second"
+                                }
+
+                                test "a Dto with an unknown renal function is an error" {
+                                    let dto = complete |> Patient.Dto.toDto
+                                    dto.RenalFunction <- Some "egfr:20:40"
+
+                                    dto |> Patient.Dto.fromDto |> Expect.isError "no band"
+                                }
+
+                                test "a Dto whose access a serializer left null reads without an access" {
+                                    let dto = Patient.unknown |> Patient.Dto.toDto
+                                    dto.Access <- null
+
+                                    dto
+                                    |> Patient.Dto.fromDto
+                                    |> Result.map _.Data.Access
+                                    |> Expect.equal "no access" (Ok [])
+                                }
+                            ]
                     ]
 
 
@@ -2144,8 +2323,7 @@ module Tests =
             PatientTests.AgeAtCreationTests.tests
             PatientTests.AgeInDaysLivedTests.tests
             PatientTests.AgeWeekDaysTests.tests
-            PatientTests.EnteralAccessTests.tests
-            PatientTests.VenousAccessTests.tests
+            PatientTests.PatientDataTests.tests
             PatientTests.DepartmentTests.tests
             PatientTests.tests
             AdultMarkTests.tests

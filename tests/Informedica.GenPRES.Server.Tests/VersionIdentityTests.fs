@@ -38,7 +38,9 @@ let identity = ehr |> EhrPatientData.identity
 let heavier =
     let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
 
-    { ehr with Patient.Data.Weight = CoreWeight.create [ w ] None [] (Some w) }
+    { ehr with
+        Patient.Data.Weight = CoreWeight.create [ w ] None [] (Some(Informedica.GenCore.Lib.Patients.Measured w))
+    }
 
 
 /// The EHR data of an anonymous patient: an age value, no identity.

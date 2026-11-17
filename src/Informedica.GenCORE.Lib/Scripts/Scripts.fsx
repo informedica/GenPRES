@@ -42,9 +42,6 @@ module PatientScripts =
     WeightValue.Validation.maxWeightGram |> decimal
 
 
-    VenousAccess.Validation.validate "VenousAcces" "central"
-
-
     Patient.unknown
     |> Patient.Dto.toDto
     |> Patient.Dto.fromDto
