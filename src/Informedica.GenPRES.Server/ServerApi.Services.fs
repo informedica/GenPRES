@@ -17,8 +17,8 @@ module FormularyService =
     /// the mapping every request uses, or why the patient is none. No patient is the empty patient.
     let mapFormularyToFilter today (form: Formulary) =
         form.Patient
-        |> Option.map (ServerApi.Patient.toDomain today)
-        |> Option.defaultValue (Ok Patient.patient)
+        |> Option.map (ServerApi.Patient.toCore today)
+        |> Option.defaultValue (Ok PatientData.unknown)
         |> Result.map (fun pat ->
             { Informedica.GenForm.Lib.Filter.doseFilter with
                 Generic = form.Generic
@@ -149,7 +149,7 @@ module FormularyService =
         $"""
 
 Formulary filter:
-Patient: {filter.Patient |> Patient.toString}
+Patient: {filter.Patient |> PatientData.toString}
 Indication: {filter.Indication |> Option.defaultValue ""}
 Generic: {filter.Generic |> Option.defaultValue ""}
 Route: {filter.Route |> Option.defaultValue ""}
@@ -391,15 +391,14 @@ module OrderContextService =
                 | None -> Ok()
 
 
-    /// The contract model's context parsed: the plan context the mapper makes of it, or the
-    /// reasons it is none in the server's words; a text over the cap is refused before the
-    /// mapping.
-    let parse (ctx: OrderContext) : Result<PlanContext, string[]> =
+    /// Reads the order context of the contract on today's date. Returns the messages when it is
+    /// invalid. An argumentation that is too long is refused first.
+    let parse today (ctx: OrderContext) : Result<PlanContext, string[]> =
         ctx.Argumentation
         |> Argumentation.check
         |> Result.bind (fun _ ->
             ctx
-            |> OrderContextMapper.ofModel
-            |> PlanContext.Dto.fromDto
+            |> OrderContextMapper.ofModel today
+            |> PlanContext.Dto.fromDto today
             |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
         )

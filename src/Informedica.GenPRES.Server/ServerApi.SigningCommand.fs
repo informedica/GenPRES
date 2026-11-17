@@ -18,18 +18,14 @@ module SigningCommand =
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {
-                    Data =
-                        data
-                        |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
+                    Data = data |> Option.map ServerApi.Patient.ofPatientData
                     Token = token
                 }
         | SigningOutcome.Submitted(version, whom, token, patient) ->
             SigningResponse.Submitted(
                 version |> SessionMapper.toSigned demo whom,
                 token,
-                patient
-                |> Informedica.GenForm.Lib.Patient.Dto.toDto
-                |> ServerApi.Patient.toModel
+                patient |> ServerApi.Patient.ofPatientData
             )
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
@@ -55,7 +51,18 @@ module SigningCommand =
                 then
                     return SigningResponse.Refused SigningRefusal.NoPatient
                 else
-                    match plan |> OrderPlanCommand.parsePlan with
+                    // A submission is read on the date of its challenge. Otherwise a challenge made
+                    // before midnight and submitted after it would not match.
+                    let! today =
+                        match cmd with
+                        | SigningCommand.RequestSignChallenge _ -> async { return env.today () }
+                        | SigningCommand.Submit _ ->
+                            async {
+                                let! date = env.session.challengeDate id
+                                return date |> Option.defaultWith env.today
+                            }
+
+                    match plan |> OrderPlanCommand.parsePlan today with
                     | Error _ -> return SigningResponse.Refused SigningRefusal.PlanUnreadable
                     | Ok parsed ->
                         match cmd with

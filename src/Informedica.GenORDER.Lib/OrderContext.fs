@@ -440,6 +440,8 @@ module OrderContext =
     open Informedica.GenUnits.Lib
     open FilterHelpers
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
 
     type Command =
         | UpdateOrderContext of OrderContext
@@ -785,15 +787,14 @@ module OrderContext =
     /// Whether the rules are looked up for the patient: an adult always, a child only with a
     /// weight. A height is never needed to look them up: a rule that needs one is left out by the
     /// check whether it can be prescribed.
-    let selectsRules pat = pat |> Adult.isAdult || pat.Weight |> Option.isSome
+    let selectsRules pat =
+        pat |> PatientData.isAdult || pat |> CorePatientData.weightInKg |> Option.isSome
 
 
     /// The context afresh for a patient: the pick lists of the rules for the patient that can be
     /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
     /// evaluation offers. No pick lists when the rules are not looked up for the patient.
-    let create logger provider (pat: Patient) =
-        let pat = pat |> Patient.correctAdjustUnit
-
+    let create logger provider (pat: PatientData) =
         let opts =
             if pat |> selectsRules then
                 pat
@@ -1275,7 +1276,7 @@ Order State: {sc.Order |> OrderProcessor.printState}
 
 === {stage} ===
 
-Patient: {ctx.Patient |> Patient.toString}
+Patient: {ctx.Patient |> PatientData.toString}
 Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
 Generic: {ctx.Filter.Generic |> Option.defaultValue ""}
 Form: {ctx.Filter.Form |> Option.defaultValue ""}
@@ -1387,11 +1388,7 @@ Scenarios: {scenarios}
         ord
         |> Order.adjustValue
         |> Option.map ValueUnit.getUnit
-        |> Option.bind (fun u ->
-            Some u
-            |> Informedica.GenForm.Lib.Patient.adjustValue pat
-            |> Option.map (ValueUnit.convertTo u)
-        )
+        |> Option.bind (fun u -> Some u |> PatientData.adjustValue pat |> Option.map (ValueUnit.convertTo u))
 
 
     /// Whether the rules no longer apply to the order, from the lookups for the patient of the context
@@ -1450,7 +1447,6 @@ Scenarios: {scenarios}
     /// refused: it stands as it was, marked, with the notice. The mark goes when the order was calculated on
     /// another value of the patient, or holds that value under a known current rule.
     let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
-        let pat = pat |> Patient.correctAdjustUnit
         let (Id orderId) = sc.Order.Id
         let currentRules = ctx |> rulesFor logger provider pat
         let noLongerApply =
@@ -1639,7 +1635,7 @@ Scenarios: {scenarios}
     /// department limits every component of it.
     let applyingToDepartment provider pat drs =
         let routeMapping = Api.getRouteMapping provider
-        let department = (pat |> Api.withDefaultDepartment provider).Department
+        let department = pat |> Api.withDefaultDepartment provider |> PatientData.department
 
         let solutionRules =
             Api.getSolutionRules provider
@@ -1667,7 +1663,7 @@ Scenarios: {scenarios}
             Api.getDoseRules provider
             |> Api.filterDoseRules
                 provider
-                { filterPicks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
+                { filterPicks ctx with Patient = { PatientData.unknown with Department = ctx.Patient.Department } }
             |> applyingToDepartment provider ctx.Patient
 
         if ctx.Patient |> selectsRules then
@@ -1682,7 +1678,7 @@ Scenarios: {scenarios}
                 let pat = filter.Patient |> Api.withDefaultDepartment provider
 
                 dr
-                |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location pat.Department
+                |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location (pat |> PatientData.department)
                 |> fst
                 |> _.ComponentLimits
                 |> Array.collect _.Products
@@ -2055,15 +2051,18 @@ Scenarios: {scenarios}
 
 
     /// The totals over the orders, for the age, weight and gestational age of the patient.
-    let totalsFor (totalsData: TotalsData[]) (pat: Patient) orders =
-        let wght = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-
-        orders |> Totals.getTotals totalsData pat.Age wght pat.GestAge
+    let totalsFor (totalsData: TotalsData[]) (pat: PatientData) orders =
+        orders
+        |> Totals.getTotals
+            totalsData
+            (pat |> CorePatientData.ageInDays)
+            (pat |> CorePatientData.weightInKg)
+            (pat |> CorePatientData.gestationalAgeInDays)
 
 
     /// The totals over the orders of the context's scenarios, for the age, weight and gestational age
     /// of the patient.
-    let contextTotalsFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
+    let contextTotalsFor (totalsData: TotalsData[]) (pat: PatientData) (ctx: OrderContext) : Totals =
         ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData pat
 
 
@@ -2168,7 +2167,7 @@ Scenarios: {scenarios}
         type Dto =
             {
                 Filter: Filter.Dto.Dto
-                Patient: Patient.Dto.Dto
+                Patient: CorePatientData.Dto.Dto
                 Scenarios: OrderScenario.Dto.Dto[]
                 Argumentation: string option
             }
@@ -2177,31 +2176,22 @@ Scenarios: {scenarios}
         let toDto (ctx: OrderContext) : Dto =
             {
                 Filter = ctx.Filter |> Filter.Dto.toDto
-                Patient = ctx.Patient |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                Patient = ctx.Patient |> CorePatientData.Dto.toDto
                 Scenarios = ctx.Scenarios |> Array.map OrderScenario.Dto.toDto
                 Argumentation = ctx.Argumentation
             }
 
 
-        /// The context a Dto is, or every reason it is none: the filter's, the patient's
-        /// and every scenario's, a scenario that fails never dropped. The argumentation is
-        /// copied as it is: a Dto without it, as a version 1 row holds, reads as none.
-        let fromDto (dto: Dto) : Result<OrderContext, DtoError list> =
+        /// Reads an order context from a Dto on today's date. Returns the errors of the filter,
+        /// the patient data and every scenario.
+        let fromDto today (dto: Dto) : Result<OrderContext, DtoError list> =
             Nested.required
                 "OrderContext"
                 dto
                 (fun dto ->
                     let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
 
-                    let patient =
-                        Nested.required
-                            "Patient"
-                            dto.Patient
-                            (fun p ->
-                                p
-                                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                                |> Result.mapError (List.map DtoError.Patient)
-                            )
+                    let patient = Nested.required "Patient" dto.Patient (Patient.fromDto today)
 
                     let scenarios =
                         dto.Scenarios

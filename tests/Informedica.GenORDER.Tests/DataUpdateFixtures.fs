@@ -10,8 +10,6 @@ let logger = OrderLogging.noOp
 
 let kg v = v |> ValueUnit.singleWithUnit Units.Weight.kiloGram
 
-let cm v = v |> ValueUnit.singleWithUnit Units.Height.centiMeter
-
 let patient w =
     OrderPlanTests.RuleFixtures.patient (Some 1N) false (Some w) None
 

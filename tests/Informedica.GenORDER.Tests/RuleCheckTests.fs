@@ -11,6 +11,8 @@ open Informedica.GenOrder.Lib
 open Expecto
 open Expecto.Flip
 
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
 
 module Fixture =
 
@@ -173,10 +175,8 @@ let tests =
                 let p, ctx = Fixture.start ()
 
                 let other =
-                    { Fixture.patient (19N / 2N) with
-                        Weight = None
-                        Age = None
-                    }
+                    { Fixture.patient (19N / 2N) with Age = None }
+                    |> Patient.setWeight SamplePatients.measuredOn None
 
                 ctx |> Fixture.verdict p other |> Expect.equal "notice" (Some true)
             }
@@ -202,7 +202,7 @@ let tests =
 
             test "a data update calculates the order and the context keeps its patient" {
                 let p, ctx = Fixture.start ()
-                let current = { ctx.Patient with Weight = Some(20N |> ValueUnit.singleWithUnit Units.Weight.kiloGram) }
+                let current = ctx.Patient |> SamplePatients.withWeightInKg 20m
                 let after = ctx |> Fixture.onData p current
 
                 after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
@@ -210,7 +210,9 @@ let tests =
                 after.Scenarios[0].Order
                 |> Order.adjustValue
                 |> Option.map ValueUnit.getValue
-                |> Expect.equal "the order follows" (current.Weight |> Option.map ValueUnit.getValue)
+                |> Expect.equal
+                    "the order follows"
+                    (current |> CorePatientData.weightInKg |> Option.map ValueUnit.getValue)
             }
 
             test "a data update puts the notice on the order and the text, and a new update takes it off" {

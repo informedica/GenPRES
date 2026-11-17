@@ -111,38 +111,6 @@ module Utils =
         let tupleBrOpt brs1 brs2 = brs1 |> Array.tryHead, brs2 |> Array.tryHead
 
 
-    module Calculations =
-
-        open Informedica.GenUnits.Lib
-
-        module Conversions = Informedica.GenCore.Lib.Conversions
-        module BSA = Informedica.GenCore.Lib.Calculations.BSA
-
-        let calcDuBois weight height =
-            let w =
-                weight
-                |> ValueUnit.convertTo Units.Mass.kiloGram
-                |> ValueUnit.getValue
-                |> Array.tryHead
-                |> Option.defaultValue 0N
-                |> BigRational.toDecimal
-                |> Conversions.kgFromDecimal
-
-            let h =
-                height
-                |> ValueUnit.convertTo Units.Height.centiMeter
-                |> ValueUnit.getValue
-                |> Array.tryHead
-                |> Option.defaultValue 0N
-                |> BigRational.toDecimal
-                |> Conversions.cmFromDecimal
-
-            BSA.calcDuBois (Some 2) w h
-            |> decimal
-            |> BigRational.fromDecimal
-            |> ValueUnit.singleWithUnit Units.BSA.m2
-
-
     module Units =
 
         open Informedica.GenUnits.Lib

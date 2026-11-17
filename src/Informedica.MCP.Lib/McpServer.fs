@@ -176,7 +176,7 @@ type GenOrderMcpTools() =
                 HeightCm = McpHelpers.optFloat heightCm
             }
 
-        GenOrderTools.getFilterOptions GenOrderMcpTools.Provider input
+        GenOrderTools.getFilterOptions DateTime.UtcNow.Date GenOrderMcpTools.Provider input
         |> McpHelpers.toJsonResult
 
     [<McpServerTool(Name = "get_dose_rules_for_context")>]
@@ -250,7 +250,7 @@ type GenOrderMcpTools() =
                 Form = McpHelpers.optStr form
             }
 
-        GenOrderTools.createOrderContext GenOrderMcpTools.Provider input
+        GenOrderTools.createOrderContext DateTime.UtcNow.Date GenOrderMcpTools.Provider input
         |> McpHelpers.toJsonResult
 
     [<McpServerTool(Name = "get_order_scenarios")>]
@@ -284,7 +284,7 @@ type GenOrderMcpTools() =
                 Form = McpHelpers.optStr form
             }
 
-        GenOrderTools.getOrderScenarios GenOrderMcpTools.Provider input
+        GenOrderTools.getOrderScenarios DateTime.UtcNow.Date GenOrderMcpTools.Provider input
         |> McpHelpers.toJsonResult
 
 

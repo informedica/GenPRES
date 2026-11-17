@@ -70,9 +70,9 @@ type OrderPlanPort =
         // the contexts named, every kind, each with the contexts linked to it
         removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a signed version's patient and contexts as they were, nothing evaluated
-        openWith: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
+        openWith: GenForm.PatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the totals over the orders of the contexts for the patient, no plan changed
-        totals: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.Totals, string[]>>
+        totals: GenForm.PatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.Totals, string[]>>
     }
 
 
@@ -139,8 +139,8 @@ type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 type PatientDataPort =
     {
         read: string -> CorePatient option
-        /// the GenFORM patient the EHR data is; the composition root adds the estimate
-        patient: CorePatient -> GenForm.Patient
+        /// The patient data of an EHR patient. The composition root adds the estimates.
+        patient: CorePatient -> GenForm.PatientData
     }
 
 
@@ -310,14 +310,14 @@ type SigningOutcome =
     /// the challenge over exactly this plan; comes back with the PIN
     | ChallengeIssued of challenge: string * ehrMovedOn: bool
     /// no challenge yet: the token, and the data as it stands, none when it could not be read
-    | DataNotice of token: string * data: GenForm.Patient option
+    | DataNotice of token: string * data: GenForm.PatientData option
     /// the version committed with the identity it names, a fresh OpenedToken over it, and the
     /// Session's patient after the sign
     | Submitted of
         version: OrderPlanVersion *
         identity: CorePatientIdentity option *
         OpenedToken *
-        patient: GenForm.Patient
+        patient: GenForm.PatientData
     | Refused of SigningRefusal
 
 
@@ -394,7 +394,7 @@ type SessionPort =
         // by session id from the cookie; an ending is told until it is acknowledged
         find: string -> Async<SessionLookup>
         // the patient an open Session shows, computed from it at the date of asking; reads no store
-        patient: OpenedSession -> GenForm.Patient option
+        patient: OpenedSession -> GenForm.PatientData option
         // the Session ended by a new launch of this browser, whatever token stands
         close: string -> Async<unit>
         // explicit close by the User, on the token of the tab
@@ -407,6 +407,8 @@ type SessionPort =
         dropEnrolment: string -> Async<unit>
         // a signing challenge over the plan as shown, parsed, for the Session the cookie names
         challenge: string -> GenOrder.OrderPlan * OpenedToken * string option -> Async<SigningOutcome>
+        // the local date the open challenge of the Session was made on; none without a challenge
+        challengeDate: string -> Async<DateTime option>
         // the signature, its plan parsed, for the Session the cookie names
         submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told

@@ -209,12 +209,11 @@ module SqlDatabase =
 
 
     /// The JSON structure version this release reads and writes for the order plan of a version.
-    let jsonVersion = 14
+    let jsonVersion = 15
 
 
-    /// Checks that this release can read plan JSON of a structure version. Version 14 holds the
-    /// order plan alone; version 13 held the whole version. An older version is not converted, so
-    /// its row loads as unreadable.
+    /// Checks that this release can read plan JSON of a structure version. Version 15 has the
+    /// GenCORE patient data. An older version is not converted and loads as unreadable.
     let upgrade version json = SqlEhrData.checkVersion jsonVersion jsonVersion version json
 
 
@@ -279,7 +278,7 @@ module SqlDatabase =
                 try
                     json
                     |> Canonical.deserialize<OrderPlan.Dto.Dto>
-                    |> OrderPlan.Dto.fromDto
+                    |> OrderPlan.Dto.fromDto today
                     |> Result.mapError (fun errs -> $"the order plan does not parse: %A{errs}")
                 // any exception: a converter meeting a malformed value throws its own type
                 with e ->
@@ -528,6 +527,7 @@ module SqlSessions =
     open SqlEhrData
 
     module GenForm = Informedica.GenForm.Lib.Types
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     /// Unix milliseconds, the form the columns hold, and back.
     let ms (at: DateTime) = DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds()
@@ -626,32 +626,21 @@ module SqlSessions =
         |> List.tryHead
 
 
-    /// The highest JSON structure version this release reads for a stored patient. As for an
-    /// order plan version, a change ships as expand, then contract; the version it writes
-    /// lands with the writer that stores one.
-    let patientJsonRead = 1
+    /// The JSON structure version of the patient data of a data notice. Version 2 is the GenCORE
+    /// patient data. Version 1 is not converted.
+    let patientJsonVersion = 2
 
 
-    /// Brings stored patient JSON to the structure this release reads. There are no steps yet.
-    let upgradePatient (version: int) (json: string) : Result<string, string> =
-        if version < 1 then
-            Error $"JSON structure version %i{version} does not exist"
-        elif version > patientJsonRead then
-            Error $"JSON structure version %i{version} is newer than this release knows"
-        else
-            Ok json
-
-
-    /// The patient a stored row holds, upgraded and parsed; the JSON a release writes for one
-    /// lands with the writer that stores it.
-    let readPatient (version: int) (json: string) : Result<GenForm.Patient, string> =
-        upgradePatient version json
+    /// Reads the patient data of a stored row on a date. A weight or height dated after that date
+    /// is an error.
+    let readPatient today (version: int) (json: string) : Result<GenForm.PatientData, string> =
+        checkVersion patientJsonVersion patientJsonVersion version json
         |> Result.bind (fun json ->
             try
                 json
-                |> Canonical.deserialize<Informedica.GenForm.Lib.Patient.Dto.Dto>
-                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                |> Result.mapError (fun errs -> $"the patient does not parse: %A{errs}")
+                |> Canonical.deserialize<CorePatientData.Dto.Dto>
+                |> CorePatientData.Dto.fromDto today
+                |> Result.mapError (fun errs -> $"the patient data does not parse: %A{errs}")
             // any exception: a converter meeting a malformed value throws its own type
             with e ->
                 Error $"the JSON does not read: %s{e.Message}"
@@ -858,12 +847,8 @@ module SqlSessions =
         )
 
 
-    /// The JSON structure version this release writes for the patient a data notice shows.
-    let patientJsonWritten = 1
-
-
-    let patientJson (patient: GenForm.Patient) =
-        patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+    /// The JSON of the patient data of a data notice.
+    let patientJson (patient: GenForm.PatientData) = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
     /// The word an ending is stored under. Every ending matched, so that one without a word
@@ -1111,7 +1096,7 @@ module SqlSessions =
                 [
                     "$sid", box sid
                     "$n", box notice.Nonce
-                    "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonWritten))
+                    "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonVersion))
                     "$data", nullable (notice.Data |> Option.map patientJson)
                     "$ejv", nullable (notice.EhrPatient |> Option.map (fun _ -> ehrJsonVersion))
                     "$ehr", nullable (notice.EhrPatient |> Option.map ehrJson)
@@ -1559,7 +1544,7 @@ module SqlSessions =
             (fun r ->
                 let data =
                     match r.IsDBNull 1, r.IsDBNull 2 with
-                    | false, false -> readPatient (r.GetInt32 1) (r.GetString 2) |> Result.map Some
+                    | false, false -> readPatient today (r.GetInt32 1) (r.GetString 2) |> Result.map Some
                     | _ -> Ok None
 
                 data

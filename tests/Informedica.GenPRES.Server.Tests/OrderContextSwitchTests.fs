@@ -11,6 +11,8 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
+type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
+
 
 let patient = StubPatientData.patient
 
@@ -204,9 +206,13 @@ let tests =
             }
 
             test "the words for a Dto that is no context" {
-                DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                DtoError.PatientDataNotEnough CoreError.NoAgeOrMeasuredWeightAndHeight
                 |> OrderContextMapper.words
                 |> Expect.equal "the patient's" Patient.noPatient
+
+                DtoError.PatientData "Weight in kg is too high"
+                |> OrderContextMapper.words
+                |> Expect.equal "the text of GenCORE" "Weight in kg is too high"
 
                 DtoError.OrderNotCreated "x"
                 |> OrderContextMapper.words

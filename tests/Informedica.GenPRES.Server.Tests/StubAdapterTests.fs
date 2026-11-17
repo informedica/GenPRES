@@ -79,7 +79,7 @@ module StubAdapters =
     /// tests keep stating the contract model.
     let portContext (ctx: OrderContext) =
         ctx
-        |> OrderContextService.parse
+        |> OrderContextService.parse readAt
         |> Result.defaultWith (fun e -> failtest $"no plan context: %A{e}")
 
 
@@ -87,7 +87,7 @@ module StubAdapters =
     /// counterpart of `portContext` for the order plan port.
     let portPlan (plan: OrderPlan) =
         plan
-        |> OrderPlanCommand.parsePlan
+        |> OrderPlanCommand.parsePlan readAt
         |> Result.defaultWith (fun e -> failtest $"no order plan: %A{e}")
 
 
@@ -143,6 +143,7 @@ module StubAdapters =
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
+            challengeDate = fun _ -> async { return None }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }
@@ -394,6 +395,9 @@ module SessionStubTests =
 
     let t0 = DateTime(2026, 9, 9, 12, 0, 0, DateTimeKind.Utc)
 
+    /// The date of the clock. The patients of these tests are read on this date.
+    let today0 = t0.Date
+
     let keyA = PublicKey "key-A"
     let keyB = PublicKey "key-B"
 
@@ -456,21 +460,27 @@ module SessionStubTests =
     /// The contract model's plan parsed into the domain, as the signing handler does it.
     let parsed (plan: OrderPlan) =
         plan
-        |> OrderPlanCommand.parsePlan
+        |> OrderPlanCommand.parsePlan today0
         |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
 
     /// The contract model's patient parsed into the domain, as the adapters do it.
     let parsePatient (p: Patient) =
         p
-        |> Patient.parse readAt
+        |> Patient.parse today0
         |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
+
+
+    /// The patient data the stub EHR gives for the stub patient.
+    let ehrPatient =
+        StubPatientData.data StubPatientData.measuredOn "stub-patient"
+        |> StubAdapters.patientData.patient
 
 
     /// A signed order plan as the record holds it: parsed at load.
     let versionOfSigned (v: SignedOrderPlan) =
         v
-        |> SessionMapper.ofSigned
+        |> SessionMapper.ofSigned today0
         |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
 
@@ -1067,7 +1077,7 @@ module SessionStubTests =
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].Opened
                             |> Session.sessionPatient t0 StubAdapters.patientData
-                            |> Expect.equal "the platform's" (Some(parsePatient StubPatientData.patient))
+                            |> Expect.equal "the platform's" (Some ehrPatient)
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -2323,7 +2333,7 @@ module SessionStubTests =
                     test "an unknown Session with an ending recorded: the ending (Rule 11)" {
                         let state =
                             { Session.emptyState with
-                                Endings = Map.ofList [ "s-1", (SessionEnding.SupersededByLaunch, t0) ]
+                                Endings = Map.ofList [ ("s-1", (SessionEnding.SupersededByLaunch, t0)) ]
                             }
 
                         let _, notice = state |> Machine.seen t1 "s-1" (own "s-1")
@@ -2465,10 +2475,10 @@ module SessionStubTests =
             // A opened on plan-1; B signed plan-2 meanwhile; A has a challenge and a notice standing
             let movedOn =
                 { Session.emptyState with
-                    Sessions = Map.ofList [ "s-1", session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1") ]
+                    Sessions = Map.ofList [ ("s-1", session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) ]
                     Records = recordsOf [ "pat-1", [ signedBy other 2; signedBy prescriber 1 ] ]
-                    Challenges = Map.ofList [ "s-1", challenged "s-1" ]
-                    Notices = Map.ofList [ "s-1", noticeOf "n" None (t0.AddMinutes 2.0) ]
+                    Challenges = Map.ofList [ ("s-1", challenged "s-1") ]
+                    Notices = Map.ofList [ ("s-1", noticeOf "n" None (t0.AddMinutes 2.0)) ]
                 }
 
             let openAt sid id state = Machine.openVersion t1 (counter "id") sid id state
@@ -2762,9 +2772,7 @@ module SessionStubTests =
                             <| (OrderPlan.create otherData [||], token "s-1")
 
                         answer
-                        |> Expect.equal
-                            "changed: told"
-                            (SigningOutcome.DataNotice("n-1", Some(parsePatient stubPatient)))
+                        |> Expect.equal "changed: told" (SigningOutcome.DataNotice("n-1", Some ehrPatient))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
 
@@ -2774,7 +2782,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
-                                Data = Some(parsePatient stubPatient)
+                                Data = Some ehrPatient
                                 Expiry = t0 + minutes 2.0
                             }
 
@@ -2822,8 +2830,7 @@ module SessionStubTests =
                         let state, told =
                             ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
 
-                        told
-                        |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
+                        told |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some ehrPatient))
 
                         state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
                     }
@@ -2872,17 +2879,17 @@ module SessionStubTests =
 
                         askWith "n-9" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
+                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some ehrPatient))
 
                         askWith "n-1" (t0 + minutes 3.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some(parsePatient stubPatient)))
+                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some ehrPatient))
 
                         let spent, _ = askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         askWith "n-1" (t0 + seconds 10.0) nonces spent "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some(parsePatient stubPatient)))
+                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some ehrPatient))
 
                         // a notice told over another read than the EHR's now does not fit
                         let other =
@@ -2899,7 +2906,7 @@ module SessionStubTests =
 
                         askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some(parsePatient stubPatient)))
+                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some ehrPatient))
                     }
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
@@ -3418,7 +3425,7 @@ module SessionStubTests =
 
                             state.Sessions["s-1"].Opened
                             |> Session.sessionPatient t0 StubPatientData.port
-                            |> Option.bind _.Department
+                            |> Option.bind PatientData.department
                             |> Expect.equal "the data signed, not the data opened on" otherData.Department
                         | other -> failtest $"expected Submitted, got {other}"
                     }
@@ -3656,7 +3663,10 @@ module SessionStubTests =
         directory,
         outbox,
 
-        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with session = port }
+        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with
+            session = port
+            today = fun () -> today0
+        }
 
 
     let envWithStub newStore () =
@@ -4578,6 +4588,71 @@ module SessionStubTests =
                         | SigningResponse.ChallengeIssued(nonce, _) -> nonce |> Expect.isNotEmpty "issued"
                         | other -> failtest $"expected ChallengeIssued, got {other}"
                     | other -> failtest $"expected DataNotice, got {other}"
+                }
+
+                test "the date of a challenge is the local date it was made on, none without a challenge" {
+                    let challenge: Session.Challenge =
+                        {
+                            Nonce = "n-1"
+                            Digest = "d-1"
+                            EhrPatient = None
+                            Expiry = DateTime(2026, 9, 27, 0, 1, 30)
+                        }
+
+                    let state = { Session.emptyState with Challenges = Map.empty |> Map.add "s-1" challenge }
+
+                    (state |> Session.challengeDate TimeZoneInfo.Utc "s-1",
+                     state |> Session.challengeDate TimeZoneInfo.Utc "s-2")
+                    |> Expect.equal "made at 23:59:30 on 26-09-2026" (Some(DateTime(2026, 9, 26)), None)
+                }
+
+                testAsync "Submit: a challenge made before midnight is signed after midnight" {
+                    let directory, env = envWithStub newStore ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! opened = sessionOf env cookie
+
+                    // the plan of a patient with a weight and a height, which get the date of the read
+                    let plan = OrderPlan.create StubPatientData.patient [||]
+
+                    let! challenge =
+                        async {
+                            match!
+                                SigningCommand.processCmd
+                                    env
+                                    cookie
+                                    (SigningCommand.RequestSignChallenge(plan, opened.OpenedToken.Value, None))
+                            with
+                            | SigningResponse.ChallengeIssued(nonce, _) -> return nonce
+                            | other -> return failtest $"expected ChallengeIssued, got {other}"
+                        }
+
+                    let nextDay = { env with today = fun () -> (env.today ()).AddDays 1. }
+
+                    let submission: Submission =
+                        {
+                            Plan = plan
+                            Opened = opened.OpenedToken.Value
+                            Challenge = challenge
+                            Pin = StubCredentials.stubPin
+                            IdemKey = "k-1"
+                        }
+
+                    match! SigningCommand.processCmd nextDay cookie (SigningCommand.Submit submission) with
+                    | SigningResponse.Submitted(signed, _, _) -> signed.Head.No |> Expect.equal "the first version" 1
+                    | other -> failtest $"expected Submitted, got {other}"
                 }
 
                 testAsync

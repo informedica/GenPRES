@@ -15,6 +15,7 @@ module Check =
     module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
     module Age = Informedica.GenCore.Lib.Calculations.Age
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     type Dosage = Informedica.ZForm.Lib.Types.Dosage
     type DoseRange = Informedica.ZForm.Lib.Types.DoseRange
@@ -198,8 +199,9 @@ module Check =
 
 
     /// The age of the patient in months that the G-Standaard dose rules are looked up with.
-    let ageInMonths (pat: Patient) =
-        pat.Age
+    let ageInMonths (pat: PatientData) =
+        pat
+        |> CorePatientData.ageInDays
         |> Option.bind (fun vu ->
             vu
             |> ValueUnit.convertTo Units.Time.day
@@ -210,11 +212,12 @@ module Check =
         )
 
 
-    let createDoseRulesWithMapping routeMapping (pat: Patient) gen frm rte =
+    let createDoseRulesWithMapping routeMapping (pat: PatientData) gen frm rte =
         let a = pat |> ageInMonths
 
         let w =
-            pat.Weight
+            pat
+            |> CorePatientData.weightInKg
             |> Option.bind (fun vu ->
                 vu
                 |> ValueUnit.convertTo Units.Mass.kiloGram
@@ -235,7 +238,7 @@ module Check =
 
     /// Provider of raw G-Standaard (ZForm) dose rules for a generic/form/route and
     /// patient.
-    type GStandProvider = Patient -> gen -> frm -> rte -> Informedica.ZForm.Lib.Types.DoseRule seq
+    type GStandProvider = PatientData -> gen -> frm -> rte -> Informedica.ZForm.Lib.Types.DoseRule seq
 
 
     /// The live (side-effecting) GStandProvider backed by GStand.createDoseRules.
@@ -474,7 +477,7 @@ module Check =
         age && weight
 
 
-    let matchWithZIndex (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
+    let matchWithZIndex (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
         {|
             doseRule = dr
             zindex =
@@ -651,7 +654,7 @@ module Check =
         |}
 
 
-    let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
+    let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
         let m = dr |> matchWithZIndex getDosageRules pat |> createMapping
 
         let eqsAny (candidates: DoseType list) (dt: DoseType) = candidates |> List.exists (DoseType.eqsType dt)
@@ -974,14 +977,19 @@ module Check =
     /// Pure dose-check over a single rule given an injected data provider.
     /// In production the provider comes from the Resources layer
     /// (Api.getGStandProvider), not built ad hoc from a route mapping.
-    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
+    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (pat: PatientData) (dr: DoseRule) =
         checkDoseRuleWith checkConfigDef getDosageRules pat dr
 
 
     /// Dose-check over many rules. log and the data provider are injected so the
     /// orchestration is pure given its dependencies; callers wire the live ones
     /// (e.g. the server passes Api.getGStandProvider provider).
-    let checkAllWith (log: int -> DoseRule -> unit) (getDosageRules: GStandProvider) (pat: Patient) (drs: DoseRule[]) =
+    let checkAllWith
+        (log: int -> DoseRule -> unit)
+        (getDosageRules: GStandProvider)
+        (pat: PatientData)
+        (drs: DoseRule[])
+        =
         drs
         |> Array.mapi (fun i dr ->
             log i dr

@@ -175,14 +175,14 @@ module PlanContext =
             }
 
 
-        let fromDto (dto: Dto) : Result<PlanContext, DtoError list> =
+        let fromDto today (dto: Dto) : Result<PlanContext, DtoError list> =
             Nested.required
                 "PlanContext"
                 dto
                 (fun dto ->
                     let category = dto.Category |> OrderCategoryDto.fromString |> Result.mapError List.singleton
 
-                    let context = Nested.required "Context" dto.Context OrderContext.Dto.fromDto
+                    let context = Nested.required "Context" dto.Context (OrderContext.Dto.fromDto today)
                     let totals = Nested.required "Totals" dto.Totals Totals.Dto.fromDto
 
                     match category, context, totals with
@@ -339,9 +339,11 @@ module NutritionRuleSet =
 
 module OrderPlan =
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
     /// The plan for a patient with the contexts given, nothing filtered and no totals: what
     /// a signed version opens on, its contexts as they were, nothing evaluated.
-    let create (pat: Patient) (contexts: PlanContext[]) : OrderPlan =
+    let create (pat: PatientData) (contexts: PlanContext[]) : OrderPlan =
         {
             Patient = pat
             Filtered = [||]
@@ -547,7 +549,7 @@ module OrderPlan =
 
         type Dto =
             {
-                Patient: Patient.Dto.Dto
+                Patient: CorePatientData.Dto.Dto
                 Filtered: string[]
                 Contexts: PlanContext.Dto.Dto[]
                 Totals: Totals.Dto.Dto
@@ -556,7 +558,7 @@ module OrderPlan =
 
         let toDto (plan: OrderPlan) : Dto =
             {
-                Patient = plan.Patient |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                Patient = plan.Patient |> CorePatientData.Dto.toDto
                 Filtered = plan.Filtered
                 Contexts = plan.Contexts |> Array.map PlanContext.Dto.toDto
                 Totals = plan.Totals |> Totals.Dto.toDto
@@ -566,26 +568,18 @@ module OrderPlan =
         /// The order plan a Dto is, or every reason it is none, over the patient and every
         /// context, then every context whose link the plan refuses. The links are checked over
         /// the plan as read, so the order of the contexts does not matter.
-        let fromDto (dto: Dto) : Result<OrderPlan, DtoError list> =
+        let fromDto today (dto: Dto) : Result<OrderPlan, DtoError list> =
             Nested.required
                 "OrderPlan"
                 dto
                 (fun dto ->
-                    let patient =
-                        Nested.required
-                            "Patient"
-                            dto.Patient
-                            (fun p ->
-                                p
-                                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                                |> Result.mapError (List.map DtoError.Patient)
-                            )
+                    let patient = Nested.required "Patient" dto.Patient (Patient.fromDto today)
 
                     let contexts =
                         dto.Contexts
                         |> DtoResult.orEmpty
                         |> Array.toList
-                        |> List.map (fun pc -> Nested.required "Context" pc PlanContext.Dto.fromDto)
+                        |> List.map (fun pc -> Nested.required "Context" pc (PlanContext.Dto.fromDto today))
                         |> DtoResult.sequence
                         |> Result.mapError List.concat
 

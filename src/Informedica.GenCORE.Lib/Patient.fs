@@ -2218,7 +2218,7 @@ module PatientData =
                     |> Option.traverseResult AgeWeeksDays.Dto.fromPostMenstrualDto
 
                 let! access =
-                    // a reference field a serializer left null is read as absent
+                    // an access array that is null after JSON deserialization is read as no access
                     (if isNull dto.Access then [||] else dto.Access)
                     |> Array.toList
                     |> List.traverseResultM (parseField "Access" Access.tryFromString)

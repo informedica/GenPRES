@@ -13,6 +13,8 @@ open Expecto.Flip
 
 open DataUpdateFixtures
 
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
 
 module Fixture =
 
@@ -117,7 +119,9 @@ let tests =
                 let start = patient 10N
                 let after = Fixture.plan p start |> Fixture.followed p (patient 20N)
 
-                after.Patient.Weight |> Expect.equal "the plan" (Some(kg 20N))
+                after.Patient
+                |> CorePatientData.weightInKg
+                |> Expect.equal "the plan" (Some(kg 20N))
                 after.Contexts[0].Context.Patient |> Expect.equal "the context" start
 
                 after.Contexts[0].Context.Scenarios[0].Order
@@ -169,7 +173,9 @@ let tests =
                 let empty = PlanContext.create "c2" OrderCategory.Medication (OrderContext.create logger p start)
                 let after = OrderPlan.create start [| empty |] |> Fixture.followed p (patient 20N)
 
-                after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
+                after.Contexts[0].Context.Patient
+                |> CorePatientData.weightInKg
+                |> Expect.equal "new" (Some(kg 20N))
             }
 
             test "a corrected weight gives the context of before, so nothing is changed" {
@@ -282,7 +288,9 @@ let tests =
                     { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
 
                 let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication marked |]
-                let followed = plan |> Fixture.followed p { start with Weight = None }
+                let followed =
+                    plan
+                    |> Fixture.followed p (start |> Patient.setWeight SamplePatients.measuredOn None)
                 let scenario = followed.Contexts[0].Context.Scenarios[0]
 
                 scenario.NotRecalculated |> Expect.isTrue "nothing was calculated"
@@ -303,11 +311,13 @@ let tests =
 
                 let plan = OrderPlan.create adult [| PlanContext.create "c1" OrderCategory.Medication ctx |]
 
-                OrderContext.selectsRules { adult with Weight = None }
+                OrderContext.selectsRules (adult |> Patient.setWeight SamplePatients.measuredOn None)
                 |> Expect.isTrue "the rules are looked up"
 
                 let scenario =
-                    (plan |> Fixture.followed p { adult with Weight = None }).Contexts[0].Context.Scenarios[0]
+                    (plan
+                     |> Fixture.followed p (adult |> Patient.setWeight SamplePatients.measuredOn None))
+                        .Contexts[0].Context.Scenarios[0]
 
                 scenario.Order |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
                 scenario.RulesNoLongerApply |> Expect.isTrue "the rules no longer apply"

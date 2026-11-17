@@ -9,12 +9,13 @@ open Informedica.GenPRES.Shared.Types
 /// contexts through the order context mapper.
 module OrderPlanMapper =
 
-    /// Total: the contract model's order plan as the domain's Dto, nothing dropped.
-    let ofModel (plan: OrderPlan) : OrderPlan.Dto.Dto =
+    /// Maps the order plan of the contract to the Dto of the domain. Every weight and height gets
+    /// the date today.
+    let ofModel today (plan: OrderPlan) : OrderPlan.Dto.Dto =
         {
-            Patient = plan.Patient |> Patient.ofModel
+            Patient = plan.Patient |> Patient.ofModel today
             Filtered = plan.Filtered
-            Contexts = plan.OrderContexts |> Array.map OrderContextMapper.ofModel
+            Contexts = plan.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
             Totals = plan.Totals |> OrderContextMapper.totals
         }
 

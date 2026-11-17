@@ -13,15 +13,15 @@ open ServerApi
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
 module CorePatient = Informedica.GenCore.Lib.Patients.Patient
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+module FormPatientData = Informedica.GenForm.Lib.PatientData
 
 
 let now = DateTime(2026, 11, 3, 14, 30, 0)
 
 
-/// The GenFORM patient of a PatientId, read and projected at a moment.
-let projectedAt at pid =
-    StubPatientData.read (fun () -> at) pid
-    |> Option.map (_.Data >> Informedica.GenForm.Lib.Patient.ofPatientData)
+/// The patient data of a PatientId, read at a moment.
+let projectedAt at pid = StubPatientData.read (fun () -> at) pid |> Option.map _.Data
 
 
 let value (vu: ValueUnit option) = vu |> Option.map (ValueUnit.getValue >> Array.head)
@@ -97,13 +97,23 @@ let tests =
                             let pat = projectedAt now pid |> Option.get
 
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
-                            pat.Department |> Expect.equal "department" (Some "NEO")
-                            pat.Age |> value |> Expect.equal "age in days" (Some 2N)
-                            pat.GestAge
+                            pat |> FormPatientData.department |> Expect.equal "department" (Some "NEO")
+                            pat
+                            |> CorePatientData.ageInDays
+                            |> value
+                            |> Expect.equal "age in days" (Some 2N)
+                            pat
+                            |> CorePatientData.gestationalAgeInDays
                             |> value
                             |> Expect.equal "gestational age in days" (Some(weeks * 7N))
-                            pat.Weight |> value |> Expect.equal "weight in kg" (Some(gram / 1000N))
-                            pat.Height |> value |> Expect.equal "height in cm" (Some cm)
+                            pat
+                            |> CorePatientData.weightInKg
+                            |> value
+                            |> Expect.equal "weight in kg" (Some(gram / 1000N))
+                            pat
+                            |> CorePatientData.heightInCm
+                            |> value
+                            |> Expect.equal "height in cm" (Some cm)
                         }
                 ]
 
@@ -121,17 +131,26 @@ let tests =
                             )
                             |> Expect.equal "the age category" (Some ageType)
 
-                            pat.Department |> Expect.equal "department" (Some "ICK")
-                            pat.Age |> value |> Expect.equal "age in days" (Some days)
-                            pat.GestAge |> Expect.isNone "no gestational age"
-                            pat.Weight |> value |> Expect.equal "weight in kg" (Some kg)
-                            pat.Height |> value |> Expect.equal "height in cm" (Some cm)
+                            pat |> FormPatientData.department |> Expect.equal "department" (Some "ICK")
+                            pat
+                            |> CorePatientData.ageInDays
+                            |> value
+                            |> Expect.equal "age in days" (Some days)
+                            pat.GestationalAge |> Expect.isNone "no gestational age"
+                            pat
+                            |> CorePatientData.weightInKg
+                            |> value
+                            |> Expect.equal "weight in kg" (Some kg)
+                            pat
+                            |> CorePatientData.heightInCm
+                            |> value
+                            |> Expect.equal "height in cm" (Some cm)
                         }
                 ]
 
             test "a NEO patient is 2 days old on any day the data is read" {
                 projectedAt (DateTime(2030, 1, 1)) "neo-26wk"
-                |> Option.bind _.Age
+                |> Option.bind CorePatientData.ageInDays
                 |> Option.map (ValueUnit.getValue >> Array.head)
                 |> Expect.equal "2 days" (Some 2N)
             }

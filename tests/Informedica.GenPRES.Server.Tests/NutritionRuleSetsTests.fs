@@ -400,11 +400,11 @@ let linkedOfferTests =
             }
 
             test "an offer is evaluated for the main context's patient" {
-                let pat = { Patient.patient with Department = Some "NEO" }
+                let pat = PatientData.unknown |> Patient.setDepartment (Some "NEO")
 
                 { feeding with Context = { feeding.Context with Patient = pat } }
                 |> offersOf [| row |] [||]
-                |> Array.map _.Context.Patient.Department
+                |> Array.map (_.Context.Patient >> PatientData.department)
                 |> Expect.equal "NEO" [| Some "NEO" |]
             }
 

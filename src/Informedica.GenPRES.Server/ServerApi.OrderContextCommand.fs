@@ -16,7 +16,7 @@ module OrderContextCommand =
         Patient.over
             ctx.Patient
             (fun () ->
-                match ctx |> OrderContextService.parse, domainCmd with
+                match ctx |> OrderContextService.parse (env.today ()), domainCmd with
                 | Error errs, _ -> async { return Error errs }
                 | Ok pc, None ->
                     async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo [||]) }

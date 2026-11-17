@@ -417,7 +417,7 @@ module Session =
 
     module CorePatient = Informedica.GenCore.Lib.Patients.Patient
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
-    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreSource = Informedica.GenCore.Lib.Patients.Source
 
 
     /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
@@ -485,8 +485,8 @@ module Session =
             Nonce: string
             /// the patient as the EHR gave it when the notice was told; none when it could not be read
             EhrPatient: CorePatient option
-            /// its projection, what the client is shown
-            Data: GenForm.Patient option
+            /// The patient data the client is shown.
+            Data: GenForm.PatientData option
             Expiry: DateTime
         }
 
@@ -740,32 +740,27 @@ module Session =
     /// The patient of a version at the age its birthdate gives at the local date, with the
     /// post-menstrual age of that age. Without an identity there is no birthdate, and the patient
     /// stays as signed.
-    let atBirthDate date (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option) (pat: GenForm.Patient) =
+    let atBirthDate date (whom: CorePatientIdentity option) (pat: GenForm.PatientData) =
         match whom with
         | None -> pat
-        | Some identity ->
-            let core =
-                { CorePatientData.unknown with
-                    GestationalAge = pat.GestAge |> Option.map CoreAgeWeeksDays.fromValueUnit
-                }
-                |> CorePatient.create (Some identity)
-
-            pat
-            |> Informedica.GenForm.Lib.Patient.withAgesOf (core |> CorePatient.atDate date)
+        | Some identity -> (pat |> CorePatient.create (Some identity) |> CorePatient.atDate date).Data
 
 
     /// The patient of a version as a later Session shows it: at the age at the local date, and without
     /// the estimates when that age is not the one signed, since an estimate belongs to its age and
     /// the patient machine has no draft to tell that from. A measured value stays.
-    let signedPatientAt date whom (pat: GenForm.Patient) =
+    let signedPatientAt date whom (pat: GenForm.PatientData) =
         let aged = pat |> atBirthDate date whom
 
-        if aged.Age = pat.Age then
+        let measured calc = calc |> Option.filter CoreSource.isMeasured
+
+        // Compare the ages in days. Two age values with different parts can be the same age.
+        if aged |> CorePatientData.ageInDays = (pat |> CorePatientData.ageInDays) then
             aged
         else
             { aged with
-                Weight = if aged.WeightMeasured then aged.Weight else None
-                Height = if aged.HeightMeasured then aged.Height else None
+                Weight.Calculation = aged.Weight.Calculation |> measured
+                Height.Calculation = aged.Height.Calculation |> measured
             }
 
 
@@ -1583,6 +1578,15 @@ module Session =
                             },
                             SigningOutcome.ChallengeIssued(nonce, moved),
                             seen @ [ WriteChallenge(sid, challenge, now) ]
+
+
+    /// The local date the open challenge of a Session was made on. None when the Session has no
+    /// challenge. A submission reads its plan on this date, so that the weight and the height get
+    /// the same date as at the challenge.
+    let challengeDate (zone: TimeZoneInfo) (sid: string) (state: State) =
+        state.Challenges
+        |> Map.tryFind sid
+        |> Option.map (fun challenge -> challenge.Expiry - challengeLifetime |> LocalDate.ofUtc zone)
 
 
     /// The commit of a signature, one act, checked in order: the Session with a User and a
