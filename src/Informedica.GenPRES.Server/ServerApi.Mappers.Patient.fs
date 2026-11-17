@@ -470,7 +470,7 @@ module Patient =
     /// Adds the weight and height estimates of GenCORE to patient data, dated today. A measured
     /// weight or height is kept as it is, with its date and its measurements. The patient data is
     /// returned unchanged when the estimate fails.
-    let estimated today tables (pat: Lib.PatientData) =
+    let estimated today tables (pat: CorePatientData) =
         pat
         |> ofPatientData
         |> withEstimates tables
@@ -496,11 +496,11 @@ module Patient =
 
     /// Wraps the EHR port so that the patient data it reads gets weight and height estimates, dated
     /// today. Nothing is estimated while the normal-value tables are not loaded.
-    let estimating today normalValues (port: PatientDataPort) : PatientDataPort =
+    let estimating today normalValues (port: EhrPatientPort) : EhrPatientPort =
         { port with
-            patient =
+            patientData =
                 fun ehr ->
-                    let pat = port.patient ehr
+                    let pat = port.patientData ehr
 
                     match normalValues () with
                     | Some tables -> pat |> estimated (today ()) tables

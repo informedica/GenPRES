@@ -10,6 +10,10 @@ module GenForm = Informedica.GenForm.Lib.Types
 type CorePatient = Informedica.GenCore.Lib.Patients.Patient
 
 
+/// The GenCORE patient data: what is known about a patient apart from the identity.
+type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
+
 /// Who signed an order plan version.
 type Signer =
     {

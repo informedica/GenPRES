@@ -71,7 +71,7 @@ let portAt (clock: DateTime ref) (initial: Session.State) =
         (fun launch -> LaunchSeal.verify clock.Value sealKey launch)
         directory.idp
         directory.registry
-        Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
+        Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.ehrPatients
         (StubMail.make ()).port
         initial
 
@@ -216,13 +216,13 @@ let portTests =
             test "the patient an open Session shows has the ages of its read, whatever the port's clock" {
                 let clock = ref (openedAt + TimeSpan.FromDays 60.0)
                 let port = portAt clock (stateSeenAt openedAt)
-                let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
+                let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "p1"
                 let opened = { (record sid openedAt).Opened with EhrPatient = Some ehr }
-                let data = Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
+                let data = Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.ehrPatients
 
                 opened
-                |> port.patient
-                |> Expect.equal "the projection of the read" (Some(data.patient ehr))
+                |> port.patientData
+                |> Expect.equal "the projection of the read" (Some(data.patientData ehr))
             }
 
             testAsync "a computing request in an idle Session is told the ending" {

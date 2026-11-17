@@ -13,7 +13,7 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.TestDates
 
 
-let patient = StubPatientData.patient
+let patient = StubEhrPatient.contractPatient
 
 let ctx: OrderContext =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with

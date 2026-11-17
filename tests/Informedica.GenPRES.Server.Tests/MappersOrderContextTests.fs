@@ -69,7 +69,7 @@ let context: OrderContext =
                 SelectedComponents = Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
-        Patient = StubPatientData.patient
+        Patient = StubEhrPatient.contractPatient
         Scenarios = [| scenario |]
         Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with

@@ -114,7 +114,7 @@ let tests =
         [
             test "whom a version names is in its columns, both cases; a row from before names none; half is a reason" {
                 withRecord (fun cs ->
-                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
 
                     SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, whom) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
@@ -210,7 +210,7 @@ let tests =
                     let v =
                         { v1.Value with
                             Verified = false
-                            EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+                            EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
                         }
 
                     SqlDatabase.persist readAt cs [ Session.WriteVersion(v, None) ]
@@ -247,7 +247,8 @@ let tests =
                         |> reasonOf
                         |> Option.defaultValue ""
 
-                    run $"update order_plan set ehr_json_version = %i{SqlEhrData.ehrJsonVersion}, ehr_data = 'no json'"
+                    run
+                        $"update order_plan set ehr_json_version = %i{SqlEhrPatient.ehrPatientJsonVersion}, ehr_data = 'no json'"
                     reason () |> Expect.stringContains "the reason" "the JSON does not read"
 
                     run "update order_plan set ehr_data = null"

@@ -483,10 +483,11 @@ module Session =
     type Notice =
         {
             Nonce: string
-            /// the patient as the EHR gave it when the notice was told; none when it could not be read
+            /// The patient read from the EHR when the notice was given. None when the EHR could not
+            /// be read.
             EhrPatient: CorePatient option
             /// The patient data the client is shown.
-            Data: GenForm.PatientData option
+            PatientData: CorePatientData option
             Expiry: DateTime
         }
 
@@ -740,22 +741,22 @@ module Session =
     /// The patient of a version at the age its birthdate gives at the local date, with the
     /// post-menstrual age of that age. Without an identity there is no birthdate, and the patient
     /// stays as signed.
-    let atBirthDate date (whom: CorePatientIdentity option) (pat: GenForm.PatientData) =
+    let atBirthDate date (whom: CorePatientIdentity option) (patientData: CorePatientData) =
         match whom with
-        | None -> pat
-        | Some identity -> (pat |> CorePatient.create (Some identity) |> CorePatient.atDate date).Data
+        | None -> patientData
+        | Some identity -> (patientData |> CorePatient.create (Some identity) |> CorePatient.atDate date).Data
 
 
-    /// The patient of a version as a later Session shows it: at the age at the local date, and without
-    /// the estimates when that age is not the one signed, since an estimate belongs to its age and
-    /// the patient machine has no draft to tell that from. A measured value stays.
-    let signedPatientAt date whom (pat: GenForm.PatientData) =
-        let aged = pat |> atBirthDate date whom
+    /// The patient data of a signed version, aged to the local date. When the age changed, the
+    /// estimated weight and height are removed, because an estimate is only valid for the age it
+    /// was made for. A measured value stays.
+    let signedPatientDataAt date whom (patientData: CorePatientData) =
+        let aged = patientData |> atBirthDate date whom
 
         let measured calc = calc |> Option.filter CoreSource.isMeasured
 
         // Compare the ages in days. Two age values with different parts can be the same age.
-        if aged |> CorePatientData.ageInDays = (pat |> CorePatientData.ageInDays) then
+        if aged |> CorePatientData.ageInDays = (patientData |> CorePatientData.ageInDays) then
             aged
         else
             { aged with
@@ -764,25 +765,22 @@ module Session =
             }
 
 
-    /// The patient a Session shows at the local date. When the latest act is a sign, the patient of the
-    /// version signed; after any other act, the EHR's data, the source of truth. Each falls back
-    /// on the other, so that a head that cannot be read or a data outage still shows what there
-    /// is. The EHR's data has the ages its read created; the version signed is aged at the local
-    /// date. From nothing, none, so that the User enters the data and a data outage does not block
-    /// prescribing.
-    let sessionPatient date (patientData: PatientDataPort) (opened: OpenedSession) =
-        let ofEhr = opened.EhrPatient |> Option.map patientData.patient
+    /// The patient data a Session shows on the local date. After a signing, the data of the signed
+    /// version; after any other act, the data from the EHR. Each falls back on the other. None
+    /// when neither exists; the user then enters the data.
+    let sessionPatientData date (ehrPatients: EhrPatientPort) (opened: OpenedSession) =
+        let ofEhrPatient = opened.EhrPatient |> Option.map ehrPatients.patientData
 
         let ofHead =
             match opened.Head with
-            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.PatientData |> signedPatientAt date whom)
+            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.PatientData |> signedPatientDataAt date whom)
             | _ -> None
 
         match opened.Act with
-        | SessionAct.Signed -> ofHead |> Option.orElse ofEhr
+        | SessionAct.Signed -> ofHead |> Option.orElse ofEhrPatient
         | SessionAct.Opened
         | SessionAct.VersionOpened
-        | SessionAct.Refreshed -> ofEhr |> Option.orElse ofHead
+        | SessionAct.Refreshed -> ofEhrPatient |> Option.orElse ofHead
 
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
@@ -795,7 +793,7 @@ module Session =
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -803,7 +801,7 @@ module Session =
         =
         let id = newId ()
         let head = headOf patientId state
-        let ehr = patientData.read patientId
+        let ehr = ehrPatients.read patientId
 
         let opened: OpenedSession =
             {
@@ -856,9 +854,9 @@ module Session =
     let isActive (patientId: string) (standing: UserStanding) = standing.ActivePatientId = Some patientId
 
 
-    let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
+    let private openSession now newId ehrPatients (record: LaunchRecord) (standing: UserStanding) (state: State) =
         let state, (id, session), writes =
-            openWith now newId patientData record.PatientId record.PublicKey standing.User state
+            openWith now newId ehrPatients record.PatientId record.PublicKey standing.User state
 
         let state, outcome = recordOutcome now record (LaunchResult.Opened(id, session)) state
 
@@ -1017,7 +1015,7 @@ module Session =
         (newId: unit -> string)
         (newCode: unit -> string)
         (codeMac: string -> byte[])
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (record: LaunchRecord, identity: BrowserIdentity, standing: UserStanding)
         (state: State)
@@ -1033,7 +1031,7 @@ module Session =
         then
             suspend now newId newCode codeMac send record identity standing state
         else
-            openSession now newId patientData record standing state
+            openSession now newId ehrPatients record standing state
 
 
     /// The callback from the IdentityProvider and the checks that follow it, the two halves
@@ -1049,7 +1047,7 @@ module Session =
         (codeMac: string -> byte[])
         (redeemCode: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -1058,7 +1056,7 @@ module Session =
         match redeem now redeemCode standing state cb with
         | Redeemed.Answered(state, result, writes) -> state, result, writes
         | Redeemed.Identified(record, identity, standing) ->
-            openAfterRedeem now newId newCode codeMac patientData send (record, identity, standing) state
+            openAfterRedeem now newId newCode codeMac ehrPatients send (record, identity, standing) state
 
 
     /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
@@ -1125,7 +1123,7 @@ module Session =
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1209,7 +1207,7 @@ module Session =
                     // its writes go whatever the launch comes to
                     state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, settled
                 | _ ->
-                    let state, (id, session), writes = openWith now newId patientData e.PatientId e.PublicKey user state
+                    let state, (id, session), writes = openWith now newId ehrPatients e.PatientId e.PublicKey user state
 
                     state, SupplyPinResult.Opened(id, session), settled @ writes
 
@@ -1428,7 +1426,7 @@ module Session =
     let refresh
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (sid: string)
         (state: State)
         : State * OpenedSession option * Persist list
@@ -1442,7 +1440,7 @@ module Session =
             | None, _
             | _, None -> state, None, seen
             | Some _, Some patientId ->
-                match patientData.read patientId with
+                match ehrPatients.read patientId with
                 | None -> state, Some record.Opened, seen
                 | Some read ->
                     let opened =
@@ -1498,7 +1496,7 @@ module Session =
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (standing: BrowserIdentity -> UserStanding option)
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
@@ -1522,21 +1520,21 @@ module Session =
                     refuse SigningRefusal.StaleToken
                 else
                     // read again and compared as read, so that only the EHR data tells a change
-                    let currentEhr = patientData.read patientId
-                    let accepted = Reads.accepted state.Notices sid notice currentEhr
+                    let currentEhrPatient = ehrPatients.read patientId
+                    let accepted = Reads.accepted state.Notices sid notice currentEhrPatient
 
                     // no reading, or another than the Session opened on: told before the challenge
-                    if Reads.changed record.Opened.EhrPatient currentEhr && accepted.IsNone then
+                    if Reads.changed record.Opened.EhrPatient currentEhrPatient && accepted.IsNone then
                         let nonce = newId ()
 
                         // the adapter answers none for a reading that is no patient
-                        let current = currentEhr |> Option.map patientData.patient
+                        let current = currentEhrPatient |> Option.map ehrPatients.patientData
 
                         let notice =
                             {
                                 Nonce = nonce
-                                EhrPatient = currentEhr
-                                Data = current
+                                EhrPatient = currentEhrPatient
+                                PatientData = current
                                 Expiry = now + challengeLifetime
                             }
 
@@ -1568,7 +1566,7 @@ module Session =
                                 {
                                     Nonce = nonce
                                     Digest = digest plan
-                                    EhrPatient = currentEhr
+                                    EhrPatient = currentEhrPatient
                                     Expiry = now + challengeLifetime
                                 }
 

@@ -49,7 +49,7 @@ let portAtToday () =
         (fun launch -> LaunchSeal.verify AR.today sealKey launch)
         directory.idp
         directory.registry
-        Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
+        Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.ehrPatients
         (StubMail.make ()).port
         AR.state
 

@@ -66,7 +66,7 @@ let callbackCounting (d: StubDirectory.Directory) newId (count: int ref) state c
         codeMac
         redeem
         d.registry.standing
-        StubAdapterTests.StubAdapters.patientData
+        StubAdapterTests.StubAdapters.ehrPatients
         ignore
         state
         cb
@@ -179,7 +179,7 @@ let machineTests =
                         codeMac
                         redeem
                         Store.registry
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         state
                         cb
@@ -192,7 +192,7 @@ let machineTests =
                             (ids ())
                             (codes ())
                             codeMac
-                            StubAdapterTests.StubAdapters.patientData
+                            StubAdapterTests.StubAdapters.ehrPatients
                             ignore
                             (record, identity, standing)
                             state
@@ -292,7 +292,7 @@ let machineTests =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
@@ -398,7 +398,7 @@ let portOver (store: StubDatabase.SessionStore) =
             verify
             d.idp
             d.registry
-            StubAdapterTests.StubAdapters.patientData
+            StubAdapterTests.StubAdapters.ehrPatients
             (StubMail.make ()).port
             seeded
 
@@ -555,7 +555,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         attempt
                         code
@@ -588,7 +588,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         attempt
                         code
@@ -631,10 +631,10 @@ let credentialWrites =
 
 /// The stub port with the EHR now saying another ward than the Session opened on.
 let moved =
-    { StubAdapterTests.StubAdapters.patientData with
+    { StubAdapterTests.StubAdapters.ehrPatients with
         read =
             fun pid ->
-                StubAdapterTests.StubAdapters.patientData.read pid
+                StubAdapterTests.StubAdapters.ehrPatients.read pid
                 |> Option.map (fun ehr ->
                     { ehr with Data.Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU" }
                 )
@@ -672,7 +672,7 @@ let flightWrites =
                                 t0
                                 newId
                                 StubDatabase.digest
-                                StubAdapterTests.StubAdapters.patientData
+                                StubAdapterTests.StubAdapters.ehrPatients
                                 (fun _ -> state.Sessions[sid].Opened.PatientId |> standing)
                                 sid
                                 (Store.domainPlan.Value, token, None)
@@ -714,7 +714,7 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
@@ -747,7 +747,7 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
@@ -840,7 +840,7 @@ let flightWrites =
                 | _, other, _ -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 // the read of the open now is a change from what was signed on
-                match issue StubAdapterTests.StubAdapters.patientData None state with
+                match issue StubAdapterTests.StubAdapters.ehrPatients None state with
                 | _, SigningOutcome.DataNotice _, _ -> ()
                 | _, other, _ -> failtest $"expected DataNotice, got %A{other}"
             }
@@ -854,7 +854,7 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)

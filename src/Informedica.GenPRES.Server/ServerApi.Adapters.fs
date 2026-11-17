@@ -389,7 +389,7 @@ module Adapters =
                             )
                     }
             find = fun _ -> async { return SessionLookup.NotFound }
-            patient = fun _ -> None
+            patientData = fun _ -> None
             close = fun _ -> async { return () }
             closeTab = fun _ _ -> async { return OnOwnToken.Done() }
             findEnrolment = fun _ -> async { return None }
@@ -565,7 +565,7 @@ module Adapters =
                     directory.registry
                     // the platform's reading estimated at the boundary, from the tables as loaded;
                     // the test patients measured on the local date
-                    (StubPatientData.portAt today
+                    (StubEhrPatient.portAt today
                      |> Patient.estimating today (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login

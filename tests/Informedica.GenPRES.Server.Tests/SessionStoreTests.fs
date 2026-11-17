@@ -26,7 +26,7 @@ let counter prefix =
         n.Value <- n.Value + 1
         $"{prefix}-{n.Value}"
 
-let stubPatient = StubPatientData.patient
+let stubPatient = StubEhrPatient.contractPatient
 let token sid = OpenedToken $"opened-{sid}"
 
 let prescriber: UserContext =
@@ -122,7 +122,7 @@ let ask now nonces state sid (p, opened) =
         now
         nonces
         StubDatabase.digest
-        StubAdapterTests.StubAdapters.patientData
+        StubAdapterTests.StubAdapters.ehrPatients
         sid
         (p, opened, None)
         state
@@ -141,7 +141,7 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+        EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
         Expiry = at + Session.challengeLifetime
     }
 
@@ -203,7 +203,7 @@ let tests =
                     version.Verified |> Expect.isTrue "the reading stood"
 
                     // the version names the patient the Session is for
-                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
 
                     Session.headOf "stub-patient" state
                     |> Expect.equal "the head" (Some(StoredVersion.Readable(version, whom)))

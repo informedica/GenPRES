@@ -70,9 +70,9 @@ type OrderPlanPort =
         // the contexts named, every kind, each with the contexts linked to it
         removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a signed version's patient and contexts as they were, nothing evaluated
-        openWith: GenForm.PatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
+        openWith: CorePatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the totals over the orders of the contexts for the patient, no plan changed
-        totals: GenForm.PatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.Totals, string[]>>
+        totals: CorePatientData -> GenOrder.PlanContext[] -> Async<Result<GenOrder.Totals, string[]>>
     }
 
 
@@ -132,15 +132,14 @@ type IdentityProviderPort =
 type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 
-/// The EHR, read once at the launch and again at a challenge: what it returns for a patient
-/// id, as the domain's patient with the identity on it and its ages created at the read, or
-/// none, and the patient the rules see from it. The adapter parses what the EHR gives, and a reading that is no patient
-/// is no reading; none is not a refusal: the Session opens without imported data.
-type PatientDataPort =
+/// Reads a patient from the EHR. The EHR is read at the launch and again at a challenge.
+type EhrPatientPort =
     {
+        /// The patient with a patient id, with its ages calculated at the read. None when the EHR
+        /// has no patient for the id. The Session then opens without EHR data.
         read: string -> CorePatient option
         /// The patient data of an EHR patient. The composition root adds the estimates.
-        patient: CorePatient -> GenForm.PatientData
+        patientData: CorePatient -> CorePatientData
     }
 
 
@@ -309,15 +308,16 @@ type Signature =
 type SigningOutcome =
     /// the challenge over exactly this plan; comes back with the PIN
     | ChallengeIssued of challenge: string * ehrMovedOn: bool
-    /// no challenge yet: the token, and the data as it stands, none when it could not be read
-    | DataNotice of token: string * data: GenForm.PatientData option
-    /// the version committed with the identity it names, a fresh OpenedToken over it, and the
-    /// Session's patient after the sign
+    /// No challenge yet: the token and the current patient data. None when the EHR could not be
+    /// read.
+    | DataNotice of token: string * patientData: CorePatientData option
+    /// The version is stored. It has the identity of the patient, a new OpenedToken, and the
+    /// patient data the Session shows after the signing.
     | Submitted of
         version: OrderPlanVersion *
         identity: CorePatientIdentity option *
         OpenedToken *
-        patient: GenForm.PatientData
+        patientData: CorePatientData
     | Refused of SigningRefusal
 
 
@@ -393,8 +393,8 @@ type SessionPort =
         callback: Callback -> Async<CallbackResult>
         // by session id from the cookie; an ending is told until it is acknowledged
         find: string -> Async<SessionLookup>
-        // the patient an open Session shows, computed from it at the date of asking; reads no store
-        patient: OpenedSession -> GenForm.PatientData option
+        // the patient data an open Session shows, at the date of asking; reads no store
+        patientData: OpenedSession -> CorePatientData option
         // the Session ended by a new launch of this browser, whatever token stands
         close: string -> Async<unit>
         // explicit close by the User, on the token of the tab
