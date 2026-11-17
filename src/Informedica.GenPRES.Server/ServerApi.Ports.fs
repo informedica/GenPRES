@@ -407,6 +407,8 @@ type SessionPort =
         dropEnrolment: string -> Async<unit>
         // a signing challenge over the plan as shown, parsed, for the Session the cookie names
         challenge: string -> GenOrder.OrderPlan * OpenedToken * string option -> Async<SigningOutcome>
+        // the local date the open challenge of the Session was made on; none without a challenge
+        challengeDate: string -> Async<DateTime option>
         // the signature, its plan parsed, for the Session the cookie names
         submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told

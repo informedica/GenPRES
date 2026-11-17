@@ -1039,6 +1039,9 @@ module StubDatabase =
                                             Session.challenge at newId digest patientData registry.standing sid request
                                         )))
                     }
+            challengeDate =
+                fun sid ->
+                    async { return guarded None (Slice.Session sid) (fun s -> s, Session.challengeDate zone sid s) }
             submit =
                 fun sid signature ->
                     async {

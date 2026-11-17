@@ -1580,6 +1580,15 @@ module Session =
                             seen @ [ WriteChallenge(sid, challenge, now) ]
 
 
+    /// The local date the open challenge of a Session was made on. None when the Session has no
+    /// challenge. A submission reads its plan on this date, so that the weight and the height get
+    /// the same date as at the challenge.
+    let challengeDate (zone: TimeZoneInfo) (sid: string) (state: State) =
+        state.Challenges
+        |> Map.tryFind sid
+        |> Option.map (fun challenge -> challenge.Expiry - challengeLifetime |> LocalDate.ofUtc zone)
+
+
     /// The commit of a signature, one act, checked in order: the Session with a User and a
     /// Patient; the answer already given to this Session's key; the Role re-taken from the
     /// registry (fails closed when it cannot answer; Rule 38's bounded grace is not built);
