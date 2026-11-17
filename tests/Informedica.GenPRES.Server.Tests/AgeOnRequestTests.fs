@@ -27,8 +27,8 @@ let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
 /// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
     { ehr with
-        Patient.Identity = None
-        Patient.Data.Age = Some CoreAgeValue.ten
+        Identity = None
+        Data.Age = Some CoreAgeValue.ten
     }
 
 
@@ -41,13 +41,13 @@ let prescriber: UserContext =
 
 
 /// A Session as the store holds it after an open, seen at the open.
-let record (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option) : Session.SessionRecord =
+let record (sid: string) (ehr: Informedica.GenCore.Lib.Patients.Patient option) : Session.SessionRecord =
     {
         Opened =
             {
                 User = Some prescriber
                 PatientId = Some "p1"
-                EhrData = ehr
+                EhrPatient = ehr
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None

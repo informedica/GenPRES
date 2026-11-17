@@ -995,6 +995,10 @@ module Weight =
     let unknown = create [] None [] None
 
 
+    /// Whether the calculation weight is measured; false for an estimate and without one.
+    let isMeasured (w: Weight) = w.Calculation |> Option.exists Source.isMeasured
+
+
     /// The normal weight of an age category: an estimate.
     let fromAgeType gend dt =
         WeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None []
@@ -1285,6 +1289,10 @@ module Height =
 
 
     let unknown = create [] None None
+
+
+    /// Whether the calculation height is measured; false for an estimate and without one.
+    let isMeasured (h: Height) = h.Calculation |> Option.exists Source.isMeasured
 
 
     /// The normal height of an age category: an estimate.
@@ -2154,11 +2162,9 @@ module PatientData =
     /// Whether the patient data is enough to select rules with: an age, or the mark as an adult,
     /// or a measured weight with a measured height.
     let meetsMinimumData (dat: PatientData) =
-        let measured calc = calc |> Option.exists Source.isMeasured
-
         dat.MarkedAdult
         || dat.Age.IsSome
-        || (dat.Weight.Calculation |> measured && dat.Height.Calculation |> measured)
+        || (dat.Weight |> Weight.isMeasured && dat.Height |> Height.isMeasured)
 
 
     /// The patient data, or why it is not enough: a mark as an adult below 16 years, or less than
@@ -2374,8 +2380,8 @@ module Patient =
         ]
 
 
-    /// The serializable patient, flat as stored: the id, the name and the birthdate of the identity
-    /// beside the patient data.
+    /// The serializable patient: the id, the name and the birthdate of the identity beside the
+    /// patient data.
     module Dto =
 
         open Validus
@@ -2385,50 +2391,18 @@ module Patient =
         type Dto() =
             member val Id: string = "" with get, set
             member val Name: string = "" with get, set
-            member val Location: string option = None with get, set
-            member val Department: string = "" with get, set
-            member val Diagnoses: string[] = [||] with get, set
-            member val Gender = "" with get, set
-            member val Age: AgeValue.Dto.Dto option = None with get, set
-            member val MarkedAdult = false with get, set
             member val BirthDate: BirthDate.Dto.Dto option = None with get, set
-            member val Weight = Weight.Dto.dto () with get, set
-            member val Height = Height.Dto.dto () with get, set
-            member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
-            member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
-            member val Access: string[] = [||] with get, set
-            member val RenalFunction: string option = None with get, set
+            member val Data = PatientData.Dto.dto () with get, set
 
 
         let dto () = Dto()
-
-
-        /// The fields of the patient data on a patient Dto, as the Dto of the patient data. It must
-        /// list every field of that Dto.
-        let toDataDto (dto: Dto) =
-            let dat = PatientData.Dto.dto ()
-
-            dat.Location <- dto.Location
-            dat.Department <- dto.Department
-            dat.Diagnoses <- dto.Diagnoses
-            dat.Gender <- dto.Gender
-            dat.Age <- dto.Age
-            dat.MarkedAdult <- dto.MarkedAdult
-            dat.Weight <- dto.Weight
-            dat.Height <- dto.Height
-            dat.GestationalAge <- dto.GestationalAge
-            dat.PostMenstrualAge <- dto.PostMenstrualAge
-            dat.Access <- dto.Access
-            dat.RenalFunction <- dto.RenalFunction
-
-            dat
 
 
         /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none of
         /// the three; a part of an identity is an error.
         let fromDto (dto: Dto) =
             validate {
-                let! dat = dto |> toDataDto |> PatientData.Dto.fromDto
+                let! dat = dto.Data |> PatientData.Dto.fromDto
 
                 let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)
@@ -2444,9 +2418,9 @@ module Patient =
             }
 
 
+        /// The Dto of a patient.
         let toDto pat =
             let dto = dto ()
-            let dat = pat.Data |> PatientData.Dto.toDto
 
             match pat.Identity with
             | Some idn ->
@@ -2455,17 +2429,6 @@ module Patient =
                 dto.BirthDate <- idn.BirthDate |> BirthDate.Dto.toDto |> Some
             | None -> ()
 
-            dto.Location <- dat.Location
-            dto.Department <- dat.Department
-            dto.Diagnoses <- dat.Diagnoses
-            dto.Gender <- dat.Gender
-            dto.Age <- dat.Age
-            dto.MarkedAdult <- dat.MarkedAdult
-            dto.Weight <- dat.Weight
-            dto.Height <- dat.Height
-            dto.GestationalAge <- dat.GestationalAge
-            dto.PostMenstrualAge <- dat.PostMenstrualAge
-            dto.Access <- dat.Access
-            dto.RenalFunction <- dat.RenalFunction
+            dto.Data <- pat.Data |> PatientData.Dto.toDto
 
             dto

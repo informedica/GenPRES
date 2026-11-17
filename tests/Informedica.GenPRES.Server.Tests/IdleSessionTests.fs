@@ -31,7 +31,7 @@ let record (sid: string) (seen: DateTime) : Session.SessionRecord =
             {
                 User = Some prescriber
                 PatientId = Some "p1"
-                EhrData = None
+                EhrPatient = None
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
@@ -217,7 +217,7 @@ let portTests =
                 let clock = ref (openedAt + TimeSpan.FromDays 60.0)
                 let port = portAt clock (stateSeenAt openedAt)
                 let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
-                let opened = { (record sid openedAt).Opened with EhrData = Some ehr }
+                let opened = { (record sid openedAt).Opened with EhrPatient = Some ehr }
                 let data = Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
 
                 opened

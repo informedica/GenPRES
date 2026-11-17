@@ -483,8 +483,8 @@ module Session =
     type Notice =
         {
             Nonce: string
-            /// the EHR data as read when the notice was told; none when it could not be read
-            Ehr: GenForm.EhrPatientData option
+            /// the patient as the EHR gave it when the notice was told; none when it could not be read
+            EhrPatient: CorePatient option
             /// its projection, what the client is shown
             Data: GenForm.Patient option
             Expiry: DateTime
@@ -499,9 +499,9 @@ module Session =
         {
             Nonce: string
             Digest: string
-            /// the EHR data as read at the challenge; none when it could not be read, which makes
+            /// the patient as the EHR gave it at the challenge; none when it could not be read, which makes
             /// the version signed on it unverified
-            Ehr: GenForm.EhrPatientData option
+            EhrPatient: CorePatient option
             Expiry: DateTime
         }
 
@@ -513,16 +513,13 @@ module Session =
 
         /// Whether two EHR reads hold the same data, leaving out the age and the post-menstrual age
         /// each read calculated; the birthdate and the gestational age they come from are compared.
-        let sameDataApartFromAges (read: GenForm.EhrPatientData option) (other: GenForm.EhrPatientData option) =
-            let withoutAges (ehr: GenForm.EhrPatientData) =
+        let sameDataApartFromAges (read: CorePatient option) (other: CorePatient option) =
+            let withoutAges (ehr: CorePatient) =
                 { ehr with
-                    Patient =
-                        { ehr.Patient with
-                            Data =
-                                { ehr.Patient.Data with
-                                    Age = None
-                                    PostMenstrualAge = None
-                                }
+                    Data =
+                        { ehr.Data with
+                            Age = None
+                            PostMenstrualAge = None
                         }
                 }
 
@@ -531,31 +528,26 @@ module Session =
 
         /// Whether a fresh read tells a change: none, or other than the EHR data the Session
         /// opened on. A Session that opened on none is told on every read that answers.
-        let changed (opened: GenForm.EhrPatientData option) (current: GenForm.EhrPatientData option) =
+        let changed (opened: CorePatient option) (current: CorePatient option) =
             current.IsNone || not (sameDataApartFromAges current opened)
 
 
         /// The notice the token names, when the Session has one and it was told over exactly
         /// the read at hand; a read that moved since is a fresh notice.
-        let accepted
-            (notices: Map<string, Notice>)
-            (sid: string)
-            (token: string option)
-            (current: GenForm.EhrPatientData option)
-            =
+        let accepted (notices: Map<string, Notice>) (sid: string) (token: string option) (current: CorePatient option) =
             token
             |> Option.bind (fun token ->
                 notices
                 |> Map.tryFind sid
-                |> Option.filter (fun n -> n.Nonce = token && sameDataApartFromAges n.Ehr current)
+                |> Option.filter (fun n -> n.Nonce = token && sameDataApartFromAges n.EhrPatient current)
             )
 
 
         /// The EHR data a Session holds after a commit: the read the challenge was issued
         /// over, so that the next challenge compares against the data just signed on; what it
         /// opened on when the challenge had none.
-        let afterCommit (challenge: Challenge) (opened: GenForm.EhrPatientData option) =
-            challenge.Ehr |> Option.orElse opened
+        let afterCommit (challenge: Challenge) (opened: CorePatient option) =
+            challenge.EhrPatient |> Option.orElse opened
 
 
     /// What the adapter's write came to: landed; refused by the store because another server
@@ -784,7 +776,7 @@ module Session =
     /// date. From nothing, none, so that the User enters the data and a data outage does not block
     /// prescribing.
     let sessionPatient date (patientData: PatientDataPort) (opened: OpenedSession) =
-        let ofEhr = opened.EhrData |> Option.map patientData.patient
+        let ofEhr = opened.EhrPatient |> Option.map patientData.patient
 
         let ofHead =
             match opened.Head with
@@ -822,7 +814,7 @@ module Session =
             {
                 User = Some user
                 PatientId = Some patientId
-                EhrData = ehr
+                EhrPatient = ehr
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head
@@ -1461,7 +1453,7 @@ module Session =
                     let opened =
                         { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                            EhrData = Some read
+                            EhrPatient = Some read
                             Act = SessionAct.Refreshed
                         }
 
@@ -1539,7 +1531,7 @@ module Session =
                     let accepted = Reads.accepted state.Notices sid notice currentEhr
 
                     // no reading, or another than the Session opened on: told before the challenge
-                    if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
+                    if Reads.changed record.Opened.EhrPatient currentEhr && accepted.IsNone then
                         let nonce = newId ()
 
                         // the adapter answers none for a reading that is no patient
@@ -1548,7 +1540,7 @@ module Session =
                         let notice =
                             {
                                 Nonce = nonce
-                                Ehr = currentEhr
+                                EhrPatient = currentEhr
                                 Data = current
                                 Expiry = now + challengeLifetime
                             }
@@ -1581,7 +1573,7 @@ module Session =
                                 {
                                     Nonce = nonce
                                     Digest = digest plan
-                                    Ehr = currentEhr
+                                    EhrPatient = currentEhr
                                     Expiry = now + challengeLifetime
                                 }
 
@@ -1699,8 +1691,8 @@ module Session =
                                                     }
                                                 SignedAt = now
                                                 Plan = signature.Plan
-                                                Verified = challenge.Ehr.IsSome
-                                                EhrData = challenge.Ehr
+                                                Verified = challenge.EhrPatient.IsSome
+                                                EhrPatient = challenge.EhrPatient
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
@@ -1709,8 +1701,8 @@ module Session =
                                         // version names is that read's; the answer's patient is the
                                         // one just signed at the age of the sign; the version keeps
                                         // the age it was signed at
-                                        let ehr = Reads.afterCommit challenge record.Opened.EhrData
-                                        let whom = OpenedSession.identity { record.Opened with EhrData = ehr }
+                                        let ehr = Reads.afterCommit challenge record.Opened.EhrPatient
+                                        let whom = OpenedSession.identity { record.Opened with EhrPatient = ehr }
 
                                         let patient =
                                             version.Plan.Patient |> atBirthDate (LocalDate.ofUtc zone now) whom
@@ -1721,7 +1713,7 @@ module Session =
                                                     { record.Opened with
                                                         OpenedToken = Some token
                                                         Head = Some(StoredVersion.Readable(version, whom))
-                                                        EhrData = ehr
+                                                        EhrPatient = ehr
                                                         Act = SessionAct.Signed
                                                     }
                                                 OpenedWith = Some id

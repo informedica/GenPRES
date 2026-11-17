@@ -21,7 +21,7 @@ let now = DateTime(2026, 11, 3, 14, 30, 0)
 /// The GenFORM patient of a PatientId, read and projected at a moment.
 let projectedAt at pid =
     StubPatientData.read (fun () -> at) pid
-    |> Option.map Informedica.GenForm.Lib.Patient.ofEhr
+    |> Option.map (_.Data >> Informedica.GenForm.Lib.Patient.ofPatientData)
 
 
 let value (vu: ValueUnit option) = vu |> Option.map (ValueUnit.getValue >> Array.head)
@@ -54,7 +54,7 @@ let ick =
 /// The age in days of a test patient read on a day, as GenPRES counts it.
 let coreAgeInDays (day: DateTime) pid =
     StubPatientData.read (fun () -> day) pid
-    |> Option.bind (fun ehr -> (ehr.Patient |> CorePatient.atDate day).Data.Age)
+    |> Option.bind (fun ehr -> (ehr |> CorePatient.atDate day).Data.Age)
     |> Option.map (CoreAgeValue.getAgeInDays >> int)
     |> Option.get
 
@@ -117,8 +117,7 @@ let tests =
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
                             StubPatientData.read (fun () -> now) pid
                             |> Option.bind (fun ehr ->
-                                (ehr.Patient |> CorePatient.atDate now).Data.Age
-                                |> Option.map CoreAgeValue.toAgeType
+                                (ehr |> CorePatient.atDate now).Data.Age |> Option.map CoreAgeValue.toAgeType
                             )
                             |> Expect.equal "the age category" (Some ageType)
 

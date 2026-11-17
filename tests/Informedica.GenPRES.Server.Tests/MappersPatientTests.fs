@@ -393,15 +393,12 @@ let estimateTests =
                 // the gestational age known, so its post-menstrual age calculated, and no measurement
                 let premature =
                     { ehr with
-                        Patient =
-                            { ehr.Patient with
-                                Data.GestationalAge =
-                                    Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
-                                Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
-                                Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
-                            }
-                            |> Informedica.GenCore.Lib.Patients.Patient.calculatePostMenstrualAge
+                        Data.GestationalAge =
+                            Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
+                        Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                        Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                     }
+                    |> Informedica.GenCore.Lib.Patients.Patient.calculatePostMenstrualAge
 
                 let port = ServerApi.StubPatientData.port
                 let projected = port.patient premature
@@ -419,8 +416,8 @@ let estimateTests =
 
                 let bare =
                     { ehr with
-                        Patient.Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
-                        Patient.Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
+                        Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                        Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                     }
 
                 let port = ServerApi.StubPatientData.port

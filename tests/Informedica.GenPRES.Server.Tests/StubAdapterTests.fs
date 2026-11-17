@@ -533,14 +533,17 @@ module SessionStubTests =
 
     /// The EHR data the stub would have read for the id, with the ward the contract model names,
     /// so that a fixture stated as a contract patient has the EHR data its projection came from.
-    let ehrOf (pid: string) (p: Patient) : Informedica.GenForm.Lib.Types.EhrPatientData =
+    let ehrOf (pid: string) (p: Patient) : Informedica.GenCore.Lib.Patients.Patient =
         let ehr = StubPatientData.data StubPatientData.measuredOn pid
 
         { ehr with
-            Patient.Data.Department =
-                p.Department
-                |> Option.map Informedica.GenCore.Lib.Patients.Department.pediatricICU
-                |> Option.defaultValue Informedica.GenCore.Lib.Patients.Department.unknown
+            Data =
+                { ehr.Data with
+                    Department =
+                        p.Department
+                        |> Option.map Informedica.GenCore.Lib.Patients.Department.pediatricICU
+                        |> Option.defaultValue Informedica.GenCore.Lib.Patients.Department.unknown
+                }
         }
 
 
@@ -557,7 +560,7 @@ module SessionStubTests =
         {
             Nonce = nonce
             Digest = OrderPlan.create pat contexts |> parsed |> StubDatabase.digest
-            Ehr = reading |> Option.map (ehrOf "stub-patient")
+            EhrPatient = reading |> Option.map (ehrOf "stub-patient")
             Expiry = expiry
         }
 
@@ -566,7 +569,7 @@ module SessionStubTests =
     let noticeOf (nonce: string) (data: Patient option) (expiry: DateTime) : Session.Notice =
         {
             Nonce = nonce
-            Ehr = data |> Option.map (ehrOf "stub-patient")
+            EhrPatient = data |> Option.map (ehrOf "stub-patient")
             Data = data |> Option.map parsePatient
             Expiry = expiry
         }
@@ -587,7 +590,7 @@ module SessionStubTests =
                     User = user
                     PatientId = patient |> Option.map fst
                     // what the stub would have read at the open: none for no-data
-                    EhrData =
+                    EhrPatient =
                         patient
                         |> Option.bind (fun (pid, p) ->
                             if pid = "no-data" then
@@ -2713,7 +2716,7 @@ module SessionStubTests =
 
                         let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
-                        let record = { record with Opened = { record.Opened with EhrData = Some ehr } }
+                        let record = { record with Opened = { record.Opened with EhrPatient = Some ehr } }
 
                         let state, answer =
                             Machine.challenge
@@ -2728,7 +2731,7 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "issued, not a notice" (SigningOutcome.ChallengeIssued("n-1", false))
 
-                        Session.Reads.sameDataApartFromAges state.Challenges[sid].Ehr (Some ehr)
+                        Session.Reads.sameDataApartFromAges state.Challenges[sid].EhrPatient (Some ehr)
                         |> Expect.isTrue "the same EHR data apart from the calculated ages"
                     }
 
@@ -2765,7 +2768,7 @@ module SessionStubTests =
                             "stored"
                             {
                                 Nonce = "n-1"
-                                Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+                                EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                                 Data = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }
@@ -2834,7 +2837,7 @@ module SessionStubTests =
 
                         answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-2", false))
 
-                        state.Challenges["s-1"].Ehr
+                        state.Challenges["s-1"].EhrPatient
                         |> Expect.equal
                             "the platform's reading"
                             (Some(StubPatientData.data StubPatientData.measuredOn "stub-patient"))
@@ -2853,7 +2856,7 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "issued unverified" (SigningOutcome.ChallengeIssued("n-4", false))
 
-                        state.Challenges["s-2"].Ehr |> Expect.isNone "unverified"
+                        state.Challenges["s-2"].EhrPatient |> Expect.isNone "unverified"
                     }
 
                     test "a wrong, spent, expired or unfitting notice token is a fresh notice, never a refusal" {
@@ -2884,7 +2887,7 @@ module SessionStubTests =
                                     |> Map.add
                                         "s-1"
                                         { state.Notices["s-1"] with
-                                            Ehr = None
+                                            EhrPatient = None
                                             Data = None
                                         }
                             }
@@ -2998,7 +3001,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 Digest = StubDatabase.digest (parsed plan)
-                                Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+                                EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                                 Expiry = t0 + minutes 2.0
                             }
                     }
@@ -3143,8 +3146,7 @@ module SessionStubTests =
                                 (Some(
                                     StoredVersion.Readable(
                                         version,
-                                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                                        StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
                                     )
                                 ))
 
@@ -3156,8 +3158,7 @@ module SessionStubTests =
                                     version.Plan.Patient
                                     |> Session.atBirthDate
                                         t0
-                                        (StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                                         |> Informedica.GenForm.Lib.EhrPatientData.identity)
+                                        (StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity)
                                 ))
 
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
@@ -3361,7 +3362,7 @@ module SessionStubTests =
                                     sid,
                                     { unverified with
                                         Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
-                                        Ehr = None
+                                        EhrPatient = None
                                     }
                                 ]
 
@@ -3396,7 +3397,7 @@ module SessionStubTests =
                                     sid,
                                     { over with
                                         Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
-                                        Ehr = Some(ehrOf "stub-patient" otherData)
+                                        EhrPatient = Some(ehrOf "stub-patient" otherData)
                                     }
                                 ]
 

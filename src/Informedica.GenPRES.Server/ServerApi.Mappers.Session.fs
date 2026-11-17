@@ -46,7 +46,7 @@ module SessionMapper =
                 SignedAt = signed.Head.SignedAt
                 Plan = plan
                 Verified = signed.Verified
-                EhrData = None
+                EhrPatient = None
             }
         )
 

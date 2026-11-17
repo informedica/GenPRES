@@ -100,9 +100,7 @@ let tests =
         [
             test "whom a version names is in its columns, both cases; a row from before names none; half is a reason" {
                 withRecord (fun cs ->
-                    let whom =
-                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
 
                     SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, whom) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
@@ -197,7 +195,7 @@ let tests =
                     let v =
                         { v1.Value with
                             Verified = false
-                            EhrData = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+                            EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                         }
 
                     SqlDatabase.persist cs [ Session.WriteVersion(v, None) ]
@@ -234,7 +232,7 @@ let tests =
                         |> reasonOf
                         |> Option.defaultValue ""
 
-                    run "update order_plan set ehr_json_version = 1, ehr_data = 'no json'"
+                    run $"update order_plan set ehr_json_version = %i{SqlEhrData.ehrJsonVersion}, ehr_data = 'no json'"
                     reason () |> Expect.stringContains "the reason" "the JSON does not read"
 
                     run "update order_plan set ehr_data = null"
@@ -375,8 +373,7 @@ let tests =
             test "this release reads and writes structure version 14; 0 to 13 and 15 are reasons" {
                 let json = currentFixtureText ()
 
-                (SqlDatabase.jsonVersionOldest, SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
-                |> Expect.equal "oldest, read and written" (14, 14, 14)
+                SqlDatabase.jsonVersion |> Expect.equal "the version read and written" 14
 
                 SqlDatabase.upgrade 14 json |> Expect.equal "14 is current" (Ok json)
 
@@ -474,7 +471,7 @@ let tests =
             test "the write snapshot: the current fixture, read and written as this release writes, is its text" {
                 let text = currentFixtureText ()
 
-                match text |> SqlDatabase.upgrade SqlDatabase.jsonVersionWritten |> Result.map parse with
+                match text |> SqlDatabase.upgrade SqlDatabase.jsonVersion |> Result.map parse with
                 | Ok(Ok plan) ->
                     { v1.Value with Plan = plan }
                     |> SqlDatabase.toJson

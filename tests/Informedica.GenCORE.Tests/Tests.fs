@@ -913,6 +913,19 @@ module Tests =
                                         h |> Height.Dto.toDto |> Height.Dto.fromDto |> Expect.equal $"%A{calc}" h
                                 }
 
+                                test "only a measured calculation weight or height is measured" {
+                                    let w calc = Weight.create [] None [] calc
+                                    let h calc = Height.create [] None calc
+
+                                    [ Some(Measured weight); Some(Estimated weight); None ]
+                                    |> List.map (w >> Weight.isMeasured)
+                                    |> Expect.equal "measured, estimated, none" [ true; false; false ]
+
+                                    [ Some(Measured height); Some(Estimated height); None ]
+                                    |> List.map (h >> Height.isMeasured)
+                                    |> Expect.equal "measured, estimated, none" [ true; false; false ]
+                                }
+
                                 test "a Dto that does not say estimated reads as measured" {
                                     let dto = Weight.Dto.dto ()
                                     dto.Calculation <- weight |> WeightAtDate.Dto.toDto |> Some
@@ -1150,6 +1163,13 @@ module Tests =
                                         |> Patient.Dto.toDto
                                         |> Patient.Dto.fromDto
                                         |> Expect.equal "the same patient" (Ok pat)
+                                }
+
+                                test "patient data that does not parse is an error" {
+                                    let dto = identified |> Patient.Dto.toDto
+                                    dto.Data.Access <- [| "any" |]
+
+                                    dto |> Patient.Dto.fromDto |> Expect.isError "any is no access of a patient"
                                 }
 
                                 test "a part of an identity is an error" {
