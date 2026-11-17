@@ -51,10 +51,10 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
 
 /// The patient the Formulary filter is made for.
 let formularyPatient model =
-    (ServerApi.FormularyService.mapFormularyToFilter
-        readAt
-        { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model })
-        .Patient
+    { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model }
+    |> ServerApi.FormularyService.mapFormularyToFilter readAt
+    |> Result.map _.Patient
+    |> Result.defaultWith (fun errs -> failtest $"no filter: %A{errs}")
 
 
 let domain model =
@@ -950,6 +950,15 @@ let coreTests =
             test "an eGFR that is no band of GenCORE is refused, in GenCORE's words" {
                 { stub with RenalFunction = Some(EGFR(Some 20, Some 40)) }
                 |> ServerApi.Patient.toCore readAt
+                |> Expect.equal "refused" (Error [| "Renal function is unknown: egfr:20:40" |])
+            }
+
+            test "the Formulary filter of a patient GenCORE refuses is that refusal, not an exception" {
+                { Informedica.GenPRES.Shared.Models.Formulary.empty with
+                    Patient = Some { stub with RenalFunction = Some(EGFR(Some 20, Some 40)) }
+                }
+                |> ServerApi.FormularyService.mapFormularyToFilter readAt
+                |> Result.map ignore
                 |> Expect.equal "refused" (Error [| "Renal function is unknown: egfr:20:40" |])
             }
 
