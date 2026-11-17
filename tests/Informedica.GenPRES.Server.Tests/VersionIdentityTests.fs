@@ -15,7 +15,6 @@ module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
-module OrderPlanVersion = Informedica.GenOrder.Lib.OrderPlanVersion
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight

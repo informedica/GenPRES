@@ -23,6 +23,7 @@
 
 #load "../Logging.fs"
 #load "../LogAnalyzer.fs"
+#load "../ServerApi.OrderPlanVersion.fs"
 #load "../ServerApi.Ports.fs"
 #load "../ServerApi.Mappers.Patient.fs"
 #load "../ServerApi.Mappers.Order.fs"
