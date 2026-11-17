@@ -80,9 +80,9 @@ let insertOutcome (cs: string) (nonce: string) (outcome: string) (attempt: strin
 
 /// The patient a Session shows, as the store holds it and as the domain holds it.
 let patient =
-    Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubPatientData.patient
+    Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubEhrPatient.contractPatient
 
-let patientJson = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
+let patientDataJson = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
 /// The rows an open leaves behind; the writer that returns them from the machine's writes is
@@ -756,7 +756,7 @@ let writerTests =
 
             test "the EHR data a Session opened on is written under its version and loads back as read" {
                 withSessions (fun cs ->
-                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                    let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
                     let session =
                         { sessionOf "s-1" "prescriber" None None with
@@ -785,9 +785,9 @@ let writerTests =
                     use r = cmd.ExecuteReader()
                     r.Read() |> Expect.isTrue "the row is there"
                     r.GetInt32 0
-                    |> Expect.equal "under the version it was written with" SqlEhrData.ehrJsonVersion
+                    |> Expect.equal "under the version it was written with" SqlEhrPatient.ehrPatientJsonVersion
                     r.GetString 1
-                    |> Expect.equal "the canonical form of its Dto" (SqlEhrData.ehrJson ehr)
+                    |> Expect.equal "the canonical form of its Dto" (SqlEhrPatient.ehrPatientJson ehr)
                 )
             }
 
@@ -797,34 +797,37 @@ let writerTests =
                         System.IO.Path.Combine(System.AppContext.BaseDirectory, "fixtures", "ehr_data_v1.json")
                     )
 
-                SqlEhrData.readEhr t0 1 json
+                SqlEhrPatient.readEhrPatient t0 1 json
                 |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
             }
 
             test "EHR data of a structure version after the one written is newer than this release knows" {
-                let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
-                SqlEhrData.readEhr t0 (SqlEhrData.ehrJsonVersion + 1) (SqlEhrData.ehrJson ehr)
+                SqlEhrPatient.readEhrPatient
+                    t0
+                    (SqlEhrPatient.ehrPatientJsonVersion + 1)
+                    (SqlEhrPatient.ehrPatientJson ehr)
                 |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
             }
 
             test "patient data of structure version 1 is refused" {
-                SqlSessions.readPatient t0 1 patientJson
+                SqlSessions.readPatientData t0 1 patientDataJson
                 |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
             }
 
             test "patient data of a newer structure version is refused" {
-                SqlSessions.readPatient t0 (SqlSessions.patientJsonVersion + 1) patientJson
+                SqlSessions.readPatientData t0 (SqlSessions.patientDataJsonVersion + 1) patientDataJson
                 |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
             }
 
             test "patient data reads back from its JSON" {
-                SqlSessions.readPatient t0 SqlSessions.patientJsonVersion (SqlSessions.patientJson patient)
+                SqlSessions.readPatientData t0 SqlSessions.patientDataJsonVersion (SqlSessions.patientDataJson patient)
                 |> Expect.equal "the same patient data" (Ok patient)
             }
 
             test "EHR data reads back from its JSON, with an access and a renal function" {
-                let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
                 let full =
                     { ehr with
@@ -837,8 +840,8 @@ let writerTests =
                             Some(Informedica.GenCore.Lib.Patients.EGFR Informedica.GenCore.Lib.Patients.From30To50)
                     }
 
-                SqlEhrData.ehrJson full
-                |> SqlEhrData.readEhr t0 SqlEhrData.ehrJsonVersion
+                SqlEhrPatient.ehrPatientJson full
+                |> SqlEhrPatient.readEhrPatient t0 SqlEhrPatient.ehrPatientJsonVersion
                 |> Expect.equal "the same patient" (Ok full)
             }
 
@@ -848,25 +851,22 @@ let writerTests =
                 let today = utc |> LocalDate.ofUtc (LocalDate.defaultZone ())
 
                 // the stub dates the weight and the height of a test patient on the local date
-                let ehr =
-                    StubPatientData.testPatients
-                    |> List.head
-                    |> StubPatientData.testPatientData today
-                let json = SqlEhrData.ehrJson ehr
+                let ehr = StubEhrPatient.testPatients |> List.head |> StubEhrPatient.testPatient today
+                let json = SqlEhrPatient.ehrPatientJson ehr
 
                 today |> Expect.equal "the local date" (DateTime(2026, 11, 18))
 
-                SqlEhrData.readEhr today SqlEhrData.ehrJsonVersion json
+                SqlEhrPatient.readEhrPatient today SqlEhrPatient.ehrPatientJsonVersion json
                 |> Expect.equal "read on the local date" (Ok ehr)
 
-                SqlEhrData.readEhr utc SqlEhrData.ehrJsonVersion json
+                SqlEhrPatient.readEhrPatient utc SqlEhrPatient.ehrPatientJsonVersion json
                 |> Expect.isError "on the UTC date the weight is dated a day ahead"
             }
 
             test "the EHR JSON holds the patient data in a field Data, after the identity" {
                 let json =
-                    StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                    |> SqlEhrData.ehrJson
+                    StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+                    |> SqlEhrPatient.ehrPatientJson
 
                 json |> Expect.stringContains "the nested data" "\"Data\":{"
                 json |> Expect.stringStarts "the identity first" "{\"Id\":\"stub-patient\""
@@ -898,7 +898,9 @@ let writerTests =
                             [
                                 "$ehr",
                                 box (
-                                    SqlEhrData.ehrJson (StubPatientData.data StubPatientData.measuredOn "stub-patient")
+                                    SqlEhrPatient.ehrPatientJson (
+                                        StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+                                    )
                                 )
                                 "$sid", box "s-1"
                             ]
@@ -1637,8 +1639,8 @@ let noticeOf nonce data : Session.Notice =
         Nonce = nonce
         EhrPatient =
             data
-            |> Option.map (fun _ -> StubPatientData.data StubPatientData.measuredOn "stub-patient")
-        Data = data
+            |> Option.map (fun _ -> StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
+        PatientData = data
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -1677,11 +1679,11 @@ let flightWriteTests =
 
                     scalarOf cs "select data from data_notice"
                     |> unbox<string>
-                    |> Expect.equal "the patient it showed, as its Dto" patientJson
+                    |> Expect.equal "the patient it showed, as its Dto" patientDataJson
 
                     scalarOf cs "select json_version from data_notice"
                     |> unbox<int64>
-                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientJsonVersion)
+                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientDataJsonVersion)
 
                     scalarOf cs "select digest from challenge"
                     |> unbox<string>
@@ -1698,7 +1700,7 @@ let flightWriteTests =
                 "the notice and the challenge keep the EHR data they were told or issued over, and a row from before has none" {
                 withSessions (fun cs ->
                     withOpenSession cs
-                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                    let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
                     runWrites
                         cs
@@ -1787,7 +1789,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
                     let patient = v1.Plan.PatientData |> Session.atBirthDate v1.SignedAt whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
 
@@ -1819,7 +1821,7 @@ let flightWriteTests =
                     let signedAt = DateTime(2026, 9, 26, 23, 30, 0, DateTimeKind.Utc)
                     let amsterdam = LocalDate.defaultZone ()
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
-                    let whom = StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
                     let patientOn zone =
                         v1.Plan.PatientData
                         |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom

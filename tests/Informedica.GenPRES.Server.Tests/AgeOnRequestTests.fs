@@ -22,7 +22,7 @@ module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 let today = DateTime(2026, 9, 26)
 
 
-let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
+let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "p1"
 
 
 /// The EHR data of an anonymous patient: an age value, no identity.
@@ -126,9 +126,9 @@ let cookieOf (sid: string option) : SessionCookie =
 
 /// The stub's patient as a client would send it at another age than the Session's, with a weight it measured.
 let sent: Patient =
-    { StubPatientData.patient with
+    { StubEhrPatient.contractPatient with
         Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.create 5<year> None None None)
-        Weight = { StubPatientData.patient.Weight with Measured = Some 12000<gram> }
+        Weight = { StubEhrPatient.contractPatient.Weight with Measured = Some 12000<gram> }
     }
 
 
@@ -482,7 +482,7 @@ let tests =
                     test
                         "a measured patient keeps the measured values, the calculation reads them, and gets the estimate range" {
                         let ask, count = counting (Some tables)
-                        let pat = StubPatientData.patient |> Patient.estimate ask
+                        let pat = StubEhrPatient.contractPatient |> Patient.estimate ask
 
                         (pat.Weight.Measured,
                          pat.Height.Measured,
@@ -491,9 +491,10 @@ let tests =
                          count.Value)
                         |> Expect.equal
                             "measured 32 kg and 140 cm read, 25 to 45 kg estimated, asked once"
-                            (StubPatientData.patient.Weight.Measured,
-                             StubPatientData.patient.Height.Measured,
-                             (StubPatientData.patient.Weight.Measured, StubPatientData.patient.Height.Measured),
+                            (StubEhrPatient.contractPatient.Weight.Measured,
+                             StubEhrPatient.contractPatient.Height.Measured,
+                             (StubEhrPatient.contractPatient.Weight.Measured,
+                              StubEhrPatient.contractPatient.Height.Measured),
                              (Some 25000<gram>, Some 45000<gram>),
                              1)
                     }

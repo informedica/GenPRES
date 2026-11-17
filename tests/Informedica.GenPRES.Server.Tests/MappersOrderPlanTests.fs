@@ -54,7 +54,7 @@ let context id category name : OrderContext =
         Category = category
         DemoVersion = false
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
-        Patient = StubPatientData.patient
+        Patient = StubEhrPatient.contractPatient
         Scenarios = [| scenario name |]
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
@@ -62,7 +62,7 @@ let context id category name : OrderContext =
 
 let plan: OrderPlan =
     {
-        Patient = StubPatientData.patient
+        Patient = StubEhrPatient.contractPatient
         Filtered = [| "c-1" |]
         OrderContexts =
             [|
@@ -93,7 +93,7 @@ let signed: SignedOrderPlan =
         PatientId = "stub-patient"
         Base = Some "plan-1"
         OrderContexts = plan.OrderContexts
-        Patient = StubPatientData.patient
+        Patient = StubEhrPatient.contractPatient
         Identity = None
         Verified = true
     }
@@ -179,7 +179,7 @@ let tests =
             test "a data notice's patient goes through the patient mapper, none stays none" {
                 let n =
                     {
-                        Data = Some StubPatientData.patient
+                        Data = Some StubEhrPatient.contractPatient
                         Token = "t-1"
                     }
 
@@ -211,7 +211,7 @@ let tests =
                     }
 
                 let shown _ =
-                    StubPatientData.patient
+                    StubEhrPatient.contractPatient
                     |> Patient.parse readAt
                     |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
                     |> Some
@@ -227,11 +227,11 @@ let tests =
                         {
                             PatientId = "stub-patient"
                             Identity = None
-                            Patient = Some StubPatientData.patient
+                            Patient = Some StubEhrPatient.contractPatient
                         })
 
                 let identified =
-                    { stored with EhrPatient = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient") }
+                    { stored with EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient") }
                     |> SessionMapper.toOpened false shown
 
                 identified.PatientContext
@@ -240,7 +240,7 @@ let tests =
                     "the identity, the birthdate as three integers"
                     (Some(
                         {
-                            Name = StubPatientData.name
+                            Name = StubEhrPatient.name
                             BirthYear = 2016
                             BirthMonth = 3
                             BirthDay = 15

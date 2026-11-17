@@ -34,7 +34,7 @@ type CoreDto = Informedica.GenCore.Lib.Patients.PatientData.Dto.Dto
 open Informedica.GenPRES.Server.Tests.TestDates
 
 
-let stub = ServerApi.StubPatientData.patient
+let stub = ServerApi.StubEhrPatient.contractPatient
 
 /// Every field the mapping carries, in the shape the contract model gives back: a patient of 20
 /// days, so that the gestational age is needed.
@@ -404,26 +404,27 @@ let estimateTests =
             }
 
             test "a measured weight of the EHR keeps its date and its measurements, the height is estimated" {
-                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
+                let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
 
                 let noHeight = { ehr with Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown }
 
-                let port = ServerApi.StubPatientData.port
-                let read = port.patient noHeight
+                let port = ServerApi.StubEhrPatient.port
+                let read = port.patientData noHeight
 
                 let estimated =
-                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient noHeight
+                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData
+                        noHeight
 
                 (estimated.Weight, estimated.Height.Calculation.IsSome, estimated.Height |> CoreHeight.isMeasured)
                 |> Expect.equal "the weight as read, the height an estimate" (read.Weight, true, false)
             }
 
             test "a measured weight and height of the EHR are returned as read" {
-                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
-                let port = ServerApi.StubPatientData.port
+                let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
+                let port = ServerApi.StubEhrPatient.port
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient ehr
-                |> Expect.equal "as read" (port.patient ehr)
+                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData ehr
+                |> Expect.equal "as read" (port.patientData ehr)
             }
 
             test "the department, the gender, the access devices and the diagnoses survive the round trip" {
@@ -448,7 +449,7 @@ let estimateTests =
             }
 
             test "an identified patient keeps the age, gestational age and post-menstrual age the projection gives" {
-                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
+                let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
 
                 // the gestational age known, so its post-menstrual age calculated, and no measurement
                 let premature =
@@ -460,10 +461,11 @@ let estimateTests =
                     }
                     |> Informedica.GenCore.Lib.Patients.Patient.calculatePostMenstrualAge
 
-                let port = ServerApi.StubPatientData.port
-                let projected = port.patient premature
+                let port = ServerApi.StubEhrPatient.port
+                let projected = port.patientData premature
                 let estimated =
-                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient premature
+                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData
+                        premature
 
                 (estimated.Age,
                  estimated.GestationalAge,
@@ -476,7 +478,7 @@ let estimateTests =
 
             test "the port wrapped: a projection arrives estimated, and unestimated while the tables are not loaded" {
                 // the stub patient with its birthdate and no measurement at all
-                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
+                let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
 
                 let bare =
                     { ehr with
@@ -484,14 +486,14 @@ let estimateTests =
                         Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                     }
 
-                let port = ServerApi.StubPatientData.port
+                let port = ServerApi.StubEhrPatient.port
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patient bare
+                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData bare
                 |> _.Weight.Calculation.IsSome
                 |> Expect.isTrue "estimated"
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> None)).patient bare
-                |> Expect.equal "as projected" (port.patient bare)
+                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> None)).patientData bare
+                |> Expect.equal "as projected" (port.patientData bare)
             }
         ]
 

@@ -197,8 +197,10 @@ step marked *rename* or *move* adds no behaviour and exceeds the limit of 200 li
    patient data, to `PatientData`. The call sites in the server and in `Informedica.MCP.Lib`
    follow.
 7. **Server names** (*rename*). Ports, adapters, session and mappers name each value for what it
-   holds: `Patient`, `PatientIdentity` or `PatientData`. The hand-written mappings of
-   gender, access and renal function in `ServerApi.Mappers.Patient.fs` go.
+   holds: `Patient`, `PatientIdentity` or `PatientData`. A patient read from the EHR is named
+   `EhrPatient`. The hand-written mappings of gender, access and renal function in
+   `ServerApi.Mappers.Patient.fs` stay: the contract has its own unions and may not reference
+   GenCORE.
 8. **Contract and client** (*rename*). The contract `Patient` becomes `PatientData`,
    `NameAndBirthDate` becomes `PatientIdentity`, `PatientContext.Identity` and the `Patient`
    fields follow. Client.Core goes through a script; the client UI code is edited directly.

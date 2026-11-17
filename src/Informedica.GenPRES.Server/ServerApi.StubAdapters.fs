@@ -153,11 +153,11 @@ module StubDirectory =
 /// The EHR stub: a test patient for each PatientId of the test patients, one fixed patient for
 /// every other PatientId, so a launch fills the patient panel from the EHR, except that no-data
 /// has no record at all, so the Session opens on what was signed last, or on nothing.
-module StubPatientData =
+module StubEhrPatient =
 
-    /// The stub's reading projected on the day its patient is 3650 days old, as the contract model:
-    /// ten years, 32 kg and 140 cm measured, nothing else known.
-    let patient: Patient =
+    /// The stub patient as a contract patient on the day the patient is 3650 days old: ten years,
+    /// 32 kg and 140 cm measured, nothing else known.
+    let contractPatient: Patient =
         Informedica.GenPRES.Shared.Models.Patient.create
             (Some(Informedica.GenPRES.Shared.Measures.toYear 10))
             None
@@ -194,9 +194,8 @@ module StubPatientData =
     let measuredOn = (birthDate |> BirthDate.toDate).AddDays(AgeValue.ten |> AgeValue.getAgeInDays |> float)
 
 
-    /// The stub's EHR data for an id read at a moment: the fixed patient under that id, nothing else
-    /// known, with its ages created at the read.
-    let data (now: DateTime) (pid: string) : CorePatient =
+    /// The stub patient for a patient id, with the ages calculated at the moment of the read.
+    let patient (now: DateTime) (pid: string) : CorePatient =
         let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
         let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
 
@@ -297,9 +296,9 @@ module StubPatientData =
         ]
 
 
-    /// The EHR data of a test patient read at a moment: born the age in days of the test patient
-    /// before that day, so that the patient has that age in days on whatever day it is read, and measured that day.
-    let testPatientData (now: DateTime) tp =
+    /// A test patient read at a moment. The birth date makes the patient the age in days of the
+    /// test patient on that day, and the weight and height are measured that day.
+    let testPatient (now: DateTime) tp =
         let measuredOn = now.Date
         let weight = WeightAtDate.create measuredOn tp.Weight
         let height = HeightAtDate.create measuredOn tp.Height
@@ -321,21 +320,21 @@ module StubPatientData =
         |> Patient.createAt measuredOn identity
 
 
-    /// The EHR data for a PatientId read at a moment: a test patient's data, none for no-data,
+    /// The EHR data for a PatientId read at a moment: a test patient's data, None for the test patient without data,
     /// and the fixed patient for every other PatientId.
     let read (now: unit -> DateTime) pid =
         match testPatients |> List.tryFind (fun tp -> tp.Id = pid) with
-        | Some tp -> tp |> testPatientData (now ()) |> Some
+        | Some tp -> tp |> testPatient (now ()) |> Some
         | None when pid = "no-data" -> None
-        | None -> Some(data (now ()) pid)
+        | None -> Some(patient (now ()) pid)
 
 
-    /// The EHR stub over a clock; the patient the rules see is the projection of the read,
-    /// unestimated here.
-    let portAt now : PatientDataPort =
+    /// The EHR stub over a clock. The patient data is the data of the patient read, without
+    /// estimates.
+    let portAt now : EhrPatientPort =
         {
             read = read now
-            patient = _.Data
+            patientData = _.Data
         }
 
 
@@ -454,7 +453,7 @@ module StubLaunch =
 
 
     /// The columns of a test patient in the patient table: gender, age, gestational age, weight and height.
-    let columns (tp: StubPatientData.TestPatient) =
+    let columns (tp: StubEhrPatient.TestPatient) =
         let count n unit =
             match n with
             | 0 -> None
@@ -526,7 +525,7 @@ module StubLaunch =
     /// The rows of the patient table: the test patients per department, and other.
     let patientRows =
         let groups =
-            StubPatientData.testPatients
+            StubEhrPatient.testPatients
             |> List.groupBy (fun tp -> tp.Department |> Department.name |> Option.defaultValue "")
 
         [
@@ -871,7 +870,7 @@ module StubDatabase =
         (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
         (idp: IdentityProviderPort)
         (registry: UserRegistryPort)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (mailPort: MailPort)
         (initial: Session.State)
         : SessionPort
@@ -969,7 +968,7 @@ module StubDatabase =
                     newId
                     newCode
                     codeMac
-                    patientData
+                    ehrPatients
                     mail.send
                     (record, identity, standing)
 
@@ -984,7 +983,7 @@ module StubDatabase =
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
             find = fun id -> async { return overSession id (fun at -> Session.find at id) }
-            patient = fun opened -> Session.sessionPatient (now () |> LocalDate.ofUtc zone) patientData opened
+            patientData = fun opened -> Session.sessionPatientData (now () |> LocalDate.ofUtc zone) ehrPatients opened
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             closeTab =
                 fun id opened ->
@@ -1012,7 +1011,7 @@ module StubDatabase =
                                         newSalt
                                         codeMac
                                         registry.standing
-                                        patientData
+                                        ehrPatients
                                         mail.send
                                         attempt
                                         code
@@ -1036,7 +1035,7 @@ module StubDatabase =
                                         now
                                         sid
                                         (fun at ->
-                                            Session.challenge at newId digest patientData registry.standing sid request
+                                            Session.challenge at newId digest ehrPatients registry.standing sid request
                                         )))
                     }
             challengeDate =
@@ -1081,7 +1080,7 @@ module StubDatabase =
                         return
                             overSession
                                 sid
-                                (fun at -> Session.whenOwnToken sid opened (Session.refresh at newId patientData sid))
+                                (fun at -> Session.whenOwnToken sid opened (Session.refresh at newId ehrPatients sid))
                     }
         }
 

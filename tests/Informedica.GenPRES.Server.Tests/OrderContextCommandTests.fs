@@ -180,7 +180,7 @@ module Fixtures =
                 None
 
         { Ctx.empty with
-            Patient = ServerApi.StubPatientData.patient
+            Patient = ServerApi.StubEhrPatient.contractPatient
             Filter = filter
             Scenarios = [| sc |]
         }

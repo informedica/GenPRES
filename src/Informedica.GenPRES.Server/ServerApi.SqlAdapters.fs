@@ -143,8 +143,8 @@ module SqlSchema =
         typeof<Migration>.Assembly |> embedded |> applyAll connectionString
 
 
-/// Reads and writes stored EHR data: JSON with its own structure version.
-module SqlEhrData =
+/// Reads and writes a stored EHR patient as JSON with its own structure version.
+module SqlEhrPatient =
 
     module Canonical = Informedica.GenOrder.Lib.Canonical
     module CorePatient = Informedica.GenCore.Lib.Patients.Patient
@@ -153,7 +153,7 @@ module SqlEhrData =
     /// The JSON structure version this release reads and writes for stored EHR data. Version 2
     /// is the Dto of the GenCORE patient; version 1 held the patient with a separate access list
     /// and renal function, and is not converted.
-    let ehrJsonVersion = 2
+    let ehrPatientJsonVersion = 2
 
 
     /// Checks that this release reads JSON of a structure version: the JSON when the version is
@@ -169,8 +169,8 @@ module SqlEhrData =
 
     /// The EHR data a stored row holds, parsed on a calendar date: no weight or height in it may be
     /// dated after that date.
-    let readEhr (today: System.DateTime) (version: int) (json: string) : Result<CorePatient, string> =
-        checkVersion ehrJsonVersion ehrJsonVersion version json
+    let readEhrPatient (today: System.DateTime) (version: int) (json: string) : Result<CorePatient, string> =
+        checkVersion ehrPatientJsonVersion ehrPatientJsonVersion version json
         |> Result.bind (fun json ->
             try
                 json
@@ -184,15 +184,15 @@ module SqlEhrData =
 
     /// The EHR data of the two columns that hold its structure version and its JSON: both present
     /// reads it, both null is none, one of them null is a reason.
-    let readEhrColumns today version json =
+    let readEhrPatientColumns today version json =
         match version, json with
-        | Some version, Some json -> readEhr today version json |> Result.map Some
+        | Some version, Some json -> readEhrPatient today version json |> Result.map Some
         | None, None -> Ok None
         | _ -> Error "the EHR data and its JSON structure version are not both present"
 
 
     /// The JSON of EHR data.
-    let ehrJson (ehr: CorePatient) = ehr |> CorePatient.Dto.toDto |> Canonical.serialize
+    let ehrPatientJson (ehr: CorePatient) = ehr |> CorePatient.Dto.toDto |> Canonical.serialize
 
 
 /// The record on SQLite: the order plan versions of a patient loaded from order_plan, and the write
@@ -215,7 +215,7 @@ module SqlDatabase =
     /// Checks that this release can read plan JSON of a structure version. Version 16 names the
     /// patient data of a plan and of an order context PatientData. An older version is not
     /// converted and loads as unreadable.
-    let upgrade version json = SqlEhrData.checkVersion jsonVersion jsonVersion version json
+    let upgrade version json = SqlEhrPatient.checkVersion jsonVersion jsonVersion version json
 
 
     /// The JSON of the order plan of a version.
@@ -286,7 +286,7 @@ module SqlDatabase =
                     Error $"the JSON does not read: %s{e.Message}"
             )
 
-        let ehr = SqlEhrData.readEhrColumns today row.EhrJsonVersion row.EhrData
+        let ehr = SqlEhrPatient.readEhrPatientColumns today row.EhrJsonVersion row.EhrData
 
         // a time DateTime cannot hold makes the row unreadable; the entry is listed at the earliest time
         let signedAt =
@@ -421,8 +421,12 @@ module SqlDatabase =
         add "$verified" (if v.Verified then 1 else 0)
         add "$json_version" jsonVersion
         add "$plan" (toJson v)
-        add "$ehr_json_version" (v.EhrPatient |> Option.map (fun _ -> SqlEhrData.ehrJsonVersion) |> orNull)
-        add "$ehr_data" (v.EhrPatient |> Option.map SqlEhrData.ehrJson |> orNull)
+        add
+            "$ehr_json_version"
+            (v.EhrPatient
+             |> Option.map (fun _ -> SqlEhrPatient.ehrPatientJsonVersion)
+             |> orNull)
+        add "$ehr_data" (v.EhrPatient |> Option.map SqlEhrPatient.ehrPatientJson |> orNull)
         add "$patient_name" (whom |> Option.map _.Name |> orNull)
         add "$birth_year" (whom |> Option.map (fun w -> int w.BirthDate.Year) |> orNull)
         add "$birth_month" (whom |> Option.map (fun w -> int w.BirthDate.Month) |> orNull)
@@ -525,7 +529,7 @@ module SqlSessions =
     open Informedica.GenPRES.Shared.Types
     // the canonical serializer the stored Dtos are written with
     open Informedica.GenOrder.Lib
-    open SqlEhrData
+    open SqlEhrPatient
 
     module GenForm = Informedica.GenForm.Lib.Types
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
@@ -629,13 +633,13 @@ module SqlSessions =
 
     /// The JSON structure version of the patient data of a data notice. Version 2 is the GenCORE
     /// patient data. Version 1 is not converted.
-    let patientJsonVersion = 2
+    let patientDataJsonVersion = 2
 
 
     /// Reads the patient data of a stored row on a date. A weight or height dated after that date
     /// is an error.
-    let readPatient today (version: int) (json: string) : Result<GenForm.PatientData, string> =
-        checkVersion patientJsonVersion patientJsonVersion version json
+    let readPatientData today (version: int) (json: string) : Result<CorePatientData, string> =
+        checkVersion patientDataJsonVersion patientDataJsonVersion version json
         |> Result.bind (fun json ->
             try
                 json
@@ -651,8 +655,8 @@ module SqlSessions =
     /// The EHR data of a row, from the two columns that hold its structure version and its JSON.
     /// Both null when the read was none, or the row is from before the columns. The columns were
     /// added later and cannot carry the check the patient's have, so the loader holds them to it.
-    let readEhrColumns (today: DateTime) (r: SqliteDataReader) (version: int) (json: int) =
-        SqlEhrData.readEhrColumns
+    let readEhrPatientColumns (today: DateTime) (r: SqliteDataReader) (version: int) (json: int) =
+        SqlEhrPatient.readEhrPatientColumns
             today
             (if r.IsDBNull version then
                  None
@@ -697,7 +701,7 @@ module SqlSessions =
                     HeadId = textOrNull r 1
                     OpenedToken = textOrNull r 2 |> Option.map OpenedToken
                     Act = r.GetString 3 |> actOf
-                    EhrPatient = readEhrColumns today r 4 5
+                    EhrPatient = readEhrPatientColumns today r 4 5
                 |}
             )
         |> List.tryHead
@@ -849,7 +853,7 @@ module SqlSessions =
 
 
     /// The JSON of the patient data of a data notice.
-    let patientJson (patient: GenForm.PatientData) = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
+    let patientDataJson patientData = patientData |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
     /// The word an ending is stored under. Every ending matched, so that one without a word
@@ -968,8 +972,8 @@ module SqlSessions =
                     "$version", nullable session.OpenedWith
                     "$head", nullable (session.Opened.Head |> Option.map StoredVersion.id)
                     "$token", nullable token
-                    "$ejv", nullable (session.Opened.EhrPatient |> Option.map (fun _ -> ehrJsonVersion))
-                    "$ehr", nullable (session.Opened.EhrPatient |> Option.map ehrJson)
+                    "$ejv", nullable (session.Opened.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (session.Opened.EhrPatient |> Option.map ehrPatientJson)
                     "$at", box (ms at)
                 ]
         | Session.RecordSeen(sid, at) ->
@@ -1097,10 +1101,10 @@ module SqlSessions =
                 [
                     "$sid", box sid
                     "$n", box notice.Nonce
-                    "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonVersion))
-                    "$data", nullable (notice.Data |> Option.map patientJson)
-                    "$ejv", nullable (notice.EhrPatient |> Option.map (fun _ -> ehrJsonVersion))
-                    "$ehr", nullable (notice.EhrPatient |> Option.map ehrJson)
+                    "$jv", nullable (notice.PatientData |> Option.map (fun _ -> patientDataJsonVersion))
+                    "$data", nullable (notice.PatientData |> Option.map patientDataJson)
+                    "$ejv", nullable (notice.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (notice.EhrPatient |> Option.map ehrPatientJson)
                     "$e", box (ms notice.Expiry)
                     "$at", box (ms at)
                 ]
@@ -1117,8 +1121,8 @@ module SqlSessions =
                     "$sid", box sid
                     "$n", box challenge.Nonce
                     "$d", box challenge.Digest
-                    "$ejv", nullable (challenge.EhrPatient |> Option.map (fun _ -> ehrJsonVersion))
-                    "$ehr", nullable (challenge.EhrPatient |> Option.map ehrJson)
+                    "$ejv", nullable (challenge.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (challenge.EhrPatient |> Option.map ehrPatientJson)
                     "$e", box (ms challenge.Expiry)
                     "$at", box (ms at)
                 ]
@@ -1545,16 +1549,16 @@ module SqlSessions =
             (fun r ->
                 let data =
                     match r.IsDBNull 1, r.IsDBNull 2 with
-                    | false, false -> readPatient today (r.GetInt32 1) (r.GetString 2) |> Result.map Some
+                    | false, false -> readPatientData today (r.GetInt32 1) (r.GetString 2) |> Result.map Some
                     | _ -> Ok None
 
                 data
-                |> Result.bind (fun data -> readEhrColumns today r 4 5 |> Result.map (fun ehr -> data, ehr))
+                |> Result.bind (fun data -> readEhrPatientColumns today r 4 5 |> Result.map (fun ehr -> data, ehr))
                 |> Result.map (fun (data, ehr) ->
                     {
                         Nonce = r.GetString 0
                         EhrPatient = ehr
-                        Data = data
+                        PatientData = data
                         Expiry = at (r.GetInt64 3)
                     }
                     : Session.Notice
@@ -1565,7 +1569,7 @@ module SqlSessions =
             match notice with
             // patient data without the read it was projected from: a row from before the
             // columns, which a read that has since become none would wrongly match
-            | Ok n when n.Data.IsSome && n.EhrPatient.IsNone -> false
+            | Ok n when n.PatientData.IsSome && n.EhrPatient.IsNone -> false
             | Ok n -> now <= n.Expiry
             // an unreadable row is answered whatever its lifetime says: the Session ends on it
             | Error _ -> true
@@ -1589,7 +1593,7 @@ module SqlSessions =
             (fun r ->
                 let spent = r.GetInt64 3 = 1L
 
-                readEhrColumns today r 4 5
+                readEhrPatientColumns today r 4 5
                 |> Result.map (fun ehr ->
                     spent,
                     ({

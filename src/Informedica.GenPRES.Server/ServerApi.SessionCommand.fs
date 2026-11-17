@@ -15,7 +15,7 @@ module SessionCommand =
     /// Session's own. The exception still propagates after the delete, so the failure stays
     /// visible.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
-        let toOpened = SessionMapper.toOpened env.demo env.session.patient
+        let toOpened = SessionMapper.toOpened env.demo env.session.patientData
 
         let reopened answer =
             match answer with
