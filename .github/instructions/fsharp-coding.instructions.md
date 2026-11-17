@@ -102,6 +102,23 @@ let departments (provider: IResourceProvider) = provider.Get Keys.departments
 - Chain with `Result.bind`, the `result` computation expression (FsToolkit.ErrorHandling) or the AsyncResult helpers
 - Never `failwith` / `failwithf`, which throw a bare `System.Exception`. Use `invalidArg (nameof x)` for an argument, `invalidOp` for invalid state, `raise` with a specific exception type (`KeyNotFoundException`, `FormatException`, `TimeoutException`, `SolverException`, ...), `reraise ()` to propagate, and Expecto's `failtest` in tests
 
+## Compiler Warnings
+
+New or changed code compiles without warnings. Fix every warning the change adds, also a warning that only the editor shows and the command-line build does not print. Do not leave it for later and do not silence it with `#nowarn`.
+
+A warning usually means the code can be read in two ways. Write it so that it can be read in one way only. A common case is a list with a single tuple, which the compiler suspects of a `,` typed for a `;`:
+
+```fsharp
+// Bad - warns: this list expression contains a single tuple element
+Map.ofList [ "s-1", challenge ]
+
+// Good - no list of one tuple
+Map.empty |> Map.add "s-1" challenge
+
+// Good - the parentheses say that the tuple is meant
+Map.ofList [ ("s-1", challenge) ]
+```
+
 ## Units and Numbers
 
 Units of measure on every physical quantity, with explicit conversion functions between compatible units. BigRational for all medication calculations; `float` with explicit tolerances only for scientific values that need it.
