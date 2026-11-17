@@ -157,7 +157,7 @@ type UnreadableVersion =
         No: int
         PatientId: string
         Base: string option
-        SignedBy: GenOrder.Signer
+        SignedBy: Signer
         SignedAt: System.DateTime
         /// the patient's name and birthdate from the columns; none for a version signed in a
         /// Session without an identity, and for a row from before the columns
@@ -173,14 +173,14 @@ type UnreadableVersion =
 /// the plan's JSON; none for a version signed in a Session without an identity.
 [<RequireQualifiedAccess>]
 type StoredVersion =
-    | Readable of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+    | Readable of OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
     | Unreadable of UnreadableVersion
 
 
 module StoredVersion =
 
     /// Who signed, as the client knows a user: only a Prescriber signs.
-    let private signer (s: GenOrder.Signer) : UserContext =
+    let private signer (s: Signer) : UserContext =
         {
             UserId = s.UserId
             DisplayName = s.DisplayName
@@ -304,7 +304,7 @@ type SigningOutcome =
     /// the version committed with the identity it names, a fresh OpenedToken over it, and the
     /// Session's patient after the sign
     | Submitted of
-        version: GenOrder.OrderPlanVersion *
+        version: OrderPlanVersion *
         identity: Informedica.GenCore.Lib.Patients.PatientIdentity option *
         OpenedToken *
         patient: GenForm.Patient

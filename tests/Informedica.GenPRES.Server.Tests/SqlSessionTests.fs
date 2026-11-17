@@ -19,7 +19,8 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 9 ]
+        SqlSchema.apply cs
+        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 9; 10 ]
         f cs
     )
 
@@ -780,9 +781,9 @@ let writerTests =
                     use r = cmd.ExecuteReader()
                     r.Read() |> Expect.isTrue "the row is there"
                     r.GetInt32 0
-                    |> Expect.equal "under the version it was written with" SqlSessions.ehrJsonWritten
+                    |> Expect.equal "under the version it was written with" SqlEhrData.ehrJsonWritten
                     r.GetString 1
-                    |> Expect.equal "the canonical form of its Dto" (SqlSessions.ehrJson ehr)
+                    |> Expect.equal "the canonical form of its Dto" (SqlEhrData.ehrJson ehr)
                 )
             }
 
@@ -812,9 +813,7 @@ let writerTests =
                             [
                                 "$ehr",
                                 box (
-                                    SqlSessions.ehrJson (
-                                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                                    )
+                                    SqlEhrData.ehrJson (StubPatientData.data StubPatientData.measuredOn "stub-patient")
                                 )
                                 "$sid", box "s-1"
                             ]

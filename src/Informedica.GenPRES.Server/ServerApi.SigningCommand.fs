@@ -25,7 +25,7 @@ module SigningCommand =
                 }
         | SigningOutcome.Submitted(version, whom, token, patient) ->
             SigningResponse.Submitted(
-                version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned demo whom,
+                version |> SessionMapper.toSigned demo whom,
                 token,
                 patient
                 |> Informedica.GenForm.Lib.Patient.Dto.toDto

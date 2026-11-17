@@ -143,12 +143,64 @@ module SqlSchema =
         typeof<Migration>.Assembly |> embedded |> applyAll connectionString
 
 
-/// <summary>
-/// The record on SQLite: the order plan versions of a patient loaded from <c>order_plan</c>, and
-/// the write of a commit inserted there. The plan is stored as the canonical JSON of
-/// <c>OrderPlanVersion.Dto</c> under a JSON structure version; a row this release cannot read
-/// loads as an unreadable entry built from the identity columns, never dropped.
-/// </summary>
+/// Reads and writes stored EHR data: JSON with its own structure version.
+module SqlEhrData =
+
+    // the canonical serializer the stored Dtos are written with
+    open Informedica.GenOrder.Lib
+
+    module GenForm = Informedica.GenForm.Lib.Types
+    module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
+
+
+    /// The highest JSON structure version this release reads for stored EHR data.
+    let ehrJsonRead = 1
+
+    /// The JSON structure version this release writes for stored EHR data.
+    let ehrJsonWritten = 1
+
+
+    /// Brings stored EHR data JSON to the structure this release reads. There are no steps yet.
+    let upgradeEhr (version: int) (json: string) : Result<string, string> =
+        if version < 1 then
+            Error $"JSON structure version %i{version} does not exist"
+        elif version > ehrJsonRead then
+            Error $"JSON structure version %i{version} is newer than this release knows"
+        else
+            Ok json
+
+
+    /// The EHR data a stored row holds, upgraded and parsed.
+    let readEhr (version: int) (json: string) : Result<GenForm.EhrPatientData, string> =
+        upgradeEhr version json
+        |> Result.bind (fun json ->
+            try
+                json
+                |> Canonical.deserialize<EhrPatientData.Dto.Dto>
+                |> EhrPatientData.Dto.fromDto
+                |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
+            with e ->
+                Error $"the JSON does not read: %s{e.Message}"
+        )
+
+
+    /// The EHR data of the two columns that hold its structure version and its JSON: both present
+    /// reads it, both null is none, one of them null is a reason.
+    let readEhrColumns version json =
+        match version, json with
+        | Some version, Some json -> readEhr version json |> Result.map Some
+        | None, None -> Ok None
+        | _ -> Error "the EHR data and its JSON structure version are not both present"
+
+
+    /// The JSON of EHR data.
+    let ehrJson (ehr: GenForm.EhrPatientData) = ehr |> EhrPatientData.Dto.toDto |> Canonical.serialize
+
+
+/// The record on SQLite: the order plan versions of a patient loaded from order_plan, and the write
+/// of a commit inserted there. The fields of a version are in columns. The order plan is the JSON
+/// of OrderPlan.Dto, and the EHR data is JSON too, each with a structure version. A row this
+/// release cannot read loads as an unreadable entry, never dropped.
 module SqlDatabase =
 
     open System
@@ -159,23 +211,18 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 13
+    let jsonVersionRead = 14
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 13
-
+    let jsonVersionWritten = 14
 
     /// The oldest JSON structure version this release reads.
-    let jsonVersionOldest = 13
+    let jsonVersionOldest = 14
 
 
-    /// Brings plan JSON written under a structure version to the structure this release
-    /// reads. There are no steps yet: version 13 added the link on every plan context, renamed
-    /// its intake to totals and added the large increment of every order variable, and a version
-    /// before 13 is not converted, so its row loads as unreadable. No read path recomputes a digest of a stored version.
-    ///
-    /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
-    /// here as well as in upgradeEhr.
+    /// Checks that this release can read plan JSON of a structure version. Version 14 holds the
+    /// order plan alone; version 13 held the whole version. An older version is not converted, so
+    /// its row loads as unreadable.
     let upgrade (version: int) (json: string) : Result<string, string> =
         if version < jsonVersionOldest then
             Error $"JSON structure version %i{version} is older than this release reads"
@@ -185,8 +232,8 @@ module SqlDatabase =
             Ok json
 
 
-    /// The JSON this release writes for an order plan version.
-    let toJson (v: Types.OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+    /// The JSON of the order plan of a version.
+    let toJson (v: OrderPlanVersion) = v.Plan |> OrderPlan.Dto.toDto |> Canonical.serialize
 
 
     /// An order_plan row as read, before its JSON is parsed.
@@ -199,8 +246,11 @@ module SqlDatabase =
             SignedByUserId: string
             SignedByDisplayName: string
             SignedAt: int64
+            Verified: bool
             JsonVersion: int
             Plan: string
+            EhrJsonVersion: int option
+            EhrData: string option
             PatientName: string option
             BirthYear: int64 option
             BirthMonth: int64 option
@@ -208,14 +258,9 @@ module SqlDatabase =
         }
 
 
-    /// <summary>
-    /// A row as the record holds it: upgraded, parsed with <c>fromDto</c>, and checked against its
-    /// identity columns; else unreadable with the reason, its identity from the columns, which
-    /// are authoritative. Whom it names comes from its own columns in both cases: all four
-    /// present is the identity, all four null is none (a version signed without one, or a row
-    /// from before the columns), else a reason, as is an empty name or a birthdate the calendar
-    /// does not have, which a column too wide for a year, a month or a day counts as.
-    /// </summary>
+    /// The version of a row: its fields from the columns, the order plan and the EHR data parsed
+    /// from their JSON. A row with a part that cannot be read is unreadable, with every reason.
+    /// The identity of the patient comes from the columns in both cases.
     let readRow (row: Row) : StoredVersion =
         let identity: Result<Informedica.GenCore.Lib.Patients.PatientIdentity option, string> =
             match row.PatientName, row.BirthYear, row.BirthMonth, row.BirthDay with
@@ -242,63 +287,67 @@ module SqlDatabase =
             | None, None, None, None -> Ok None
             | _ -> Error "the patient's name and birthdate are not all present"
 
-        let parsed =
+        let plan =
             upgrade row.JsonVersion row.Plan
             |> Result.bind (fun json ->
                 try
                     json
-                    |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                    |> OrderPlanVersion.Dto.fromDto
-                    |> Result.mapError (fun errs -> $"the order plan version does not parse: %A{errs}")
+                    |> Canonical.deserialize<OrderPlan.Dto.Dto>
+                    |> OrderPlan.Dto.fromDto
+                    |> Result.mapError (fun errs -> $"the order plan does not parse: %A{errs}")
                 // any exception: a converter meeting a malformed value throws its own type
                 with e ->
                     Error $"the JSON does not read: %s{e.Message}"
             )
-            |> Result.bind (fun v ->
-                if
-                    v.Id = row.VersionId
-                    && v.No = row.No
-                    && v.PatientId = row.PatientId
-                    && v.Base = row.Base
-                then
-                    Ok v
-                else
-                    Error "the identity in the JSON disagrees with the columns"
-            )
 
-        // a time the column holds but DateTime cannot: the row stays, at the earliest time
-        let signedAt, reason =
+        let ehr = SqlEhrData.readEhrColumns row.EhrJsonVersion row.EhrData
+
+        // a time DateTime cannot hold makes the row unreadable; the entry is listed at the earliest time
+        let signedAt =
             try
-                DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime, None
+                Ok(DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime)
             with :? ArgumentOutOfRangeException ->
-                DateTime.MinValue, Some $"signed_at %i{row.SignedAt} is out of range"
+                Error $"signed_at %i{row.SignedAt} is out of range"
 
-        match parsed, identity with
-        | Ok v, Ok whom -> StoredVersion.Readable(v, whom)
+        let signer: Signer =
+            {
+                UserId = row.SignedByUserId
+                DisplayName = row.SignedByDisplayName
+            }
+
+        match plan, ehr, identity, signedAt with
+        | Ok plan, Ok ehr, Ok whom, Ok signedAt ->
+            StoredVersion.Readable(
+                {
+                    Id = row.VersionId
+                    No = row.No
+                    PatientId = row.PatientId
+                    Base = row.Base
+                    SignedBy = signer
+                    SignedAt = signedAt
+                    Plan = plan
+                    Verified = row.Verified
+                    EhrData = ehr
+                },
+                whom
+            )
         | _ ->
+            let reasonOf r =
+                match r with
+                | Error reason -> Some reason
+                | Ok _ -> None
+
             StoredVersion.Unreadable
                 {
                     Id = row.VersionId
                     No = row.No
                     PatientId = row.PatientId
                     Base = row.Base
-                    SignedBy =
-                        {
-                            UserId = row.SignedByUserId
-                            DisplayName = row.SignedByDisplayName
-                        }
-                    SignedAt = signedAt
+                    SignedBy = signer
+                    SignedAt = signedAt |> Result.defaultValue DateTime.MinValue
                     Identity = identity |> Result.toOption |> Option.flatten
                     Reason =
-                        [
-                            (match parsed with
-                             | Error r -> Some r
-                             | Ok _ -> None)
-                            (match identity with
-                             | Error r -> Some r
-                             | Ok _ -> None)
-                            reason
-                        ]
+                        [ reasonOf plan; reasonOf ehr; reasonOf identity; reasonOf signedAt ]
                         |> List.choose id
                         |> String.concat "; "
                 }
@@ -313,12 +362,17 @@ module SqlDatabase =
         cmd.CommandText <-
             """
             select version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                   signed_at, json_version, plan, patient_name, birth_year, birth_month, birth_day
+                   signed_at, verified, json_version, plan, ehr_json_version, ehr_data,
+                   patient_name, birth_year, birth_month, birth_day
             from order_plan where patient_id = $patient order by no desc
             """
 
         cmd.Parameters.AddWithValue("$patient", patientId) |> ignore
         use r = cmd.ExecuteReader()
+
+        let text i = if r.IsDBNull i then None else Some(r.GetString i)
+        let whole i = if r.IsDBNull i then None else Some(r.GetInt64 i)
+        let number i = if r.IsDBNull i then None else Some(r.GetInt32 i)
 
         [
             while r.Read() do
@@ -327,28 +381,29 @@ module SqlDatabase =
                         VersionId = r.GetString 0
                         No = r.GetInt32 1
                         PatientId = r.GetString 2
-                        Base = if r.IsDBNull 3 then None else Some(r.GetString 3)
+                        Base = text 3
                         SignedByUserId = r.GetString 4
                         SignedByDisplayName = r.GetString 5
                         SignedAt = r.GetInt64 6
-                        JsonVersion = r.GetInt32 7
-                        Plan = r.GetString 8
-                        PatientName = if r.IsDBNull 9 then None else Some(r.GetString 9)
-                        BirthYear = if r.IsDBNull 10 then None else Some(r.GetInt64 10)
-                        BirthMonth = if r.IsDBNull 11 then None else Some(r.GetInt64 11)
-                        BirthDay = if r.IsDBNull 12 then None else Some(r.GetInt64 12)
+                        Verified = r.GetInt32 7 = 1
+                        JsonVersion = r.GetInt32 8
+                        Plan = r.GetString 9
+                        EhrJsonVersion = number 10
+                        EhrData = text 11
+                        PatientName = text 12
+                        BirthYear = whole 13
+                        BirthMonth = whole 14
+                        BirthDay = whole 15
                     }
         ]
 
 
-    /// Inserts an order plan version on a connection, within the transaction it is given, so
-    /// that a request writing more than this one row writes them all as one.
-    /// The version with whom it names, in its own columns: the name and the birthdate, all
-    /// four or none.
+    /// Inserts a version in the transaction given: its fields, the order plan and the EHR data as
+    /// JSON, and the identity of the patient.
     let insertVersion
         (conn: SqliteConnection)
         (tx: SqliteTransaction)
-        (v: Types.OrderPlanVersion)
+        (v: OrderPlanVersion)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         =
         use cmd = conn.CreateCommand()
@@ -358,25 +413,29 @@ module SqlDatabase =
             """
             insert into order_plan
                 (version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                 signed_at, verified, json_version, plan, patient_name, birth_year, birth_month, birth_day)
+                 signed_at, verified, json_version, plan, ehr_json_version, ehr_data,
+                 patient_name, birth_year, birth_month, birth_day)
             values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan,
-                    $patient_name, $birth_year, $birth_month, $birth_day)
+                    $ehr_json_version, $ehr_data, $patient_name, $birth_year, $birth_month, $birth_day)
             """
 
         let add (name: string) (value: obj) = cmd.Parameters.AddWithValue(name, value) |> ignore
+
         let orNull (value: 'a option) =
             value |> Option.map box |> Option.defaultValue (box DBNull.Value)
 
         add "$id" v.Id
         add "$no" v.No
         add "$patient" v.PatientId
-        add "$base" (v.Base |> Option.map box |> Option.defaultValue DBNull.Value)
+        add "$base" (v.Base |> orNull)
         add "$user" v.SignedBy.UserId
         add "$name" v.SignedBy.DisplayName
         add "$at" (DateTimeOffset(v.SignedAt, TimeSpan.Zero).ToUnixTimeMilliseconds())
         add "$verified" (if v.Verified then 1 else 0)
         add "$json_version" jsonVersionWritten
         add "$plan" (toJson v)
+        add "$ehr_json_version" (v.EhrData |> Option.map (fun _ -> SqlEhrData.ehrJsonWritten) |> orNull)
+        add "$ehr_data" (v.EhrData |> Option.map SqlEhrData.ehrJson |> orNull)
         add "$patient_name" (whom |> Option.map _.Name |> orNull)
         add "$birth_year" (whom |> Option.map (fun w -> int w.BirthDate.Year) |> orNull)
         add "$birth_month" (whom |> Option.map (fun w -> int w.BirthDate.Month) |> orNull)
@@ -384,7 +443,7 @@ module SqlDatabase =
         cmd.ExecuteNonQuery() |> ignore
 
 
-    let private insert (connectionString: string) (v: Types.OrderPlanVersion, whom) =
+    let private insert (connectionString: string) (v: OrderPlanVersion, whom) =
         use conn = new SqliteConnection(connectionString)
         conn.Open()
         insertVersion conn null v whom
@@ -404,7 +463,7 @@ module SqlDatabase =
     /// </summary>
     let persistVersion
         (connectionString: string)
-        (v: Types.OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        (v: OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         : Session.StoreOutcome
         =
         try
@@ -478,6 +537,7 @@ module SqlSessions =
     open Informedica.GenPRES.Shared.Types
     // the canonical serializer the stored Dtos are written with
     open Informedica.GenOrder.Lib
+    open SqlEhrData
 
     module GenForm = Informedica.GenForm.Lib.Types
 
@@ -610,43 +670,16 @@ module SqlSessions =
         )
 
 
-    /// The highest JSON structure version this release reads for stored EHR data.
-    let ehrJsonRead = 1
-
-
-    /// Brings stored EHR data JSON to the structure this release reads. There are no steps yet.
-    let upgradeEhr (version: int) (json: string) : Result<string, string> =
-        if version < 1 then
-            Error $"JSON structure version %i{version} does not exist"
-        elif version > ehrJsonRead then
-            Error $"JSON structure version %i{version} is newer than this release knows"
-        else
-            Ok json
-
-
-    /// The EHR data a stored row holds, upgraded and parsed.
-    let readEhr (version: int) (json: string) : Result<GenForm.EhrPatientData, string> =
-        upgradeEhr version json
-        |> Result.bind (fun json ->
-            try
-                json
-                |> Canonical.deserialize<Informedica.GenForm.Lib.EhrPatientData.Dto.Dto>
-                |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
-                |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
-            with e ->
-                Error $"the JSON does not read: %s{e.Message}"
-        )
-
-
-    /// The EHR data of a row, from the two columns that hold its structure version and its JSON:
-    /// both present reads it, both null is none (the read was none, or the row is from before
-    /// the columns), one of them null is a reason. The columns were added later and cannot
-    /// carry the check the patient's have, so the loader holds them to it.
+    /// The EHR data of a row, from the two columns that hold its structure version and its JSON.
+    /// Both null when the read was none, or the row is from before the columns. The columns were
+    /// added later and cannot carry the check the patient's have, so the loader holds them to it.
     let readEhrColumns (r: SqliteDataReader) (version: int) (json: int) =
-        match r.IsDBNull version, r.IsDBNull json with
-        | false, false -> readEhr (r.GetInt32 version) (r.GetString json) |> Result.map Some
-        | true, true -> Ok None
-        | _ -> Error "the EHR data and its JSON structure version are not both present"
+        SqlEhrData.readEhrColumns
+            (if r.IsDBNull version then
+                 None
+             else
+                 Some(r.GetInt32 version))
+            (if r.IsDBNull json then None else Some(r.GetString json))
 
 
     /// The act as the column holds it.
@@ -842,14 +875,6 @@ module SqlSessions =
 
     let patientJson (patient: GenForm.Patient) =
         patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
-
-
-    /// The JSON structure version this release writes for the EHR data a Session opened on.
-    let ehrJsonWritten = 1
-
-
-    let ehrJson (ehr: GenForm.EhrPatientData) =
-        ehr |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto |> Canonical.serialize
 
 
     /// The word an ending is stored under. Every ending matched, so that one without a word

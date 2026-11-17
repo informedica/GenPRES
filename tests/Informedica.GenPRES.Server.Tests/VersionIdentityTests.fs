@@ -15,7 +15,6 @@ module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
-module OrderPlanVersion = Informedica.GenOrder.Lib.OrderPlanVersion
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
@@ -483,24 +482,6 @@ let tests =
                     test "the patient after the sign is at the age of the sign, the version keeps its own" {
                         (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
                         |> Expect.equal "a day more" (Some 3848N, Some 3847N)
-                    }
-
-                    test "the EHR data of the challenge go with the version and come back as read" {
-                        { typed with EhrData = Some heavier }
-                        |> OrderPlanVersion.Dto.toDto
-                        |> Informedica.GenOrder.Lib.Canonical.serialize
-                        |> Informedica.GenOrder.Lib.Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "as read" (Ok(Some heavier))
-                    }
-
-                    test "a challenge without a reading keeps none" {
-                        typed
-                        |> OrderPlanVersion.Dto.toDto
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "none" (Ok None)
                     }
                 ]
 
