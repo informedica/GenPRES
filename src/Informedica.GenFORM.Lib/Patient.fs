@@ -926,3 +926,195 @@ module Patient =
                 }
                 |> Ok
             | errors, _, _ -> Error errors
+
+
+/// What the rules read from the GenCORE patient data: the values of the patient as the rules
+/// name them, who is an adult, the match with a patient category, the value a limit is adjusted
+/// with, and the patient as text.
+module PatientData =
+
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
+    open Informedica.GenCore.Lib.Ranges
+
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
+    type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+
+    open Utils
+
+
+    /// The name of the department, as a rule names a department; none without a name.
+    let department (dat: CorePatientData) = dat.Department |> CoreDepartment.name
+
+
+    /// The gender a rule matches: any gender for a patient without a known gender.
+    let gender (dat: CorePatientData) = dat.Gender |> Gender.ofPatient
+
+
+    /// The access devices of the patient, as the rules name them.
+    let access (dat: CorePatientData) = dat.Access |> List.map AccessDevice.ofPatient
+
+
+    /// The renal function of the patient, as the renal rules name it.
+    let renalFunction (dat: CorePatientData) = dat.RenalFunction |> Option.map RenalFunction.ofPatient
+
+
+    /// The adult mark of the patient, as GenCORE sets it from the age and the mark of the user.
+    let adultMark (dat: CorePatientData) = CoreAdultMark.ofAge dat.Age dat.MarkedAdult
+
+
+    /// Whether a patient is an adult: a patient of at least 18 years, or a patient marked as an
+    /// adult who is at least 16 years old or has no age. Below 16 years the mark is ignored.
+    let isAdult dat = dat |> adultMark |> CoreAdultMark.isAdult
+
+
+    /// Whether a patient is matched to the rules as an adult and not by the age of the patient: a
+    /// marked patient without an age, or of 16 or 17 years.
+    let matchedAsAdult dat = dat |> adultMark = CoreAdultMark.MarkableAdult true
+
+
+    /// The patient as the rules see a patient matched as an adult: the adult age, no gestational
+    /// age, since a gestational age says nothing about a patient older than one year, and no
+    /// post-menstrual age.
+    let asAdult (dat: CorePatientData) =
+        { dat with
+            Age = Some CoreAgeValue.eighteen
+            GestationalAge = None
+            PostMenstrualAge = None
+        }
+
+
+    /// The patient to match and the check the age range of a rule must pass beside the age
+    /// check. A patient matched as an adult is matched with the adult age, and the age range must
+    /// have no upper bound. Any other patient is matched as given, with no further check.
+    let forAdultMatch dat =
+        if dat |> matchedAsAdult then
+            dat |> asAdult, (fun (age: MinMax) -> age.Max.IsNone)
+        else
+            dat, (fun _ -> true)
+
+
+    /// Whether a patient matches a patient category, without the location and the gender: the
+    /// department, the age, the weight, the body surface area, the gestational age, the
+    /// post-menstrual age and the access.
+    let matchesCategoryWithoutLocationAndGender dat patCat =
+        let dat, ageHolds = dat |> forAdultMatch
+        let gestAge = dat |> CorePatientData.gestationalAgeInDays
+
+        let agesMatch () =
+            // a category for all patients asks nothing of the gestational or post-menstrual age
+            if patCat |> PatientCategory.isEmpty then
+                true
+            else
+                let gestAgeMatches =
+                    match gestAge with
+                    // a preterm patient matches no rule without a gestational or post-menstrual age
+                    | Some ga when patCat.GestAge = MinMax.empty && patCat.PMAge = MinMax.empty ->
+                        ga |> CoreAgeWeeksDays.isPretermValue |> not
+                    | _ -> gestAge |> MinMax.inRange patCat.GestAge
+
+                gestAgeMatches
+                && dat |> CorePatientData.postMenstrualAgeInDays |> MinMax.inRange patCat.PMAge
+
+        patCat |> PatientCategory.getAge |> ageHolds
+        && dat |> department |> PatientCategory.departmentMatches patCat.Department
+        && dat
+           |> CorePatientData.ageInDays
+           |> MinMax.inRange (patCat |> PatientCategory.getAge)
+        && dat |> CorePatientData.weightInKg |> MinMax.inRange patCat.Weight
+        && dat |> CorePatientData.bodySurfaceArea |> MinMax.inRange patCat.BSA
+        && agesMatch ()
+        && VenousAccess.check patCat.Access (dat |> access)
+
+
+    /// Whether a patient matches a patient category, with the location and the gender. A location
+    /// only one of the two names passes.
+    let matchesCategory (dat: CorePatientData) (patCat: PatientCategory) =
+        let locationMatches =
+            match dat.Location, patCat.Location with
+            | Some a, Some b -> a = b
+            | _ -> true
+
+        locationMatches
+        && Gender.isMatch patCat.Gender (dat |> gender)
+        && matchesCategoryWithoutLocationAndGender dat patCat
+
+
+    /// The value a limit with an adjust unit is adjusted with: the weight of the patient for a
+    /// per kg unit, the body surface area for any other adjust unit, when known.
+    let adjustValue dat adjustUnit =
+        adjustUnit
+        |> Option.bind (fun u ->
+            if u |> Units.eqsUnit Units.Weight.kiloGram then
+                dat |> CorePatientData.weightInKg
+            else
+                dat |> CorePatientData.bodySurfaceArea
+        )
+
+
+    /// Whether the patient has data besides the department: a patient with a department alone, or
+    /// without any data, has none.
+    let hasDataBesidesDepartment (dat: CorePatientData) =
+        { dat with Department = CoreDepartment.unknown } <> CorePatientData.unknown
+
+
+    /// The patient as text: the department, the gender, the age, the gestational or
+    /// post-menstrual age, the weight, the height and the body surface area.
+    let toString dat =
+        let gestAge = dat |> CorePatientData.gestationalAgeInDays
+
+        let toStr u vu =
+            let v =
+                vu
+                |> ValueUnit.convertTo u
+                |> ValueUnit.getValue
+                |> Array.tryHead
+                |> Option.defaultValue 0N
+
+            if v.Denominator = 1I then
+                v |> BigRational.ToInt32 |> sprintf "%i"
+            else
+                v |> BigRational.ToDouble |> sprintf "%A"
+
+        let group =
+            if gestAge |> Option.exists CoreAgeWeeksDays.isPretermValue then
+                "prematuren"
+            else
+                "neonaten"
+
+        [
+            dat |> department |> Option.defaultValue ""
+            dat |> gender |> Gender.toString
+            dat
+            |> CorePatientData.ageInDays
+            |> Option.map PatientCategory.printAge
+            |> Option.defaultValue ""
+
+            match gestAge, dat |> CorePatientData.postMenstrualAgeInDays with
+            | _, Some a -> $"%s{group} postconceptie leeftijd %s{a |> PatientCategory.printDaysToWeeks}"
+            | Some a, _ -> $"%s{group} zwangerschapsduur %s{a |> PatientCategory.printDaysToWeeks}"
+            | _ -> ""
+
+            dat
+            |> CorePatientData.weightInKg
+            |> Option.map (fun w -> $"gewicht %s{w |> toStr Units.Mass.kiloGram} kg")
+            |> Option.defaultValue ""
+
+            dat
+            |> CorePatientData.heightInCm
+            |> Option.map (fun h -> $"lengte %s{h |> toStr Units.Height.centiMeter} cm")
+            |> Option.defaultValue ""
+
+            dat
+            |> CorePatientData.bodySurfaceArea
+            |> Option.map (fun bsa -> $"BSA %s{bsa |> Utils.ValueUnit.toString 3}")
+            |> Option.defaultValue ""
+        ]
+        |> List.filter String.notEmpty
+        |> String.concat ", "
