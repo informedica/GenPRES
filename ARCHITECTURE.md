@@ -242,6 +242,8 @@ erDiagram
         int birth_year "migr 9"
         int birth_month "migr 9"
         int birth_day "migr 9"
+        int ehr_json_version "migr 10"
+        text ehr_data "migr 10"
     }
     session {
         int id PK

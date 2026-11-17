@@ -9,44 +9,46 @@ open Informedica.GenPRES.Shared.Types
 /// patient, and what the client keeps of an open Session from the parts the state will hold.
 module SessionMapper =
 
-    /// Who signed, as the version records it. The role is not recorded: only a Prescriber
-    /// signs.
-    let signer (user: UserContext) : Signer.Dto.Dto =
+    /// The signer of a version. A version does not store the role: only a Prescriber signs.
+    let signer (user: UserContext) : Signer =
         {
             UserId = user.UserId
             DisplayName = user.DisplayName
         }
 
 
-    let signerBack (dto: Signer.Dto.Dto) : UserContext =
+    let signerBack (signer: Signer) : UserContext =
         {
-            UserId = dto.UserId
-            DisplayName = dto.DisplayName
+            UserId = signer.UserId
+            DisplayName = signer.DisplayName
             Role = UserRole.Prescriber
         }
 
 
-    /// Total: a signed order plan from the wire as the version's Dto. The contract model
-    /// carries the contexts and the patient; the version stores an order plan, so the filter
-    /// is empty, the totals are none and the EHR data is none.
-    let ofSigned (signed: SignedOrderPlan) : OrderPlanVersion.Dto.Dto =
-        {
-            Id = signed.Head.Id
-            No = signed.Head.No
-            PatientId = signed.PatientId
-            Base = signed.Base
-            SignedBy = signed.Head.By |> signer
-            SignedAt = signed.Head.SignedAt
-            Plan =
-                {
-                    Patient = signed.Patient |> Patient.ofModel
-                    Filtered = [||]
-                    Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
-                    Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
-                }
-            Verified = signed.Verified
-            EhrData = None
+    /// The version of a signed order plan from the client, or the errors of its order plan. The
+    /// client sends no filter, no totals and no EHR data, so the version has none.
+    let ofSigned (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
+        ({
+            Patient = signed.Patient |> Patient.ofModel
+            Filtered = [||]
+            Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
+            Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
         }
+        : OrderPlan.Dto.Dto)
+        |> OrderPlan.Dto.fromDto
+        |> Result.map (fun plan ->
+            {
+                Id = signed.Head.Id
+                No = signed.Head.No
+                PatientId = signed.PatientId
+                Base = signed.Base
+                SignedBy = signed.Head.By |> signer
+                SignedAt = signed.Head.SignedAt
+                Plan = plan
+                Verified = signed.Verified
+                EhrData = None
+            }
+        )
 
 
     /// The identity on the wire, beside the id the context carries: the name and the birthdate
@@ -60,27 +62,29 @@ module SessionMapper =
         }
 
 
-    /// The version's Dto as the signed order plan the wire carries, with whom it names.
+    /// The signed order plan the client gets for a version, with the identity of the patient.
     let toSigned
         (demo: bool)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
-        (dto: OrderPlanVersion.Dto.Dto)
+        (v: OrderPlanVersion)
         : SignedOrderPlan
         =
+        let plan = v.Plan |> OrderPlan.Dto.toDto
+
         {
             Head =
                 {
-                    Id = dto.Id
-                    No = dto.No
-                    By = dto.SignedBy |> signerBack
-                    SignedAt = dto.SignedAt
+                    Id = v.Id
+                    No = v.No
+                    By = v.SignedBy |> signerBack
+                    SignedAt = v.SignedAt
                 }
-            PatientId = dto.PatientId
-            Base = dto.Base
-            OrderContexts = dto.Plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
-            Patient = dto.Plan.Patient |> Patient.toModel
+            PatientId = v.PatientId
+            Base = v.Base
+            OrderContexts = plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
+            Patient = plan.Patient |> Patient.toModel
             Identity = whom |> Option.map identity
-            Verified = dto.Verified
+            Verified = v.Verified
         }
 
 
@@ -121,7 +125,7 @@ module SessionMapper =
                 opened.Head
                 |> Option.bind (fun head ->
                     match head with
-                    | StoredVersion.Readable(v, whom) -> v |> OrderPlanVersion.Dto.toDto |> toSigned demo whom |> Some
+                    | StoredVersion.Readable(v, whom) -> v |> toSigned demo whom |> Some
                     | StoredVersion.Unreadable _ -> None
                 )
         }

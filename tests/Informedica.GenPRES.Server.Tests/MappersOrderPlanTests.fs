@@ -142,23 +142,25 @@ let tests =
                     |> Expect.equal $"{c}" (OrderCategory.Nutrition c)
             }
 
-            test "L3: a signed order plan to the version's Dto and back, on what the version records" {
+            test "L3: a signed order plan to the version and back, on what the version records" {
                 signed
                 |> SessionMapper.ofSigned
-                |> SessionMapper.toSigned false None
-                |> Expect.equal "the same signed plan" signed
+                |> Result.map (SessionMapper.toSigned false None)
+                |> Expect.equal "the same signed plan" (Ok signed)
             }
 
             test "outside L3: the signer's role is not recorded, a Reader comes back a Prescriber" {
                 let byReader =
                     { signed with Head = { signed.Head with By = { prescriber with Role = UserRole.Reader } } }
 
-                (byReader |> SessionMapper.ofSigned |> SessionMapper.toSigned false None).Head.By.Role
-                |> Expect.equal "only a Prescriber signs" UserRole.Prescriber
+                byReader
+                |> SessionMapper.ofSigned
+                |> Result.map (SessionMapper.toSigned false None >> _.Head.By.Role)
+                |> Expect.equal "only a Prescriber signs" (Ok UserRole.Prescriber)
             }
 
-            test "the version's Dto parses: the record reads what the mapper writes" {
-                match signed |> SessionMapper.ofSigned |> OrderPlanVersion.Dto.fromDto with
+            test "the version of a signed order plan holds what the wire carries" {
+                match signed |> SessionMapper.ofSigned with
                 | Ok v ->
                     v.Id |> Expect.equal "id" "plan-2"
                     v.No |> Expect.equal "no" 2
@@ -192,7 +194,6 @@ let tests =
                 let version =
                     signed
                     |> SessionMapper.ofSigned
-                    |> OrderPlanVersion.Dto.fromDto
                     |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
                 let stored: OpenedSession =
@@ -248,9 +249,7 @@ let tests =
                 opened.KeyThumbprint |> Expect.equal "thumbprint" (Some "thumb")
 
                 opened.Head
-                |> Expect.equal
-                    "head"
-                    (Some(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned false None))
+                |> Expect.equal "head" (Some(version |> SessionMapper.toSigned false None))
 
                 let unreadable =
                     StoredVersion.Unreadable

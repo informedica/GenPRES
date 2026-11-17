@@ -466,7 +466,6 @@ module SessionStubTests =
     let versionOfSigned (v: SignedOrderPlan) =
         v
         |> SessionMapper.ofSigned
-        |> OrderPlanVersion.Dto.fromDto
         |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
 

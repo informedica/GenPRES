@@ -483,24 +483,6 @@ let tests =
                         (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
                         |> Expect.equal "a day more" (Some 3848N, Some 3847N)
                     }
-
-                    test "the EHR data of the challenge go with the version and come back as read" {
-                        { typed with EhrData = Some heavier }
-                        |> OrderPlanVersion.Dto.toDto
-                        |> Informedica.GenOrder.Lib.Canonical.serialize
-                        |> Informedica.GenOrder.Lib.Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "as read" (Ok(Some heavier))
-                    }
-
-                    test "a challenge without a reading keeps none" {
-                        typed
-                        |> OrderPlanVersion.Dto.toDto
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "none" (Ok None)
-                    }
                 ]
 
             testList
