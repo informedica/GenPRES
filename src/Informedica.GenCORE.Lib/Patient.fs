@@ -78,6 +78,8 @@ type Department =
     | NeonatalICU of string
     | AdultDepartment of string
     | PediatricDepartment of string
+    /// A department with a name, of a kind that is not known.
+    | OtherDepartment of string
     | AnyDepartment
     | UnknownDepartment
 
@@ -1463,8 +1465,11 @@ module rec Department =
         [<Literal>]
         let pediatricDepartment = "Pediatric Department"
 
+        [<Literal>]
+        let otherDepartment = "Department"
 
-    let map any unknown fAdultICU fPedICU fNeoICU fAdult fPed =
+
+    let map any unknown fAdultICU fPedICU fNeoICU fAdult fPed fOther =
         function
         | AnyDepartment -> any
         | UnknownDepartment -> unknown
@@ -1473,17 +1478,7 @@ module rec Department =
         | NeonatalICU s -> s |> fNeoICU
         | AdultDepartment s -> s |> fAdult
         | PediatricDepartment s -> s |> fPed
-
-
-    let apply fAdultICU fPedICU fNeoICU fAdult fPed =
-        map
-            AnyDepartment
-            UnknownDepartment
-            (fAdultICU >> AdultICU)
-            (fPedICU >> PediatricICU)
-            (fNeoICU >> NeonatalICU)
-            (fAdult >> AdultDepartment)
-            (fPed >> PediatricDepartment)
+        | OtherDepartment s -> s |> fOther
 
 
     let adultICU = AdultICU
@@ -1506,6 +1501,9 @@ module rec Department =
 
     let anyPediatricDepartment = "" |> pediatricDepartment
 
+    /// A department with a name, of a kind that is not known.
+    let otherDepartment = OtherDepartment
+
     let any = AnyDepartment
 
     let unknown = UnknownDepartment
@@ -1520,6 +1518,7 @@ module rec Department =
             (sprintf "%s %s" Constants.neonatalICU)
             (sprintf "%s %s" Constants.adultDepartment)
             (sprintf "%s %s" Constants.pediatricDepartment)
+            (sprintf "%s %s" Constants.otherDepartment)
         >> String.trim
 
 
@@ -1531,7 +1530,7 @@ module rec Department =
     let name =
         let named (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
-        map None None named named named named named
+        map None None named named named named named named
 
 
     module Validation =
@@ -1558,6 +1557,10 @@ module rec Department =
                 *|* (named Constants.adultDepartment >> adultDepartment)
             <|> Check.String.pattern $"^{Constants.pediatricDepartment}"
                 *|* (named Constants.pediatricDepartment >> pediatricDepartment)
+            // Anchored at the start: "Adult Department ..." and "Pediatric Department ..." are not read
+            // as a department whose kind is not known.
+            <|> Check.String.pattern $"^{Constants.otherDepartment}"
+                *|* (named Constants.otherDepartment >> otherDepartment)
 
 
 module Gender =
