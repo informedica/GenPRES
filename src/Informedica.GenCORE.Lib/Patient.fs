@@ -29,19 +29,47 @@ type GestationType =
     | UnknownGestation
 
 
-type VenousAccess =
-    | Peripheral
-    | Central
-    | AnyVenous
-    | UnknownVenous
+/// An access of a patient that a medication can be given through.
+type Access =
+    /// A peripheral venous line.
+    | PVL
+    /// A central venous line.
+    | CVL
+    /// An enteral feeding tube.
+    | EnteralTube
 
 
-type EnteralAccess =
-    | Oral
-    | Gastric
-    | Duodenal
-    | AnyEnteral
-    | UnknownEnteral
+/// A band of the estimated glomerular filtration rate, in mL/min/1.73 m2. A band includes its
+/// maximum.
+type EGFRBand =
+    /// Above 50.
+    | Above50
+    /// Above 30, up to and including 50.
+    | From30To50
+    /// Above 10, up to and including 30.
+    | From10To30
+    /// Up to and including 10.
+    | UpTo10
+
+
+/// The renal function of a patient: an eGFR band, or the kind of dialysis.
+type RenalFunction =
+    /// The band the eGFR of the patient is in.
+    | EGFR of EGFRBand
+    /// Intermittent hemodialysis.
+    | IntermittentHemodialysis
+    /// Continuous hemodialysis.
+    | ContinuousHemodialysis
+    /// Peritoneal dialysis.
+    | PeritonealDialysis
+
+
+/// Where a value comes from: a measurement or an estimate.
+type Source<'v> =
+    /// The value was measured.
+    | Measured of 'v
+    /// The value was estimated, from the age of the patient or by the user.
+    | Estimated of 'v
 
 
 type Department =
@@ -57,7 +85,6 @@ type Department =
 type Gender =
     | Male
     | Female
-    | AnyGender
     | UnknownGender
 
 
@@ -117,7 +144,8 @@ type Weight =
         Actual: WeightAtDate list
         Birth: WeightValue option
         Admission: WeightAtDate list
-        Calculation: WeightAtDate option
+        /// The weight the calculations use, measured or estimated.
+        Calculation: Source<WeightAtDate> option
     }
 
 and WeightAtDate =
@@ -131,7 +159,8 @@ type Height =
     {
         Actual: HeightAtDate list
         Birth: HeightValue option
-        Calculation: HeightAtDate option
+        /// The height the calculations use, measured or estimated.
+        Calculation: Source<HeightAtDate> option
     }
 
 and HeightAtDate =
@@ -234,6 +263,8 @@ type PatientIdentity =
 /// Every patient characteristic except the identity.
 type PatientData =
     {
+        /// The location of the patient, as a rule names it.
+        Location: string option
         /// The ward the patient is admitted to.
         Department: Department
         /// The diagnoses of the patient.
@@ -244,6 +275,8 @@ type PatientData =
         /// identified patient calculated by Patient.atDate from the birthdate when the patient is
         /// created. None when not known.
         Age: AgeValue option
+        /// Whether the user marked the patient as an adult.
+        MarkedAdult: bool
         /// The dated weights.
         Weight: Weight
         /// The dated heights.
@@ -255,10 +288,10 @@ type PatientData =
         /// gestational age, set by calculatePostMenstrualAge, which atDate calls when the patient is
         /// created. None without a gestational age or an age, and from 1 year.
         PostMenstrualAge: AgeWeeksDays option
-        /// The enteral access.
-        EnteralAccess: EnteralAccess
-        /// The venous access.
-        VenousAccess: VenousAccess
+        /// The accesses of the patient; empty when none is known.
+        Access: Access list
+        /// The renal function; none when not known.
+        RenalFunction: RenalFunction option
     }
 
 
@@ -918,6 +951,26 @@ module WeightAtDate =
             dto
 
 
+module Source =
+
+    /// The value, measured or estimated.
+    let value =
+        function
+        | Measured v
+        | Estimated v -> v
+
+
+    /// Whether the value was measured.
+    let isMeasured =
+        function
+        | Measured _ -> true
+        | Estimated _ -> false
+
+
+    /// The source of a Dto value and its flag that says estimated.
+    let fromDto estimated v = if estimated then Estimated v else Measured v
+
+
 module Weight =
 
     let create act birth adm calc =
@@ -932,7 +985,9 @@ module Weight =
     let unknown = create [] None [] None
 
 
-    let fromAgeType gend dt = (WeightAtDate.fromAgeType gend dt) >> (create [] None [])
+    /// The normal weight of an age category: an estimate.
+    let fromAgeType gend dt =
+        WeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None []
 
 
     module Optics =
@@ -973,7 +1028,9 @@ module Weight =
         |> List.sortByDescending WeightAtDate.SetGet.getDate
         |> List.map (WeightAtDate.toString fixPrec),
 
-        w |> SetGet.getCalculation |> Option.map (WeightAtDate.toString fixPrec)
+        w
+        |> SetGet.getCalculation
+        |> Option.map (Source.value >> WeightAtDate.toString fixPrec)
 
 
     let actualToString fixPrec w = toString fixPrec w |> fun (s, _, _, _) -> s
@@ -993,6 +1050,8 @@ module Weight =
         type Dto() =
             member val Actual: WeightAtDate.Dto.Dto list = [] with get, set
             member val Calculation: WeightAtDate.Dto.Dto option = None with get, set
+            /// Whether the calculation weight is an estimate; says nothing without one.
+            member val CalculationEstimated = false with get, set
             member val Birth: WeightValue.Dto.Dto option = None with get, set
             member val Admission: WeightAtDate.Dto.Dto list = [] with get, set
 
@@ -1007,6 +1066,7 @@ module Weight =
                 dto.Calculation
                 |> Option.map WeightAtDate.Dto.fromDto
                 |> Option.bind Result.toOption
+                |> Option.map (Source.fromDto dto.CalculationEstimated)
 
             let birth = dto.Birth |> Option.map WeightValue.Dto.fromDto |> Option.bind Result.toOption
 
@@ -1020,9 +1080,11 @@ module Weight =
             let dto = dto ()
 
             dto.Actual <- w.Actual |> List.map WeightAtDate.Dto.toDto
-            dto.Calculation <- w.Calculation |> Option.map WeightAtDate.Dto.toDto
             dto.Birth <- w.Birth |> Option.map WeightValue.Dto.toDto
             dto.Admission <- w.Admission |> List.map WeightAtDate.Dto.toDto
+
+            dto.Calculation <- w.Calculation |> Option.map (Source.value >> WeightAtDate.Dto.toDto)
+            dto.CalculationEstimated <- w.Calculation |> Option.exists (Source.isMeasured >> not)
 
             dto
 
@@ -1215,7 +1277,9 @@ module Height =
     let unknown = create [] None None
 
 
-    let fromAgeType gend dt = (HeightAtDate.fromAgeType gend dt) >> (create [] None)
+    /// The normal height of an age category: an estimate.
+    let fromAgeType gend dt =
+        HeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None
 
 
     module Optics =
@@ -1247,7 +1311,9 @@ module Height =
 
         h |> SetGet.getBirth |> Option.map (HeightValue.toString fixPrec),
 
-        h |> SetGet.getCalculation |> Option.map (HeightAtDate.toString fixPrec)
+        h
+        |> SetGet.getCalculation
+        |> Option.map (Source.value >> HeightAtDate.toString fixPrec)
 
 
     let actualToString fixPrec w = toString fixPrec w |> fun (s, _, _) -> s
@@ -1265,6 +1331,8 @@ module Height =
             member val Actual: HeightAtDate.Dto.Dto list = [] with get, set
             member val Birth: HeightValue.Dto.Dto option = None with get, set
             member val Calculation: HeightAtDate.Dto.Dto option = None with get, set
+            /// Whether the calculation height is an estimate; says nothing without one.
+            member val CalculationEstimated = false with get, set
 
 
         let dto () = Dto()
@@ -1279,6 +1347,7 @@ module Height =
                 dto.Calculation
                 |> Option.map HeightAtDate.Dto.fromDto
                 |> Option.bind Result.toOption
+                |> Option.map (Source.fromDto dto.CalculationEstimated)
 
             create act birth calc
 
@@ -1288,76 +1357,73 @@ module Height =
 
             dto.Actual <- w.Actual |> List.map HeightAtDate.Dto.toDto
             dto.Birth <- w.Birth |> Option.map HeightValue.Dto.toDto
-            dto.Calculation <- w.Calculation |> Option.map HeightAtDate.Dto.toDto
+
+            dto.Calculation <- w.Calculation |> Option.map (Source.value >> HeightAtDate.Dto.toDto)
+            dto.CalculationEstimated <- w.Calculation |> Option.exists (Source.isMeasured >> not)
 
             dto
 
 
-module rec VenousAccess =
+/// The string form of an access, for the Dto.
+module Access =
 
-    let peripheral = Peripheral
-
-    let central = Central
-
-    let any = AnyVenous
-
-    let unknown = UnknownVenous
-
-
-    let toString ven =
-        match ven with
-        | UnknownVenous -> ""
-        | _ -> $"{ven}" |> String.toLower
+    /// The string an access is written as.
+    let toString =
+        function
+        | PVL -> "pvl"
+        | CVL -> "cvl"
+        | EnteralTube -> "enteral-tube"
 
 
-    let fromString = Validation.validate "VenousAccess"
+    /// The access a string names; none for any other string.
+    let tryFromString s =
+        match s |> String.toLower |> String.trim with
+        | "pvl" -> Some PVL
+        | "cvl" -> Some CVL
+        | "enteral-tube" -> Some EnteralTube
+        | _ -> None
 
 
-    module Validation =
+module EGFRBand =
 
-        open Validus
-        open Validus.Operators
-
-        let validate =
-            Check.String.equals $"{peripheral |> toString}" *| peripheral
-            <|> Check.String.equals $"{central |> toString}" *| central
-            <|> Check.String.equals $"{any |> toString}" *| central
-            <|> Check.String.equals $"{unknown |> toString}" *| unknown
-
-
-module rec EnteralAccess =
-
-    let oral = Oral
-
-    let gastric = Gastric
-
-    let duodenal = Duodenal
-
-    let any = AnyEnteral
-
-    let unknown = UnknownEnteral
+    /// The band of a calculated eGFR; none for an eGFR below zero or one that is no number.
+    let ofEGFR (eGfr: float<mL / min / normalM2>) =
+        match float eGfr with
+        | x when x > 50. -> Some Above50
+        | x when x > 30. -> Some From30To50
+        | x when x > 10. -> Some From10To30
+        | x when x >= 0. -> Some UpTo10
+        | _ -> None
 
 
-    let toString ent =
-        match ent with
-        | UnknownEnteral -> ""
-        | _ -> $"{ent}" |> String.toLower
+/// The string form of a renal function, for the Dto: egfr:min:max with an empty bound where the
+/// band has none, or the name of a dialysis.
+module RenalFunction =
+
+    /// The string a renal function is written as.
+    let toString =
+        function
+        | EGFR Above50 -> "egfr:50:"
+        | EGFR From30To50 -> "egfr:30:50"
+        | EGFR From10To30 -> "egfr:10:30"
+        | EGFR UpTo10 -> "egfr::10"
+        | IntermittentHemodialysis -> "intermittent-hemodialysis"
+        | ContinuousHemodialysis -> "continuous-hemodialysis"
+        | PeritonealDialysis -> "peritoneal-dialysis"
 
 
-    let fromString = Validation.validate "EnteralAccess"
-
-
-    module Validation =
-
-        open Validus
-        open Validus.Operators
-
-        let validate =
-            Check.String.equals $"{oral |> toString}" *| oral
-            <|> Check.String.equals $"{gastric |> toString}" *| gastric
-            <|> Check.String.equals $"{duodenal |> toString}" *| duodenal
-            <|> Check.String.equals $"{any |> toString}" *| any
-            <|> Check.String.equals $"{unknown |> toString}" *| unknown
+    /// The renal function a string names; none for any other string, also for an eGFR that is no
+    /// band.
+    let tryFromString s =
+        match s |> String.toLower |> String.trim with
+        | "egfr:50:" -> Some(EGFR Above50)
+        | "egfr:30:50" -> Some(EGFR From30To50)
+        | "egfr:10:30" -> Some(EGFR From10To30)
+        | "egfr::10" -> Some(EGFR UpTo10)
+        | "intermittent-hemodialysis" -> Some IntermittentHemodialysis
+        | "continuous-hemodialysis" -> Some ContinuousHemodialysis
+        | "peritoneal-dialysis" -> Some PeritonealDialysis
+        | _ -> None
 
 
 module rec Department =
@@ -1492,9 +1558,6 @@ module Gender =
     let female = Female
 
 
-    let any = AnyGender
-
-
     let unknown = UnknownGender
 
 
@@ -1512,7 +1575,6 @@ module Gender =
         let validate =
             Check.String.equals $"{male |> toString}" *| male
             <|> Check.String.equals $"{female |> toString}" *| female
-            <|> Check.String.equals $"{any |> toString}" *| any
             <|> Check.String.equals $"{unknown |> toString}" *| unknown
 
 
@@ -1776,7 +1838,6 @@ module Estimates =
         match gender with
         | Male
         | Female -> gender |> percentilesOfGender rows age
-        | AnyGender
         | UnknownGender ->
             Option.map2
                 (fun m f ->
@@ -1988,35 +2049,27 @@ module PatientIdentity =
 
 module PatientData =
 
-    /// The patient data of its characteristics, without a post-menstrual age until Patient.atDate
-    /// calculates it.
-    let create dep diagn gend age wght hght gest ent ven =
+    /// The patient data of its characteristics: without a location, a mark as an adult, an access
+    /// or a renal function, and without a post-menstrual age until Patient.atDate calculates it.
+    let create dep diagn gend age wght hght gest =
         {
+            Location = None
             Department = dep
             Diagnoses = diagn
             Gender = gend
             Age = age
+            MarkedAdult = false
             Weight = wght
             Height = hght
             GestationalAge = gest
             PostMenstrualAge = None
-            EnteralAccess = ent
-            VenousAccess = ven
+            Access = []
+            RenalFunction = None
         }
 
 
     /// The patient data with nothing known.
-    let unknown =
-        create
-            Department.unknown
-            [||]
-            UnknownGender
-            None
-            Weight.unknown
-            Height.unknown
-            None
-            UnknownEnteral
-            UnknownVenous
+    let unknown = create Department.unknown [||] UnknownGender None Weight.unknown Height.unknown None
 
 
     /// The data at the start of an age category: the age of the category, and the normal weight and
@@ -2052,14 +2105,15 @@ module Patient =
 
         open Calculations
 
+        /// The body surface area of the calculation weight and height, measured or estimated.
         let calcBsa formula pat =
             let w =
                 pat.Data.Weight.Calculation
-                |> Option.map (fun w -> w.Weight |> WeightValue.getWeightInKg)
+                |> Option.map (Source.value >> _.Weight >> WeightValue.getWeightInKg)
 
             let h =
                 pat.Data.Height.Calculation
-                |> Option.map (fun h -> h.Height |> HeightValue.getHeightCm)
+                |> Option.map (Source.value >> _.Height >> HeightValue.getHeightCm)
 
             match w, h with
             | Some w, Some h -> formula None w h |> Some
@@ -2156,65 +2210,83 @@ module Patient =
     module Dto =
 
         open Validus
+        open FsToolkit.ErrorHandling
 
 
         type Dto() =
             member val Id: string = "" with get, set
             member val Name: string = "" with get, set
+            member val Location: string option = None with get, set
             member val Department: string = "" with get, set
             member val Diagnoses: string[] = [||] with get, set
             member val Gender = "" with get, set
             member val Age: AgeValue.Dto.Dto option = None with get, set
+            member val MarkedAdult = false with get, set
             member val BirthDate: BirthDate.Dto.Dto option = None with get, set
             member val Weight = Weight.Dto.dto () with get, set
             member val Height = Height.Dto.dto () with get, set
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
             member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
-            member val EnteralAccess = "" with get, set
-            member val VenousAccess = "" with get, set
+            member val Access: string[] = [||] with get, set
+            member val RenalFunction: string option = None with get, set
 
 
         let dto () = Dto()
+
+
+        /// The string read by a function, or an error that names the field and the string.
+        let parseField field tryFromString s =
+            match s |> tryFromString with
+            | Some v -> Result.Ok v
+            | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
         /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none of
         /// the three; a part of an identity is an error. The post-menstrual age is read back as it was
         /// calculated, with the bounds of a post-menstrual age.
         let fromDto (dto: Dto) =
-            let weeksDays fromDto (awd: AgeWeeksDays.Dto.Dto option) =
-                match awd with
-                | Some awd -> awd |> fromDto |> Result.map Some
-                | None -> Result.Ok None
-
             validate {
                 let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
-                let! gest = dto.GestationalAge |> weeksDays AgeWeeksDays.Dto.fromDto
-                and! pma = dto.PostMenstrualAge |> weeksDays AgeWeeksDays.Dto.fromPostMenstrualDto
-                let! ent = dto.EnteralAccess |> EnteralAccess.fromString
-                let! ven = dto.VenousAccess |> VenousAccess.fromString
+                let! gest = dto.GestationalAge |> Option.traverseResult AgeWeeksDays.Dto.fromDto
+
+                and! pma =
+                    dto.PostMenstrualAge
+                    |> Option.traverseResult AgeWeeksDays.Dto.fromPostMenstrualDto
+
+                let! access =
+                    // a reference field a serializer left null is read as absent
+                    (if isNull dto.Access then [||] else dto.Access)
+                    |> Array.toList
+                    |> List.traverseResultM (parseField "Access" Access.tryFromString)
+
+                let! renal =
+                    dto.RenalFunction
+                    |> Option.traverseResult (parseField "Renal function" RenalFunction.tryFromString)
+
                 let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)
                     |> Validation.identityValidator "Patient Identity"
 
                 and! idn =
-                    match dto.BirthDate with
-                    | Some bd ->
-                        bd
-                        |> BirthDate.Dto.fromDto
-                        |> Result.map (PatientIdentity.create dto.Id dto.Name >> Some)
-                    | None -> Result.Ok None
+                    dto.BirthDate
+                    |> Option.traverseResult (
+                        BirthDate.Dto.fromDto >> Result.map (PatientIdentity.create dto.Id dto.Name)
+                    )
 
-                and! age =
-                    match dto.Age with
-                    | Some a -> a |> AgeValue.Dto.fromDto |> Result.map Some
-                    | None -> Result.Ok None
+                and! age = dto.Age |> Option.traverseResult AgeValue.Dto.fromDto
 
                 let wght = dto.Weight |> Weight.Dto.fromDto
                 let hght = dto.Height |> Height.Dto.fromDto
 
                 return
-                    { PatientData.create dep dto.Diagnoses gend age wght hght gest ent ven with PostMenstrualAge = pma }
+                    { PatientData.create dep dto.Diagnoses gend age wght hght gest with
+                        Location = dto.Location
+                        MarkedAdult = dto.MarkedAdult
+                        PostMenstrualAge = pma
+                        Access = access
+                        RenalFunction = renal
+                    }
                     |> create idn
             }
 
@@ -2229,15 +2301,17 @@ module Patient =
                 dto.BirthDate <- idn.BirthDate |> BirthDate.Dto.toDto |> Some
             | None -> ()
 
+            dto.Location <- pat.Data.Location
             dto.Department <- pat.Data.Department |> Department.toString
             dto.Diagnoses <- pat.Data.Diagnoses
             dto.Gender <- pat.Data.Gender |> Gender.toString
             dto.Age <- pat.Data.Age |> Option.map AgeValue.Dto.toDto
+            dto.MarkedAdult <- pat.Data.MarkedAdult
             dto.Weight <- pat.Data.Weight |> Weight.Dto.toDto
             dto.Height <- pat.Data.Height |> Height.Dto.toDto
             dto.GestationalAge <- pat.Data.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
             dto.PostMenstrualAge <- pat.Data.PostMenstrualAge |> Option.map AgeWeeksDays.Dto.toDto
-            dto.EnteralAccess <- pat.Data.EnteralAccess |> EnteralAccess.toString
-            dto.VenousAccess <- pat.Data.VenousAccess |> VenousAccess.toString
+            dto.Access <- pat.Data.Access |> List.map Access.toString |> List.toArray
+            dto.RenalFunction <- pat.Data.RenalFunction |> Option.map RenalFunction.toString
 
             dto

@@ -205,11 +205,9 @@ module StubPatientData =
             [||]
             UnknownGender
             None
-            (Weight.create [ weight ] None [] (Some weight))
-            (Height.create [ height ] None (Some height))
+            (Weight.create [ weight ] None [] (Some(Measured weight)))
+            (Height.create [ height ] None (Some(Measured height)))
             None
-            UnknownEnteral
-            UnknownVenous
         |> Patient.createAt now (PatientIdentity.create pid name birthDate |> Some)
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
@@ -318,11 +316,9 @@ module StubPatientData =
             [||]
             tp.Gender
             None
-            (Weight.create [ weight ] None [] (Some weight))
-            (Height.create [ height ] None (Some height))
+            (Weight.create [ weight ] None [] (Some(Measured weight)))
+            (Height.create [ height ] None (Some(Measured height)))
             tp.GestationalAge
-            UnknownEnteral
-            UnknownVenous
         |> Patient.createAt measuredOn identity
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
@@ -496,7 +492,6 @@ module StubLaunch =
             match tp.Gender with
             | Male -> "male"
             | Female -> "female"
-            | AnyGender
             | UnknownGender -> "–"
 
         [ gender; age; gestationalAge; weight; height ]

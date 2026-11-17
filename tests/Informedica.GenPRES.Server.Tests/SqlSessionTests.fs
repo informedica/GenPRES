@@ -787,6 +787,18 @@ let writerTests =
                 )
             }
 
+            test "EHR data written before the patient data got an access list and a renal function still reads" {
+                let json =
+                    System.IO.File.ReadAllText(
+                        System.IO.Path.Combine(System.AppContext.BaseDirectory, "fixtures", "ehr_data_v1.json")
+                    )
+
+                SqlEhrData.readEhr 1 json
+                |> Expect.equal
+                    "the stub patient as read on 17 November 2026"
+                    (Ok(StubPatientData.data (System.DateTime(2026, 11, 17)) "stub-patient"))
+            }
+
             test "a row from before the EHR data column, or a Session opened on none, loads with no EHR data" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"

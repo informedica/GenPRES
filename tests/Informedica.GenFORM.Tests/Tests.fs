@@ -2934,11 +2934,9 @@ module Tests =
                 [||]
                 UnknownGender
                 None
-                (Weight.create [ weight ] None [] (Some weight))
-                (Height.create [ height ] None (Some height))
+                (Weight.create [ weight ] None [] (Some(Measured weight)))
+                (Height.create [ height ] None (Some(Measured height)))
                 None
-                UnknownEnteral
-                UnknownVenous
             |> Patient.createAt
                 readAt
                 (PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
