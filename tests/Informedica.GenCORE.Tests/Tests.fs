@@ -769,22 +769,39 @@ module Tests =
                     PeritonealDialysis, "peritoneal-dialysis"
                 ]
 
-            /// A patient with every field set.
+            let single unit (v: decimal) = v |> BigRational.fromDecimal |> ValueUnit.singleWithUnit unit
+
+            let withAge age dat : PatientData = { dat with Age = Some age }
+
+            let withWeight calc dat : PatientData = { dat with Weight = Weight.create [] None [] (Some calc) }
+
+            let withHeight calc dat : PatientData = { dat with Height = Height.create [] None (Some calc) }
+
+            /// Patient data with an age, a measured weight, an estimated height, both ages of a
+            /// neonate, a location, a department, the mark as an adult, an access and a renal function.
             let complete =
                 { PatientData.create
                       (Department.pediatricICU "ICK")
-                      [||]
+                      [| "sepsis" |]
                       Female
                       (Some AgeValue.ten)
                       (Weight.create [ weight ] None [] (Some(Measured weight)))
                       (Height.create [ height ] None (Some(Estimated height)))
-                      None with
+                      (Some(AgeWeeksDays.create 26<week> 3<day>)) with
                     Location = Some "UMCU"
                     MarkedAdult = true
+                    PostMenstrualAge = Some(AgeWeeksDays.create 30<week> 0<day>)
                     Access = [ CVL; EnteralTube ]
                     RenalFunction = Some(EGFR From10To30)
                 }
-                |> Patient.create None
+
+            let identified =
+                BirthDate.create 2016<year> 3<month> 15<day>
+                |> PatientIdentity.create "p-1" "Test Patient"
+                |> Some
+                |> fun idn -> Patient.create idn complete
+
+            let belowMinimum = Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
 
 
             let tests =
@@ -917,6 +934,204 @@ module Tests =
                                     dat.Access |> Expect.isEmpty "access"
                                     dat.RenalFunction |> Expect.isNone "renal function"
                                 }
+
+                                testList
+                                    "single values"
+                                    [
+                                        test "the unknown patient data has no single value" {
+                                            let dat = PatientData.unknown
+
+                                            dat |> PatientData.ageInDays |> Expect.isNone "age"
+                                            dat |> PatientData.weightInKg |> Expect.isNone "weight"
+                                            dat |> PatientData.heightInCm |> Expect.isNone "height"
+                                            dat |> PatientData.gestationalAgeInDays |> Expect.isNone "gestational age"
+                                            dat
+                                            |> PatientData.postMenstrualAgeInDays
+                                            |> Expect.isNone "post-menstrual age"
+                                            dat |> PatientData.bodySurfaceArea |> Expect.isNone "body surface area"
+                                        }
+
+                                        test "the age is in days, a year of 365 days" {
+                                            complete
+                                            |> PatientData.ageInDays
+                                            |> Expect.equal "ten years" (Some(single Units.Time.day 3650m))
+                                        }
+
+                                        test "the gestational and the post-menstrual age are in days" {
+                                            complete
+                                            |> PatientData.gestationalAgeInDays
+                                            |> Expect.equal "26 weeks and 3 days" (Some(single Units.Time.day 185m))
+
+                                            complete
+                                            |> PatientData.postMenstrualAgeInDays
+                                            |> Expect.equal "30 weeks" (Some(single Units.Time.day 210m))
+                                        }
+
+                                        test "the weight is the calculation weight in kg, measured or estimated" {
+                                            for calc in [ Measured weight; Estimated weight ] do
+                                                PatientData.unknown
+                                                |> withWeight calc
+                                                |> PatientData.weightInKg
+                                                |> Expect.equal $"%A{calc}" (Some(single Units.Weight.kiloGram 32m))
+                                        }
+
+                                        test "a weight in gram is given in kg" {
+                                            let w = WeightAtDate.create measuredOn (WeightValue.weightInGram 750m)
+
+                                            PatientData.unknown
+                                            |> withWeight (Measured w)
+                                            |> PatientData.weightInKg
+                                            |> Expect.equal "750 gram" (Some(single Units.Weight.kiloGram 0.75m))
+                                        }
+
+                                        test "the height is the calculation height in cm, measured or estimated" {
+                                            for calc in [ Measured height; Estimated height ] do
+                                                PatientData.unknown
+                                                |> withHeight calc
+                                                |> PatientData.heightInCm
+                                                |> Expect.equal $"%A{calc}" (Some(single Units.Height.centiMeter 140m))
+                                        }
+
+                                        test
+                                            "the body surface area is the Du Bois area of the weight and the height, rounded to 2 decimals" {
+                                            let expected =
+                                                Calculations.BSA.calcDuBois (Some 2) 32m<kg> 140m<cm>
+                                                |> decimal
+                                                |> single Units.BSA.m2
+
+                                            complete
+                                            |> PatientData.bodySurfaceArea
+                                            |> Expect.equal "32 kg and 140 cm" (Some expected)
+                                        }
+
+                                        test "there is no body surface area without a height" {
+                                            PatientData.unknown
+                                            |> withWeight (Measured weight)
+                                            |> PatientData.bodySurfaceArea
+                                            |> Expect.isNone "a weight alone"
+                                        }
+                                    ]
+
+                                testList
+                                    "minimum data"
+                                    [
+                                        test "the unknown patient data is below the minimum" {
+                                            PatientData.unknown
+                                            |> PatientData.checkMinimumData
+                                            |> Expect.equal "nothing known" belowMinimum
+                                        }
+
+                                        test "an age is enough" {
+                                            let dat = PatientData.unknown |> withAge AgeValue.ten
+
+                                            dat |> PatientData.checkMinimumData |> Expect.equal "an age alone" (Ok dat)
+                                        }
+
+                                        test "a measured weight with a measured height is enough" {
+                                            let dat =
+                                                PatientData.unknown
+                                                |> withWeight (Measured weight)
+                                                |> withHeight (Measured height)
+
+                                            dat |> PatientData.checkMinimumData |> Expect.equal "both measured" (Ok dat)
+                                        }
+
+                                        test "an estimated weight or height is not enough" {
+                                            for w, h in
+                                                [
+                                                    Estimated weight, Measured height
+                                                    Measured weight, Estimated height
+                                                    Estimated weight, Estimated height
+                                                ] do
+                                                PatientData.unknown
+                                                |> withWeight w
+                                                |> withHeight h
+                                                |> PatientData.checkMinimumData
+                                                |> Expect.equal $"%A{w} with %A{h}" belowMinimum
+                                        }
+
+                                        test "a measured weight without a height is not enough" {
+                                            PatientData.unknown
+                                            |> withWeight (Measured weight)
+                                            |> PatientData.checkMinimumData
+                                            |> Expect.equal "a weight alone" belowMinimum
+                                        }
+
+                                        test "the mark as an adult is enough without an age" {
+                                            let dat = { PatientData.unknown with MarkedAdult = true }
+
+                                            dat
+                                            |> PatientData.checkMinimumData
+                                            |> Expect.equal "marked, no age" (Ok dat)
+                                        }
+
+                                        test "the mark as an adult is refused below 16 years" {
+                                            { PatientData.unknown with MarkedAdult = true }
+                                            |> withAge AgeValue.ten
+                                            |> PatientData.checkMinimumData
+                                            |> Expect.equal
+                                                "marked at ten years"
+                                                (Error PatientDataError.MarkedAdultBelowSixteen)
+                                        }
+
+                                        test "the mark as an adult is accepted from 16 years" {
+                                            let dat =
+                                                { PatientData.unknown with MarkedAdult = true }
+                                                |> withAge AgeValue.sixteen
+
+                                            dat
+                                            |> PatientData.checkMinimumData
+                                            |> Expect.equal "marked at sixteen years" (Ok dat)
+                                        }
+                                    ]
+
+                                testList
+                                    "Dto"
+                                    [
+                                        test "patient data reads back from its Dto" {
+                                            for dat in [ complete; PatientData.unknown ] do
+                                                dat
+                                                |> PatientData.Dto.toDto
+                                                |> PatientData.Dto.fromDto
+                                                |> Expect.equal "the same patient data" (Ok dat)
+                                        }
+
+                                        test "a Dto with an unknown access is an error" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.Access <- [| "pvl"; "any" |]
+
+                                            dto
+                                            |> PatientData.Dto.fromDto
+                                            |> Expect.isError "any is no access of a patient"
+                                        }
+
+                                        test "a Dto with two unknown accesses reports the first" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.Access <- [| "any"; "xxx" |]
+
+                                            let text = dto |> PatientData.Dto.fromDto |> sprintf "%A"
+
+                                            text |> Expect.stringContains "the first" "any"
+                                            text.Contains "xxx" |> Expect.isFalse "not the second"
+                                        }
+
+                                        test "a Dto with an unknown renal function is an error" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.RenalFunction <- Some "egfr:20:40"
+
+                                            dto |> PatientData.Dto.fromDto |> Expect.isError "no band"
+                                        }
+
+                                        test "a Dto whose access a serializer left null reads without an access" {
+                                            let dto = PatientData.unknown |> PatientData.Dto.toDto
+                                            dto.Access <- null
+
+                                            dto
+                                            |> PatientData.Dto.fromDto
+                                            |> Result.map _.Access
+                                            |> Expect.equal "no access" (Ok [])
+                                        }
+                                    ]
                             ]
 
                         testList
@@ -924,56 +1139,26 @@ module Tests =
                             [
                                 test "the body surface area is calculated from an estimated value too" {
                                     complete
+                                    |> Patient.create None
                                     |> Patient.BSA.calcDuBois
                                     |> Expect.isSome "measured weight, estimated height"
                                 }
 
-                                test "a patient with every field set reads back from the Dto" {
-                                    complete
-                                    |> Patient.Dto.toDto
-                                    |> Patient.Dto.fromDto
-                                    |> Expect.equal "the same patient" (Ok complete)
+                                test "a patient reads back from its Dto, identified or anonymous" {
+                                    for pat in [ identified; Patient.create None complete; Patient.unknown ] do
+                                        pat
+                                        |> Patient.Dto.toDto
+                                        |> Patient.Dto.fromDto
+                                        |> Expect.equal "the same patient" (Ok pat)
                                 }
 
-                                test "the unknown patient reads back from the Dto" {
-                                    Patient.unknown
-                                    |> Patient.Dto.toDto
-                                    |> Patient.Dto.fromDto
-                                    |> Expect.equal "the same patient" (Ok Patient.unknown)
-                                }
-
-                                test "a Dto with an unknown access is an error" {
-                                    let dto = complete |> Patient.Dto.toDto
-                                    dto.Access <- [| "pvl"; "any" |]
-
-                                    dto |> Patient.Dto.fromDto |> Expect.isError "any is no access of a patient"
-                                }
-
-                                test "a Dto with two unknown accesses reports the first" {
-                                    let dto = complete |> Patient.Dto.toDto
-                                    dto.Access <- [| "any"; "xxx" |]
-
-                                    let text = dto |> Patient.Dto.fromDto |> sprintf "%A"
-
-                                    text |> Expect.stringContains "the first" "any"
-                                    text.Contains "xxx" |> Expect.isFalse "not the second"
-                                }
-
-                                test "a Dto with an unknown renal function is an error" {
-                                    let dto = complete |> Patient.Dto.toDto
-                                    dto.RenalFunction <- Some "egfr:20:40"
-
-                                    dto |> Patient.Dto.fromDto |> Expect.isError "no band"
-                                }
-
-                                test "a Dto whose access a serializer left null reads without an access" {
-                                    let dto = Patient.unknown |> Patient.Dto.toDto
-                                    dto.Access <- null
+                                test "a part of an identity is an error" {
+                                    let dto = identified |> Patient.Dto.toDto
+                                    dto.Name <- ""
 
                                     dto
                                     |> Patient.Dto.fromDto
-                                    |> Result.map _.Data.Access
-                                    |> Expect.equal "no access" (Ok [])
+                                    |> Expect.isError "an id and a birthdate without a name"
                                 }
                             ]
                     ]

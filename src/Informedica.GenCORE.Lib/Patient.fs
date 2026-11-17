@@ -295,6 +295,16 @@ type PatientData =
     }
 
 
+/// Why patient data is not enough to select rules with.
+[<RequireQualifiedAccess>]
+type PatientDataError =
+    /// Below the minimum data: no age, no mark as an adult, and no measured weight with a
+    /// measured height.
+    | NoAgeOrMeasuredWeightAndHeight
+    /// A patient marked as an adult who is younger than 16 years.
+    | MarkedAdultBelowSixteen
+
+
 /// The patient: the identity of an identified patient and the patient data. An anonymous patient
 /// has no identity.
 type Patient =
@@ -2051,6 +2061,9 @@ module PatientIdentity =
 
 module PatientData =
 
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
+    module BSA = Informedica.GenCore.Lib.Calculations.BSA
+
     /// The patient data of its characteristics: without a location, a mark as an adult, an access
     /// or a renal function, and without a post-menstrual age until Patient.atDate calculates it.
     let create dep diagn gend age wght hght gest =
@@ -2084,6 +2097,171 @@ module PatientData =
         }
 
 
+    /// The age as a time value in days; none without an age.
+    let ageInDays (dat: PatientData) = dat.Age |> Option.map AgeValue.toValueUnit
+
+
+    /// The gestational age as a time value in days; none without one.
+    let gestationalAgeInDays (dat: PatientData) = dat.GestationalAge |> Option.map AgeWeeksDays.toValueUnit
+
+
+    /// The post-menstrual age as a time value in days; none without one.
+    let postMenstrualAgeInDays (dat: PatientData) = dat.PostMenstrualAge |> Option.map AgeWeeksDays.toValueUnit
+
+
+    /// The calculation weight in kg, measured or estimated; none without one.
+    let weightInKg (dat: PatientData) =
+        dat.Weight.Calculation
+        |> Option.map (Source.value >> _.Weight >> WeightValue.getWeightInKg >> Measures.fromDecimalKg)
+
+
+    /// The calculation height in cm, measured or estimated; none without one.
+    let heightInCm (dat: PatientData) =
+        dat.Height.Calculation
+        |> Option.map (Source.value >> _.Height >> HeightValue.getHeightCm >> Measures.fromDecimalCm)
+
+
+    /// The body surface area by a formula, of the calculation weight and height, measured or
+    /// estimated; none without both.
+    let calcBsa formula (dat: PatientData) =
+        let w =
+            dat.Weight.Calculation
+            |> Option.map (Source.value >> _.Weight >> WeightValue.getWeightInKg)
+
+        let h =
+            dat.Height.Calculation
+            |> Option.map (Source.value >> _.Height >> HeightValue.getHeightCm)
+
+        match w, h with
+        | Some w, Some h -> formula None w h |> Some
+        | _ -> None
+
+
+    /// The body surface area in m2 by the formula of Du Bois, rounded to 2 decimals as the rules
+    /// match it; none without a calculation weight and height.
+    let bodySurfaceArea dat =
+        dat
+        |> calcBsa (fun _ -> BSA.calcDuBois (Some 2))
+        |> Option.map Measures.fromDecimalM2
+
+
+    /// Whether the mark as an adult is refused: a patient marked as an adult who is younger than
+    /// 16 years.
+    let markRefused (dat: PatientData) =
+        dat.MarkedAdult && AdultMark.ofAge dat.Age dat.MarkedAdult = AdultMark.NotAdult
+
+
+    /// Whether the patient data is enough to select rules with: an age, or the mark as an adult,
+    /// or a measured weight with a measured height.
+    let meetsMinimumData (dat: PatientData) =
+        let measured calc = calc |> Option.exists Source.isMeasured
+
+        dat.MarkedAdult
+        || dat.Age.IsSome
+        || (dat.Weight.Calculation |> measured && dat.Height.Calculation |> measured)
+
+
+    /// The patient data, or why it is not enough: a mark as an adult below 16 years, or less than
+    /// the minimum data.
+    let checkMinimumData dat =
+        if dat |> markRefused then
+            Error PatientDataError.MarkedAdultBelowSixteen
+        elif dat |> meetsMinimumData then
+            Ok dat
+        else
+            Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
+
+
+    /// The serializable patient data, without an identity.
+    module Dto =
+
+        open Validus
+        open FsToolkit.ErrorHandling
+
+
+        type Dto() =
+            member val Location: string option = None with get, set
+            member val Department: string = "" with get, set
+            member val Diagnoses: string[] = [||] with get, set
+            member val Gender = "" with get, set
+            member val Age: AgeValue.Dto.Dto option = None with get, set
+            member val MarkedAdult = false with get, set
+            member val Weight = Weight.Dto.dto () with get, set
+            member val Height = Height.Dto.dto () with get, set
+            member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
+            member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
+            member val Access: string[] = [||] with get, set
+            member val RenalFunction: string option = None with get, set
+
+
+        let dto () = Dto()
+
+
+        /// The string read by a function, or an error that names the field and the string.
+        let parseField field tryFromString s =
+            match s |> tryFromString with
+            | Some v -> Result.Ok v
+            | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
+
+
+        /// The patient data of a Dto. The post-menstrual age is read back as it was calculated, with
+        /// the bounds of a post-menstrual age.
+        let fromDto (dto: Dto) =
+            validate {
+                let! dep = dto.Department |> Department.fromString
+                let! gend = dto.Gender |> Gender.Validation.validate "Gender"
+                let! gest = dto.GestationalAge |> Option.traverseResult AgeWeeksDays.Dto.fromDto
+
+                and! pma =
+                    dto.PostMenstrualAge
+                    |> Option.traverseResult AgeWeeksDays.Dto.fromPostMenstrualDto
+
+                let! access =
+                    // a reference field a serializer left null is read as absent
+                    (if isNull dto.Access then [||] else dto.Access)
+                    |> Array.toList
+                    |> List.traverseResultM (parseField "Access" Access.tryFromString)
+
+                let! renal =
+                    dto.RenalFunction
+                    |> Option.traverseResult (parseField "Renal function" RenalFunction.tryFromString)
+
+                let! age = dto.Age |> Option.traverseResult AgeValue.Dto.fromDto
+
+                let wght = dto.Weight |> Weight.Dto.fromDto
+                let hght = dto.Height |> Height.Dto.fromDto
+
+                return
+                    { create dep dto.Diagnoses gend age wght hght gest with
+                        Location = dto.Location
+                        MarkedAdult = dto.MarkedAdult
+                        PostMenstrualAge = pma
+                        Access = access
+                        RenalFunction = renal
+                    }
+            }
+
+
+        /// The Dto of patient data.
+        let toDto (dat: PatientData) =
+            let dto = dto ()
+
+            dto.Location <- dat.Location
+            dto.Department <- dat.Department |> Department.toString
+            dto.Diagnoses <- dat.Diagnoses
+            dto.Gender <- dat.Gender |> Gender.toString
+            dto.Age <- dat.Age |> Option.map AgeValue.Dto.toDto
+            dto.MarkedAdult <- dat.MarkedAdult
+            dto.Weight <- dat.Weight |> Weight.Dto.toDto
+            dto.Height <- dat.Height |> Height.Dto.toDto
+            dto.GestationalAge <- dat.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
+            dto.PostMenstrualAge <- dat.PostMenstrualAge |> Option.map AgeWeeksDays.Dto.toDto
+            dto.Access <- dat.Access |> List.map Access.toString |> List.toArray
+            dto.RenalFunction <- dat.RenalFunction |> Option.map RenalFunction.toString
+
+            dto
+
+
 module Patient =
 
 
@@ -2107,19 +2285,8 @@ module Patient =
 
         open Calculations
 
-        /// The body surface area of the calculation weight and height, measured or estimated.
-        let calcBsa formula pat =
-            let w =
-                pat.Data.Weight.Calculation
-                |> Option.map (Source.value >> _.Weight >> WeightValue.getWeightInKg)
-
-            let h =
-                pat.Data.Height.Calculation
-                |> Option.map (Source.value >> _.Height >> HeightValue.getHeightCm)
-
-            match w, h with
-            | Some w, Some h -> formula None w h |> Some
-            | _ -> None
+        /// The body surface area by a formula, of the calculation weight and height of the patient.
+        let calcBsa formula pat = pat.Data |> PatientData.calcBsa formula
 
 
         let calcMosteller = calcBsa BSA.calcMosteller
@@ -2236,35 +2403,32 @@ module Patient =
         let dto () = Dto()
 
 
-        /// The string read by a function, or an error that names the field and the string.
-        let parseField field tryFromString s =
-            match s |> tryFromString with
-            | Some v -> Result.Ok v
-            | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
+        /// The fields of the patient data on a patient Dto, as the Dto of the patient data. It must
+        /// list every field of that Dto.
+        let toDataDto (dto: Dto) =
+            let dat = PatientData.Dto.dto ()
+
+            dat.Location <- dto.Location
+            dat.Department <- dto.Department
+            dat.Diagnoses <- dto.Diagnoses
+            dat.Gender <- dto.Gender
+            dat.Age <- dto.Age
+            dat.MarkedAdult <- dto.MarkedAdult
+            dat.Weight <- dto.Weight
+            dat.Height <- dto.Height
+            dat.GestationalAge <- dto.GestationalAge
+            dat.PostMenstrualAge <- dto.PostMenstrualAge
+            dat.Access <- dto.Access
+            dat.RenalFunction <- dto.RenalFunction
+
+            dat
 
 
         /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none of
-        /// the three; a part of an identity is an error. The post-menstrual age is read back as it was
-        /// calculated, with the bounds of a post-menstrual age.
+        /// the three; a part of an identity is an error.
         let fromDto (dto: Dto) =
             validate {
-                let! dep = dto.Department |> Department.fromString
-                let! gend = dto.Gender |> Gender.Validation.validate "Gender"
-                let! gest = dto.GestationalAge |> Option.traverseResult AgeWeeksDays.Dto.fromDto
-
-                and! pma =
-                    dto.PostMenstrualAge
-                    |> Option.traverseResult AgeWeeksDays.Dto.fromPostMenstrualDto
-
-                let! access =
-                    // a reference field a serializer left null is read as absent
-                    (if isNull dto.Access then [||] else dto.Access)
-                    |> Array.toList
-                    |> List.traverseResultM (parseField "Access" Access.tryFromString)
-
-                let! renal =
-                    dto.RenalFunction
-                    |> Option.traverseResult (parseField "Renal function" RenalFunction.tryFromString)
+                let! dat = dto |> toDataDto |> PatientData.Dto.fromDto
 
                 let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)
@@ -2276,25 +2440,13 @@ module Patient =
                         BirthDate.Dto.fromDto >> Result.map (PatientIdentity.create dto.Id dto.Name)
                     )
 
-                and! age = dto.Age |> Option.traverseResult AgeValue.Dto.fromDto
-
-                let wght = dto.Weight |> Weight.Dto.fromDto
-                let hght = dto.Height |> Height.Dto.fromDto
-
-                return
-                    { PatientData.create dep dto.Diagnoses gend age wght hght gest with
-                        Location = dto.Location
-                        MarkedAdult = dto.MarkedAdult
-                        PostMenstrualAge = pma
-                        Access = access
-                        RenalFunction = renal
-                    }
-                    |> create idn
+                return create idn dat
             }
 
 
         let toDto pat =
             let dto = dto ()
+            let dat = pat.Data |> PatientData.Dto.toDto
 
             match pat.Identity with
             | Some idn ->
@@ -2303,17 +2455,17 @@ module Patient =
                 dto.BirthDate <- idn.BirthDate |> BirthDate.Dto.toDto |> Some
             | None -> ()
 
-            dto.Location <- pat.Data.Location
-            dto.Department <- pat.Data.Department |> Department.toString
-            dto.Diagnoses <- pat.Data.Diagnoses
-            dto.Gender <- pat.Data.Gender |> Gender.toString
-            dto.Age <- pat.Data.Age |> Option.map AgeValue.Dto.toDto
-            dto.MarkedAdult <- pat.Data.MarkedAdult
-            dto.Weight <- pat.Data.Weight |> Weight.Dto.toDto
-            dto.Height <- pat.Data.Height |> Height.Dto.toDto
-            dto.GestationalAge <- pat.Data.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
-            dto.PostMenstrualAge <- pat.Data.PostMenstrualAge |> Option.map AgeWeeksDays.Dto.toDto
-            dto.Access <- pat.Data.Access |> List.map Access.toString |> List.toArray
-            dto.RenalFunction <- pat.Data.RenalFunction |> Option.map RenalFunction.toString
+            dto.Location <- dat.Location
+            dto.Department <- dat.Department
+            dto.Diagnoses <- dat.Diagnoses
+            dto.Gender <- dat.Gender
+            dto.Age <- dat.Age
+            dto.MarkedAdult <- dat.MarkedAdult
+            dto.Weight <- dat.Weight
+            dto.Height <- dat.Height
+            dto.GestationalAge <- dat.GestationalAge
+            dto.PostMenstrualAge <- dat.PostMenstrualAge
+            dto.Access <- dat.Access
+            dto.RenalFunction <- dat.RenalFunction
 
             dto
