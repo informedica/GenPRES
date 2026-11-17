@@ -942,7 +942,7 @@ module Medication =
 
 
     /// Add an optional solution rule to a medication order
-    let addSolutionRule logger (pat: PatientData) solRule med =
+    let addSolutionRule logger (patientData: PatientData) solRule med =
         match solRule with
         | None -> med
         | Some solRule ->
@@ -998,7 +998,7 @@ module Medication =
                                 |> Option.map (fun dilutionLimit ->
                                     { dilutionLimit with
                                         Quantity =
-                                            match pat |> CorePatientData.weightInKg with
+                                            match patientData |> CorePatientData.weightInKg with
                                             | None -> dilutionLimit.Quantity
                                             | Some w ->
                                                 match
@@ -1021,7 +1021,7 @@ module Medication =
 
 
     /// Create a Medication Order from patient information and dose rules
-    let create logger (pat: PatientData) au dose (dr: DoseRule) (solRule: SolutionRule option) =
+    let create logger (patientData: PatientData) au dose (dr: DoseRule) (solRule: SolutionRule option) =
         { template with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> Generic.toString
@@ -1049,12 +1049,12 @@ module Medication =
             Dose = dose
             Adjust =
                 if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
-                    pat |> CorePatientData.weightInKg
+                    patientData |> CorePatientData.weightInKg
                 else
-                    pat |> CorePatientData.bodySurfaceArea
+                    patientData |> CorePatientData.bodySurfaceArea
         //AdjustUnit = Some au
         }
-        |> addSolutionRule logger pat solRule
+        |> addSolutionRule logger patientData solRule
 
 
     /// <summary>
@@ -1067,7 +1067,7 @@ module Medication =
 
         let dose = pr.DoseRule.FormLimit
 
-        let create = create logger pr.Patient au dose pr.DoseRule
+        let create = create logger pr.PatientData au dose pr.DoseRule
 
         let meds =
             if pr.SolutionRules |> Array.isEmpty then

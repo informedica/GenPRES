@@ -69,10 +69,16 @@ let v14FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v14.json"))
 
 
-/// The plan column as this release writes it, structure version 15. It is the order plan of the
-/// version 14 fixture with the GenCORE patient data.
-let currentFixtureText () =
+/// The stored fixture of structure version 15, the last version that named the patient data
+/// Patient.
+let v15FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v15.json"))
+
+
+/// The plan column as this release writes it, structure version 16. It is the order plan of the
+/// version 15 fixture with the patient data named PatientData.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v16.json"))
 
 
 let parse (text: string) =
@@ -123,7 +129,7 @@ let tests =
 
                     // the same row under a structure version this release does not know keeps
                     // naming its patient
-                    run "update order_plan set json_version = 16"
+                    run "update order_plan set json_version = 17"
 
                     (SqlDatabase.loadRecords readAt cs "stub-patient"
                      |> List.map reasonOf
@@ -133,7 +139,7 @@ let tests =
 
                     // a row from before the columns: none
                     run
-                        "update order_plan set json_version = 15, patient_name = null, birth_year = null, birth_month = null, birth_day = null"
+                        "update order_plan set json_version = 16, patient_name = null, birth_year = null, birth_month = null, birth_day = null"
                     identityOf () |> Expect.equal "none" [ None ]
 
                     // the columns half present, and a date the calendar does not have: a reason
@@ -175,7 +181,7 @@ let tests =
 
                     SqlSchema.apply cs |> Expect.equal "migrations 9 and 10" [ 9; 10 ]
 
-                    insertRow cs "plan-1" 1 15 (currentFixtureText ())
+                    insertRow cs "plan-1" 1 16 (currentFixtureText ())
 
                     match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Readable(v, whom) ] ->
@@ -215,7 +221,7 @@ let tests =
                 )
             }
 
-            test "the column plan holds the order plan Dto alone, under structure version 15" {
+            test "the column plan holds the order plan Dto alone, under structure version 16" {
                 withRecord (fun cs ->
                     SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
@@ -225,13 +231,13 @@ let tests =
                     |> Expect.equal "the order plan" (v1.Value.Plan |> OrderPlan.Dto.toDto |> Canonical.serialize)
 
                     scalar cs "select json_version from order_plan"
-                    |> Expect.equal "the structure version" (box 15L)
+                    |> Expect.equal "the structure version" (box 16L)
                 )
             }
 
             test "EHR data that do not read, or one EHR column without the other, leave the row unreadable" {
                 withRecord (fun cs ->
-                    insertRow cs "plan-1" 1 15 (currentFixtureText ())
+                    insertRow cs "plan-1" 1 16 (currentFixtureText ())
 
                     let run = run cs
 
@@ -317,16 +323,16 @@ let tests =
             test "rows this release cannot read load as unreadable, and the newest is the head" {
                 withRecord (fun cs ->
                     let text = currentFixtureText ()
-                    insertRow cs "plan-1" 1 15 text
+                    insertRow cs "plan-1" 1 16 text
                     // a structure version newer than the release knows
-                    insertRow cs "plan-2" 2 16 text
+                    insertRow cs "plan-2" 2 17 text
 
                     // a Dto the domain refuses: the totals are missing
                     let noTotals =
                         { Canonical.deserialize<OrderPlan.Dto.Dto> text with Totals = Unchecked.defaultof<_> }
                         |> Canonical.serialize
 
-                    insertRow cs "plan-3" 3 15 noTotals
+                    insertRow cs "plan-3" 3 16 noTotals
 
                     let loaded = SqlDatabase.loadRecords readAt cs "stub-patient"
 
@@ -361,7 +367,7 @@ let tests =
                 withRecord (fun cs ->
                     // a BigRational that is no number: the converter throws, not the JSON reader
                     currentFixtureText().Replace("\"Value\":[\"30/1\"", "\"Value\":[\"x/y\"")
-                    |> insertRow cs "plan-1" 1 15
+                    |> insertRow cs "plan-1" 1 16
 
                     match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] -> u.Reason |> Expect.stringContains "the reason" "does not read"
@@ -371,7 +377,7 @@ let tests =
 
             test "a signed_at out of range leaves the row unreadable at the earliest time" {
                 withRecord (fun cs ->
-                    insertRowAt cs Int64.MaxValue "plan-1" 1 15 (currentFixtureText ())
+                    insertRowAt cs Int64.MaxValue "plan-1" 1 16 (currentFixtureText ())
 
                     match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
@@ -381,21 +387,21 @@ let tests =
                 )
             }
 
-            test "this release reads and writes structure version 15; 0 to 14 and 16 are reasons" {
+            test "this release reads and writes structure version 16; 0 to 15 and 17 are reasons" {
                 let json = currentFixtureText ()
 
-                SqlDatabase.jsonVersion |> Expect.equal "the version read and written" 15
+                SqlDatabase.jsonVersion |> Expect.equal "the version read and written" 16
 
-                SqlDatabase.upgrade 15 json |> Expect.equal "15 is current" (Ok json)
+                SqlDatabase.upgrade 16 json |> Expect.equal "16 is current" (Ok json)
 
-                for version in 0..14 do
+                for version in 0..15 do
                     SqlDatabase.upgrade version json
                     |> Expect.equal
                         $"%i{version}"
                         (Error $"JSON structure version %i{version} is older than this release reads")
 
-                SqlDatabase.upgrade 16 json
-                |> Expect.equal "16" (Error "JSON structure version 16 is newer than this release knows")
+                SqlDatabase.upgrade 17 json
+                |> Expect.equal "17" (Error "JSON structure version 17 is newer than this release knows")
             }
 
             test "a stored version 13 row, with the whole version in the plan column, loads as unreadable" {
@@ -418,6 +424,20 @@ let tests =
 
                 withRecord (fun cs ->
                     insertRow cs "plan-1" 1 14 text
+
+                    match SqlDatabase.loadRecords readAt cs "stub-patient" with
+                    | [ StoredVersion.Unreadable u ] ->
+                        u.Reason |> Expect.stringContains "the reason" "older than this release reads"
+                    | other -> failtest $"expected one unreadable row, got %A{other}"
+                )
+            }
+
+            test "a stored version 15 row, with the patient data named Patient, loads as unreadable" {
+                let text = v15FixtureText ()
+                text |> Expect.stringContains "the old name in the row" "\"Patient\":"
+
+                withRecord (fun cs ->
+                    insertRow cs "plan-1" 1 15 text
 
                     match SqlDatabase.loadRecords readAt cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
@@ -462,8 +482,8 @@ let tests =
                 argued.Contexts |> Array.isEmpty |> Expect.isFalse "the fixture has contexts"
 
                 withRecord (fun cs ->
-                    insertRow cs "plan-1" 1 15 (currentFixtureText ())
-                    insertRow cs "plan-2" 2 15 (argued |> OrderPlan.Dto.toDto |> Canonical.serialize)
+                    insertRow cs "plan-1" 1 16 (currentFixtureText ())
+                    insertRow cs "plan-2" 2 16 (argued |> OrderPlan.Dto.toDto |> Canonical.serialize)
 
                     let texts (v: OrderPlanVersion) =
                         v.Plan.Contexts |> Array.map _.Context.Argumentation |> Array.choose id

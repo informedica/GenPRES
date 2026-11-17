@@ -680,7 +680,7 @@ module Types =
             /// is made
             Components: ComponentSelection
             /// the patient to filter on
-            Patient: PatientData
+            PatientData: PatientData
         }
 
 
@@ -712,7 +712,7 @@ module Types =
             Indication: string option
             DoseType: DoseType option
             /// the patient
-            Patient: PatientData
+            PatientData: PatientData
             /// the diluent to dilute the component
             Diluent: string option
             /// The MinMax Dose range of the SolutionRule
@@ -723,7 +723,7 @@ module Types =
     /// with a DoseRule and a list of SolutionRules.
     type PrescriptionRule =
         {
-            Patient: PatientData
+            PatientData: PatientData
             DoseRule: DoseRule
             SolutionRules: SolutionRule[]
             RenalRules: RenalRule[]

@@ -81,7 +81,7 @@ let scenarios =
 let context filter : OrderContext =
     {
         Filter = filter
-        Patient = PatientData.unknown
+        PatientData = PatientData.unknown
         Scenarios = scenarios
         Argumentation = Some "afwijking"
     }

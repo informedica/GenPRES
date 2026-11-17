@@ -335,8 +335,8 @@ let tests =
                         { version with
                             Plan =
                                 { version.Plan with
-                                    Patient =
-                                        { version.Plan.Patient with
+                                    PatientData =
+                                        { version.Plan.PatientData with
                                             GestationalAge = Some(days 210)
                                             PostMenstrualAge = Some(days 1)
                                         }
@@ -352,13 +352,13 @@ let tests =
                             (port.patient (StubPatientData.data later "stub-patient")).Age
 
                         age
-                        |> Expect.notEqual "another age than the one signed" version.Plan.Patient.Age
+                        |> Expect.notEqual "another age than the one signed" version.Plan.PatientData.Age
                     }
 
                     test "is the head's in every other field" {
                         openedLater (Some readable)
                         |> Option.map withoutAges
-                        |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
+                        |> Expect.equal "the signed data" (Some(version.Plan.PatientData |> withoutAges))
                     }
 
                     test "has no post-menstrual age from 1 year, also with a gestational age" {
@@ -375,7 +375,7 @@ let tests =
 
                     test "stays as signed without an identity" {
                         openedLater (Some(StoredVersion.Readable(version, None)))
-                        |> Expect.equal "as signed" (Some version.Plan.Patient)
+                        |> Expect.equal "as signed" (Some version.Plan.PatientData)
                     }
 
                     test "gives way to EHR data, whatever the head" {
@@ -396,7 +396,7 @@ let tests =
                     let resume = today.AddMonths 2
                     let readable = Some(StoredVersion.Readable(version, identity))
                     let shownEhr = Some(port.patient heavier)
-                    let shownSigned = Some(version.Plan.Patient |> Session.atBirthDate resume identity)
+                    let shownSigned = Some(version.Plan.PatientData |> Session.atBirthDate resume identity)
 
                     let afterAct act head =
                         let sid, record = opened "s-1" (Some heavier) head
@@ -446,11 +446,12 @@ let tests =
                         { version with
                             Plan =
                                 { version.Plan with
-                                    Patient = { version.Plan.Patient with Weight = thirtyKg CoreSource.Measured }
+                                    PatientData =
+                                        { version.Plan.PatientData with Weight = thirtyKg CoreSource.Measured }
                                 }
                         }
 
-                    let signed = typed.Plan.Patient
+                    let signed = typed.Plan.PatientData
 
                     test "the typed weight stands after the sign, whatever the EHR reads" {
                         signed
@@ -463,7 +464,9 @@ let tests =
                         let estimated =
                             { typed with
                                 Plan =
-                                    { typed.Plan with Patient = { signed with Weight = thirtyKg CoreSource.Estimated } }
+                                    { typed.Plan with
+                                        PatientData = { signed with Weight = thirtyKg CoreSource.Estimated }
+                                    }
                             }
 
                         let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(estimated, identity)))
@@ -538,7 +541,7 @@ let tests =
                             signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
 
                         (record.Opened |> Session.sessionPatient tomorrow port |> Option.bind ageInDays,
-                         version.Plan.Patient |> ageInDays)
+                         version.Plan.PatientData |> ageInDays)
                         |> Expect.equal "3848 on the Session, 3847 on the version" (Some 3848N, Some 3847N)
                     }
 

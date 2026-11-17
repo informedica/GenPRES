@@ -80,15 +80,16 @@ module Api =
 
     /// The patient data with the default department of the provider when it has no department
     /// name.
-    let withDefaultDepartment (provider: IResourceProvider) (pat: PatientData) =
-        match pat |> PatientData.department with
-        | Some _ -> pat
-        | None -> { pat with Department = (provider.GetDepartments()).Default |> CoreDepartment.otherDepartment }
+    let withDefaultDepartment (provider: IResourceProvider) (patientData: PatientData) =
+        match patientData |> PatientData.department with
+        | Some _ -> patientData
+        | None ->
+            { patientData with Department = (provider.GetDepartments()).Default |> CoreDepartment.otherDepartment }
 
 
     let filterDoseRules (provider: IResourceProvider) (filter: DoseFilter) doseRules =
         let routeMappings = getRouteMapping provider
-        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
+        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         DoseRule.filter routeMappings filter doseRules
 
@@ -117,7 +118,7 @@ module Api =
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
         let isAdditive = isAdditive provider
-        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
+        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         let chunkSize =
             let c = (doseRules |> Array.length) / 12

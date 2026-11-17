@@ -100,7 +100,7 @@ module LinkFixtures =
 
     let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
         {
-            Patient = context.Patient |> ServerApi.Patient.ofModel readAt
+            PatientData = context.Patient |> ServerApi.Patient.ofModel readAt
             Filtered = [||]
             Contexts = contexts |> Array.map (OrderContextMapper.ofModel readAt)
             Totals = Totals.empty |> Totals.Dto.toDto
@@ -369,7 +369,7 @@ let tests =
                             |> OrderContextMapper.filter
                             |> Filter.Dto.fromDto
                             |> Result.defaultWith (fun e -> failtest $"{e}")
-                        Patient = PatientData.unknown
+                        PatientData = PatientData.unknown
                         Scenarios = [||]
                         Argumentation = None
                     }

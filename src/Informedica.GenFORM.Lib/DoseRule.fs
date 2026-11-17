@@ -1006,14 +1006,14 @@ module DoseRule =
                     filter.Route |> Option.isNone
                     || dr.Route |> Mapping.eqsRoute routeMapping filter.Route
                 // a rule that names a department is for the patients of that department only
-                if filter.Patient |> PatientData.department |> Option.isSome then
+                if filter.PatientData |> PatientData.department |> Option.isSome then
                     fun (dr: DoseRule) ->
-                        filter.Patient
+                        filter.PatientData
                         |> PatientData.department
                         |> PatientCategory.departmentMatches dr.PatientCategory.Department
                 // don't filter on the rest of the patient if it is not set; a department alone does not set it
-                if filter.Patient |> PatientData.hasDataBesidesDepartment then
-                    fun (dr: DoseRule) -> dr.PatientCategory |> PatientData.matchesCategory filter.Patient
+                if filter.PatientData |> PatientData.hasDataBesidesDepartment then
+                    fun (dr: DoseRule) -> dr.PatientCategory |> PatientData.matchesCategory filter.PatientData
                 fun (dr: DoseRule) -> filter.DoseType |> Option.map ((=) dr.DoseType) |> Option.defaultValue true
             |]
             |> Array.fold (fun (acc: DoseRule[]) pred -> acc |> Array.filter pred) drs

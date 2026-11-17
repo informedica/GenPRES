@@ -3167,7 +3167,7 @@ module SessionStubTests =
                             |> Expect.equal
                                 "the Session's patient is the one signed, at the age of the sign"
                                 (Some(
-                                    version.Plan.Patient
+                                    version.Plan.PatientData
                                     |> Session.atBirthDate
                                         t0
                                         (StubPatientData.data StubPatientData.measuredOn "stub-patient" |> _.Identity)
@@ -3386,7 +3386,8 @@ module SessionStubTests =
 
                         match answer with
                         | SigningOutcome.Submitted(version, _, _, _) ->
-                            version.Plan.Patient |> Expect.equal "the data signed" (parsePatient otherData)
+                            version.Plan.PatientData
+                            |> Expect.equal "the data signed" (parsePatient otherData)
                             version.Verified |> Expect.isFalse "no reading"
 
                             state.Sessions["s-1"].Opened.PatientId

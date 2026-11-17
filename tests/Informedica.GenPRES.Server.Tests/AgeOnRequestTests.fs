@@ -444,8 +444,8 @@ let tests =
                             match signedOver (Some identified) cmd with
                             | None -> failtest "the port was not asked"
                             | Some parsed ->
-                                parsed.Patient
-                                :: (parsed.Contexts |> Array.map _.Context.Patient |> Array.toList)
+                                parsed.PatientData
+                                :: (parsed.Contexts |> Array.map _.Context.PatientData |> Array.toList)
                                 |> List.map ageInDays
                                 |> List.distinct
                         )

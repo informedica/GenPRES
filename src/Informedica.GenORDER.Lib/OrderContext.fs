@@ -23,7 +23,7 @@ module FilterHelpers =
     let getPrescribableRules logger provider filter =
         Api.filterPrescriptionRules provider filter
         |> Result.map (fun prs ->
-            let prs = prs |> Array.filter (PrescriptionRule.isPrescribable filter.Patient)
+            let prs = prs |> Array.filter (PrescriptionRule.isPrescribable filter.PatientData)
 
             if prs |> Array.isEmpty then
                 filter |> Api.noRulesWarning |> Logging.logWarning logger
@@ -787,19 +787,20 @@ module OrderContext =
     /// Whether the rules are looked up for the patient: an adult always, a child only with a
     /// weight. A height is never needed to look them up: a rule that needs one is left out by the
     /// check whether it can be prescribed.
-    let selectsRules pat =
-        pat |> PatientData.isAdult || pat |> CorePatientData.weightInKg |> Option.isSome
+    let selectsRules patientData =
+        patientData |> PatientData.isAdult
+        || patientData |> CorePatientData.weightInKg |> Option.isSome
 
 
     /// The context afresh for a patient: the pick lists of the rules for the patient that can be
     /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
     /// evaluation offers. No pick lists when the rules are not looked up for the patient.
-    let create logger provider (pat: PatientData) =
+    let create logger provider (patientData: PatientData) =
         let opts =
-            if pat |> selectsRules then
-                pat
+            if patientData |> selectsRules then
+                patientData
                 |> getPrescriptionRules logger provider
-                |> Array.filter (PrescriptionRule.isPrescribable pat)
+                |> Array.filter (PrescriptionRule.isPrescribable patientData)
                 |> PrescriptionRule.filterOptions
             else
                 PrescriptionRule.emptyFilterOptions
@@ -815,7 +816,7 @@ module OrderContext =
 
         {
             Filter = filter
-            Patient = pat
+            PatientData = patientData
             Scenarios = [||]
             Argumentation = None
         }
@@ -864,15 +865,15 @@ module OrderContext =
 
 
     /// The patient of the context as the rule lookup takes it: without its diagnoses.
-    let matchedPatient (ctx: OrderContext) = { ctx.Patient with Diagnoses = [||] }
+    let matchedPatientData (ctx: OrderContext) = { ctx.PatientData with Diagnoses = [||] }
 
 
     /// The dose filter of the context for the patient.
-    let doseFilterFor pat ctx =
+    let doseFilterFor patientData ctx =
         { filterPicks ctx with
             Diluent = ctx.Filter.Diluent
             Components = ctx.Filter.SelectedComponents
-            Patient = { ctx with Patient = pat } |> matchedPatient
+            PatientData = { ctx with PatientData = patientData } |> matchedPatientData
         }
 
 
@@ -883,9 +884,9 @@ module OrderContext =
     /// without a weight the context is made afresh and there are no rules.
     let getRules logger (provider: Resources.IResourceProvider) (ctx: OrderContext) =
 
-        if ctx.Patient |> selectsRules then
+        if ctx.PatientData |> selectsRules then
 
-            let doseFilter = ctx |> doseFilterFor ctx.Patient
+            let doseFilter = ctx |> doseFilterFor ctx.PatientData
 
             let opts = doseFilter |> optionsFor logger provider
 
@@ -926,16 +927,16 @@ module OrderContext =
         else
             // the context afresh, its argumentation kept: the text is the clinician's, not a
             // rule's, and survives every command
-            let fresh = ctx.Patient |> create logger provider
+            let fresh = ctx.PatientData |> create logger provider
 
             { fresh with Argumentation = ctx.Argumentation }, Ok [||]
 
 
     /// The prescribable rules for the picks of the context and the patient. A child without a weight
     /// has none.
-    let rulesFor logger provider pat ctx =
-        if pat |> selectsRules then
-            ctx |> doseFilterFor pat |> getPrescribableRules logger provider
+    let rulesFor logger provider patientData ctx =
+        if patientData |> selectsRules then
+            ctx |> doseFilterFor patientData |> getPrescribableRules logger provider
         else
             Ok [||]
 
@@ -1276,7 +1277,7 @@ Order State: {sc.Order |> OrderProcessor.printState}
 
 === {stage} ===
 
-Patient: {ctx.Patient |> PatientData.toString}
+Patient: {ctx.PatientData |> PatientData.toString}
 Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
 Generic: {ctx.Filter.Generic |> Option.defaultValue ""}
 Form: {ctx.Filter.Form |> Option.defaultValue ""}
@@ -1384,11 +1385,15 @@ Scenarios: {scenarios}
 
     /// The value of the patient the order is adjusted with, in the unit of the order. None when the
     /// patient does not have that value, or the order holds no adjust value.
-    let adjustOfPatient pat ord =
+    let adjustOfPatient patientData ord =
         ord
         |> Order.adjustValue
         |> Option.map ValueUnit.getUnit
-        |> Option.bind (fun u -> Some u |> PatientData.adjustValue pat |> Option.map (ValueUnit.convertTo u))
+        |> Option.bind (fun u ->
+            Some u
+            |> PatientData.adjustValue patientData
+            |> Option.map (ValueUnit.convertTo u)
+        )
 
 
     /// Whether the rules no longer apply to the order, from the lookups for the patient of the context
@@ -1446,11 +1451,11 @@ Scenarios: {scenarios}
     /// warning. A lookup that fails leaves the notice as it is. An order that cannot be solved is
     /// refused: it stands as it was, marked, with the notice. The mark goes when the order was calculated on
     /// another value of the patient, or holds that value under a known current rule.
-    let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
+    let orderOnPatientData logger provider patientData (sc: OrderScenario) ctx =
         let (Id orderId) = sc.Order.Id
-        let currentRules = ctx |> rulesFor logger provider pat
+        let currentRules = ctx |> rulesFor logger provider patientData
         let noLongerApply =
-            rulesVerdict logger sc.Order (ctx |> rulesFor logger provider ctx.Patient) currentRules
+            rulesVerdict logger sc.Order (ctx |> rulesFor logger provider ctx.PatientData) currentRules
 
         let orderOfCurrentRule =
             match noLongerApply, currentRules with
@@ -1468,7 +1473,7 @@ Scenarios: {scenarios}
                 built
             | _ -> None
 
-        let adjust = sc.Order |> adjustOfPatient pat
+        let adjust = sc.Order |> adjustOfPatient patientData
 
         let recalculate ord =
             let orderWithLimits =
@@ -1597,9 +1602,9 @@ Scenarios: {scenarios}
 
     /// Whether the patient lacks a measurement for every prescription rule: at least one rule, and
     /// none of them can be prescribed for the patient. No rules at all is not a missing measurement.
-    let measurementMissing pat prs =
+    let measurementMissing patientData prs =
         prs |> Array.isEmpty |> not
-        && prs |> Array.forall (PrescriptionRule.isPrescribable pat >> not)
+        && prs |> Array.forall (PrescriptionRule.isPrescribable patientData >> not)
 
 
     /// The context holding the scenarios of the prescription rules, refused when no scenario is
@@ -1633,9 +1638,9 @@ Scenarios: {scenarios}
     /// The dose rules applying to the department of the patient, or the default department:
     /// every rule with limits, and a dose rule without limits only when a solution rule for the
     /// department limits every component of it.
-    let applyingToDepartment provider pat drs =
+    let applyingToDepartment provider patientData drs =
         let routeMapping = Api.getRouteMapping provider
-        let department = pat |> Api.withDefaultDepartment provider |> PatientData.department
+        let department = patientData |> Api.withDefaultDepartment provider |> PatientData.department
 
         let solutionRules =
             Api.getSolutionRules provider
@@ -1663,11 +1668,13 @@ Scenarios: {scenarios}
             Api.getDoseRules provider
             |> Api.filterDoseRules
                 provider
-                { filterPicks ctx with Patient = { PatientData.unknown with Department = ctx.Patient.Department } }
-            |> applyingToDepartment provider ctx.Patient
+                { filterPicks ctx with
+                    PatientData = { PatientData.unknown with Department = ctx.PatientData.Department }
+                }
+            |> applyingToDepartment provider ctx.PatientData
 
-        if ctx.Patient |> selectsRules then
-            let filter = { filterPicks ctx with Patient = ctx |> matchedPatient }
+        if ctx.PatientData |> selectsRules then
+            let filter = { filterPicks ctx with PatientData = ctx |> matchedPatientData }
 
             let prs = filter |> Api.filterPrescriptionRules provider |> Result.defaultValue [||]
 
@@ -1675,7 +1682,7 @@ Scenarios: {scenarios}
 
             // the products the lookup prescribes from: reconstituted for the patient, as the lookup does
             let hasNoProducts dr =
-                let pat = filter.Patient |> Api.withDefaultDepartment provider
+                let pat = filter.PatientData |> Api.withDefaultDepartment provider
 
                 dr
                 |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location (pat |> PatientData.department)
@@ -1695,7 +1702,7 @@ Scenarios: {scenarios}
                     || dr |> hasNoProducts
                 )
 
-            prs |> measurementMissing filter.Patient |> refusalOf forPicks forPatient
+            prs |> measurementMissing filter.PatientData |> refusalOf forPicks forPatient
         else
             refusalOf forPicks [||] false
 
@@ -1713,12 +1720,12 @@ Scenarios: {scenarios}
                 Route = ctx.Filter.Route
                 Form = ctx.Filter.Form
                 DoseType = ctx.Filter.DoseType
-                Patient = ctx |> matchedPatient
+                PatientData = ctx |> matchedPatientData
             }
             |> clear
             |> optionsFor logger provider
 
-        if ctx.Patient |> selectsRules then
+        if ctx.PatientData |> selectsRules then
             { ctx with
                 Filter =
                     { ctx.Filter with
@@ -2042,33 +2049,33 @@ Scenarios: {scenarios}
     /// filter reconciled against the pick lists the rules give that patient, its scenarios
     /// as held.
     let reconcile logger provider (ctx: OrderContext) : OrderContext =
-        let fresh = create logger provider ctx.Patient
+        let fresh = create logger provider ctx.PatientData
 
         { ctx with
-            Patient = fresh.Patient
+            OrderContext.PatientData = fresh.PatientData
             Filter = Filter.reconcile fresh.Filter ctx.Filter
         }
 
 
     /// The totals over the orders, for the age, weight and gestational age of the patient.
-    let totalsFor (totalsData: TotalsData[]) (pat: PatientData) orders =
+    let totalsFor (totalsData: TotalsData[]) (patientData: PatientData) orders =
         orders
         |> Totals.getTotals
             totalsData
-            (pat |> CorePatientData.ageInDays)
-            (pat |> CorePatientData.weightInKg)
-            (pat |> CorePatientData.gestationalAgeInDays)
+            (patientData |> CorePatientData.ageInDays)
+            (patientData |> CorePatientData.weightInKg)
+            (patientData |> CorePatientData.gestationalAgeInDays)
 
 
     /// The totals over the orders of the context's scenarios, for the age, weight and gestational age
     /// of the patient.
-    let contextTotalsFor (totalsData: TotalsData[]) (pat: PatientData) (ctx: OrderContext) : Totals =
-        ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData pat
+    let contextTotalsFor (totalsData: TotalsData[]) (patientData: PatientData) (ctx: OrderContext) : Totals =
+        ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData patientData
 
 
     /// The totals over the orders of the context's scenarios, for its patient's age, weight and
     /// gestational age.
-    let contextTotals totalsData (ctx: OrderContext) = ctx |> contextTotalsFor totalsData ctx.Patient
+    let contextTotals totalsData (ctx: OrderContext) = ctx |> contextTotalsFor totalsData ctx.PatientData
 
 
     let logOrderContext (logger: Logger) msg cmd =
@@ -2136,7 +2143,7 @@ Scenarios: {scenarios}
 
     /// The order context a side of a link rule offers for the patient, before it is evaluated: the
     /// indication, the generic and the route set when the side gives them; a blank field is left open.
-    let ofLinkSide (side: LinkSide) patient =
+    let ofLinkSide (side: LinkSide) patientData =
         {
             Filter =
                 { emptyFilter with
@@ -2144,7 +2151,7 @@ Scenarios: {scenarios}
                     Generic = LinkRule.fieldOf side.Generic
                     Route = LinkRule.fieldOf side.Route
                 }
-            Patient = patient
+            PatientData = patientData
             Scenarios = [||]
             Argumentation = None
         }
@@ -2167,7 +2174,7 @@ Scenarios: {scenarios}
         type Dto =
             {
                 Filter: Filter.Dto.Dto
-                Patient: CorePatientData.Dto.Dto
+                PatientData: CorePatientData.Dto.Dto
                 Scenarios: OrderScenario.Dto.Dto[]
                 Argumentation: string option
             }
@@ -2176,7 +2183,7 @@ Scenarios: {scenarios}
         let toDto (ctx: OrderContext) : Dto =
             {
                 Filter = ctx.Filter |> Filter.Dto.toDto
-                Patient = ctx.Patient |> CorePatientData.Dto.toDto
+                PatientData = ctx.PatientData |> CorePatientData.Dto.toDto
                 Scenarios = ctx.Scenarios |> Array.map OrderScenario.Dto.toDto
                 Argumentation = ctx.Argumentation
             }
@@ -2191,7 +2198,7 @@ Scenarios: {scenarios}
                 (fun dto ->
                     let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
 
-                    let patient = Nested.required "Patient" dto.Patient (Patient.fromDto today)
+                    let patient = Nested.required "PatientData" dto.PatientData (Patient.fromDto today)
 
                     let scenarios =
                         dto.Scenarios
@@ -2206,7 +2213,7 @@ Scenarios: {scenarios}
                         Ok
                             {
                                 Filter = filter
-                                Patient = patient
+                                PatientData = patient
                                 Scenarios = scenarios |> List.toArray
                                 Argumentation = dto.Argumentation
                             }

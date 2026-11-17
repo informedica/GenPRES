@@ -1148,7 +1148,7 @@ module TypeTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = PatientData.unknown
+                PatientData = PatientData.unknown
                 Scenarios = [||]
                 Argumentation = None
             }
@@ -1166,7 +1166,7 @@ module TypeTests =
 
         let plan contexts =
             {
-                Patient = PatientData.unknown
+                PatientData = PatientData.unknown
                 Filtered = [||]
                 Contexts = contexts
                 Totals = totals
@@ -1213,7 +1213,7 @@ module TypeTests =
                     |> Expect.equal "both contexts" [| "ctx-1"; "ctx-2" |]
 
                     plan.Filtered |> Expect.equal "the filter keeps one" [| "ctx-2" |]
-                    plan.Patient |> Expect.equal "the patient as shown" PatientData.unknown
+                    plan.PatientData |> Expect.equal "the patient as shown" PatientData.unknown
                 }
 
                 test "a nutrition rule set names what its category draws from" {
@@ -4334,7 +4334,7 @@ module OrderPlanDtoTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = child
+                PatientData = child
                 Scenarios = [| scenario |]
                 Argumentation = None
             }
@@ -4377,7 +4377,7 @@ module OrderPlanDtoTests =
 
         let plan: OrderPlan =
             {
-                Patient = child
+                PatientData = child
                 Filtered = [| "ctx-1" |]
                 Contexts = [| planContext; feeding |]
                 Totals = totals
@@ -4469,12 +4469,12 @@ module OrderPlanDtoTests =
                     [
                         test "an order plan whose patient is below the minimum data, with every context's errors" {
                             let estimated =
-                                { Fixtures.plan.Patient with Age = None }
+                                { Fixtures.plan.PatientData with Age = None }
                                 |> Patient.setEstimatedWeight
                                     SamplePatients.measuredOn
-                                    (Fixtures.plan.Patient |> Patient.getWeight)
+                                    (Fixtures.plan.PatientData |> Patient.getWeight)
 
-                            let dto = { Fixtures.plan with Patient = estimated } |> OrderPlan.Dto.toDto
+                            let dto = { Fixtures.plan with PatientData = estimated } |> OrderPlan.Dto.toDto
 
                             let brokenContext = { dto.Contexts[0] with Category = "x" }
 

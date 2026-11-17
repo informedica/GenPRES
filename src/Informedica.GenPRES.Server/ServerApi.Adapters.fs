@@ -170,7 +170,7 @@ module Adapters =
                 | _ -> None
 
             let offers (rule: LinkRule) =
-                let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.Patient
+                let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.PatientData
 
                 match unpicked.Filter.Generic with
                 | Some _ -> [| unpicked |]

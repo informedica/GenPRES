@@ -127,7 +127,7 @@ let tests =
                 | Ok(Refused(cmd, _)) ->
                     let ctx = cmd |> OrderContext.Command.get
                     ctx.Filter |> Expect.equal "the empty filter" OrderContext.emptyFilter
-                    ctx.Patient |> Expect.equal "the patient kept" pcmContext.Patient
+                    ctx.PatientData |> Expect.equal "the patient kept" pcmContext.PatientData
                 | other -> failtest $"%A{other}"
             }
 
@@ -392,7 +392,7 @@ let seedTests =
                     }
 
                 ctx.Scenarios |> Expect.isEmpty "no scenarios"
-                ctx.Patient |> Expect.equal "the patient kept" pcmContext.Patient
+                ctx.PatientData |> Expect.equal "the patient kept" pcmContext.PatientData
             }
 
             test "a reload changes nothing" {

@@ -206,6 +206,7 @@ step marked *rename* or *move* adds no behaviour and exceeds the limit of 200 li
    *Patient Data*, and says that GenFORM and GenORDER work with patient data. Issue #1689 is
    rewritten to this plan.
 
-After every step `dotnet run servertests` and `scripts/CheckDependencyRule.fsx` pass. After step 5
-the words `ehr`, `sign` and `identi` do not occur in `src/Informedica.GenFORM.Lib` and
-`src/Informedica.GenORDER.Lib`.
+After every step `dotnet run servertests` and `scripts/CheckDependencyRule.fsx` pass. After step 6
+the word `ehr` and the words `signed`, `signing` and `signer` do not occur in
+`src/Informedica.GenFORM.Lib` and `src/Informedica.GenORDER.Lib`, and nothing there names the
+identity of a patient. The identity of a rule is another thing and stays.

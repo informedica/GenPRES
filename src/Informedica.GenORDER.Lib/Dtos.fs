@@ -2,8 +2,8 @@ namespace Informedica.GenOrder.Lib
 
 // The Dto helpers and the Dtos that come before Api.fs (ADR-0008,
 // docs/adr/0008-contract-model-dto-mapping-boundary.md): a serializable shape per aggregate,
-// toDto total, fromDto a Result that never throws, and the canonical serialization the signing
-// digest and the database share. OrderScenario.Dto and OrderContext.Dto live with their modules
+// toDto total, fromDto a Result that never throws, and the canonical serialization that a digest
+// and the database share. OrderScenario.Dto and OrderContext.Dto live with their modules
 // in Api.fs; the order plan Dtos in OrderPlan.fs after it.
 
 open System
@@ -321,7 +321,7 @@ module Filter =
                 )
 
 
-/// The one serialization of a Dto: the form the signing digest is computed over and the
+/// The one serialization of a Dto: the form a digest is computed over and the
 /// form the database stores. No whitespace, fields in declared order, arrays as held, a
 /// BigRational as "numerator/denominator" in lowest terms, an option as its value or null.
 module Canonical =

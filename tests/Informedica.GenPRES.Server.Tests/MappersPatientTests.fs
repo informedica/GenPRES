@@ -64,7 +64,7 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
 let formularyPatient model =
     { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model }
     |> ServerApi.FormularyService.mapFormularyToFilter readAt
-    |> Result.map _.Patient
+    |> Result.map _.PatientData
     |> Result.defaultWith (fun errs -> failtest $"no filter: %A{errs}")
 
 

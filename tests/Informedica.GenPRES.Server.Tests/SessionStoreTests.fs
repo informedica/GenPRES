@@ -426,7 +426,7 @@ let tests =
                                             versionOf 1 prescriber t0 s.Plan,
                                             None,
                                             token "s-2",
-                                            s.Plan.Patient
+                                            s.Plan.PatientData
                                         )
                                 }
                     }
