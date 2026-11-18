@@ -1,9 +1,8 @@
 namespace Components
 
 
-/// Content with a spinner laid over it while it reloads. The spinner takes no room, so the
-/// content keeps its place and its height; content without height yet, such as an empty list,
-/// gets room for the spinner while it loads.
+/// Lays a spinner over the content while it loads. The spinner takes no room, so the content
+/// keeps its place. Content without height, such as an empty list, gets room for the spinner.
 module LoadingOverlay =
 
 
@@ -11,7 +10,7 @@ module LoadingOverlay =
     open Feliz
 
 
-    /// The overlay: whether it is loading, and the content it lies over.
+    /// Whether the content is loading, and the content.
     type Props =
         {|
             isLoading: bool
@@ -32,7 +31,7 @@ module LoadingOverlay =
 
     [<JSX.Component>]
     let View (props: Props) =
-        // the room of a spinner with padding around it, so it never lies over what comes before
+        // room for a spinner with padding, so the spinner never lies over the content above
         let containerSx =
             {|
                 position = "relative"

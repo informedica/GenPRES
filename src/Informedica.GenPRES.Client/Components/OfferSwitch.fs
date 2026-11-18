@@ -1,8 +1,8 @@
 namespace Components
 
 
-/// An order the link rules offer with a main order: its name with the switch that turns it on, and while it
-/// is on the controls the page gives it, under its name.
+/// An order that the link rules offer with a main order: its name with a switch to turn it on, and,
+/// while it is on, the controls the page gives it under the name.
 module OfferSwitch =
 
 
@@ -11,7 +11,7 @@ module OfferSwitch =
     open Informedica.GenPRES.Client.Core.StateMachines.OrderContextMachine
 
 
-    /// The offer: its name, its switch, whether the switch is disabled, what a turn does, and its controls.
+    /// The name, the switch state, whether the switch is disabled, the switch handler, and the controls.
     type Props =
         {|
             name: string
@@ -22,7 +22,7 @@ module OfferSwitch =
         |}
 
 
-    // the room of the switch before an offer's controls, so they stand under its name
+    // indents the controls by the width of the switch, so they line up under the name
     let private offerControlsSx = {| paddingLeft = 6 |}
 
 

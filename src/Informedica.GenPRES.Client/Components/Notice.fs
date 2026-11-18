@@ -1,10 +1,8 @@
 namespace Components
 
 
-/// What a page tells the user in a box: something went well, something to know, something to
-/// mind, something wrong, or that there is nothing here. One look for each, so a page says it
-/// the same way as every other page, with a title when the message needs one, an action when
-/// there is one to take, and a way to dismiss it when it may be dismissed.
+/// A message box with one style per kind, so every page shows a success, an information, a warning,
+/// an error or an empty result the same way. It has an optional title, action and close button.
 module Notice =
 
 
@@ -12,7 +10,7 @@ module Notice =
     open Feliz
 
 
-    /// What kind of thing the notice says.
+    /// The kind of message, which sets the style of the notice.
     [<RequireQualifiedAccess>]
     type Kind =
         /// Something went well.
@@ -23,14 +21,12 @@ module Notice =
         | Warning
         /// Something wrong.
         | Error
-        /// Nothing here: no result, no data, nothing to show. Its own case, since nothing found
-        /// is neither a success nor a failure.
+        /// Nothing to show, such as no result or no data. This is neither a success nor a failure.
         | Empty
 
 
-    /// The notice: its kind, a title when the message needs one, the message, an action when
-    /// there is one to take, and whether it is disabled, and what dismissing it does when it
-    /// may be dismissed.
+    /// The kind, an optional title, the message, an optional action button that can be disabled,
+    /// and an optional close handler. Without a close handler the notice has no close button.
     type Props =
         {|
             kind: Kind
@@ -55,7 +51,7 @@ module Notice =
         | Kind.Error -> "error"
 
 
-    // the empty state is outlined and without an icon: quiet, not a result
+    // the empty state is outlined, and the view shows it without an icon, so it reads as quiet
     let private variantOf kind =
         match kind with
         | Kind.Empty -> "outlined"

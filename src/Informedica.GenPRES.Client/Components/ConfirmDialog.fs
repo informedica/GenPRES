@@ -1,10 +1,9 @@
 namespace Components
 
 
-/// A question before an act that cannot be undone: what is about to happen, and the two ways
-/// out. The confirming action completes the task, so it is the prominent button on the right;
-/// cancelling steps back, outlined on the left. Nothing happens until the user answers, and
-/// closing the dialog any other way is a cancel.
+/// A dialog that asks to confirm an action that cannot be undone. The confirm button is the
+/// primary action on the right, the cancel button is on the left, and closing the dialog in any
+/// other way cancels.
 module ConfirmDialog =
 
 
@@ -12,7 +11,7 @@ module ConfirmDialog =
     open Feliz
 
 
-    /// The question and its two answers.
+    /// Shows the title and the text with a confirm and a cancel button.
     [<JSX.Component>]
     let View
         (props:
