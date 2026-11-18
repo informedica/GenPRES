@@ -1508,6 +1508,13 @@ module Tests =
 
             let intGenerator s n = Gen.sample s n Arb.generate<int>
 
+            /// Today at 10:00. A birth date tomorrow is then less than one day after today, so a check on the whole
+            /// number of days would accept it.
+            let today = DateTime(2026, 11, 18, 10, 0, 0)
+
+            /// The birth date Dto of the date dt.
+            let ofDate (dt: DateTime) = dt |> BirthDate.fromDate |> BirthDate.Dto.toDto
+
 
             let tests =
                 testList
@@ -1520,6 +1527,38 @@ module Tests =
                             dto
                             |> BirthDate.Dto.fromDto (DateTime(2026, 1, 1))
                             |> Expect.isError "126 years"
+                        }
+
+                        test "a birth date tomorrow is refused" {
+                            today.AddDays 1.
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "tomorrow"
+                        }
+
+                        test "a birth date next year is refused" {
+                            today.AddYears 1
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "next year"
+                        }
+
+                        test "a birth date today is accepted" {
+                            today |> ofDate |> BirthDate.Dto.fromDto today |> Expect.isOk "today"
+                        }
+
+                        test "a birth date yesterday is accepted" {
+                            today.AddDays -1.
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isOk "yesterday"
+                        }
+
+                        test "an invalid birth date is refused without an exception" {
+                            BirthDate.create 2020<year> 2<month> 30<day>
+                            |> BirthDate.Dto.toDto
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "30 February does not exist"
                         }
 
                         test "should always return a valid date" {
