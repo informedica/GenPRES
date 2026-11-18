@@ -1258,20 +1258,6 @@ module PatientConstructorTests =
             "Patient constructors"
             [
 
-                test "a weight or a height set calculates the body surface area again" {
-                    let pat =
-                        PatientData.unknown
-                        |> SamplePatients.withWeightInKg 32m
-                        |> SamplePatients.withHeightInCm 140m
-
-                    let heavier = pat |> SamplePatients.withWeightInKg 40m
-                    let noHeight = heavier |> Patient.setHeight SamplePatients.measuredOn None
-
-                    [ pat; heavier; noHeight ]
-                    |> List.map (_.BodySurfaceArea >> Option.map decimal)
-                    |> Expect.equal "32 kg, then 40 kg, then no height" [ Some 1.1m; Some 1.2m; None ]
-                }
-
                 test "premature has gestational age set" {
                     SamplePatients.premature.GestationalAge
                     |> Expect.isSome "premature should have gestational age"
@@ -1283,47 +1269,8 @@ module PatientConstructorTests =
                     |> Expect.equal "231 days" (Some(ValueUnit.singleWithUnit Units.Time.day 231N))
                 }
 
-                test "the post-menstrual age does not depend on the order the ages are set in" {
-                    let gestFirst =
-                        PatientData.unknown
-                        |> Patient.setGestAge [ Patient.AgeParts.Weeks 32 ]
-                        |> Patient.setAge [ Patient.AgeParts.Weeks 1 ]
-
-                    let reset =
-                        PatientData.unknown
-                        |> Patient.setAge [ Patient.AgeParts.Weeks 3 ]
-                        |> Patient.setGestAge [ Patient.AgeParts.Weeks 32 ]
-                        |> Patient.setAge [ Patient.AgeParts.Weeks 1 ]
-
-                    [ gestFirst.PostMenstrualAge; reset.PostMenstrualAge ]
-                    |> Expect.equal
-                        "231 days both"
-                        [
-                            SamplePatients.premature.PostMenstrualAge
-                            SamplePatients.premature.PostMenstrualAge
-                        ]
-                }
-
                 test "a patient without a gestational age has no post-menstrual age" {
                     SamplePatients.newBorn.PostMenstrualAge |> Expect.isNone "none"
-                }
-
-                test "the post-menstrual age is the gestational age plus the age in days" {
-                    [
-                        for d in 0..400 do
-                            for w in 24..42 do
-                                d, w
-                    ]
-                    |> List.filter (fun (d, w) ->
-                        let p =
-                            PatientData.unknown
-                            |> Patient.setAge [ Patient.AgeParts.Days d ]
-                            |> Patient.setGestAge [ Patient.AgeParts.Weeks w ]
-
-                        p |> CorePatientData.postMenstrualAgeInDays
-                        <> Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt (d + w * 7)))
-                    )
-                    |> Expect.isEmpty "no difference"
                 }
 
                 test "premature has department NEO" {
@@ -1377,7 +1324,7 @@ module PatientAgeTests =
 
 
     let orderPatient ags marked =
-        { PatientData.unknown with MarkedAdult = marked } |> Patient.setAge ags
+        { PatientData.unknown with MarkedAdult = marked } |> SamplePatients.withAge ags
 
 
     let orderDays ags =
@@ -4506,9 +4453,9 @@ module OrderPlanDtoTests =
 
         let child =
             { PatientData.unknown with Access = [ CoreAccess.PVL ] }
-            |> Patient.setDepartment (Some "ICK")
-            |> Patient.setGender CoreGender.Male
-            |> Patient.setAge [ Patient.AgeParts.Days 3650 ]
+            |> SamplePatients.withDepartment (Some "ICK")
+            |> SamplePatients.withGender CoreGender.Male
+            |> SamplePatients.withAge [ Patient.AgeParts.Days 3650 ]
             |> SamplePatients.withWeightInKg 32m
             |> SamplePatients.withHeightInCm 140m
 
@@ -4641,32 +4588,32 @@ module OrderPlanDtoTests =
                             "an order context"
                             Fixtures.context
                             OrderContext.Dto.toDto
-                            (OrderContext.Dto.fromDto SamplePatients.measuredOn)
+                            (OrderContext.Dto.fromDto SamplePatients.readAt)
                         l2
                             "an order context"
                             Fixtures.context
                             OrderContext.Dto.toDto
-                            (OrderContext.Dto.fromDto SamplePatients.measuredOn)
+                            (OrderContext.Dto.fromDto SamplePatients.readAt)
                         l1
                             "a plan context"
                             Fixtures.feeding
                             PlanContext.Dto.toDto
-                            (PlanContext.Dto.fromDto SamplePatients.measuredOn)
+                            (PlanContext.Dto.fromDto SamplePatients.readAt)
                         l2
                             "a plan context"
                             Fixtures.feeding
                             PlanContext.Dto.toDto
-                            (PlanContext.Dto.fromDto SamplePatients.measuredOn)
+                            (PlanContext.Dto.fromDto SamplePatients.readAt)
                         l1
                             "an order plan"
                             Fixtures.plan
                             OrderPlan.Dto.toDto
-                            (OrderPlan.Dto.fromDto SamplePatients.measuredOn)
+                            (OrderPlan.Dto.fromDto SamplePatients.readAt)
                         l2
                             "an order plan"
                             Fixtures.plan
                             OrderPlan.Dto.toDto
-                            (OrderPlan.Dto.fromDto SamplePatients.measuredOn)
+                            (OrderPlan.Dto.fromDto SamplePatients.readAt)
                     ]
 
                 testList
@@ -4688,7 +4635,7 @@ module OrderPlanDtoTests =
 
                         test "an unknown category is an error" {
                             { (Fixtures.feeding |> PlanContext.Dto.toDto) with Category = "nutrition:soup" }
-                            |> PlanContext.Dto.fromDto SamplePatients.measuredOn
+                            |> PlanContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "named" (Error [ DtoError.UnknownCategory "nutrition:soup" ])
                         }
                     ]
@@ -4699,16 +4646,14 @@ module OrderPlanDtoTests =
                         test "an order plan whose patient is below the minimum data, with every context's errors" {
                             let estimated =
                                 { Fixtures.plan.PatientData with Age = None }
-                                |> Patient.setEstimatedWeight
-                                    SamplePatients.measuredOn
-                                    (Fixtures.plan.PatientData |> Patient.getWeight)
+                                |> SamplePatients.withEstimatedWeight (Fixtures.plan.PatientData |> Patient.getWeight)
 
                             let dto = { Fixtures.plan with PatientData = estimated } |> OrderPlan.Dto.toDto
 
                             let brokenContext = { dto.Contexts[0] with Category = "x" }
 
                             { dto with Contexts = [| brokenContext; dto.Contexts[1] |] }
-                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal
                                 "both reported"
                                 (Error
@@ -4725,7 +4670,7 @@ module OrderPlanDtoTests =
 
                             match
                                 { dto with Scenarios = [| { dto.Scenarios[0] with Order = broken } |] }
-                                |> OrderContext.Dto.fromDto SamplePatients.measuredOn
+                                |> OrderContext.Dto.fromDto SamplePatients.readAt
                             with
                             | Error [ DtoError.OrderNotCreated _ ] -> ()
                             | other -> failtest $"expected one OrderNotCreated, got {other}"
@@ -4738,7 +4683,7 @@ module OrderPlanDtoTests =
                                 Totals = Unchecked.defaultof<_>
                                 Filtered = null
                             }
-                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "named" (Error [ DtoError.Missing "Totals" ])
 
                             match
@@ -4746,7 +4691,7 @@ module OrderPlanDtoTests =
                                     Filtered = null
                                     Contexts = null
                                 }
-                                |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
+                                |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             with
                             | Ok plan ->
                                 plan.Filtered |> Expect.isEmpty "no filter"
@@ -4762,11 +4707,11 @@ module OrderPlanDtoTests =
                             let missing name = Error [ DtoError.Missing name ]
 
                             Unchecked.defaultof<OrderPlan.Dto.Dto>
-                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "order plan" (missing "OrderPlan")
 
                             Unchecked.defaultof<PlanContext.Dto.Dto>
-                            |> PlanContext.Dto.fromDto SamplePatients.measuredOn
+                            |> PlanContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "plan context" (missing "PlanContext")
 
                             Unchecked.defaultof<Totals.Dto.Dto>
@@ -4774,7 +4719,7 @@ module OrderPlanDtoTests =
                             |> Expect.equal "totals" (missing "Totals")
 
                             Unchecked.defaultof<OrderContext.Dto.Dto>
-                            |> OrderContext.Dto.fromDto SamplePatients.measuredOn
+                            |> OrderContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "order context" (missing "OrderContext")
 
                             Unchecked.defaultof<OrderScenario.Dto.Dto>

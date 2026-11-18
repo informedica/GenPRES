@@ -401,8 +401,8 @@ let estimateTests =
             test "an age alone gets the weight and height the client shows, as estimates" {
                 let pat =
                     PatientData.unknown
-                    |> Patient.setAge [ Years 2 ]
-                    |> Patient.setGender CoreGender.Male
+                    |> SamplePatients.withAge [ Years 2 ]
+                    |> SamplePatients.withGender CoreGender.Male
                     |> ServerApi.Patient.estimated readAt tables
 
                 (pat |> weightKg,
@@ -414,8 +414,8 @@ let estimateTests =
 
             test "the estimates give the body surface area of the estimated weight and height" {
                 PatientData.unknown
-                |> Patient.setAge [ Years 2 ]
-                |> Patient.setGender CoreGender.Male
+                |> SamplePatients.withAge [ Years 2 ]
+                |> SamplePatients.withGender CoreGender.Male
                 |> ServerApi.Patient.estimated readAt tables
                 |> _.BodySurfaceArea
                 |> Option.map decimal
@@ -425,8 +425,8 @@ let estimateTests =
             test "a measured weight is untouched, the height estimated beside it" {
                 let pat =
                     PatientData.unknown
-                    |> Patient.setAge [ Years 2 ]
-                    |> Patient.setGender CoreGender.Male
+                    |> SamplePatients.withAge [ Years 2 ]
+                    |> SamplePatients.withGender CoreGender.Male
                     |> SamplePatients.withWeightInKg 20m
                     |> ServerApi.Patient.estimated readAt tables
 
@@ -468,8 +468,8 @@ let estimateTests =
                         Access = [ CoreAccess.CVL ]
                         Diagnoses = [| "sepsis" |]
                     }
-                    |> Patient.setAge [ Years 2 ]
-                    |> Patient.setGender CoreGender.Female
+                    |> SamplePatients.withAge [ Years 2 ]
+                    |> SamplePatients.withGender CoreGender.Female
                     |> ServerApi.Patient.estimated readAt tables
 
                 (pat |> PatientData.department, pat |> PatientData.gender, pat |> PatientData.access, pat.Diagnoses)

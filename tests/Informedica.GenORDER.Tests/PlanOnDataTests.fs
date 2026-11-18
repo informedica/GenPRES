@@ -288,9 +288,7 @@ let tests =
                     { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
 
                 let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication marked |]
-                let followed =
-                    plan
-                    |> Fixture.followed p (start |> Patient.setWeight SamplePatients.measuredOn None)
+                let followed = plan |> Fixture.followed p (start |> SamplePatients.withWeight None)
                 let scenario = followed.Contexts[0].Context.Scenarios[0]
 
                 scenario.NotRecalculated |> Expect.isTrue "nothing was calculated"
@@ -311,13 +309,11 @@ let tests =
 
                 let plan = OrderPlan.create adult [| PlanContext.create "c1" OrderCategory.Medication ctx |]
 
-                OrderContext.selectsRules (adult |> Patient.setWeight SamplePatients.measuredOn None)
+                OrderContext.selectsRules (adult |> SamplePatients.withWeight None)
                 |> Expect.isTrue "the rules are looked up"
 
                 let scenario =
-                    (plan
-                     |> Fixture.followed p (adult |> Patient.setWeight SamplePatients.measuredOn None))
-                        .Contexts[0].Context.Scenarios[0]
+                    (plan |> Fixture.followed p (adult |> SamplePatients.withWeight None)).Contexts[0].Context.Scenarios[0]
 
                 scenario.Order |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
                 scenario.RulesNoLongerApply |> Expect.isTrue "the rules no longer apply"
