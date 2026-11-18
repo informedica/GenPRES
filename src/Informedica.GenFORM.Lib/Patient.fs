@@ -176,35 +176,6 @@ module PatientCategory =
         | Some rule, Some patient -> rule = patient
 
 
-    /// Returns true when patCat2 matches patCat1 on department, gender and access device, and the minimum
-    /// of each range of patCat1, for age, gestational age, post-menstrual age, weight and BSA, is in the
-    /// matching range of patCat2.
-    let isMatch (patCat1: PatientCategory) (patCat2: PatientCategory) =
-        let eqsOpt a b =
-            match a, b with
-            | None, _
-            | _, None -> true
-            | Some a, Some b -> a = b
-
-        let inRange (minMax1: MinMax) minMax2 =
-            minMax1.Min |> Option.map Limit.getValueUnit |> MinMax.inRange minMax2
-            && minMax2.Max |> Option.map Limit.getValueUnit |> MinMax.inRange minMax2
-
-        ([| patCat2 |],
-         [|
-             fun (p: PatientCategory) -> patCat1.Department |> eqsOpt p.Department
-             fun (p: PatientCategory) -> p |> getAge |> inRange (patCat1 |> getAge)
-             fun (p: PatientCategory) -> p.GestAge |> inRange patCat1.GestAge
-             fun (p: PatientCategory) -> p.PMAge |> inRange patCat1.PMAge
-             fun (p: PatientCategory) -> p.Weight |> inRange patCat1.Weight
-             fun (p: PatientCategory) -> p.BSA |> inRange patCat1.BSA
-             fun (p: PatientCategory) -> patCat1.Gender |> Gender.isMatch p.Gender
-             fun (p: PatientCategory) -> VenousAccess.check p.Access [ patCat1.Access ]
-         |])
-        ||> Array.fold (fun acc pred -> acc |> Array.filter pred)
-        |> fun xs -> xs |> Array.length > 0
-
-
     /// Prints an age in days as a string, in its largest unit: days below one week, weeks up to 30
     /// days, months below one year, years from 365 days, each count rounded down.
     let printAge age =
