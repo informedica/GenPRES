@@ -42,7 +42,7 @@ module Models =
 
 
     /// The patient data logic shared by the client and the server: the empty value, the constructors, the readers
-    /// and validate. Every field of the patient data is optional, so validate checks the minimum. The module
+    /// and validate. The patient data can be incomplete, so validate checks the minimum. The module
     /// calculates no age: the server sets the ages, the adult mark, the gestational age and the estimates with
     /// GenCORE. ServerApi.Patient.toCore maps the patient data to the GenCORE patient. Patient logic that only the
     /// server needs belongs in GenFORM or GenCORE.
