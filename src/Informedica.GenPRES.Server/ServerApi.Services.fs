@@ -352,7 +352,7 @@ module OrderContextService =
         let maxLength = 1000
 
 
-        /// Returns the text, or an error when it is longer than maxLength. No text passes.
+        /// Returns the text, or an error when it is longer than maxLength. Missing text is accepted.
         let check (text: string option) : Result<string option, string[]> =
             match text with
             | Some s when s.Length > maxLength ->
