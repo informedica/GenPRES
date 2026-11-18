@@ -1258,6 +1258,20 @@ module PatientConstructorTests =
             "Patient constructors"
             [
 
+                test "a weight or a height set calculates the body surface area again" {
+                    let pat =
+                        PatientData.unknown
+                        |> SamplePatients.withWeightInKg 32m
+                        |> SamplePatients.withHeightInCm 140m
+
+                    let heavier = pat |> SamplePatients.withWeightInKg 40m
+                    let noHeight = heavier |> Patient.setHeight SamplePatients.measuredOn None
+
+                    [ pat; heavier; noHeight ]
+                    |> List.map (_.BodySurfaceArea >> Option.map decimal)
+                    |> Expect.equal "32 kg, then 40 kg, then no height" [ Some 1.1m; Some 1.2m; None ]
+                }
+
                 test "premature has gestational age set" {
                     SamplePatients.premature.GestationalAge
                     |> Expect.isSome "premature should have gestational age"

@@ -490,6 +490,7 @@ module Patient =
                     else
                         { pat.Height with Calculation = est.Height.Calculation }
             }
+            |> CorePatientData.calculateBodySurfaceArea
         )
         |> Result.defaultValue pat
 
