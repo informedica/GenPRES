@@ -116,6 +116,11 @@ module Double =
                     zeroCount + p
 
 
+    /// Returns the number of decimals that f is rounded to for n significant digits.
+    /// The number is at most 15, because Math.Round takes at most 15 decimals for a float.
+    let roundingDecimals n (f: float) = f |> getPrecision n |> min 15
+
+
     /// Fix the precision of a float f to
     /// match a minimum of non zero digits n
     /// * 66.666 |> fixPrecision 1 = 67
@@ -134,8 +139,8 @@ module Double =
         if n < 0 then
             f
         else
-            let precision = getPrecision n f
-            Math.Round(f, precision)
+            // Adding zero turns a negative zero into zero, so that it does not print as "-0".
+            Math.Round(f, f |> roundingDecimals n) + 0.
 
 
     //----------------------------------------------------------------------------
@@ -183,12 +188,17 @@ module Double =
             formattedInteger + "," + decimalPart
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    let toStringNumberNLWithoutTrailingZeros =
-        toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
+    /// Formats f as a Dutch number with at least n significant digits and without trailing zeros.
+    /// A negative n prints the number in full: it counts as 15, the most significant digits of a float.
+    /// Example: 0.0666 with n = 2 gives "0,067".
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n f =
+        let n = if n < 0 then 15 else n
+
+        f
+        |> fixPrecision n
+        |> toStringNumberNL $"%i{f |> roundingDecimals n}"
+        |> String.removeTrailingZerosFromDutchNumber
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    /// and with a fixed precision.
-    /// Example: 0.0666 |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    /// Formats f as a Dutch number with at least 3 significant digits and without trailing zeros.
+    let toStringNumberNLWithoutTrailingZeros f = f |> toStringNumberNLWithoutTrailingZerosFixPrecision 3
