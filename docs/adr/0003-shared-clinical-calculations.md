@@ -124,15 +124,19 @@ standalone `classifyGfr` function.
 
 ### Unused formulas removed — amended 2026-10-10
 
-The server never used the formulas in `Shared/Calculations.fs`: GenCORE has its own, in
-`Informedica.GenCORE.Lib/Calculations.fs`. The client used only the Du Bois body surface area
-for the patient display. Everything else was removed: the other four BSA formulas, the age
-utilities except `weeksToDays`, the renal unit conversions, the eGFR formulas and the GFR
-classification.
+The server never used the shared formulas: GenCORE has its own. The client used only the
+Du Bois body surface area for the patient display. Everything else was removed: the other four
+body surface area formulas, the age utilities but one, the renal unit conversions, the eGFR
+formulas and the GFR classification.
 
-What is left in Shared is `Age.weeksToDays`, which the patient readers use. `calcDuBois`, the
-`Conversions` it needs and the `bsa` unit moved to Client.Core with the patient display, as
-`BodySurfaceArea`. The single source of truth this ADR aimed for is GenCORE, on the server.
+What is left in Shared is the conversion of weeks to days, which the patient readers use. The
+client kept the Du Bois body surface area for the patient display, until the amendment of
+2026-11-18. The single source of truth this ADR aimed for is GenCORE, on the server.
+
+### Client body surface area removed — amended 2026-11-18
+
+The client no longer calculates the body surface area. The server calculates it with the patient
+data and sends it with the patient, and the patient display shows that value.
 
 ## Consequences
 

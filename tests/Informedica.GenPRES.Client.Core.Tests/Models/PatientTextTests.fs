@@ -4122,6 +4122,22 @@ let patientLineTests =
                     text.Contains part |> Flip.Expect.isTrue $"%s{part} in %s{text}"
             }
 
+            test "the body surface area is the one the server sent" {
+                let withWeightAndHeight =
+                    { patientOf (Some 5) (AdultMark.MarkableAdult false) Female with
+                        Weight = { PatientData.empty.Weight with Measured = Some 32000<gram> }
+                        Height = { PatientData.empty.Height with Measured = Some 140<cm> }
+                    }
+
+                let text pat = pat |> PatientText.toString patientRows English false
+
+                ({ withWeightAndHeight with BodySurfaceArea = Some 1.7m } |> text).Contains "BSA: 1.7 m2"
+                |> Flip.Expect.isTrue "the value of the server"
+
+                (withWeightAndHeight |> text).Contains "m2"
+                |> Flip.Expect.isFalse "none without a value of the server"
+            }
+
             test "without a renal function there is no renal label" {
                 (line Dutch None).Contains "Nierfunctie" |> Flip.Expect.isFalse "no renal label"
             }

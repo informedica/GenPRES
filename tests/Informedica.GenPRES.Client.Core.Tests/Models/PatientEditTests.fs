@@ -66,6 +66,7 @@ let fullPatient: PatientData =
                     Weeks = 150<week>
                     Days = 1<day>
                 }
+        BodySurfaceArea = Some 0.53m
         Weight =
             {
                 EstimatedP3 = Some 10000<gram>
