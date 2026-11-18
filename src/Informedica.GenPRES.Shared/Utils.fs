@@ -100,6 +100,9 @@ module Math =
             // The base-10 logarithm, rounded down, is the place of the first significant digit:
             // 0 for 6.6, 1 for 66 and -2 for 0.066.
             let first = f |> abs |> log10 |> floor |> int
+            // The logarithm of a float just below a power of ten rounds up to that power.
+            // The power of ten is read from text, because that gives the exact float.
+            let first = if float $"1e%i{first}" > abs f then first - 1 else first
 
             max 0 (n - 1 - first)
 
@@ -150,25 +153,20 @@ module Decimal =
         if d = 0m || n = 0 then
             n
         else
-            let absF = abs d
-            let s = absF.ToString("G", CultureInfo.InvariantCulture)
+            // The text is made with string and not with the "G" format, because in the browser
+            // that format drops the zeros at the end of a whole number: 1000 becomes "1".
+            // The text of a decimal has no exponent.
+            let parts = (d |> abs |> string).Split('.')
+            let leftPart = parts[0]
+            let p = n - (if leftPart = "0" then 0 else leftPart.Length)
+            let p = if p < 0 then 0 else p
 
-            if s.Contains "E" then
-                let eIndex = s.IndexOf("E") + 2
-                let h = int s[eIndex..]
-                h + n - 1
+            if leftPart <> "0" then
+                p
             else
-                let parts = s.Split('.')
-                let leftPart = parts[0]
-                let p = n - (if leftPart = "0" then 0 else leftPart.Length)
-                let p = if p < 0 then 0 else p
-
-                if leftPart <> "0" then
-                    p
-                else
-                    let rightPart = parts[1]
-                    let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
-                    zeroCount + p
+                let rightPart = parts[1]
+                let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
+                zeroCount + p
 
 
     /// Returns the number of decimals that d is rounded to for n significant digits.

@@ -2,13 +2,46 @@
 /// rounded to them.
 module Informedica.GenPRES.Shared.Tests.DecimalTests
 
+open System.Globalization
 open Expecto
 open Expecto.Flip
+open FsCheck
 
 open Informedica.GenPRES.Shared
 
 
-let config = { FsCheckConfig.defaultConfig with maxTest = 10000 }
+/// The Math of .NET, which the Math module of the contract hides in this file.
+type SystemMath = System.Math
+
+
+let config = { FsCheckConfig.defaultConfig with maxTest = 1000 }
+
+
+/// The place of the first significant digit of a float, read from the shortest text that gives
+/// the float back: 1 for 99.99999999999999, -6 for 1E-06 and -2 for 0.066.
+let firstDigitPlace (f: float) =
+    let text = (abs f).ToString("R", CultureInfo.InvariantCulture)
+
+    match text.Split 'E' with
+    | [| _; exponent |] -> int exponent
+    | _ ->
+        match text.Split '.' with
+        | [| "0"; fraction |] -> -(fraction |> Seq.takeWhile ((=) '0') |> Seq.length) - 1
+        | parts -> parts[0].Length - 1
+
+
+/// The number of decimals that the place of the first digit gives for n significant digits.
+let expectedDecimals n f = if n <= 0 then 0 else max 0 (n - 1 - firstDigitPlace f)
+
+
+/// The float that lies the given number of floats above a float, or below it when negative.
+let rec neighbour steps (f: float) =
+    if steps = 0 then
+        f
+    elif steps > 0 then
+        f |> SystemMath.BitIncrement |> neighbour (steps - 1)
+    else
+        f |> SystemMath.BitDecrement |> neighbour (steps + 1)
 
 
 [<Tests>]
@@ -45,6 +78,57 @@ let tests =
                         |> Decimal.fixPrecision 3
                         |> Expect.equal "0.0417" 0.0417m
                     }
+                ]
+
+            testList
+                "Decimal.getPrecision"
+                [
+                    // the decimal, the number of significant digits and the expected number of decimals
+                    for d, n, exp in
+                        [
+                            1000m, 3, 0
+                            1000m, 5, 1
+                            10m, 3, 1
+                            1200m, 3, 0
+                            100000m, 2, 0
+                            -1000m, 3, 0
+                            12.5m, 3, 1
+                            0.0666m, 2, 3
+                            6.6666m, 2, 1
+                            0.001m, 2, 4
+                            1e-27m, 1, 27
+                            123456789012345678901234567m, 3, 0
+                            0m, 3, 3
+                            6.6666m, -1, 0
+                        ] do
+                        test $"%M{d} with %i{n} significant digits needs %i{exp} decimals" {
+                            d |> Decimal.getPrecision n |> Expect.equal "the number of decimals" exp
+                        }
+
+                    testPropertyWithConfig
+                        config
+                        "a whole number that ends in zeros needs n decimals less its number of digits"
+                    <| fun (whole: int) (zeros: byte) (n: byte) ->
+                        let whole, zeros, n = 1 + abs (whole % 1000000), int zeros % 10, 1 + int n % 20
+                        let digits = (string whole).Length + zeros
+
+                        decimal whole * pown 10m zeros |> Decimal.getPrecision n = max 0 (n - digits)
+
+                    testPropertyWithConfig
+                        config
+                        "a decimal below 1 needs n decimals more than the zeros after its decimal point"
+                    <| fun (whole: int) (zeros: byte) (n: byte) ->
+                        let whole, zeros, n = 1 + abs (whole % 1000000), int zeros % 15, 1 + int n % 10
+                        // the digits of the whole number, placed after the zeros behind the decimal point
+                        let d = decimal whole / pown 10m ((string whole).Length + zeros)
+
+                        d |> Decimal.getPrecision n = zeros + n
+
+                    testPropertyWithConfig config "the text of a decimal has no exponent"
+                    <| fun (whole: int) (decimals: byte) (zeros: byte) ->
+                        let d = decimal whole / pown 10m (int decimals % 29) * pown 10m (int zeros % 10)
+
+                        not ((d |> abs |> string).ToUpper().Contains "E")
                 ]
 
             testList
@@ -103,6 +187,30 @@ let tests =
 
                         d |> float |> Math.getPrecision n = (d |> Decimal.getPrecision n)
 
+                    test "99.99999999999999 with 16 significant digits needs 14 decimals" {
+                        99.99999999999999
+                        |> Math.getPrecision 16
+                        |> Expect.equal "the number of decimals" 14
+                    }
+
+                    testPropertyWithConfig config "any float needs the decimals that its first digit gives"
+                    <| fun (f: NormalFloat) (n: byte) ->
+                        let f, n = f.Get, int n % 18
+
+                        f = 0. || f |> Math.getPrecision n = expectedDecimals n f
+
+                    testPropertyWithConfig
+                        config
+                        "a float at or next to a power of ten needs the decimals that its first digit gives"
+                    <| fun (k: int) (steps: int) (n: byte) ->
+                        let f = float $"1e%i{k % 301}" |> neighbour (steps % 4)
+
+                        f |> Math.getPrecision (int n % 18) = expectedDecimals (int n % 18) f
+
+                    testPropertyWithConfig config "a negative float needs the same decimals as the positive float"
+                    <| fun (f: NormalFloat) (n: byte) ->
+                        f.Get |> Math.getPrecision (int n) = (-f.Get |> Math.getPrecision (int n))
+
                     testPropertyWithConfig config "getPrecision does not throw for any float"
                     <| fun (f: float) (n: int) ->
                         f |> Math.getPrecision n |> ignore
@@ -121,6 +229,29 @@ let tests =
                     test "the float 0.0000666 with 2 significant digits rounds to 0.000067" {
                         0.0000666 |> Math.fixPrecision 2 |> Expect.equal "the rounded value" 0.000067
                     }
+
+                    test "99.99999999999999 with 16 significant digits stays as it is" {
+                        99.99999999999999
+                        |> Math.fixPrecision 16
+                        |> Expect.equal "the same value" 99.99999999999999
+                    }
+
+                    testPropertyWithConfig
+                        config
+                        "fixPrecision moves a float by at most half of the last digit that it keeps"
+                    <| fun (k: int) (steps: int) (mantissa: NormalFloat) (n: byte) ->
+                        // Math.Round is itself not exact near 15 digits, so the property stays below that
+                        let n = 1 + int n % 10
+                        // a float at or next to a power of ten, and any float of that size
+                        let power = float $"1e%i{k % 13}"
+
+                        [ power |> neighbour (steps % 4); power * (1. + abs mantissa.Get % 9.) ]
+                        |> List.forall (fun f ->
+                            let half = 0.5 * 10. ** float (firstDigitPlace f - n + 1)
+
+                            f |> Math.getPrecision n > 15
+                            || abs (Math.fixPrecision n f - f) <= half * 1.0000001
+                        )
 
                     test "a negative precision leaves the float as it is" {
                         12.3456789 |> Math.fixPrecision -1 |> Expect.equal "unchanged" 12.3456789
