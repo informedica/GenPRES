@@ -142,6 +142,15 @@ Decided by the maintainer on 2026-11-18.
 
 ## Open points
 
+- `PatientData.Dto.fromDto` returns a `Result`. What `Patient.estimated` and
+  `Session.signedPatientDataAt` return when it refuses the changed Dto is open. Falling back on the
+  data before the change is wrong for `signedPatientDataAt`: that data still holds the estimates this
+  branch removes.
+- The GenFORM test helpers (`TestPatient`, `tests/Informedica.GenFORM.Tests/Tests.fs`) set the age,
+  the gestational age, the post-menstrual age, the weight and the height by record update.
+  `withPostMenstrualAgeInDays` sets a post-menstrual age that `fromDto` would calculate from the age
+  and the gestational age. Whether these helpers go through the Dto is open.
+
 - The client never sends or receives a date for the weight or the height. Nothing on the client
   changes.
 - The canonical form of a parsed plan changes, so a signing challenge made before the change does not
@@ -183,7 +192,11 @@ Each step is one pull request within the limit of 200 changed source lines.
    `NutritionRuleSetsTests`.
 3. **Server.** `ofModel` sets undated values, and `estimated` sets undated estimates (decision 3), so
    the patient data of a data notice has undated estimates too; the comment of `estimating` loses
-   "dated today". Remove `challengeDate`, its port member and adapters, the branch in `SigningCommand`
+   "dated today". `Patient.estimated` (`Server/ServerApi.Mappers.Patient.fs:486`) and
+   `Session.signedPatientDataAt` (`Server/ServerApi.Session.fs:751`) change the patient data through the
+   Dto instead of a record update with `calculateBodySurfaceArea`: they write the Dto, set or remove
+   the calculation weight and height on it, and read it back with `PatientData.Dto.fromDto`. The
+   `CoreSource` alias of `Session` (`:414`) then has no use and goes. Remove `challengeDate`, its port member and adapters, the branch in `SigningCommand`
    that reads a submission on the date of its challenge, and their tests. Delete
    `SessionMapper.noticeData` (`Server/ServerApi.Mappers.Session.fs:93`): the server only sends a data
    notice, and only tests call it (`MappersOrderPlanTests.fs:186`, `:191`); that test keeps checking
