@@ -28,9 +28,8 @@ module Patient =
         module Patient = PatientData
 
 
-        /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
-        /// missing: an age, or a weight and a height. Nothing entered asks for the data. The id, the
-        /// name and the birthdate stay in the title bar: the panel is about the data.
+        /// Shows the patient data and, while the draft is not yet a patient, what is missing: an age, or
+        /// a weight and a height. The id, the name and the birthdate are shown in the title bar instead.
         let show lang terms pat =
             let term fallback t =
                 terms
@@ -42,7 +41,7 @@ module Patient =
                 | Resolved terms -> PatientText.toString terms lang true
                 | _ -> fun _ -> ""
 
-            // what the draft misses to be a patient, in the words every page uses
+            // What the draft needs to be a patient, in the same text as on the other pages.
             let missing =
                 pat
                 |> PatientReadinessPolicy.readiness
@@ -65,8 +64,8 @@ module Patient =
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
         let patient = envPatient.Draft
-        // the summary shows the patient the server answered, with the estimates next to a weight
-        // or height that was entered or cleared; the fields show the draft
+        // The summary shows the patient from the server answer, with estimates next to an entered or
+        // cleared weight or height. The fields show the draft.
         let current = envPatient.Current
         let updatePatient = envPatient.UpdatePatient
         let editPatient = envPatient.EditPatient
@@ -76,8 +75,8 @@ module Patient =
         let envSession = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let session = envSession.Session
 
-        // the patient is what every request reads: while anything is out the panel is greyed, so
-        // that the patient cannot change under it, and the next edit starts from the answer
+        // Every request reads the patient. While a request is under way the panel is disabled, so the
+        // patient cannot change during the request and the next edit starts from the answer.
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
 
         let context: Global.Context = React.useContext Global.context
@@ -87,13 +86,12 @@ module Patient =
 
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
-        // the panel shows the App's draft and keeps no copy of it: an edit is applied to that
-        // draft and sent to the App. A copy would go stale whenever the App's answer equals the
-        // draft it had, and show values the App no longer holds
+        // The panel edits the draft of the App and keeps no copy. A copy would go stale when the
+        // answer of the App equals the draft, and show values the App no longer has.
         let pat = patient
 
-        // the data of a new patient, while the question whether to lose the orders is open; the
-        // draft stays as it is, so that cancel leaves the panel on the previous data
+        // The data of another patient while the user is asked whether to remove the orders. The draft
+        // is unchanged, so cancel keeps the previous data.
         let newPatient, setNewPatient = React.useState (None: (PatientData option * Estimates) option)
 
         let dispatch msg =
@@ -104,7 +102,7 @@ module Patient =
                 | Estimates.Renewed -> pat |> update msg, updatePatient
                 | Estimates.Kept -> pat |> update msg |> keepEstimates msg pat, editPatient
 
-            // the reset has its own question
+            // The reset has its own confirmation dialog.
             let cleared =
                 match msg with
                 | Msg.Clear -> true
@@ -117,17 +115,16 @@ module Patient =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        // whom the patient is when the EHR said: the panel is in identified mode by it, not by
-        // an open Session, since a launch without data opens a Session without one, and one
-        // with a signed head opens identified from the head. Identified, the age is the
-        // platform's, shown, not chosen, and the rest of the data is changed, never cleared
+        // The panel is in identified mode when the EHR identified the patient, not when a Session is
+        // open: a launch without patient data opens a Session without a patient. For an identified
+        // patient the platform sets the age, and the other data can be changed but not cleared.
         let identified = SessionPatientPolicy.identified session
 
-        // the summary: the data only; the id, the name and the birthdate are the title bar's alone
+        // The summary shows the data only; the id, the name and the birthdate are in the title bar.
         let summary = current |> show lang localizationTerms |> toJsx
 
-        // the summary click opens or folds the panel; while the patient cannot be calculated
-        // the panel stays open, since there is nothing to fold it over
+        // A click on the summary opens or closes the panel. While the patient cannot be calculated
+        // the panel stays open.
         let toggle =
             fun _ ->
                 if patient |> canCalculate |> not then
@@ -135,14 +132,12 @@ module Patient =
                 else
                     isExpanded |> not |> setExpanded
 
-        // an edit of a field keeps the panel open, whatever it was: editing never takes the
-        // controls away from under the hand
+        // An edit of a field opens the panel, so the controls do not disappear while editing.
         let keepOpen = fun () -> true |> setExpanded
 
-        // the reset is asked first: the button opens the question, confirming discards the
-        // draft. An age, a weight and a height typed at the bedside are not rebuilt by picking
-        // again, which is why this reset asks where the prescribing page's does not. Only an
-        // anonymous patient has a reset: an identified patient's data is changed, never cleared
+        // The reset asks for confirmation, because an age, a weight and a height typed at the bedside
+        // cannot be restored by picking again; the reset on the prescribing page does not ask. Only an
+        // anonymous patient has a reset; the data of an identified patient cannot be cleared.
         let confirmResetOpen, setConfirmResetOpen = React.useState false
 
         let onReset = fun () -> setConfirmResetOpen true
@@ -188,15 +183,15 @@ module Patient =
                     onCancel = fun () -> setNewPatient None
                 |}
 
-        // a launched patient's department is the platform's, as its age is: shown, not chosen
+        // While a session is open, the platform sets the department, like the age: shown, not chosen.
         let launched =
             match session with
             | SessionMachine.SessionView.Open _
             | SessionMachine.SessionView.Closing _ -> true
             | _ -> false
 
-        // the department chosen, or the server's default preselected while none is: the pick
-        // that filters the solution rules is on the panel, so it is never a hidden one
+        // Shows the chosen department, or the server default as placeholder when none is chosen. The
+        // department filters the solution rules, so it is always visible on the panel.
         let departmentField =
             let own = pat |> Option.bind _.Department
 
@@ -205,17 +200,17 @@ module Patient =
                 | Resolved s -> s.Departments
                 | _ -> [||]
 
-            // the department in force is always among the options, so that the field can show
-            // it when the url or the launch named one the rules do not, and so that a field
-            // left with one option never picks that one over the one the patient has
+            // The department of the patient is always among the options, so the field can show a
+            // department from the url or the launch that the settings do not list, and a list of one
+            // option never replaces the department of the patient.
             let options =
                 match own with
                 | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
                 | _ -> names
                 |> Array.map (fun n -> n, n)
 
-            // the default is shown greyed, not chosen: picking it is the user's choice, which
-            // a select shown with that department already chosen would not pass on
+            // The default is a greyed placeholder, not a selection, so that picking it is a choice
+            // of the user that the field sends.
             let placeholder =
                 match own, settings with
                 | None, Resolved s -> Some s.DefaultDepartment
@@ -226,7 +221,7 @@ module Patient =
                     keepOpen ()
                     s |> Msg.UpdateDepartment |> dispatch
 
-            // a list of one department picks it, once: no server answer picks a department
+            // A list of a single department selects it, because the server never selects one.
             let only =
                 match options with
                 | [| (key, _) |] -> Some key
@@ -253,8 +248,8 @@ module Patient =
                     options = options
                     selected = own
                     onChange = changeDepartment
-                    // the cross returns to the default, so it is offered only while there is a
-                    // choice to take back; clearing a default already shown would change nothing
+                    // Clearing returns to the default, so the clear button shows only when a department
+                    // is chosen.
                     clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = enabled
@@ -262,8 +257,8 @@ module Patient =
                     placeholder = placeholder
                 |}
 
-        // where the department in force came from: the launch when a session is open, the
-        // panel or the url otherwise, or else the server's default, said so
+        // Says where the department comes from: the launch while a session is open, the panel or the
+        // url otherwise, or the server default when none is chosen.
         let departmentNotice =
             let inForce =
                 match pat |> Option.bind _.Department, settings with
@@ -291,9 +286,8 @@ module Patient =
                         onClose = None
                     |}
 
-        // bounded and to the left, so the button is not as wide as the panel it sits in and is
-        // not where you click by default. The reset only for an anonymous patient; the refresh
-        // waits, as the panel does, for every request
+        // The action bar is narrow and on the left, so a button is not as wide as the panel. Only an
+        // anonymous patient has a reset. The buttons are disabled while a request is under way.
         let resetBar =
             let actions =
                 [|
@@ -320,10 +314,9 @@ module Patient =
             else
                 Components.ActionBar.View {| actions = actions |}
 
-        // a read-only field cannot be opened and has no cross: what it holds is not the user's;
-        // a field that is not clearable can be changed, but not emptied; the placeholder is a
-        // value filled in for the user, as its key and its text, shown greyed while the user has
-        // given none, and the list opens on it
+        // A read-only field cannot be opened and has no clear button, because the user does not set
+        // its value. A field that is not clearable can be changed but not emptied. The placeholder is
+        // a key and a text shown greyed while the user has chosen no value, and the list opens on it.
         let createField readOnly clearable placeholder label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
@@ -346,14 +339,13 @@ module Patient =
                     placeholderValue = placeholder |> Option.map fst
                 |}
 
-        // renal function has no "unknown" among its options, so the cross is the only way back
-        // to none, for an identified patient too
+        // Renal function has no unknown option, so the clear button is the only way back to no
+        // value, also for an identified patient.
         let createSelect label sel changeValue vs = createField false true None label sel changeValue vs
 
-        // weight, height and gestational age: an identified patient's are changed, never
-        // cleared; an anonymous patient's are fictitious and may be. The field holds only what
-        // was measured: an estimate is the placeholder, so that picking the value estimated
-        // records it as measured
+        // Weight, height and gestational age can be cleared only for an anonymous patient. The field
+        // holds only a measured value; an estimate is the placeholder, so picking the estimated value
+        // records it as measured.
         let createMeasureSelect placeholder label sel changeValue vs =
             createField false (not identified) placeholder label sel changeValue vs
 
@@ -383,8 +375,8 @@ module Patient =
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
-        // the placeholder of a field from its estimate, as its key and its text, said to be an
-        // estimate, only while nothing is measured
+        // The placeholder of a field from its estimate, as a key and a text marked as estimated.
+        // Returns None when a value is measured.
         let estimatePlaceholder toKey toText measured estimated =
             let word = Terms.``Patient Estimated`` |> getTerm "estimated"
 
@@ -465,8 +457,8 @@ module Patient =
             </FormControl>
             """
 
-        // the mark as an adult the server set: no switch below 16 years, the user's choice from 16 to
-        // 18 years and for a patient without an age, checked and fixed from 18 years
+        // The adult mark set by the server: no switch below 16 years, a choice of the user from 16 to
+        // 18 years and without an age, and checked and fixed from 18 years.
         let adultMark =
             pat
             |> Option.map _.AdultMark

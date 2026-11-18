@@ -1,8 +1,8 @@
 namespace Hooks
 
 
-/// The browser's own question before it leaves the page (back, a closed tab, a reload) while there
-/// is work that would be lost.
+/// Lets the browser ask for confirmation before the page is left by back, closing the tab or a reload,
+/// while there is work that would be lost.
 module LeaveGuard =
 
 

@@ -24,7 +24,7 @@ let genpresLog: string = jsNative
 let genpresProd: string = jsNative
 
 
-/// Logging is on for the levels d, i, w and e.
+/// Whether the log level is d, i, w or e.
 let isLogging (log: string) =
     match log.Trim().ToLowerInvariant() with
     | "d"
@@ -34,11 +34,11 @@ let isLogging (log: string) =
     | _ -> false
 
 
-/// Production is GENPRES_PROD=1.
+/// Whether GENPRES_PROD is 1.
 let isProduction (prod: string) = prod.Trim() = "1"
 
 
-/// Logging on and not production.
+/// Whether logging is on and the app does not run in production.
 let isTraceOn () = isLogging genpresLog && not (isProduction genpresProd)
 
 
@@ -52,7 +52,7 @@ let mutable private count = 0
 let mutable private demo = false
 
 
-/// Whether the server settings said demo data; nothing is recorded before they do.
+/// Sets whether the server settings confirm the demo data; nothing is recorded before they do.
 let confirmDemo (isDemo: bool) = demo <- isDemo
 
 
@@ -80,7 +80,7 @@ let event (machine: string) (msg: string) (effects: string list) (state: string)
     )
 
 
-/// The lines kept, oldest first.
+/// Returns the trail lines as text, oldest first.
 let text () = lines |> String.concat "\n"
 
 #else

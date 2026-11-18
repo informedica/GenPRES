@@ -1,7 +1,7 @@
 namespace Views
 
 
-/// The words of what the snackbar shows.
+/// The text of the alerts the snackbar shows.
 module AlertText =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -12,8 +12,8 @@ module AlertText =
     open Informedica.GenPRES.Shared
 
 
-    /// The sentence of an alert; terms gives the localized text of a term, or the default given
-    /// when the term has none.
+    /// Returns the text of an alert. The terms function gives the localized text of a term, or the given
+    /// default when the term has no translation.
     let text (terms: string -> Terms -> string) alert =
         // a term of the signing vocabulary falls back to the English the policy gives
         let signing term = terms (SigningPolicy.english term) term

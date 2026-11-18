@@ -8,150 +8,155 @@ open Informedica.GenPRES.Shared
 open Informedica.GenPRES.Shared.Types
 
 
-/// Downcast appEnv to the requested interface.
+/// Casts the app environment to the requested interface.
 let inline asEnv<'T> (appEnv: obj) : 'T = unbox<'T> appEnv
 
 
-/// Localization data access
+/// The localization terms.
 [<Interface>]
 type ILocalization =
     abstract LocalizationTerms: Deferred<string[][]>
 
 
-/// What the server told about itself at start-up.
+/// The server settings loaded at start-up.
 [<Interface>]
 type ISettings =
     abstract Settings: Deferred<Api.ServerSettings>
 
 
-/// Where the start-up is: the gate covers the application until it has started.
+/// The start-up state; the start-up screen covers the application until it has started.
 [<Interface>]
 type IStartup =
     abstract Startup: StartupPolicy.Startup
 
 
-/// What is out, and what it disables.
+/// Which pending requests disable parts of the screen.
 [<Interface>]
 type IBusy =
-    /// anything out that holds the menu, the title bar and the patient panel
+    /// Whether a pending request disables the menu, the title bar and the patient panel.
     abstract Any: bool
-    /// whether a request out can change anything on the page
+    /// Whether a pending request can change the page.
     abstract Page: Page.Page -> bool
 
 
-/// Order context data and commands.
-/// Mangled: the app state implements this and IOrderPlan on one object, and both have a Select;
-/// without mangling Fable emits the two as one property.
+/// The workbench order context and its commands.
+/// Mangled because one object implements this and IOrderPlan, which share member names;
+/// without mangling Fable emits two members with the same name as one property.
 [<Interface; Fable.Core.Mangle>]
 type IOrderContext =
-    /// the workbench as the pages show it
+    /// The workbench as the pages show it.
     abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderViewCommand -> unit
-    /// the list of a recalculation closed without a pick: the workbench kept is put back
+    /// Restores the workbench as it was before the recalculation, when the recalculation list closes
+    /// without a selection.
     abstract RestoreField: unit -> unit
-    /// the workbench as the order dialog shows it; none while no scenario is selected
+    /// The workbench as the order dialog shows it; None while no scenario is selected.
     abstract Dialog: OrderContextMachine.OrderContextView option
-    /// the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
+    /// Selects the scenario the dialog shows, by the id of its order, without a server request.
     abstract SelectScenario: string option -> unit
-    /// the orders the link rules offer with the order of the workbench, each turned on or off
+    /// The linked orders the link rules offer with the workbench order, each turned on or off.
     abstract Offers: OrderContextMachine.LinkedOffer[]
-    /// whether the workbench can be prescribed with its offers: not while an offer turned on is not narrowed
+    /// Whether the workbench order can be prescribed with its linked orders; false while a linked order
+    /// turned on is not narrowed to one scenario.
     abstract Prescribable: bool
-    /// the offer at the index turned on or off
+    /// Turns the linked order at the index on or off.
     abstract TurnOffer: index: int * OrderContextMachine.OfferSwitch -> unit
-    /// a command into the offer at the index
+    /// Sends a command to the linked order at the index.
     abstract OfferCommand: index: int * Api.OrderViewCommand -> unit
 
 
-/// The one plan, nutrition included, and the commands on it.
-/// Mangled, as IOrderContext is: the two share member names on one object.
+/// The order plan, nutrition included, and its commands.
+/// Mangled because one object implements this and IOrderContext, which share member names.
 [<Interface; Fable.Core.Mangle>]
 type IOrderPlan =
-    /// the plan as the pages show it, the dialog's selection inside
+    /// The order plan as the pages show it, with the context selected for the dialog.
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
-    /// the order with this id prescribed, from the workbench narrowed to its scenario
+    /// Adds the workbench order with this id to the plan, with the linked orders that are turned on.
     abstract Add: orderId: string -> unit
-    /// the contexts with these ids removed
+    /// Removes the order contexts with these ids from the plan.
     abstract Remove: ids: string[] -> unit
-    /// a command from the order dialog into the plan's context with this id, sent with the current plan
+    /// Sends a command from the order dialog to the plan context with this id.
     abstract OrderDialogCommand: string * Api.OrderViewCommand -> unit
-    /// the list of a recalculation closed without a pick: the plan kept is put back, as signed or
-    /// changed
+    /// Restores the plan as it was before the recalculation, when the recalculation list closes
+    /// without a selection.
     abstract RestoreField: unit -> unit
-    /// the context whose order the dialog shows, by id; the client's own, no round trip
+    /// Selects the context the dialog shows, by id, without a server request.
     abstract SelectContext: string option -> unit
-    /// the contexts the rows keep, by id; the totals follow
+    /// Shows only the rows of the contexts with these ids; the totals are calculated for those rows.
     abstract FilterRows: string[] -> unit
-    /// whether the orders stand on other patient data than the panel; such a plan is not signed
+    /// Whether the orders were calculated for other patient data than the panel shows; such a plan
+    /// cannot be signed.
     abstract PlanBehind: bool
-    /// the order contexts of this plan new, changed or removed since the version last opened or signed
+    /// Returns the order contexts of the plan that are new, changed or removed since the version last
+    /// opened or signed.
     abstract PlanDifferences: OrderPlan -> (OrderContext * PlanDifferencePolicy.Difference)[]
 
 
-/// The nutrition slots outside the plan, the combined totals, and the commands on them.
-/// Mangled, as IOrderContext is: the members share an object with the other interfaces.
+/// The nutrition slots outside the plan, the combined totals, and their commands.
+/// Mangled because one object implements this and the other interfaces, which share member names.
 [<Interface; Fable.Core.Mangle>]
 type INutrition =
-    /// the slots in the order they were started
+    /// The nutrition slots in the order they were started.
     abstract Slots: Informedica.GenPRES.Client.Core.Client.SlotView list
-    /// the totals of the plan with the slots narrowed to one order, the plan's own while none is
+    /// The combined totals of the plan and the slots when loaded, otherwise the plan totals.
     abstract Totals: Totals option
-    /// a slot of the category started
+    /// Starts a nutrition slot of the category.
     abstract StartSlot: NutritionCategory -> unit
-    /// the slot with this id closed
+    /// Removes the slot with this id.
     abstract RemoveSlot: slotId: string -> unit
-    /// a command into the slot with this id
+    /// Sends a command to the slot with this id.
     abstract SlotCommand: slotId: string * Api.OrderViewCommand -> unit
-    /// the list of a recalculation in the slot with this id closed without a pick
+    /// Restores the slot with this id as it was before the recalculation, when the recalculation list
+    /// closes without a selection.
     abstract SlotRestore: slotId: string -> unit
-    /// the slot with this id narrowed to the order with this id into the plan, with its offers turned on
+    /// Adds the order with this id from the slot with this id to the plan, with the linked orders that
+    /// are turned on.
     abstract Prescribe: slotId: string * orderId: string -> unit
-    /// the offer at the index in the slot with this id turned on or off
+    /// Turns the linked order at the index in the slot with this id on or off.
     abstract TurnOffer: slotId: string * index: int * OrderContextMachine.OfferSwitch -> unit
-    /// a command into the offer at the index in the slot with this id
+    /// Sends a command to the linked order at the index in the slot with this id.
     abstract OfferCommand: slotId: string * index: int * Api.OrderViewCommand -> unit
 
 
-/// Patient data and updates
+/// The patient data and their updates.
 [<Interface>]
 type IPatient =
-    /// the patient data as the panel edits it and the lists read it, with the estimates the
-    /// server answered after an edit that renews them
+    /// The patient data the panel shows and edits; the lists are calculated from these data.
     abstract Draft: PatientData option
-    /// a patient change is under way: the panel takes no edit until it is answered
+    /// Whether a patient data update is in progress; the panel takes no edit until it is answered.
     abstract Changing: bool
-    /// the patient the server answered, the one the orders are calculated on, with the estimates
-    /// of every weight and height, next to a measured one too: what the summary shows, not what
-    /// the fields show
+    /// The patient data from the server answer, with the estimated weight and height also when a
+    /// measured one is present; otherwise the draft. The summary shows these data, the fields show
+    /// the draft.
     abstract Current: PatientData option
-    /// the draft, with the weight and height the user did not enter estimated again by the
-    /// server: after an edit of the age, the gender or the gestational age
+    /// Updates the patient data and has the server estimate again the weight and height the user did
+    /// not enter. Used after an edit of the age, the gender or the gestational age.
     abstract UpdatePatient: PatientData option -> unit
-    /// the draft with its estimates as they are: after any other edit, so that a weight or a
-    /// height the user cleared stays cleared
+    /// Updates the patient data without new estimates, so a weight or height the user cleared stays
+    /// cleared. Used after any other edit.
     abstract EditPatient: PatientData option -> unit
-    /// whether an edit asks first, since it is taken as a new patient and orders or a selection
-    /// would be lost
+    /// Whether an edit on the panel counts as another patient, so the prescriber is asked first
+    /// because orders or a selection would be lost.
     abstract AsksNewPatient: bool
-    /// a new patient, with what becomes of the estimates; the plan and the workbench go
+    /// Clears the plan and the workbench and sets the patient data of another patient.
     abstract NewPatient: PatientData option * PatientDraftPolicy.Estimates -> unit
 
 
-/// Formulary data and updates
+/// The formulary and its updates.
 [<Interface>]
 type IFormulary =
     abstract Formulary: Deferred<Formulary>
     abstract UpdateFormulary: Formulary -> unit
 
 
-/// Parenteralia data and updates
+/// The parenteralia and their updates.
 [<Interface>]
 type IParenteralia =
     abstract Parenteralia: Deferred<Parenteralia>
     abstract UpdateParenteralia: Parenteralia -> unit
 
 
-/// Drug interaction data and commands
+/// The medication interactions and their commands.
 [<Interface>]
 type IInteractions =
     abstract Interactions: Deferred<DrugInteraction[]>
@@ -159,57 +164,56 @@ type IInteractions =
     abstract CheckInteractions: string list -> unit
 
 
-/// Resource reloading (admin/settings): under the token the login bought, so no password here
+/// Reloads the server resources with the admin token from the login, so no password is needed.
 [<Interface>]
 type IResources =
-    /// InProgress while the server reloads; Resolved once it answered
+    /// InProgress while the server reloads; Resolved when the server has answered.
     abstract Reload: Deferred<unit>
     abstract ReloadResources: unit -> unit
 
 
-/// The launch Session as the pages show it, and the actions the UI offers on it
+/// The launch Session as the pages show it, and the actions the UI offers on it.
 [<Interface>]
 type ISession =
     abstract Session: SessionMachine.SessionView
-    /// explicit close, from an open Session
+    /// Closes the open Session.
     abstract Close: unit -> unit
-    /// from ServerUnreachable, or a refusal worth retrying
+    /// Presents the same launch again, after the server was unreachable or refused with a retry.
     abstract RetryLaunch: unit -> unit
-    /// a fresh anonymous open that carries nothing over
+    /// Continues anonymously, without a Session and without any data from it.
     abstract OpenAnonymously: unit -> unit
-    /// the confirmation code and the chosen PIN, from the gate's form
+    /// Sends the confirmation code and the chosen PIN from the enrolment form.
     abstract SupplyPin: string -> string -> unit
-    /// the newest version the server told of, while the Session is on an older one
+    /// A newer signed plan version than the one the Session has open, if the server reported one.
     abstract NewerPlan: OrderPlanHead option
-    /// take up that version
+    /// Opens the signed plan version with this id.
     abstract OpenSignedPlan: string -> unit
-    /// read the patient from the EHR again; the plan and the workbench follow it
+    /// Reads the patient data again from the EHR; the plan and the workbench update with them.
     abstract Refresh: unit -> unit
 
 
-/// The signing phase of the open Session as the dialog shows it, and the actions the dialog
-/// offers on it
+/// The signing of the open Session as the dialog shows it, and the actions the dialog offers on it.
 [<Interface>]
 type ISigning =
     abstract Signing: SigningMachine.SigningView
-    /// the orders that differ from the version last opened or signed, as they stood at the sign;
-    /// the dialog lists these
+    /// The orders that differ from the version last opened or signed, as they were when the signature
+    /// was requested; the dialog lists these.
     abstract Differences: (OrderContext * PlanDifferencePolicy.Difference)[]
-    /// ask a challenge over the plan as shown
+    /// Requests a signing challenge for the plan as shown.
     abstract Sign: OrderPlan -> unit
-    /// whether the patient was no longer active in the EHR at the challenge; told before the PIN
+    /// Whether the patient was no longer active in the EHR at the challenge; shown before the PIN is asked.
     abstract EhrMovedOn: bool
-    /// who the patient being signed for is; none for a patient the EHR did not identify
+    /// The identity of the patient being signed for; None when the EHR did not identify the patient.
     abstract SignedFor: PatientIdentity option
-    /// the data notice answered: the EHR's data taken, or the plan's kept
+    /// Answers the data notice: takes the EHR patient data, or keeps the patient data of the plan.
     abstract TakeEhrData: unit -> unit
     abstract KeepPlanData: unit -> unit
-    /// the PIN; the idempotency key is minted here, once per confirmation
+    /// Confirms the signature with the PIN; each confirmation gets a new idempotency key.
     abstract Confirm: string -> unit
     abstract Cancel: unit -> unit
 
 
-/// Authentication state and commands
+/// The admin authentication state and its commands.
 [<Interface>]
 type IAuthentication =
     abstract IsAuthenticated: bool
@@ -217,7 +221,7 @@ type IAuthentication =
     abstract Logout: unit -> unit
 
 
-/// Log analyzer data and commands
+/// The log files, the log analysis and their commands.
 [<Interface>]
 type ILogAnalyzer =
     abstract LogFiles: Deferred<LogFileInfo[]>
@@ -226,7 +230,7 @@ type ILogAnalyzer =
     abstract AnalyzeLogFile: string -> unit
 
 
-/// Bolus/emergency medication list (computed)
+/// The emergency medication list, calculated for the patient data.
 [<Interface>]
 type IBolusMedication =
     abstract BolusMedication: Deferred<Intervention list>
@@ -235,7 +239,7 @@ type IBolusMedication =
     abstract OnBolusMedicationFilterChange: string[] -> unit
 
 
-/// Continuous medication list (computed)
+/// The continuous medication list, calculated for the patient data.
 [<Interface>]
 type IContinuousMedication =
     abstract ContinuousMedication: Deferred<Intervention list>

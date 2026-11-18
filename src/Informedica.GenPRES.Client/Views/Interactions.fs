@@ -21,7 +21,7 @@ module Interactions =
     module private Elmish =
 
 
-        // the drugs of the plan as settled; none while it changes, as before
+        // The medication names of a settled plan; empty while the plan changes or without patient data.
         let getPlanDrugs (orderPlan: OrderPlanView) =
             match orderPlan with
             | OrderPlanView.Settled(tp, _) ->
@@ -135,9 +135,9 @@ module Interactions =
 
         let planDrugs = getPlanDrugs orderPlan
 
-        // Re-check interactions when plan drugs change (e.g., order added or removed).
-        // Skip while a check runs to avoid duplicate API calls (processApiMsg also
-        // dispatches CheckInteractions on OrderPlan API responses).
+        // Checks the interactions again when the plan medications change, such as an order added or
+        // removed. Skips while a check runs, to avoid duplicate API calls; the order plan machine also
+        // sends CheckInteractions after an order plan answer.
         let planDrugsKey = planDrugs |> String.concat "|"
 
         React.useEffect (
@@ -156,7 +156,7 @@ module Interactions =
             [| box planDrugsKey |]
         )
 
-        // the rows shown stay while the drugs are checked again; the progress shows over them
+        // While the interactions are checked again, the rows stay and the progress shows over them.
         let interactionRows =
             match interactions with
             | Resolved interactions
@@ -283,8 +283,8 @@ module Interactions =
                             | None -> ()
                     isLoading = false
                     disabled = false
-                    // the box holds no choice, but it does hold what is being typed, and the
-                    // cross is how that is thrown away in one go
+                    // The field never holds a choice, but it holds the typed text; the clear button removes
+                    // that text at once.
                     canClear = true
                     placeholder = None
                 |}

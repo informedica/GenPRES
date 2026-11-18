@@ -99,7 +99,7 @@ module ContinuousMeds =
                     filterable = false
                     sortable = false
                 |}
-                |> box //``type`` = "number"
+                |> box
                 {|
                     field = "advice"
                     headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advice"

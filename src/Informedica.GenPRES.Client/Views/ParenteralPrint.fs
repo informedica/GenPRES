@@ -27,9 +27,10 @@ module ParenteralPrint =
     let private boldCellSx = {| fontWeight = "bold" |}
 
 
-    /// The parenteral orders on paper, for the central venous lines: per order its components
-    /// with their volume and dose per kg, the rate and the time, then the totals of the intake. The
-    /// caller gives the title of the dialog and the header of the section in the user's language.
+    /// Shows the parenteral orders of the plan as a print sheet: per order the volume and the dose per kg
+    /// of each component, the total volume, the rate and the time, then the intake totals. An order
+    /// without a single scenario shows as not configured. The caller gives the title of the dialog and
+    /// the header of the section in the user's language.
     [<JSX.Component>]
     let View
         (props:

@@ -21,9 +21,9 @@ type private State = Client.ClientState
 type private Msg = Client.ClientMsg
 
 
-/// A state may be traced only once the server has said it serves the demo data: never before the
-/// settings arrive, and never against production. The trail keeps the same gate through
-/// StepTrail.confirmDemo.
+/// Whether a state may be traced: only when the server settings say the server serves the demo data,
+/// so never before the settings arrive and never against production. The trail uses the same check
+/// through StepTrail.confirmDemo.
 let isTraceable (state: State) =
     match Client.settings state with
     | Resolved settings
@@ -36,8 +36,8 @@ let isTraceable (state: State) =
 let redacted = "***"
 
 
-/// The message as the trace records it, with the admin password redacted: a development password may be the one
-/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
+/// Returns the message with the admin password redacted, because a development password may also be the
+/// password of a production server. The admin token is not redacted: a demo server signs it in demo mode, so it
 /// never opens a production server.
 let redactMsg (msg: Msg) =
     match msg with
@@ -52,9 +52,9 @@ let consoleTrace (msg: Msg) (state: State) _ =
         Browser.Dom.console.log ("Updated state:", state)
 
 
-/// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
-/// deflater hands it None for such a state. The history starts with the first traceable state, and every
-/// message it passes on is redacted.
+/// Wraps a Redux DevTools connection so it passes nothing on while the state is not traceable; the deflate
+/// function gives None for such a state. The history starts at the first traceable state, and every message
+/// passed on is redacted.
 let gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
     let mutable started = false
 
@@ -74,7 +74,8 @@ let gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
     }
 
 
-/// The Redux DevTools debugger over the gated connection, with the coders the debugger itself uses.
+/// Adds the Redux DevTools debugger over the gated connection, with coders for decimal and 64-bit integers.
+/// Returns the program without the debugger when the connection fails.
 let withGatedDebugger (program: Program<unit, State, Msg, unit>) =
     let coders = Extra.empty |> Extra.withDecimal |> Extra.withInt64 |> Extra.withUInt64
 

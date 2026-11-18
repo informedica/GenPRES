@@ -2,14 +2,12 @@ namespace Views
 
 
 /// <summary>
-/// The session gate: a modal over the app while a launch is being presented or resumed, and
-/// after a refusal or an unreachable server. Every refusal ends the same way, no Session
-/// opens; the gate says why and what the User can do: retry (an unreachable server, and a
-/// missing browser identity answered before the identity hop), continue without a launch
-/// (no Role), or relaunch from MainEHR (everything else). While the launch waits on a PIN
-/// the gate is the enrolment form: the mailed
-/// confirmation code and the chosen PIN, twice. The gate cannot be dismissed: the edge from
-/// MainEHR is one-way, so the Client cannot relaunch by itself.
+/// A modal over the app while a launch is presented or resumed, after a refusal, and when the server
+/// cannot be reached. After a refusal no Session opens; the gate says why and what the User can do:
+/// retry (the server cannot be reached, or the browser identity is missing before the identity hop),
+/// continue without a launch (no Role), or relaunch from MainEHR (all other cases). While the launch
+/// waits on a PIN, the gate shows the enrolment form: the confirmation code from the mail and the
+/// chosen PIN twice. The gate cannot be closed, because the Client cannot relaunch by itself.
 /// </summary>
 module SessionGate =
 
@@ -32,7 +30,7 @@ module SessionGate =
 
         let startup = (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
 
-        // the sheet's translation in the User's language, else the policy's English
+        // Translates a term into the language of the User, with the English of the policy as fallback.
         let tr term =
             Global.getLocalizedTerm terms context.Localization (StartupPolicy.english term) term
 
@@ -50,13 +48,13 @@ module SessionGate =
         let onRetry = fun _ -> session.RetryLaunch()
         let onContinue = fun _ -> session.OpenAnonymously()
 
-        // the form's fields live here until they are sent; a local check runs first, the
-        // server's answer comes back through the session as the form's Error
+        // The form fields stay here until they are sent. A local check runs first; the server answer
+        // comes back through the session as the Error of the form.
         let code, setCode = React.useState ""
         let pin, setPin = React.useState ""
         let repeat, setRepeat = React.useState ""
         let localError, setLocalError = React.useState<string option> None
-        // the server's answer is shown until the User edits a field; the next answer shows again
+        // The server answer is shown until the User edits a field; the next answer is shown again.
         let edited, setEdited = React.useState false
 
         let enrolling =
@@ -65,8 +63,8 @@ module SessionGate =
             | SessionMachine.SessionView.SupplyingPin _ -> true
             | _ -> false
 
-        // the fields belong to one enrolment: they are cleared when the launch leaves it, so
-        // that a later enrolment in this page never shows or sends what an earlier one typed
+        // The fields belong to one enrolment and are cleared when the launch leaves it, so a later
+        // enrolment in this page never shows or sends what was typed before.
         React.useEffect (
             (fun () ->
                 if not enrolling then
@@ -79,7 +77,7 @@ module SessionGate =
             [| box enrolling |]
         )
 
-        // an answer arrived (the request in flight is over): show it, until the next edit
+        // When a request ends, its answer is shown until the next edit.
         React.useEffect ((fun () -> setEdited false), [| box gate.Busy |])
 
         let onCode (e: Browser.Types.Event) =
