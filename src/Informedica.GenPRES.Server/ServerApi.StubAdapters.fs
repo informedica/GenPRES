@@ -166,8 +166,8 @@ module StubEhrPatient =
 
     /// The stub patient for a patient id, with the ages calculated at the moment of the read.
     let patient (now: DateTime) (pid: string) : CorePatient =
-        let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
-        let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
+        let weight = WeightAtDate.create (Some measuredOn) (WeightValue.weightInKg 32m)
+        let height = HeightAtDate.create (Some measuredOn) (HeightValue.heightInCm 140m)
 
         PatientData.create
             Department.unknown
@@ -275,8 +275,8 @@ module StubEhrPatient =
     /// that date, and the weight and height are measured that day.
     let testPatient (now: DateTime) tp =
         let measuredOn = now.Date
-        let weight = WeightAtDate.create measuredOn tp.Weight
-        let height = HeightAtDate.create measuredOn tp.Height
+        let weight = WeightAtDate.create (Some measuredOn) tp.Weight
+        let height = HeightAtDate.create (Some measuredOn) tp.Height
 
         let identity =
             measuredOn.AddDays(-(tp.Age |> AgeValue.getAgeInDays |> float))

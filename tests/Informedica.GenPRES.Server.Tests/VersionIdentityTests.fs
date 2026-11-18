@@ -41,7 +41,7 @@ let identity = ehr.Identity
 
 /// The stub's EHR data with a weight the EHR has since changed.
 let heavier =
-    let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
+    let w = CoreWeightAtDate.create (Some tomorrow) (CoreWeightValue.weightInKg 34m)
 
     { ehr with Data.Weight = CoreWeight.create [ w ] None [] (Some(Informedica.GenCore.Lib.Patients.Measured w)) }
 
@@ -437,7 +437,7 @@ let tests =
                 [
                     let thirtyKg source =
                         CoreWeightValue.weightInKg 30m
-                        |> CoreWeightAtDate.create today
+                        |> CoreWeightAtDate.create (Some today)
                         |> source
                         |> Some
                         |> CoreWeight.create [] None []

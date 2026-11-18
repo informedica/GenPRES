@@ -20,7 +20,7 @@ module PatientScripts =
     open Informedica.GenCore.Lib
     open Informedica.GenCore.Lib.Patients
 
-    let fromAgeType = Patient.fromAgeType UnknownGender DateTime.Now
+    let fromAgeType = Patient.fromAgeType UnknownGender
 
 
     let ageDto = AgeValue.Dto.dto ()
@@ -57,14 +57,12 @@ module PatientScripts =
 
     patDto.Weight.Calculation <-
         let w = WeightAtDate.Dto.dto ()
-        w.DateTime <- DateTime.Now
         w.WeightValue.Weight <- 4.7m
         Some w
 
 
     patDto.Height.Calculation <-
         let h = HeightAtDate.Dto.dto ()
-        h.DateTime <- DateTime.Now
         h.HeightValue.Height <- 57m
         h.HeightValue.HeightInMeter <- false
         Some h

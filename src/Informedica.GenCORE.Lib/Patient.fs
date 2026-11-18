@@ -1,4 +1,4 @@
-/// The patient types and the age rules: the identity, the birth date, the gender, the ages, the dated weights and
+/// The patient types and the age rules: the identity, the birth date, the gender, the ages, the weights and
 /// heights, the department, the accesses and the renal function.
 namespace Informedica.GenCore.Lib.Patients
 
@@ -149,7 +149,8 @@ type Weight =
 
 and WeightAtDate =
     {
-        Date: DateTime
+        /// Optional date for when measured.
+        Date: DateTime option
         Weight: WeightValue
     }
 
@@ -164,7 +165,8 @@ type Height =
 
 and HeightAtDate =
     {
-        Date: DateTime
+        /// Optional date for when measured.
+        Date: DateTime option
         Height: HeightValue
     }
 
@@ -273,9 +275,9 @@ type PatientData =
         Age: AgeValue option
         /// Whether the user marked the patient as an adult.
         MarkedAdult: bool
-        /// The dated weights.
+        /// The weights.
         Weight: Weight
-        /// The dated heights.
+        /// The heights.
         Height: Height
         /// The gestational age at birth; absent when not known, and left out by
         /// PatientData.determineGestationalAndPostMenstrualAge from 1 year or without an age.
@@ -896,6 +898,7 @@ module WeightValue =
 
 module WeightAtDate =
 
+    /// Creates a weight at a date; a date of None gives a weight without a date.
     let create dt wv =
         {
             Date = dt
@@ -903,7 +906,12 @@ module WeightAtDate =
         }
 
 
-    let fromAgeType gend dt = (WeightValue.fromAgeType gend) >> (Option.map (create dt))
+    /// Creates a weight without a date.
+    let undated = create None
+
+
+    /// Returns the normal weight of an age type for a gender as an undated weight.
+    let fromAgeType gend = (WeightValue.fromAgeType gend) >> (Option.map undated)
 
 
     module Optics =
@@ -923,31 +931,40 @@ module WeightAtDate =
         let getWeight = Optics.weight |> Optic.get
 
 
+    /// Writes the weight, followed by the date in brackets when the weight has a date.
     let toString fixPrec w =
         let ws = w |> SetGet.getWeight |> WeightValue.toString fixPrec
-        let ds = (w |> SetGet.getDate).ToString("dd-MMM-yy")
 
-        $"{ws} ({ds})"
+        match w |> SetGet.getDate with
+        | Some dt ->
+            let ds = dt.ToString("dd-MMM-yy")
+            $"%s{ws} (%s{ds})"
+        | None -> ws
 
 
     module Dto =
 
         open Validus
+        open FsToolkit.ErrorHandling
 
         type Dto() =
-            member val DateTime = DateTime.MinValue with get, set
+            /// The date of the weight; None for an undated weight.
+            member val DateTime: DateTime option = None with get, set
             member val WeightValue = WeightValue.Dto.dto () with get, set
 
         let dto () = Dto()
 
 
-        /// Validates a Dto as a dated weight: a weight within the bounds and a date on or before today.
-        /// A missing date is an error.
+        /// Validates a Dto as a weight: a weight within the bounds, and a date on or before today when the
+        /// Dto has a date. A Dto without a date gives an undated weight.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
-                let! wv = WeightValue.Dto.fromDto dto.WeightValue
-                let! dt = Validators.notAfterValidator today "Date" dto.DateTime
-                return create dt wv
+                let! value = WeightValue.Dto.fromDto dto.WeightValue
+                let! dt =
+                    dto.DateTime
+                    |> Option.traverseResult (Validators.notAfterValidator today "Date")
+
+                return create dt value
             }
 
 
@@ -998,9 +1015,10 @@ module Weight =
     let isMeasured (w: Weight) = w.Calculation |> Option.exists Source.isMeasured
 
 
-    /// Creates a weight with the normal weight of the age type as an estimated calculation weight.
-    let fromAgeType gend dt =
-        WeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None []
+    /// Creates a weight with the normal weight of the age type as an estimated calculation weight without a
+    /// date.
+    let fromAgeType gend =
+        WeightAtDate.fromAgeType gend >> Option.map Estimated >> create [] None []
 
 
     module Optics =
@@ -1028,6 +1046,8 @@ module Weight =
         let getCalculation = Optic.get Optics.calculation
 
 
+    /// Writes the weights. The lists are sorted from the latest date to the earliest, with the undated
+    /// weights last.
     let toString fixPrec w =
         w
         |> SetGet.getActual
@@ -1076,7 +1096,7 @@ module Weight =
 
 
         /// Validates a Dto as weights. Returns the error of the first invalid weight: a value outside the
-        /// bounds, or a missing date or a date after today.
+        /// bounds, or a date after today.
         let fromDto today (dto: Dto) =
             validate {
                 let! act = dto.Actual |> List.traverseResultM (WeightAtDate.Dto.fromDto today)
@@ -1207,14 +1227,20 @@ module HeightValue =
 
 module HeightAtDate =
 
-    let create dt wv =
+    /// Creates a height at a date; a date of None gives a height without a date.
+    let create dt hv =
         {
             Date = dt
-            Height = wv
+            Height = hv
         }
 
 
-    let fromAgeType gend dt = (HeightValue.fromAgeType gend) >> (Option.map (create dt))
+    /// Creates a height without a date.
+    let undated = create None
+
+
+    /// Returns the normal height of an age type for a gender as an undated height.
+    let fromAgeType gend = (HeightValue.fromAgeType gend) >> (Option.map undated)
 
 
     module Optics =
@@ -1234,31 +1260,40 @@ module HeightAtDate =
         let getHeight = Optics.height |> Optic.get
 
 
+    /// Writes the height, followed by the date in brackets when the height has a date.
     let toString fixPrec h =
         let hs = h |> SetGet.getHeight |> HeightValue.toString fixPrec
-        let ds = (h |> SetGet.getDate).ToString("dd-MMM-yy")
 
-        $"{hs} ({ds})"
+        match h |> SetGet.getDate with
+        | Some dt ->
+            let ds = dt.ToString("dd-MMM-yy")
+            $"%s{hs} (%s{ds})"
+        | None -> hs
 
 
     module Dto =
 
         open Validus
+        open FsToolkit.ErrorHandling
 
         type Dto() =
-            member val DateTime = DateTime.MinValue with get, set
+            /// The date of the height; None for an undated height.
+            member val DateTime: DateTime option = None with get, set
             member val HeightValue = HeightValue.Dto.dto () with get, set
 
         let dto () = Dto()
 
 
-        /// Validates a Dto as a dated height: a height within the bounds and a date on or before today.
-        /// A missing date is an error.
+        /// Validates a Dto as a height: a height within the bounds, and a date on or before today when the
+        /// Dto has a date. A Dto without a date gives an undated height.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
-                let! wv = HeightValue.Dto.fromDto dto.HeightValue
-                let! dt = Validators.notAfterValidator today "Date" dto.DateTime
-                return create dt wv
+                let! value = HeightValue.Dto.fromDto dto.HeightValue
+                let! dt =
+                    dto.DateTime
+                    |> Option.traverseResult (Validators.notAfterValidator today "Date")
+
+                return create dt value
             }
 
 
@@ -1288,9 +1323,10 @@ module Height =
     let isMeasured (h: Height) = h.Calculation |> Option.exists Source.isMeasured
 
 
-    /// Creates a height with the normal height of the age type as an estimated calculation height.
-    let fromAgeType gend dt =
-        HeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None
+    /// Creates a height with the normal height of the age type as an estimated calculation height without a
+    /// date.
+    let fromAgeType gend =
+        HeightAtDate.fromAgeType gend >> Option.map Estimated >> create [] None
 
 
     module Optics =
@@ -1314,6 +1350,8 @@ module Height =
         let getCalculation = Optic.get Optics.calculation
 
 
+    /// Writes the heights. The list is sorted from the latest date to the earliest, with the undated
+    /// heights last.
     let toString fixPrec h =
         h
         |> SetGet.getActual
@@ -1353,7 +1391,7 @@ module Height =
 
 
         /// Validates a Dto as heights. Returns the error of the first invalid height: a value outside the
-        /// bounds, or a missing date or a date after today.
+        /// bounds, or a date after today.
         let fromDto today (dto: Dto) =
             validate {
                 let! act = dto.Actual |> List.traverseResultM (HeightAtDate.Dto.fromDto today)
@@ -2113,12 +2151,12 @@ module PatientData =
 
 
     /// Creates patient data with the age at the start of an age type, and the normal weight and height of
-    /// that age type for a gender as estimates at a date.
-    let fromAgeType gend dt at =
+    /// that age type for a gender as undated estimates.
+    let fromAgeType gend at =
         { unknown with
             Age = at |> AgeValue.fromAgeType |> Some
-            Weight = Weight.fromAgeType gend dt at
-            Height = Height.fromAgeType gend dt at
+            Weight = Weight.fromAgeType gend at
+            Height = Height.fromAgeType gend at
         }
         |> calculateBodySurfaceArea
 
@@ -2272,7 +2310,7 @@ module Patient =
 
 
     /// Creates an anonymous patient at the start of an age type; see PatientData.fromAgeType.
-    let fromAgeType gend dt at = PatientData.fromAgeType gend dt at |> create None
+    let fromAgeType gend at = PatientData.fromAgeType gend at |> create None
 
 
     module BSA =

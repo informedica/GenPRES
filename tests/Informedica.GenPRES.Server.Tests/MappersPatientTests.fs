@@ -937,7 +937,7 @@ let coreTests =
 
                 match dat.Weight.Calculation, dat.Height.Calculation with
                 | Some(CoreSource.Measured w), Some(CoreSource.Measured h) ->
-                    (w.Date, h.Date) |> Expect.equal "the date" (readAt, readAt)
+                    (w.Date, h.Date) |> Expect.equal "the date" (Some readAt, Some readAt)
                 | other -> failtest $"no measured weight and height: %A{other}"
             }
 

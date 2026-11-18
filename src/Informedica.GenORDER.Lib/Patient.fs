@@ -102,7 +102,7 @@ module Patient =
         { p with
             Weight =
                 wght
-                |> Option.map (CoreWeightAtDate.create date >> source)
+                |> Option.map (CoreWeightAtDate.create (Some date) >> source)
                 |> CoreWeight.create [] None []
         }
         |> CorePatientData.calculateBodySurfaceArea
@@ -127,7 +127,7 @@ module Patient =
         { p with
             Height =
                 hght
-                |> Option.map (CoreHeightAtDate.create date >> source)
+                |> Option.map (CoreHeightAtDate.create (Some date) >> source)
                 |> CoreHeight.create [] None
         }
         |> CorePatientData.calculateBodySurfaceArea
