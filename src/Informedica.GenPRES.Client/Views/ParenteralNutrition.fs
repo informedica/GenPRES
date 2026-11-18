@@ -3,8 +3,8 @@ namespace Views
 
 #nowarn "1104"
 
-/// The parenteral part of the nutrition page: TPN, lipids and electrolytes with glucose, each
-/// a slot that folds, with its components, and a button that prints them.
+/// Shows the parenteral part of the nutrition page: a collapsible slot per TPN, lipid or
+/// electrolyte and glucose order with its components, and a button that prints the orders.
 module ParenteralNutrition =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -30,8 +30,9 @@ module ParenteralNutrition =
     let private autoMarginSx = {| marginLeft = "auto" |}
 
 
-    /// One parenteral order: in a fold with its values in the summary and a bin beside them,
-    /// the composition with the dose type, the components, and the administration.
+    /// Shows one parenteral order in a collapsible panel. The summary shows the administration and a
+    /// remove button; the details show the composition and dose type, the components and the
+    /// administration fields.
     [<JSX.Component>]
     let private SlotView
         (props:
@@ -39,11 +40,11 @@ module ParenteralNutrition =
                 nutritionContext: OrderContext
                 plan: OrderPlan
                 evaluateContext: string * Api.OrderViewCommand -> unit
-                // the list of a recalculation closed without a pick
+                // Called when the recalculation list closes without a selection.
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                // the order into the plan; none while the slot cannot be prescribed
+                // Adds the order to the plan; None while the slot cannot be prescribed.
                 onPrescribe: (unit -> unit) option
                 busy: bool
             |})
@@ -63,16 +64,16 @@ module ParenteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        // the page is not disabled while a field counts its step clicks, since the field counting
-        // is on it; the controls that send wait for the count themselves
+        // The controls that send a request also wait while a field counts its step clicks. The page
+        // itself stays enabled then, because the counting field is on the page.
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
 
-        // the dose, the rate and the time in the columns of the components, stacked as they are.
-        // The time takes no buttons, so it drops their room.
+        // The dose, the rate and the time in the columns of the component rows, stacked as those are.
+        // The time has no buttons, so it drops the room for them.
         let administrationRow =
             let containerSx = {| Components.QuantityField.dropUnusedSlotsSx with alignItems = "flex-end" |}
 
@@ -92,8 +93,8 @@ module ParenteralNutrition =
             </Grid>
             """
 
-        // the share of the full intake the TPN gives, beside its total volume; it sets the dose once
-        // the TPN is composed and its dose count holds one value
+        // The share of the full intake the TPN gives, beside its total volume. The slider sets the
+        // dose once the TPN is composed and its dose count has a single value.
         let intakeSlider =
             if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
                 Components.IntakeSlider.View
@@ -108,8 +109,8 @@ module ParenteralNutrition =
             else
                 null
 
-        // the total volume stands in the columns of the components, under their quantities, with
-        // the intake in the column of their ranges
+        // The total volume sits in the quantity column of the component rows, with the intake slider
+        // in the range column.
         let totalVolumeRow =
             JSX.jsx
                 $"""
@@ -134,8 +135,8 @@ module ParenteralNutrition =
         // every slot ends in one bar: reset on the left, prescribe on the right
         let actionBar = prescribeBar getTerm slot.ResetAction props.onPrescribe
 
-        // a little more room above the divider under the components; padding, because the Stack
-        // it sits in sets its top margin, and the line is drawn at its bottom
+        // Adds room above the divider under the components. It uses padding, because the parent Stack
+        // sets the top margin and the divider line is drawn at the bottom of its box.
         let dividerSx = {| paddingTop = 1 |}
 
         let preparationSection =
@@ -151,7 +152,7 @@ module ParenteralNutrition =
             </>
             """
 
-        // padding, because the Stack the bar sits in sets the top margin of its children
+        // Padding, not margin, because the parent Stack sets the top margin of its children.
         let actionBarSx = {| paddingTop = 1 |}
 
         let details =
@@ -235,7 +236,7 @@ module ParenteralNutrition =
         let removeButton =
             match props.onRemove with
             | Some onRemove ->
-                // the plan takes one change at a time: no removal while one is under way
+                // The remove button waits during a request, because the plan takes one change at a time.
                 Components.RemoveIconButton.View
                     {|
                         label = Terms.``Delete`` |> getTerm "Delete"
@@ -289,8 +290,8 @@ module ParenteralNutrition =
             |}
 
 
-    /// The parenteral section: its heading with the button that prints the slots, a fold per slot, and
-    /// the buttons that start one.
+    /// Shows the parenteral section: a heading with the print button, a collapsible panel per slot, and
+    /// the buttons that start a new slot.
     [<JSX.Component>]
     let Section
         (props:
@@ -298,7 +299,7 @@ module ParenteralNutrition =
                 plan: OrderPlan
                 slots: Informedica.GenPRES.Client.Core.Client.SlotView list
                 nutrition: AppEnv.INutrition
-                // a change to the plan under way: no slot is prescribed meanwhile
+                // True while a change to the plan is under way; no slot can be prescribed then.
                 planChanging: bool
                 localizationTerms: Deferred<string[][]>
                 busy: bool
@@ -307,8 +308,8 @@ module ParenteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        // the page is not disabled while a field counts its step clicks, since the field counting
-        // is on it; the controls that send wait for the count themselves
+        // The controls that send a request also wait while a field counts its step clicks. The page
+        // itself stays enabled then, because the counting field is on the page.
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
@@ -321,14 +322,14 @@ module ParenteralNutrition =
             |> List.choose (fun slot -> contextOf slot |> Option.map (fun ctx -> slot, ctx))
             |> List.filter (snd >> isOneOf parenteral)
 
-        // the print shows the parenteral orders of the plan, then the slots on the page, with the totals the
-        // page shows, which count the slots narrowed to one order
+        // The print shows the parenteral orders of the plan, then the parenteral slots on the page, with
+        // the totals of the plan and the slots that show a single order.
         let printed =
             Array.append
                 (plan.OrderContexts |> Array.filter (isOneOf parenteral))
                 (slotsShown |> List.map snd |> List.toArray)
 
-        // a slot whose prescribe is under way takes nothing, its bin included
+        // A slot that is being prescribed takes no input, its remove button included.
         let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
             SlotView
                 {|

@@ -29,8 +29,8 @@ module Formulary =
             | Clear
 
 
-        /// The formulary with one choice applied, sent to the App: the selects read the formulary
-        /// the App holds, never a copy of their own, so what they show is what is filtered on.
+        /// Applies one filter choice to the formulary and sends it to the App. The selects read the
+        /// formulary of the App, not a copy, so they show what is filtered on.
         let update (formulary: Deferred<Formulary>) updateFormulary (msg: Msg) : unit =
             let clear (form: Formulary) =
                 { form with

@@ -3,8 +3,8 @@ namespace Views
 
 #nowarn "1104"
 
-/// The enteral part of the nutrition page: the feedings and the supplements, each a slot with
-/// its fields on one row, in one section that folds.
+/// Shows the enteral part of the nutrition page: one collapsible section with the feeding slots,
+/// each with its fields on one row and its supplements.
 module EnteralNutrition =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -27,11 +27,11 @@ module EnteralNutrition =
     open NutritionSlot
 
 
-    /// The fields of a feeding or a supplement on one measured row: the first item, then the frequency,
-    /// the dose quantity and the dose per time, so that a feeding and its supplements share the columns.
-    /// Narrower than the items need, all items stand in one column, never wrapped part-way and never
-    /// scrolled sideways. The row is measured, not the window: the container query decides, and a field
-    /// that never gets buttons here drops its hidden slots.
+    /// Lays out the fields of a feeding or a supplement on one row: the first item, the frequency, the
+    /// dose quantity and the dose per time, so a feeding and its supplements share the same columns.
+    /// When the row is narrower than the items need, all items stack in one column; they never wrap
+    /// part of the way and never scroll sideways. A container query on the row width decides this, not
+    /// the window width. A field that has no buttons here drops the room for them.
     let private fieldRow
         (first: JSX.Element)
         (frequency: JSX.Element)
@@ -44,8 +44,8 @@ module EnteralNutrition =
                 width = "100%"
             |}
 
-        // the first item with the room of a severity mark, frequency with its inner buttons, the dose
-        // field with all its buttons, dose per time without, and the gaps
+        // The least row width: the first item with the room for a severity mark, the frequency with its
+        // inner buttons, the dose with all its buttons, the dose per time without buttons, and the gaps.
         let rowWidth =
             200
             + Components.QuantityField.markWidth
@@ -68,8 +68,8 @@ module EnteralNutrition =
                         |}
                 ]
 
-        // the first item keeps the room a field gives its severity mark, so the gaps between all items
-        // look the same
+        // The first item reserves the room for a severity mark, as the fields do, so all gaps look the
+        // same.
         let itemSx =
             {|
                 flex = "1 1 0%"
@@ -79,10 +79,10 @@ module EnteralNutrition =
                 ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
             |}
 
-        // every column keeps the least width of its widest form, whatever buttons its field shows, so that
-        // the rows of a feeding and its supplements get the same columns: frequency with its inner
-        // buttons, whether it is chosen from the dropdown or stepped; the dose with all its buttons; the
-        // dose per time without
+        // Each column has the least width of the widest form of its field, whatever buttons the field
+        // shows, so a feeding and its supplements get the same columns: the frequency with its inner
+        // buttons, whether it is selected or stepped; the dose with all its buttons; the dose per time
+        // without buttons.
         let columnSx minWidth =
             {|
                 flex = "1 1 0%"
@@ -115,10 +115,10 @@ module EnteralNutrition =
         """
 
 
-    /// One offer of a feeding that is on: its name with the bin that turns it off, the frequency, the
-    /// dose and the dose per time in the columns of the feeding's fields. It shows no filter: the link
-    /// rule decides its composition, its indication and its dose type, and a nutrition slot has no form
-    /// to pick.
+    /// Shows one supplement offer that is switched on: its name with a remove button that switches it
+    /// off, then the frequency, the dose and the dose per time in the columns of the feeding. It has no
+    /// filters, because the link rule sets the composition, indication and dose type, and a nutrition
+    /// order has no form to select.
     [<JSX.Component>]
     let private OfferView
         (props:
@@ -189,14 +189,14 @@ module EnteralNutrition =
         """
 
 
-    /// The button that adds a supplement: it opens a menu of the offers that are off, by name, and a pick
-    /// turns that offer on. The menu hangs from the box around the button.
+    /// Shows the button that adds a supplement. It opens a menu with the names of the offers that are
+    /// switched off; a selection switches that offer on. The menu is anchored to the box around the button.
     [<JSX.Component>]
     let private AddOfferMenu
         (props:
             {|
                 label: string
-                // the offers that are off, each with its index among the offers of the slot
+                // The offers that are switched off, each with its index among all offers of the slot.
                 offers: (int * string)[]
                 onPick: int -> unit
                 disabled: bool
@@ -246,8 +246,8 @@ module EnteralNutrition =
         """
 
 
-    /// One feeding: its name with a bin beside it, the filters, the frequency, the dose and the dose per
-    /// time on one row, the supplements its link rules offer, and the bar with the prescribe.
+    /// Shows one feeding: its name with a remove button, the filters, the frequency, the dose and the dose
+    /// per time on one row, the supplements its link rules offer, and the bar with the prescribe button.
     [<JSX.Component>]
     let private SlotView
         (props:
@@ -255,15 +255,15 @@ module EnteralNutrition =
                 nutritionContext: OrderContext
                 plan: OrderPlan
                 evaluateContext: string * Api.OrderViewCommand -> unit
-                // the list of a recalculation closed without a pick
+                // Called when the recalculation list closes without a selection.
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                // the order into the plan; none while the slot cannot be prescribed
+                // Adds the order to the plan; None while the slot cannot be prescribed.
                 onPrescribe: (unit -> unit) option
-                // the offers of the feeding that are on
+                // The offers of the feeding that are switched on.
                 offers: JSX.Element[]
-                // the button with the menu of the offers that are off; none while every offer is on
+                // The button with the menu of the offers that are switched off; None when every offer is on.
                 addOffer: JSX.Element option
                 busy: bool
             |})
@@ -316,7 +316,7 @@ module EnteralNutrition =
 
         let filterSx = {| marginBottom = 2 |}
 
-        // the composition stands in the row with the fields once there is an order
+        // Once there is an order, the composition filter moves into the row with the fields.
         let filterControls =
             JSX.jsx
                 $"""
@@ -331,15 +331,15 @@ module EnteralNutrition =
 
         let orderDetails = if slot.Order.IsSome then details else null
 
-        // the page is not disabled while a field counts its step clicks, since the field counting
-        // is on it; the controls that send wait for the count themselves
+        // The controls that send a request also wait while a field counts its step clicks. The page
+        // itself stays enabled then, because the counting field is on the page.
         let counting = React.useContext Global.counting
         let waiting = props.busy || counting.Counting
 
         let removeButton =
             match props.onRemove with
             | Some onRemove ->
-                // the plan takes one change at a time: no removal while one is under way
+                // The remove button waits during a request, because the plan takes one change at a time.
                 Components.RemoveIconButton.View
                     {|
                         label = Terms.``Delete`` |> getTerm "Delete"
@@ -348,8 +348,8 @@ module EnteralNutrition =
                     |}
             | None -> null
 
-        // the name of the chosen feeding on its line, the category before one is chosen, with the
-        // button that removes the section beside it
+        // The heading shows the chosen feeding, or the category before one is chosen, with the remove
+        // button beside it.
         let heading =
             Components.SectionHeading.View
                 {|
@@ -369,8 +369,9 @@ module EnteralNutrition =
         """
 
 
-    /// The enteral section: the feeding slots in one fold, the values of each in its summary, and the
-    /// button that starts one. A supplement is offered in a feeding slot, not started on its own.
+    /// Shows the enteral section: one collapsible panel with the feeding slots, the administration of
+    /// each in its summary, and the button that starts a feeding slot. A supplement is offered inside a
+    /// feeding slot and is not started on its own.
     [<JSX.Component>]
     let Section
         (props:
@@ -378,7 +379,7 @@ module EnteralNutrition =
                 plan: OrderPlan
                 slots: Informedica.GenPRES.Client.Core.Client.SlotView list
                 nutrition: AppEnv.INutrition
-                // a change to the plan under way: no slot is prescribed meanwhile
+                // True while a change to the plan is under way; no slot can be prescribed then.
                 planChanging: bool
                 localizationTerms: Deferred<string[][]>
                 busy: bool
@@ -393,8 +394,8 @@ module EnteralNutrition =
 
         let plan = props.plan
 
-        // the page is not disabled while a field counts its step clicks, since the field counting
-        // is on it; the controls that send wait for the count themselves
+        // The controls that send a request also wait while a field counts its step clicks. The page
+        // itself stays enabled then, because the counting field is on the page.
         let counting = React.useContext Global.counting
         let waiting = props.busy || counting.Counting
 
@@ -403,11 +404,12 @@ module EnteralNutrition =
             |> List.choose (fun slot -> contextOf slot |> Option.map (fun ctx -> slot, ctx))
             |> List.filter (snd >> isOneOf enteral)
 
-        // a slot whose prescribe is under way takes nothing, its bin and its offers included
+        // A slot that is being prescribed takes no input, its remove button and its offers included.
         let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
             let busy = props.busy || slot.Prescribing
 
-            // each offer with its place among the offers of the slot, which keys its state
+            // Each offer with its index among the offers of the slot; the commands name an offer by
+            // this index.
             let offersOn, offersOff =
                 slot.Offers
                 |> Array.indexed

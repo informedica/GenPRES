@@ -43,8 +43,8 @@ module GoogleDocs =
     open Informedica.GenPRES.Shared
     open Informedica.GenPRES.Shared.Types
 
-    // a sheet that cannot be read or parsed answers as a failure: an exception that escaped
-    // would send no message at all, and the load would stay out for good
+    // A sheet that cannot be read or parsed returns an Error. An exception would send no message,
+    // and the load would stay pending forever.
     let inline getUrl parseResponse url =
         async {
             try
@@ -63,12 +63,10 @@ module GoogleDocs =
         $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
 
 
-    // The emergency-list spreadsheet. NOTE this is a SEPARATE workbook from the one
-    // GENPRES_URL_ID points at: the emergency sheets are fetched here by the client
-    // and never pass through GenFORM.Lib's resource loading. Its id is hard-coded
-    // rather than configurable, so a deployment cannot point emergency data
-    // elsewhere. Sheets used: "emergencylist", "continuousmeds", "products"; the
-    // parsers live in Shared/Models.fs.
+    // The emergency list spreadsheet, a separate workbook from the one GENPRES_URL_ID selects. The
+    // client fetches its sheets "emergencylist", "continuousmeds" and "products" directly, not through
+    // the GenFORM resource loading. The id is fixed in code, so a deployment cannot point the emergency
+    // data elsewhere. The parsers are in Shared/Models.fs.
     //https://docs.google.com/spreadsheets/d/1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM/edit?usp=sharing
     [<Literal>]
     let private dataEMLUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"

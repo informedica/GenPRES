@@ -28,8 +28,9 @@ module Parenteralia =
             | RouteChange of string option
 
 
-        /// The parenteralia filter with one choice applied, sent to the App: the selects read the
-        /// filter the App holds, never a copy of their own, so what they show is what is filtered on.
+        /// Applies one choice to the parenteralia filter and sends the filter to the App; an emptied select
+        /// clears the whole filter. The selects read the filter of the App, not a copy, so they show what is
+        /// filtered on.
         let update (parentaralia: Deferred<Parenteralia>) updateParenteralia (msg: Msg) : unit =
 
             match msg with

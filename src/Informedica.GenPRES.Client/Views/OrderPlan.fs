@@ -19,12 +19,11 @@ module OrderPlan =
     open OrderContextMachine
 
 
-    /// A plan table cell that steps its order: the text, and a quantity field in a popper
-    /// anchored to the cell. The cell is a button: a click, Enter or Space asks to open or close
-    /// it, and the popper has its own close button. Which cell is open is the plan view's, so
-    /// one is open at a time. A click or a key inside reaches no row, so the order dialog does
-    /// not open. The popper stays mounted while closed, so a step still counting its clicks is
-    /// sent after the close.
+    /// A plan table cell that steps its order: shows the text and a quantity field in a popper anchored to
+    /// the cell. A click, Enter or Space opens or closes the popper, which also has its own close button.
+    /// The plan view decides which cell is open, so only one is open at a time. Clicks and keys inside the
+    /// cell do not reach the row, so the order dialog does not open. The popper stays mounted while closed,
+    /// so a step that still counts clicks is sent after the close.
     [<JSX.Component>]
     let PlanCell
         (props:
@@ -33,7 +32,7 @@ module OrderPlan =
                 field: JSX.Element
                 closeLabel: string
                 isOpen: bool
-                // the cell cannot be opened now: greyed, and only an open popper can be closed
+                // True when the cell cannot be opened now: it is grey, and only an open popper can be closed.
                 disabled: bool
                 onToggle: unit -> unit
                 onClose: unit -> unit
@@ -152,12 +151,12 @@ module OrderPlan =
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
-        // the context that contributes the order, by order id
+        // Finds the context whose scenario contributes the order with this id.
         let contextOf (tp: OrderPlan) (orderId: string) =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // an order-context command into the selected context, sent with the current plan
+        // Sends an order context command to the selected context; does nothing without a selection.
         let orderContextMsg cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
@@ -171,20 +170,19 @@ module OrderPlan =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
-        // the dialog is open while a context is selected: the selection is the state, and the
-        // selected context as the plan shows it, settled or changing as the plan is, is what
-        // the dialog shows
+        // The dialog is open while a context is selected. It shows the selected context as the plan shows
+        // it, settled or changing.
         let dialog = OrderContextView.dialog orderPlan
         let handleModalClose = fun () -> envOrderPlan.SelectContext None
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        // the sheet's translation in the User's language, else the policy's English
+        // Translates a term into the language of the user, with the English of the signing policy as fallback.
         let tr term =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
-        // the context of the plan an order comes from, by the order's id
+        // Finds the plan and the context an order comes from, by order id.
         let planContextOf id =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -198,8 +196,8 @@ module OrderPlan =
                 gap = 1
             |}
 
-        // the medication name reads as a link, since a click on it opens the order: blue, bold,
-        // underlined under the pointer, after the icon of the prescribe page's edit button
+        // The medication name looks like a link, because a click opens the order: blue, bold and underlined
+        // under the pointer, after the icon of the edit button on the prescribe page.
         let medicationSx =
             {|
                 display = "inline-flex"
@@ -225,7 +223,8 @@ module OrderPlan =
                 |> Option.map (fun (tp, ctx) -> PlanContextPolicy.lock tp ctx)
                 |> Option.defaultValue PlanContextPolicy.Lock.Unlocked
 
-            // a locked order carries the lock in place of the edit icon, with why: it opens read-only
+            // A locked order shows a lock icon instead of the edit icon, with the reason in a tooltip; it opens
+            // read-only.
             match lock |> PlanContextPolicy.lockTerm with
             | Some term ->
                 let lockedText = tr term
@@ -247,10 +246,10 @@ module OrderPlan =
                     <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
                     """
 
-        // the cell whose field is open, one at a time, by row id and column
+        // The key of the open cell, made of the row id and the column; at most one cell is open.
         let openCell, setOpenCell = React.useState<string option> None
 
-        // the cells step only while the plan is settled and no signature is under way
+        // True when the cells cannot step: the plan is changing or a signature is under way.
         let cellsRest =
             match orderPlan with
             | OrderPlanView.Settled _ -> SigningPolicy.underWay signing.Signing
@@ -259,8 +258,7 @@ module OrderPlan =
 
         let fieldTexts = ViewHelpers.quantityFieldTexts getTerm
 
-        // the quantity field a cell steps, its commands sent into the row's own context, as the
-        // order dialog builds the same field
+        // The quantity field of a cell, built as in the order dialog; its commands go to the context of the row.
         let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
             let evaluate cmd = envOrderPlan.OrderDialogCommand(ctx.Id, cmd)
 
@@ -316,8 +314,8 @@ module OrderPlan =
                 (ovar |> ViewHelpers.markOf)
                 None
 
-        // a cell of a column that can step: the quantity field in a popper when the plan cell
-        // rule says the cell steps, the text otherwise
+        // A cell of a column that can step: the quantity field in a popper when the plan cell policy lets
+        // the cell step, else the text.
         let steppingCell (column: PlanCellPolicy.Column) (id: string) (value: string) =
             let stepping =
                 match orderPlan with
@@ -477,8 +475,8 @@ module OrderPlan =
                         else
                             ""
 
-                    // an order without a per kg or per m2 limit is solved without its adjusted
-                    // dose, which stays open, so the dose itself is shown
+                    // An order without a per kg or per m2 limit leaves the adjusted dose empty, so the dose
+                    // itself is shown.
                     let adjustedOr adj dose =
                         if adj |> OrderDisplay.Variable.renderValue 3 = "" then
                             dose
@@ -555,7 +553,7 @@ module OrderPlan =
             |}
             |> box
 
-        // a row clicked: its order's context becomes the selection
+        // A clicked row selects the context of its order.
         let selectOrder id =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -565,8 +563,8 @@ module OrderPlan =
                 | Some c -> envOrderPlan.SelectContext(Some c.Id)
             | OrderPlanView.NoPatientData -> ()
 
-        // the rows checked, by order id, become the filter, by context id, with a main order and the
-        // orders linked to it checked together; only over a settled plan, since the filter is sent to the server
+        // The checked rows, by order id, become the filter by context id; a main order and its linked orders
+        // are checked together. Only for a settled plan, because the filter is sent to the server.
         let filterOrders ids =
             match orderPlan with
             | OrderPlanView.Settled(tp, _) ->
@@ -577,7 +575,7 @@ module OrderPlan =
             | OrderPlanView.NoPatientData
             | OrderPlanView.Changing _ -> ()
 
-        // the orders of the contexts the filter keeps, for the table's checked rows
+        // The order ids of the contexts in the filter, for the checked rows of the table.
         let selectedRows =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -587,12 +585,12 @@ module OrderPlan =
                 |> Array.map _.Order.Id
             | _ -> [||]
 
-        // removing is asked first: the button opens the question, confirming does it
+        // Removing asks first: the button opens the confirm dialog, and confirming removes.
         let confirmDeleteOpen, setConfirmDeleteOpen = React.useState false
 
         let onDelete = fun () -> setConfirmDeleteOpen true
 
-        // the contexts the filter keeps go, each with its order
+        // Removes the contexts in the filter, each with its order.
         let onDeleteConfirmed =
             fun () ->
                 match orderPlan with
@@ -633,7 +631,7 @@ module OrderPlan =
                 icon = Some Mui.Icons.Delete
             |}
 
-        // a Prescriber with an open Session signs the plan as shown
+        // Signs the plan as shown; does nothing while the plan is changing.
         let onSign =
             fun _ ->
                 match orderPlan with
@@ -641,8 +639,7 @@ module OrderPlan =
                 | OrderPlanView.NoPatientData
                 | OrderPlanView.Changing _ -> ()
 
-        // the button stays while the plan changes, disabled, so the table below does not move up
-        // and down with every answer
+        // The sign button is never disabled; a click while the plan is changing does nothing.
         let signAction =
             {|
                 label = tr Terms.``Signing Sign``
@@ -652,9 +649,7 @@ module OrderPlan =
                 icon = Some Mui.Icons.Assignment
             |}
 
-        // the last signed order plan opened again; the new and changed orders go with it. Shown
-        // only once there is one; disabled with the page, also while a step is counted, whose
-        // command would go to the plan being replaced
+        // Opens the last signed order plan again. Shown only when the session has a signed plan.
         let openLastSignedAction =
             SessionPatientPolicy.lastSigned session.Session
             |> Option.map (fun signed ->
@@ -667,7 +662,7 @@ module OrderPlan =
                 |}
             )
 
-        // the actions on one row: remove on the left, sign on the right
+        // The actions in one row: remove, open the last signed plan, and sign.
         let actionBar =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -687,9 +682,8 @@ module OrderPlan =
                     |}
             | OrderPlanView.NoPatientData -> null
 
-        // the record moved on while this Session is on an older version; the bar says whose
-        // and when, and offers the newest version. Nothing is blocked here: the guard is the
-        // refusal at the signature
+        // The record has a newer plan than the one this session shows. The bar says who signed it and when,
+        // and offers to open it. Nothing is blocked here; signing an older version is refused.
         let newerPlanBar =
             match session.NewerPlan with
             | Some head ->
@@ -704,7 +698,7 @@ module OrderPlan =
                                     {|
                                         label = tr Terms.``Session Open Newest``
                                         onClick = fun () -> session.OpenSignedPlan head.Id
-                                        // the open changes every page: it waits while anything is out
+                                        // Opening changes every page, so it waits while any request is out.
                                         disabled = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
                                     |}
                             onClose = None
@@ -718,8 +712,8 @@ module OrderPlan =
                 """
             | None -> null
 
-        // the order dialog under the plan context rule: the fields it allows, or nothing when the
-        // context is locked
+        // The editing of the order dialog under the plan context policy: the fields it allows, or nothing
+        // when the context is locked.
         let editing =
             match orderPlan with
             | OrderPlanView.Settled(tp, Some id)

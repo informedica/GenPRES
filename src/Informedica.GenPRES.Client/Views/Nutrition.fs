@@ -32,14 +32,15 @@ module Nutrition =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        // the slots live outside the plan until they are prescribed; the plan is there with the patient
+        // The nutrition slots are not in the order plan until they are prescribed. The order plan exists
+        // only with patient data.
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
         let nutrition = AppEnv.asEnv<AppEnv.INutrition> props.appEnv
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        // no patient: the notice says what is missing
+        // Without patient data, the notice tells what is missing.
         let patientNotice =
             Components.PatientNotice.View
                 {|
@@ -47,11 +48,11 @@ module Nutrition =
                     needs = PatientReadinessPolicy.Needs.Calculation
                 |}
 
-        // a request out that changes the page. The page is disabled then, but that stops clicks
-        // only: the slots' intake effect sends without one, so it checks this itself. A field counting
-        // its step clicks does not disable the page, since the field is on it: the controls that send
-        // wait for the count themselves. A prescribe under way leaves the page open: the slot prescribed
-        // waits, and the others can be composed meanwhile
+        // True while a request that changes the page is under way. A disabled page only blocks clicks,
+        // so the intake effect of a slot, which sends without a click, checks this value itself. A field
+        // that counts its step clicks does not disable the page, because the field is on the page; the
+        // controls that send a request wait for the count. A prescribe under way does not disable the
+        // page: only the slot being prescribed waits, and the other slots can still be composed.
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Nutrition
 
         let content =

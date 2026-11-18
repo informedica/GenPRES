@@ -2,13 +2,11 @@ namespace Views
 
 
 /// <summary>
-/// The signing dialog: modal over the order plan while a challenge stands. It lists the
-/// orders new, changed or removed since the version last opened or signed, each tagged, and
-/// asks the PIN; the whole plan is signed as shown, or the user cancels and edits. Before a
-/// challenge, when the patient data changed or cannot be read, it is the data
-/// notice instead: the EHR's data beside the plan's, to take, keep or cancel. Every text is a
-/// Terms case; what the dialog offers comes from SigningPolicy, and what happens from the
-/// signing machine.
+/// A modal over the order plan during a signing challenge. It lists the orders that are new, changed
+/// or removed since the version last opened or signed, each with a tag, and asks for the PIN; the user
+/// signs the whole plan as shown, or cancels to edit it. Before a challenge, when the patient data
+/// changed or cannot be read, it shows the EHR data beside the plan data instead, to take, keep or
+/// cancel. SigningPolicy decides what the dialog offers, and the signing machine what happens.
 /// </summary>
 module SignDialog =
 
@@ -33,21 +31,21 @@ module SignDialog =
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let context: Global.Context = React.useContext Global.context
 
-        // the sheet's translation in the User's language, else the policy's English
+        // Translates a term into the language of the User, with the English of the policy as fallback.
         let tr term =
             Global.getLocalizedTerm terms context.Localization (english term) term
 
         let phase = signing.Signing
         let isOpen = dialogOpen phase
 
-        // the PIN lives here until it is sent; a local check runs first, the server's answer
-        // comes back through the machine as the challenge's refusal
+        // The PIN stays here until it is sent. A local check runs first; the server answer comes back
+        // through the signing machine as the refusal of the challenge.
         let pin, setPin = React.useState ""
         let localError, setLocalError = React.useState<string option> None
-        // the server's answer is shown until the User edits the field; the next answer shows again
+        // The server answer is shown until the User edits the field; the next answer is shown again.
         let edited, setEdited = React.useState false
 
-        // the field belongs to one signature: cleared whenever the dialog closes
+        // The field belongs to one signature and is cleared whenever the dialog closes.
         React.useEffect (
             (fun () ->
                 if not isOpen then
@@ -58,8 +56,8 @@ module SignDialog =
             [| box isOpen |]
         )
 
-        // a request under way: the challenge asked or the Submission sent; only the challenge
-        // asked can be cancelled, its answer then landing nowhere
+        // A request is under way while the challenge is requested or the Submission is sent. Only the
+        // challenge request can be cancelled, and its answer is then ignored.
         let busy =
             match phase with
             | SigningView.RequestingChallenge
@@ -71,7 +69,7 @@ module SignDialog =
             | SigningView.Submitting _ -> true
             | _ -> false
 
-        // an answer arrived (the request in flight is over): show it, until the next edit
+        // When a request ends, its answer is shown until the next edit.
         React.useEffect ((fun () -> setEdited false), [| box busy |])
 
         let onPin (e: Browser.Types.Event) =
@@ -114,9 +112,8 @@ module SignDialog =
             | SigningView.DataChanged(plan, notice) -> Some(plan, notice)
             | _ -> None
 
-        // the orders that differ from the version last opened or signed, as they stood at the
-        // sign, each with how it differs and the argumentation its context holds; a removed one
-        // as the version held it
+        // The orders that differ from the version last opened or signed, each with its difference and
+        // the argumentation of its context. A removed order is shown as it was in that version.
         let orders =
             match phase with
             | SigningView.DataChanged _
@@ -130,7 +127,7 @@ module SignDialog =
             | SigningView.Idle
             | SigningView.RequestingChallenge -> [||]
 
-        // the plan is up for signing and none of its orders differs from the version
+        // True when the plan is up for signing and no order differs from the version last opened or signed.
         let unchanged =
             match phase with
             | SigningView.DataChanged _
@@ -169,7 +166,7 @@ module SignDialog =
                 fontStyle = "italic"
             |}
 
-        // the text read-only under the order, so that the signer reads what the pharmacist will
+        // Shows the argumentation read-only under the order, so the signer reads what the pharmacist reads.
         let argued (text: string option) =
             match text with
             | None -> null
@@ -184,7 +181,7 @@ module SignDialog =
             | Some(_, notice) -> noticeSentence tr notice
             | None -> tr Terms.``Signing Dialog Text``
 
-        // the EHR's data beside the plan's, only what differs
+        // The EHR data beside the plan data, only the rows that differ.
         let noticeTable =
             match notice with
             | Some(plan, notice) ->
@@ -224,12 +221,12 @@ module SignDialog =
                     """
             | None -> null
 
-        // the rows are block elements, so the secondary text is a div, not the paragraph
-        // ListItemText makes of it
+        // The rows are block elements, so the secondary text is a div instead of the paragraph that
+        // ListItemText renders.
         let secondarySlot = {| secondary = {| ``component`` = "div" |} |}
 
-        // the orders that differ: each scenario's prescription, one line per row, under the
-        // name and its tag
+        // The orders that differ: the prescription of each scenario, one line per row, under the name
+        // and the tag.
         let orderList =
             orders
             |> Array.mapi (fun i (sc, difference, argumentation) ->
@@ -359,7 +356,7 @@ module SignDialog =
 
         let primary =
             match notice with
-            // an unverified notice has nothing to take
+            // A notice without EHR patient data has nothing to take.
             | Some(_, { PatientData = None }) ->
                 JSX.jsx
                     $"""

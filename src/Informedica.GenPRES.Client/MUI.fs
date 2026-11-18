@@ -22,7 +22,6 @@ module Icons =
         <Message />
     """
 
-    //closeIcon
     [<JSX.Component>]
     let Close =
         JSX.jsx
@@ -31,7 +30,6 @@ module Icons =
         <Close />
     """
 
-    //addIcon
     [<JSX.Component>]
     let Add =
         JSX.jsx
@@ -39,7 +37,6 @@ module Icons =
         import Add from '@mui/icons-material/Add';
         <Add />
     """
-    //deleteIcon
     [<JSX.Component>]
     let Delete =
         JSX.jsx
@@ -48,7 +45,6 @@ module Icons =
         <Delete />
     """
 
-    // personicon
     [<JSX.Component>]
     let Person =
         JSX.jsx
@@ -57,7 +53,6 @@ module Icons =
         <Person />
     """
 
-    //Settings
     [<JSX.Component>]
     let Settings =
         JSX.jsx
@@ -66,7 +61,6 @@ module Icons =
         <Settings />
     """
 
-    //Restore
     [<JSX.Component>]
     let Restore =
         JSX.jsx
@@ -75,7 +69,6 @@ module Icons =
         <Restore />
     """
 
-    // editIcon
     [<JSX.Component>]
     let Edit =
         JSX.jsx
@@ -84,7 +77,6 @@ module Icons =
         <Edit />
     """
 
-    //info icon
     [<JSX.Component>]
     let MedicationLiquid =
         JSX.jsx
@@ -93,7 +85,6 @@ module Icons =
         <MedicationLiquid />
     """
 
-    //info icon
     [<JSX.Component>]
     let Vaccines =
         JSX.jsx
@@ -102,7 +93,6 @@ module Icons =
         <Vaccines />
     """
 
-    //info icon
     [<JSX.Component>]
     let Notes =
         JSX.jsx
@@ -111,7 +101,6 @@ module Icons =
         <Notes />
     """
 
-    //info icon
     [<JSX.Component>]
     let Downloading =
         JSX.jsx
@@ -120,7 +109,6 @@ module Icons =
         <Downloading />
     """
 
-    //info icon
     [<JSX.Component>]
     let Clear =
         JSX.jsx
@@ -567,23 +555,22 @@ module Colors =
         static member A200 = "#536dfe"
         static member A400 = "#3d5afe"
 
-/// The tokens a shared component spells its colours in. Each is a path into the theme's
-/// palette, resolved by sx, so a colour is stated once, in the theme, and a component names
-/// what it means rather than what it is. The hexes still in Mui.Colors are the ones the
-/// palette does not cover yet.
+/// The colour tokens of the shared components. Each token is a palette path that sx resolves, so a
+/// colour is defined once in the theme and a component names what the colour means. Mui.Colors holds
+/// the hex values for the colours the palette does not cover.
 module Styles =
 
     open Fable.Core.JsInterop
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
 
-    /// The four severities the client shows, as the palette names them.
+    /// The palette colours of the four severities.
     let validColor = "success.main"
     let cautionColor = "info.main"
     let warningColor = "warning.main"
     let alertColor = "error.main"
 
-    /// The tint behind a caution, a warning or an alert, as an alert box has it.
+    /// The background tint of a caution, a warning or an alert, as in an MUI alert box.
     let cautionBg = "severityBg.caution"
     let warningBg = "severityBg.warning"
     let alertBg = "severityBg.alert"
@@ -594,7 +581,7 @@ module Styles =
     /// The accent of a selected row and a marked border.
     let accentColor = "primary.main"
 
-    /// The header band over a table or a section; a tint the palette has no name for yet.
+    /// The background of a table or section header; the palette has no name for this tint.
     let headerBgColor = Colors.Blue.``50``
 
     /// The yellow tint a changed value lights up with before it fades.
@@ -605,12 +592,12 @@ module Styles =
         {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
 
 
-    /// A step button beside an input: as tall as the input's line, so that a row of them on the
-    /// input's baseline centres on its text.
+    /// A step button beside an input, as tall as the input line, so a row of step buttons on the input
+    /// baseline is centred on its text.
     let stepButtonSx = {| padding = "2px" |}
 
 
-    /// The colour of a severity; none for normal, which gets no mark.
+    /// The colour of a severity; None for normal, which gets no mark.
     let severityColor (severity: Severity) =
         match severity with
         | Severity.Normal -> None
@@ -619,7 +606,7 @@ module Styles =
         | Severity.Alert -> Some alertColor
 
 
-    /// The tint behind a severity; none for normal.
+    /// The background tint of a severity; None for normal.
     let severityBg (severity: Severity) =
         match severity with
         | Severity.Normal -> None
@@ -628,12 +615,12 @@ module Styles =
         | Severity.Alert -> Some alertBg
 
 
-    /// One sx over two: the second's properties over the first's.
+    /// Merges two sx objects; the properties of the second override those of the first.
     let mergeSx (sx: obj) (over: obj) : obj = emitJsExpr (sx, over) "Object.assign({}, $0, $1)"
 
 
-    /// The colour of a severity resolved on the theme, for a CSS property sx does not resolve a
-    /// palette path in, such as a text decoration's colour; none for normal.
+    /// The colour of a severity read from the theme, for a CSS property in which sx does not resolve a
+    /// palette path, such as textDecorationColor; None for normal.
     let severityPaletteColor (theme: Theme) (severity: Severity) =
         match severity with
         | Severity.Normal -> None
@@ -642,9 +629,9 @@ module Styles =
         | Severity.Alert -> Some theme.palette.error.main
 
 
-    /// The mark a raised severity puts under a value, a double underline in its colour, added to
-    /// an sx; a normal severity adds nothing. The colour is a theme callback, since sx resolves
-    /// a palette path in color and backgroundColor but not in textDecorationColor.
+    /// Adds a double underline in the severity colour to an sx for a raised severity; returns the sx
+    /// unchanged for a normal severity. The colour is a theme callback, because sx resolves a palette
+    /// path in color and backgroundColor but not in textDecorationColor.
     let markSx (severity: Severity) (sx: obj) =
         if severity |> Severity.isRaised then
             let underlineColor (theme: Theme) =
@@ -685,8 +672,8 @@ module Themes =
                     palette =
                         {|
                             mode = "light"
-                            // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
-                            // light-mode shades, all three, so nothing derived replaces a built-in one
+                            // The colours of the severities Valid, Caution, Warning and Alert: the MUI
+                            // light-mode main, light and dark shades, so no derived shade replaces a built-in one.
                             success =
                                 {|
                                     main = "#2e7d32"
@@ -711,7 +698,7 @@ module Themes =
                                     light = "#ef5350"
                                     dark = "#c62828"
                                 |}
-                            // the tint behind a caution, a warning or an alert, as an alert box has it
+                            // The background tint of a caution, a warning or an alert, as in an MUI alert box.
                             severityBg =
                                 {|
                                     caution = "#e5f6fd"
@@ -760,7 +747,7 @@ module TypoGraphy =
             let severity = tb |> Severity.ofTextBlock
             let items = tb |> Severity.items
 
-            // bold text takes the severity's colour, valid text the palette's success colour
+            // Bold text gets the severity colour, or the success colour for a normal severity.
             let color = severity |> Styles.severityColor |> Option.defaultValue Styles.validColor
 
             let normalSx =

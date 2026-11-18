@@ -219,7 +219,7 @@ module GenPres =
 
         let formulary = (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary
 
-        // the menu's formulary entry is tinted by the highest severity of the dose check
+        // The formulary menu item is tinted by the highest severity of the dose check.
         let formularyBg =
             match formulary with
             | Resolved form
@@ -230,7 +230,7 @@ module GenPres =
         let formularyIndex = pages |> List.tryFindIndex ((=) Global.Pages.Formulary)
         let settingsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Settings)
 
-        // no page switch while anything is out
+        // No page switch while any request is pending.
         let menuItems =
             state.SideMenuItems
             |> Array.mapi (fun idx (icon, text, sel, _, _) ->
@@ -267,10 +267,10 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
-        // the page is disabled as a whole while a request out can change anything on it
+        // The whole page is disabled while a pending request can change it.
         let pageDisabled = busy.Page props.page
 
-        // the page box scrolls, so the disable lies around it and its spinner stays in view
+        // The page box scrolls, so the disabled overlay wraps the box and its spinner stays in view.
         let disabledPage =
             Components.Disabled.View
                 {|
@@ -299,8 +299,8 @@ module GenPres =
                         |}
                     |> Some
                 | OrderContextView.NoPatientData -> None
-            // the nutrition page shows the plan's totals with the slots narrowed to one order, so that the
-            // combined intake is seen before a prescribe
+            // The nutrition page shows the combined totals of the plan and the slots, so the combined intake
+            // is seen before an order is prescribed.
             | Global.Pages.Nutrition ->
                 (AppEnv.asEnv<AppEnv.INutrition> props.appEnv).Totals
                 |> Option.map (fun totals ->
@@ -332,8 +332,8 @@ module GenPres =
                     localizationTerms = localizationTerms
                 |}
 
-        // the gate: over the app until it has started, while a launch is presented or resumed,
-        // and after a refusal; it cannot be dismissed, the machines decide when it goes
+        // The session gate covers the app until it has started, while a launch is presented or resumed,
+        // and after a refusal. It cannot be dismissed; the state machines decide when it closes.
         let sessionGateOpen =
             StartupPolicy.isGated
                 (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
@@ -416,7 +416,7 @@ module GenPres =
 
         let onCloseModal = fun () -> ()
 
-        // neither closes on a click outside: the disclaimer is accepted, the gate answered
+        // Neither dialog closes on a click outside: the disclaimer must be accepted and the gate answered.
         let disclaimerDialog =
             Components.DialogShell.View
                 {|

@@ -78,7 +78,7 @@ module Settings =
                 isLoading
                 (Terms.``Settings Reloading Resources`` |> getTerm "Reloading resources...")
 
-        // the page is only reached signed in, so the token stands in for the password
+        // The page is reached only after sign-in, so the reload sends the admin token instead of a password.
         let handleReload = fun _ -> resources.ReloadResources()
 
         let handleRefreshLogs = fun _ -> logAnalyzer.ListLogFiles()
@@ -101,7 +101,7 @@ module Settings =
                 p = 4
             |}
 
-        // the files listed again: what is shown stays, the progress above it
+        // While the files are listed again, the table stays and a progress indicator shows above it.
         let refreshing =
             match logAnalyzer.LogFiles with
             | Refreshing _ -> ViewHelpers.circularProgress

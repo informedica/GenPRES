@@ -1,9 +1,9 @@
 namespace Views
 
 
-/// The question before a url with a patient, a medication or a launch: it leaves the launched
-/// Session, or drops the work not signed. The browser asks the second itself for a reload or a
-/// closed tab, but not for a change of the url.
+/// Asks before a url with a patient, a medication or a launch is followed, because that closes the
+/// launched session or loses the orders not signed. The browser asks about unsigned work itself on a
+/// reload or a closed tab, but not when the url changes.
 module LeaveDialog =
 
 
@@ -12,8 +12,8 @@ module LeaveDialog =
     open Informedica.GenPRES.Shared
 
 
-    /// The dialog; whether the Session is launched and whether the url asks for a launch pick
-    /// its title and text.
+    /// The dialog. Its title and text depend on whether the session is launched and whether the url asks
+    /// for a launch.
     [<JSX.Component>]
     let View
         (props:
