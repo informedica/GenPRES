@@ -25,7 +25,8 @@ module Types =
             Form: string
             /// The Unit of the form
             Unit: Unit
-            /// The unit of the dose limits; with NoUnit the dose limits are empty
+            /// The DoseUnit column; NoUnit when it is empty. The dose limits then use the Unit of the form,
+            /// and they are empty only when both units are missing.
             DoseUnit: Unit
             /// The minimum Dose quantity
             MinDoseQty: ValueUnit option
