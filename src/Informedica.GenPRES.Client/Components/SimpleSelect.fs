@@ -14,7 +14,8 @@ module SimpleSelect =
     open Feliz
 
 
-    /// A field's state for the trail: whether it holds a value and what it lists; never the value.
+    /// Describes a field for the step trail: whether a value is picked, how many values are listed,
+    /// and whether it recalculates. The value itself is never included.
     let fieldState (selected: string option) (listed: int) (recalculating: bool) =
         let held = if selected.IsSome then "picked" else "none"
         let list = if listed = 0 then "range" else string listed
@@ -32,29 +33,30 @@ module SimpleSelect =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
-                // the field cannot be opened, but it is not greyed and what it holds still
-                // answers, so the cross inside it can be pressed
+                // the field cannot be opened, but it is not greyed out and still reacts, so its
+                // clear button works
                 readOnly: bool
                 hasClear: bool
-                // whether the value can be stepped beside the select: a single value that can
-                // be stepped is not a fixed one, and is not drawn as one
+                // whether step buttons stand beside the select; a single value that can be stepped
+                // is not drawn as a fixed value
                 canStep: bool
                 severity: Severity
                 minWidth: int option
-                // what a click or a key on the select does beyond choosing, told to a screen
-                // reader on the element that has the focus
+                // what a click or a key on the select does besides choosing, read to a screen
+                // reader on the focused element
                 description: string option
-                // a field with one value: opening it recalculates it first and the list shows what
-                // the server answers; None opens the list as it is
+                // for a field with one value: opening the list recalculates the field first, and the
+                // list shows the result; None opens the list as it is
                 reCalc: (unit -> unit) option
-                // the list of a recalculation closed without a pick: the page puts back what it showed
+                // called when the list of a recalculation closes without a pick, so the page restores
+                // what it showed
                 restore: unit -> unit
-                // a request of the page under way, also a step shown before its answer: a
-                // recalculation then does nothing, since it would wait behind it with nothing to put back
+                // a page request runs, also for a step shown before its answer; opening the list then
+                // starts no recalculation, since it would wait behind that request with nothing to restore
                 busy: bool
-                // what the box asks while it has values to pick from and shows none
+                // the greyed text shown while there are values to pick and none is selected
                 placeholder: string option
-                // the value the placeholder stands for, if it is one of the values: the list opens
+                // the value the placeholder stands for, if it is one of the values; the list opens
                 // on it, shown selected, while the box shows the placeholder
                 placeholderValue: string option
             |})
@@ -69,17 +71,18 @@ module SimpleSelect =
             else
                 {| |} |> box
 
-        // the list is opened by the select and by a recalculation; a recalculation opens it at once,
-        // showing the value held until the answer brings the others
+        // The list opens from the select and from a recalculation. A recalculation opens it at once
+        // with the prior value, until the answer brings the other values.
         let isOpen, setOpen = React.useState false
-        // a recalculation under way, whether its answer has been asked for, and the value held before it
+        // whether a recalculation runs, whether its loading has been seen, and the value selected
+        // before it
         let recalculating = React.useRef false
         let sawLoading = React.useRef false
         let prior = React.useRef props.selected
-        // the list of a recalculation waits for its answer: drawn under a loading overlay meanwhile
+        // whether the list of a recalculation waits for the answer; a loading overlay covers it then
         let waiting, setWaiting = React.useState false
 
-        // a lone range is no list: its click picks the median
+        // a single range is not a list: a click on it picks the median
         let listed =
             match props.values with
             | [| ("range", _) |] -> 0
@@ -89,7 +92,7 @@ module SimpleSelect =
             fun ev ->
                 let value = ev?target?value
 
-                // a pick ends a recalculation: nothing to put back
+                // a pick ends a recalculation, so there is nothing to restore
                 recalculating.current <- false
                 setWaiting false
                 setOpen false
@@ -131,7 +134,7 @@ module SimpleSelect =
                     setOpen true
                 | None -> setOpen true
 
-        // closed without a pick after a recalculation: the page puts back what it showed
+        // closing without a pick after a recalculation lets the page restore what it showed
         let handleClose =
             fun _ ->
                 setOpen false
@@ -142,7 +145,8 @@ module SimpleSelect =
                     recalculating.current <- false
                     props.restore ()
 
-        // the answer to a recalculation with no values to list closes the list; the field shows the range
+        // when the answer to a recalculation has no values to list, the list closes and the field
+        // shows the range
         React.useEffect (
             (fun () ->
                 if recalculating.current then
@@ -167,8 +171,8 @@ module SimpleSelect =
                 paddingY = if isMobile then 0.25 else 0.75
             |}
 
-        // the select marks as selected only the value it holds, so the value a placeholder stands
-        // for is given the selected look and the focus itself, which also scrolls it into view
+        // The select marks only its selected value as selected, so the value the placeholder
+        // stands for gets the selected class and the focus here, which also scrolls it into view.
         let placeholderValue = props.placeholderValue |> Option.filter (fun _ -> props.selected.IsNone)
 
         let items =
@@ -235,7 +239,7 @@ module SimpleSelect =
                 </IconButton>
                 """
 
-        // the cross clears the value whether or not the value has a stepper beside it
+        // the clear button clears the value, also when step buttons stand beside it
         let endAdornment =
             if not isClear && props.hasClear then
                 Some clearButton
@@ -249,8 +253,7 @@ module SimpleSelect =
 
         let hasInteraction = props.canStep || props.values.Length > 1 || props.reCalc.IsSome
 
-        // the arrow shows where it opens something: not beside the cross, not on a field that
-        // cannot be opened
+        // the dropdown arrow shows only when the field can be opened and has no clear button
         let iconVisibility =
             if endAdornment.IsNone && not props.readOnly then
                 "visible"
@@ -273,7 +276,8 @@ module SimpleSelect =
                 |> box
             | false, true -> {| ``& .MuiSelect-icon`` = {| visibility = iconVisibility |} |} |> box
 
-        // while a recalculation waits or lists, the value held before it stays chosen when it is offered
+        // during a recalculation the value selected before it stays selected while it is among
+        // the values
         let value =
             match props.selected with
             | Some s -> s
@@ -283,8 +287,8 @@ module SimpleSelect =
                 |> Option.defaultValue ""
             | None -> ""
 
-        // the placeholder stands where the value would, only when the box shows no value, so the
-        // two never lie over each other
+        // the placeholder shows only when the box shows no value and there are values, so the
+        // two never overlap
         let placeholder =
             match props.placeholder with
             | Some text when value = "" && props.values.Length > 0 -> Some text
@@ -304,8 +308,8 @@ module SimpleSelect =
                 |> box
             | None -> null
 
-        // a label left in the box would lie over the placeholder, so it moves up while the
-        // placeholder shows; otherwise the value is left undefined, so the field decides
+        // A label inside the box would cover the placeholder, so the label shrinks above the box
+        // while the placeholder shows. Otherwise shrink is left undefined and MUI decides.
         let labelShrink =
             match placeholder with
             | Some _ -> box true

@@ -56,8 +56,7 @@ module Types =
                 Days: int<day>
             }
 
-        /// The mark of a patient as an adult, set by the server from the age and the choice of the
-        /// user.
+        /// Whether a patient counts as an adult. The server sets it from the age and the choice of the user.
         [<RequireQualifiedAccess>]
         type AdultMark =
             /// Younger than 16 years: the patient cannot be marked as an adult.
@@ -67,10 +66,10 @@ module Types =
             /// From 18 years: an adult without a mark.
             | Adult
 
-        /// The gestational age of a patient with the need for it, set by the server from the age.
+        /// The gestational age and whether it is needed. The server sets the case from the age.
         [<RequireQualifiedAccess>]
         type GestationalAge =
-            /// From 1 year, or without an age: the gestational age says nothing and is not given.
+            /// From 1 year, or without an age: no gestational age is given.
             | NoGestationalAge
             /// From 28 days and under 1 year: the gestational age may be given.
             | OptionalGestationalAge of AgeWeeksDays option
@@ -83,16 +82,15 @@ module Types =
     type AdultMark = PatientData.AdultMark
     type GestationalAge = PatientData.GestationalAge
 
-    /// The patient data the client sends and edits. Every field is optional, so the data can be
-    /// incomplete; the server checks it before the rules use it.
+    /// The patient data the client sends. The data can be incomplete; the server checks it before the
+    /// rules use it.
     type PatientData =
         {
             Age: Age option
-            /// The gestational age with the need for it the server set from the age; the client asks
-            /// for the gestational age only when the server says it may be given.
+            /// The gestational age and whether it may or must be given. The server sets the case from the age.
             GestationalAge: GestationalAge
-            /// The post-menstrual age the server calculated from the age and the gestational age; the
-            /// client holds it and never calculates it.
+            /// The post-menstrual age the server calculates from the age and the gestational age. The client
+            /// never calculates it.
             PostMenstrualAge: AgeWeeksDays option
             Weight: Weight
             Height: Height
@@ -101,13 +99,12 @@ module Types =
             RenalFunction: RenalFunction option
             Location: string option
             Department: string option
-            /// The mark as an adult the server set from the age and the choice of the user; a patient
-            /// who is an adult by the mark is matched to the rules for adults.
+            /// Whether the patient counts as an adult. An adult is matched to the dose rules for adults.
             AdultMark: AdultMark
         }
 
 
-    /// Weight in gram!!
+    /// The estimated weights and the measured weight of a patient, in gram.
     and Weight =
         {
             EstimatedP3: int<gram> option
@@ -116,7 +113,7 @@ module Types =
             Measured: int<gram> option
         }
 
-    /// Length in cm
+    /// The estimated heights and the measured height of a patient, in cm.
     and Height =
         {
             EstimatedP3: int<cm> option
@@ -137,7 +134,7 @@ module Types =
 
     and RenalFunction =
         | EGFR of int option * int option
-        | IntermittentHemodialysis // intermittent hemodialysis
+        | IntermittentHemodialysis
         | ContinuousHemodialysis
         | PeritonealDialysis
 
@@ -233,12 +230,12 @@ module Types =
         }
 
 
-    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    /// A product a component can be made of, with the strength of each substance.
     type ComponentProduct =
         {
             /// The id of the product: a GPK, PRK or HPK
             Id: string
-            /// The quantities of the product as the component counts them
+            /// The form quantities of the product; none when the product has none
             FormQuantities: ValueUnit option
             /// The strength of each substance of the product
             Strengths: ProductStrength[]
@@ -350,54 +347,32 @@ module Types =
     type Intervention =
         {
             Hospital: string
-            // The intervention category
-            // == Intervention ==
-            // Indication for the intervention
             Category: string
-            // Name of the intervention
             Name: string
-            // == Patient --
-            // minWeight
             MinWeightKg: float option
-            // maxWeight
             MaxWeightKg: float option
-            // == Product ==
-            // Substance quantity
+            /// The quantity of the substance
             Quantity: float option
-            // Quantity unit
             QuantityUnit: string
-            // Name of the solution
+            /// The name of the solution
             Solution: string
-            // Total quantity
+            /// The total quantity
             Total: float option
-            // Total unit
             TotalUnit: string
-            // == Dose ==
-            // Intervention dose
             InterventionDose: float option
-            // Intervention dose unit
             InterventionDoseUnit: string
-            // Text representation
+            /// The intervention dose as text
             InterventionDoseText: string
-            // Dose of the substance
             SubstanceDose: float option
-            // Min dose of the substance
             SubstanceMinDose: float option
-            // Max dose of the substance
             SubstanceMaxDose: float option
-            // Dose unit
             SubstanceDoseUnit: string
-            // Adjusted dose
             SubstanceDoseAdjust: float option
-            // Norm adjusted dose
             SubstanceNormDoseAdjust: float option
-            // Min adjusted dose
             SubstanceMinDoseAdjust: float option
-            // Max adjusted dose
             SubstanceMaxDoseAdjust: float option
-            // Adjusted dose unit
             SubstanceDoseAdjustUnit: string
-            // Dose remarks
+            /// Remarks on the substance dose
             SubstanceDoseText: string
             Text: string
         }
@@ -461,7 +436,7 @@ module Types =
     /// Where the choices of a filter come from when they are set from outside its own fields.
     [<RequireQualifiedAccess>]
     type SeedSource =
-        /// The medication in the url, written over the filter as it is.
+        /// The medication in the url, which replaces the choices of the filter.
         | Url
         /// An item of the emergency or continuous medication list, written over an empty filter.
         | MedicationList
@@ -469,7 +444,7 @@ module Types =
         | Formulary
         /// The medication, route and form of the parenteralia page.
         | Parenteralia
-        /// The rules reloaded: the filter evaluated again as it is.
+        /// The rules were reloaded; the filter is evaluated again unchanged.
         | Reload
 
 
@@ -548,17 +523,17 @@ module Types =
             UseAdjust: bool
             UseRenalRule: bool
             RenalRule: string option
-            /// Whether the order only fits its rule without the Divisible of its products
+            /// Whether the order fits its dose rule only when the Divisible of its products is ignored
             FitsOnlyWithoutDivisible: bool
-            /// Whether the current patient gets no rule for the picks of the order, or other rules
-            /// than the patient of its context gets
+            /// Whether no dose rule applies to the current patient data for the picks of the order, or other
+            /// dose rules apply than for the patient data of its context
             RulesNoLongerApply: bool
-            /// Whether the order could not be calculated on the current patient data, so that it stands
-            /// as calculated on the patient data before; it is for the prescriber to accept or remove
+            /// Whether the order could not be recalculated with the current patient data, so it stays as
+            /// calculated with the earlier patient data; the prescriber accepts or removes it
             NotRecalculated: bool
             ProductIds: string[]
-            /// The access device the scenario's solution rule makes the preparation for; none when
-            /// the preparation is for any access. Never the patient's access.
+            /// The access device the solution rule of the scenario prepares for; none when the preparation
+            /// fits any access. This is not the access of the patient.
             Access: Access option
         }
 
@@ -572,10 +547,9 @@ module Types =
         | ElectrolyteGlucose
 
 
-    /// What kind of order a context holds: a medication, or a nutrition order of one of the
-    /// categories. Recorded on the context and kept with it, so that a reopened plan knows
-    /// each order's kind without guessing from the generic (KCl, NaCl and glucose are
-    /// nutrition generics and drugs both).
+    /// What kind of order a context holds: a medication, or a nutrition order of a category. It is stored
+    /// with the context, so a signed plan read back knows the kind of each order without guessing from the
+    /// generic: KCl, NaCl and glucose are both nutrition and medication generics.
     [<RequireQualifiedAccess>]
     type OrderCategory =
         | Medication
@@ -584,8 +558,8 @@ module Types =
 
     type OrderContext =
         {
-            /// The context's id in the plan; empty for an order context not in the plan, given a
-            /// new id by the server when it is added
+            /// The id of the context in the plan; empty for a context not in the plan, which the server
+            /// gives a new id when it is added
             Id: string
             /// A medication, or the nutrition category the context holds
             Category: OrderCategory
@@ -595,12 +569,11 @@ module Types =
             Filter: Filter
             /// The patient the context is evaluated for
             PatientData: PatientData
-            /// The scenarios the picks leave; one when the context is narrowed to one order
+            /// The scenarios that match the picks; a single scenario when the context is narrowed to one order
             Scenarios: OrderScenario[]
-            /// The totals over the one scenario the context is narrowed to
+            /// The totals of the single scenario when the context is narrowed to one order
             Totals: Totals
-            /// What the clinician wrote when the dose left what the rules allow; none until
-            /// written.
+            /// The reason the prescriber gives for a dose outside the dose rules; none until given
             Argumentation: string option
             /// The id of the plan context that holds the main order of this order; none for an order
             /// that is not linked
@@ -616,14 +589,15 @@ module Types =
         }
 
 
-    /// The one plan: every order for the patient, nutrition included, which is what is signed.
+    /// The order plan of a patient: every medication and nutrition order. The plan is what the prescriber
+    /// signs.
     type OrderPlan =
         {
             PatientData: PatientData
-            // the contexts shown and counted, by id; empty for all of them
+            /// The ids of the contexts the plan totals count; empty for all contexts
             Filtered: string[]
-            // the order contexts of the plan, drug and nutrition alike, each saying what it holds
-            // and carrying its id; the plan's orders are what the narrowed ones contribute
+            /// Every order context of the plan, medication and nutrition; the orders of the plan come from
+            /// the contexts narrowed to one order
             OrderContexts: OrderContext[]
             Totals: Totals
         }
@@ -680,9 +654,8 @@ module Types =
     type PublicKey = | PublicKey of string
 
 
-    /// Names the OrderPlan the Session opened with. Sent with every computing request and
-    /// checked at every signature; later it travels inside the signed request of launch
-    /// step 7, which is not built yet.
+    /// Names the order plan version the Session opened with. Sent with every computing request and checked
+    /// at every signature. It will also travel inside the signed request of launch step 7, not built yet.
     type OpenedToken = | OpenedToken of string
 
 
@@ -700,9 +673,8 @@ module Types =
         }
 
 
-    /// Who the patient of a Session is, beside the id: the full name and the birthdate as
-    /// three integers, as the url already carries one. Shown in full: the user sits at the EHR
-    /// that launched the Session.
+    /// The full name and the birth date of the patient of a Session, the birth date as three integers.
+    /// Shown in full, because the user works at the EHR that launched the Session.
     type PatientIdentity =
         {
             Name: string
@@ -712,21 +684,21 @@ module Types =
         }
 
 
-    /// The Patient a Session is for: its id, who it is when the EHR said, and its data as read
-    /// from the EHR at the launch, else as signed last; the data is `None` when neither has
-    /// any, so the User enters it.
+    /// The patient of a Session: the id, the identity when the EHR gives one, and the patient data read
+    /// from the EHR at the launch or else from the last signed version. The data is None when neither
+    /// has any; the user then enters it.
     type PatientContext =
         {
             PatientId: string
-            /// None for a patient the EHR did not identify: an anonymous Session
+            /// None in an anonymous Session, where the EHR did not identify the patient
             PatientIdentity: PatientIdentity option
             PatientData: PatientData option
         }
 
 
-    /// What identifies a signed version of an order plan: its id, its place in the patient's
-    /// record (`No` orders the record: a clock cannot say which of two landed first), who
-    /// signed it and when. Enough for the notice that the record moved on: whose, and when.
+    /// Identifies a signed version of an order plan: the id, the number No that orders the versions in the
+    /// record of the patient, who signed it and when. No orders the versions because a clock cannot tell
+    /// which of two signatures came first.
     type OrderPlanHead =
         {
             Id: string
@@ -736,82 +708,81 @@ module Types =
         }
 
 
-    /// A signed version of an order plan, as the record holds it: the head, the patient, the
-    /// version it was signed over (`Base`, `None` for the first), the order contexts as they
-    /// were at the signature with their orders inside, the patient data the User saw and
-    /// whether it was the platform's reading at the challenge.
+    /// A signed version of an order plan as stored in the record: the head, the patient, the version it
+    /// was signed over in Base (None for the first), the order contexts at the signature, the patient
+    /// data the user saw, and in Verified whether that data was read from the EHR at the challenge.
     type SignedOrderPlan =
         {
             Head: OrderPlanHead
             PatientId: string
             Base: string option
-            // every context of the plan as signed: a reopen is the plan as it was
+            /// Every order context of the plan as signed, so a signed plan read back is the plan as it was
             OrderContexts: OrderContext[]
             PatientData: PatientData
-            /// the patient's name and birthdate as the version names them; none for a version
-            /// signed in a Session without an identity
+            /// The name and birth date of the patient at this version; none for a version signed in an
+            /// anonymous Session
             PatientIdentity: PatientIdentity option
             Verified: bool
         }
 
 
-    /// What the client keeps of an open Session. No SessionId: it lives in the cookie, a
-    /// bearer credential that never reaches script. `Head` is the version of the record it
-    /// opened with: its orders go into the cart, and a Submission is refused when a newer
-    /// version than it exists; `None` from nothing.
+    /// What the client receives when a Session opens. There is no SessionId: the id is in the cookie, a
+    /// bearer credential that scripts cannot read. Head is the signed version the Session opened with:
+    /// its orders start the plan, and a Submission is refused when a newer version exists. Head is None
+    /// when the record has no signed version.
     type SessionOpened =
         {
-            // None = anonymous session: opened without a launch, no User, no Role
+            /// None for an anonymous Session, opened without a launch, so without a user or role
             User: UserContext option
-            // None = launch without an active patient
+            /// None for a launch without an active patient
             PatientContext: PatientContext option
             OpenedToken: OpenedToken option
-            // RFC 7638 thumbprint of the public key this Session will sign requests with
-            // (launch step 7, not built yet); the client keeps that private key and prunes
-            // the others
+            /// The RFC 7638 thumbprint of the public key this Session will sign requests with (launch
+            /// step 7, not built yet). The client keeps the matching private key and deletes the others.
             KeyThumbprint: string option
             Head: SignedOrderPlan option
         }
 
 
-    /// Every refusal ends the same: no Session opens. The case says what the client offers
-    /// next.
+    /// Why a launch opened no Session. The case tells the client what to offer next.
     [<RequireQualifiedAccess>]
     type LaunchRefusal =
-        // ask for a relaunch
+        /// The launch has expired; the client asks for a relaunch.
         | LaunchExpired
+        /// The launch was already used; the client asks for a relaunch.
         | LaunchSpent
+        /// The launch is not valid; the client asks for a relaunch.
         | LaunchInvalid
-        // retry, then relaunch
+        /// The browser identity is missing; the client retries, then asks for a relaunch.
         | NoBrowserIdentity
-        // offer an anonymous open
+        /// The user has no role; the client offers an anonymous Session.
         | NoRole
-        // relaunch after activating the right patient in MainEHR
+        /// The patient of the launch is not the active patient in MainEHR; the client asks for a
+        /// relaunch after the right patient is activated.
         | WrongActivePatient
-        // the enrolment attempt is gone (UC-2); shown as text only for now
+        /// The enrolment attempt is gone; the client shows only a text.
         | EnrolmentRequired
 
 
-    /// Why a Session ended other than by the User closing it. The server says it once, at
-    /// the next request, and the client shows it. The absolute lifetime is not built yet.
+    /// Why a Session ended other than by the user closing it. The server tells it once, at the next
+    /// request. The absolute lifetime is not built yet.
     [<RequireQualifiedAccess>]
     type SessionEnding =
+        /// A new launch replaced the Session.
         | SupersededByLaunch
-        // the third wrong PIN at a signature
+        /// The third wrong PIN at a signature.
         | WrongPinLimit
-        // the store holds this Session's working state in a form this release cannot read;
-        // a relaunch opens a fresh one
+        /// This release cannot read the stored working state of the Session; a relaunch opens a new one.
         | Unreadable
-        // no request for the idle lifetime: a Session left behind, whose data and age a
-        // relaunch reads again
+        /// No request came within the idle lifetime; a relaunch reads the patient data and age again.
         | Idle
-        // told to a tab only, never stored: the Session stands on another token, so another tab
-        // took it over, and it stays open for that tab; this is no ending of the Session itself
+        /// Told to a tab only and never stored: another tab took the Session over with another token.
+        /// The Session itself stays open for that tab.
         | InactiveTab
 
 
-    /// What the client learns when its launch is waiting on a PIN: whom to greet and
-    /// where the confirmation code went, hinted so that a shoulder cannot read the address.
+    /// What the client receives when its launch waits on a PIN: the name to greet, and a hint of the mail
+    /// address the confirmation code went to, so a bystander cannot read the address.
     type EnrolmentPending =
         {
             DisplayName: string
@@ -819,10 +790,10 @@ module Types =
         }
 
 
-    /// Why a supplied PIN opened no Session. `WrongCode` leaves the form open with the tries
-    /// left; `PinFormat` spends no try; `CodeVoid` and `AttemptExpired` are terminal: the
-    /// launch has to start over. `WrongActivePatient` is terminal too, and the PIN is set:
-    /// the registry no longer has the launch's Patient active.
+    /// Why a supplied PIN opened no Session. WrongCode allows another try and gives the tries left;
+    /// PinFormat does not count as a try. CodeVoid, AttemptExpired and WrongActivePatient end the
+    /// launch, which has to start over. After WrongActivePatient the PIN is set, but the patient of the
+    /// launch is no longer the active patient.
     [<RequireQualifiedAccess>]
     type PinRefusal =
         | WrongCode of attemptsLeft: int
@@ -835,43 +806,46 @@ module Types =
     [<RequireQualifiedAccess>]
     type LaunchOutcome =
         | Opened of SessionOpened
-        // the redirect to the IdentityProvider as a payload: Fable.Remoting's XHR would
-        // follow a 302 and try to parse the IdentityProvider's HTML. The stub never returns it.
+        /// The url of the IdentityProvider, sent as a value because Fable.Remoting would follow a 302
+        /// redirect and fail to parse the HTML of the IdentityProvider. The stub never returns it.
         | RedirectTo of url: string
         | Refused of LaunchRefusal
 
 
-    /// Why a signature did not proceed, at the challenge request or at the Submission. The
-    /// first seven end the signing and are told once; `PinWrong` and `Locked` keep the PIN
-    /// dialog open; `PinLimit` ends the Session. Changed patient data is not a refusal but a
-    /// `DataNotice`. The PIN cases arrive with the Submission.
+    /// Why a signature did not proceed, at the challenge request or at the Submission. PinWrong and Locked
+    /// let the user enter the PIN again, PinLimit ends the Session, and every other case ends the
+    /// signing. Changed patient data is not a refusal but a DataNotice. The PIN cases come with the
+    /// Submission.
     [<RequireQualifiedAccess>]
     type SigningRefusal =
-        // no Session for the cookie, or none at all
+        /// No Session for the cookie, or no Session at all.
         | NoSession
-        // the Session has no Patient, or the plan to sign carries none: nothing to sign for
+        /// The Session has no patient, or the plan to sign has none.
         | NoPatient
-        // nobody to sign as, or the Role, re-taken from the registry, is not Prescriber
+        /// No user to sign as, or the role read again from the registry is not Prescriber.
         | NotPrescriber
-        // the record moved on since the Session opened its version; whose version, and when
+        /// The record has a newer version than the one the Session opened with; the head says whose
+        /// and when.
         | Blocked of OrderPlanHead
-        // not the OpenedToken this Session holds
+        /// The OpenedToken is not the one this Session holds.
         | StaleToken
-        // not the plan the challenge was issued over, or no challenge
+        /// The plan is not the plan the challenge was issued for, or there is no challenge.
         | ChallengeMismatch
+        /// The challenge has expired.
         | ChallengeExpired
-        // the wrong-PIN count: tries left, the limit reached (the Session ends), or locked
-        // until a moment
+        /// The PIN is wrong; gives the tries left.
         | PinWrong of attemptsLeft: int
+        /// The limit of wrong PINs is reached; the Session ends.
         | PinLimit
+        /// Signing is locked until the given time.
         | Locked of until: DateTime
-        // the version could not be stored; nothing changed, sign again
+        /// The version could not be stored; nothing changed, so the user signs again.
         | StoreFailed
-        // the plan as sent cannot be read as an order plan; nothing to sign
+        /// The plan as sent cannot be read as an order plan; there is nothing to sign.
         | PlanUnreadable
 
 
-    /// The current patient data, shown before a challenge when it differs from the data the
+    /// The current patient data, sent before a challenge when it differs from the data the
     /// Session opened with. None when the EHR cannot be read; the data is then not verified. The
     /// user goes on by sending the token back with the next request.
     type DataNotice =
@@ -881,9 +855,8 @@ module Types =
         }
 
 
-    /// The signature: the plan as shown, the OpenedToken the Session holds, the challenge it
-    /// was issued, the PIN, and a key of the client's own so that the commit takes effect
-    /// once. Never logged.
+    /// The signature: the plan as shown, the OpenedToken the Session holds, the challenge, the PIN, and an
+    /// idempotency key from the client so the commit takes effect once. Never logged.
     type Submission =
         {
             Plan: OrderPlan
@@ -894,25 +867,23 @@ module Types =
         }
 
 
-    /// The answer to a signing command. A payload like `LaunchOutcome`: the session port
-    /// answers it, so it lives with the types, not the api.
+    /// The answer to a signing command. Defined here, not in the api, because the session port returns it.
     [<RequireQualifiedAccess>]
     type SigningResponse =
-        // the challenge over exactly this plan; comes back with the PIN. ehrMovedOn: the patient of
-        // the Session is no longer the patient active in the EHR, which is told before the PIN
+        /// A challenge for exactly this plan, to send back with the PIN. ehrMovedOn is true when the
+        /// patient of the Session is no longer the active patient in the EHR; the user learns this before
+        /// entering the PIN.
         | ChallengeIssued of challenge: string * ehrMovedOn: bool
-        // no challenge yet: the current patient data, for the user to accept or not
+        /// No challenge yet: the current patient data, for the user to accept or not.
         | DataNotice of DataNotice
-        // the version is stored; a new OpenedToken, and the patient data the Session shows after
-        // the signing, with the age calculated again
+        /// The version is stored. Gives a new OpenedToken and the patient data of the Session after the
+        /// signing, with the age calculated again.
         | Submitted of SignedOrderPlan * OpenedToken * PatientData
+        /// The signature was refused, with the reason.
         | Refused of SigningRefusal
 
 
-    /// Why an evaluation is refused: the picks of the filter match no dose rule, the picked rule
-    /// needs a measurement the patient does not have or a diluent the formulary does not have, the
-    /// order cannot be solved with a change to it, or the change sets a dose per kg or per m2 the
-    /// order does not have. The same cases as GenORDER's Refusal, in the contract's own words.
+    /// Why an order context could not be evaluated. The cases match the Refusal type of GenORDER.
     [<RequireQualifiedAccess>]
     type OrderContextRefusal =
         /// No dose rule exists for the picks at all.
@@ -935,23 +906,22 @@ module Types =
         | NoAdjustedDose
 
 
-    /// The answer to an order-context command. A payload like `LaunchOutcome`: the context
-    /// evaluated, or the context as it was sent, its picks kept, with the refusal. The error
-    /// channel stays for failures.
+    /// The answer to an order context command: the evaluated context, or the context as sent with the
+    /// refusal. Failures go through the error channel.
     [<RequireQualifiedAccess>]
     type OrderContextResponse =
-        /// The context evaluated, with the orders the link rules offer to link to its order: filled for a
-        /// context narrowed to one order, empty otherwise. They come only in the answer, so a request about the
-        /// context cannot carry them back.
+        /// The evaluated context, with the orders the link rules offer to link to its order: filled for a
+        /// context narrowed to one order, empty otherwise. Only the answer carries them, so a request cannot
+        /// send them back.
         | Evaluated of OrderContext * linked: OrderContext[]
         /// The context as it was sent, and why it could not be evaluated.
         | Refused of OrderContext * OrderContextRefusal
 
 
-    /// What a reply says about the Session next to its result. `NewerVersion`: a version
-    /// newer than the one the request's OpenedToken names exists, whose and when; it gates
-    /// nothing. `Ended`: the server ended this Session, told at the next request. Lives here,
-    /// like `SigningResponse`: the session port answers it.
+    /// What a reply says about the Session beside its result. NewerVersion: a version newer than the one
+    /// the OpenedToken of the request names exists, with whose and when; it blocks nothing. Ended: the
+    /// server ended this Session, told at the next request. Defined here because the session port
+    /// returns it.
     [<RequireQualifiedAccess>]
     type RecordNotice =
         | NewerVersion of OrderPlanHead

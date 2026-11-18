@@ -1,13 +1,10 @@
 namespace Components
 
 
-/// One choice among some options: what the field offers is the pick rule's answer, not the
-/// page's. A field with nothing to choose is disabled and empty; a field with one option shows
-/// it chosen and is disabled; a field with more is enabled when its caller says so and clears
-/// when its caller allows and something is chosen. The rule is the same whether the user
-/// scrolls the options or types to narrow them, so both shapes are drawn from here. The field
-/// picks nothing itself: an answer of the server already picks every field left with one
-/// option.
+/// A field to pick one option, drawn as PickPolicy decides. A field without options is disabled
+/// and empty; a field with one option shows it selected and is disabled; a field with more options
+/// is enabled when the caller enables it. Both shapes follow the same rule. The field never picks
+/// an option itself, because the server already picks the option of a field with a single option.
 module PickField =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -19,8 +16,7 @@ module PickField =
     open Informedica.GenPRES.Shared
 
 
-    /// How the field is drawn. The rule does not change with it: a long list is easier to type
-    /// into than to scroll, and that is all the difference amounts to.
+    /// How the field is drawn. Both shapes follow the same rule; typing suits a long list better.
     [<RequireQualifiedAccess>]
     type Shape =
         /// A list the user opens and scrolls.
@@ -29,11 +25,10 @@ module PickField =
         | Type
 
 
-    /// The field: its label, the options as key and label, the key chosen, what choosing does,
-    /// whether the choice may be cleared, whether the caller has the field enabled, how it is
-    /// drawn, and the key of an option filled in for the user. That option is shown greyed while
-    /// nothing is chosen, and the list opens on it, rather than shown chosen, so that picking it
-    /// is a choice the field passes on.
+    /// The label, the options as key and label pairs, the selected key, the change handler, whether
+    /// the selection may be cleared, whether the options are loading, whether the caller enables the
+    /// field, the shape, and the key of a suggested option. The suggested option is shown greyed while
+    /// nothing is selected and the list opens on it. It is not selected, so picking it sends a change.
     type Props =
         {|
             label: string
@@ -60,7 +55,7 @@ module PickField =
 
         let offer = PickPolicy.offer pick
 
-        // the label of the option filled in, or its key when the options do not hold it
+        // the label of the suggested option, or its key when the options do not contain it
         let placeholderText =
             props.placeholder
             |> Option.map (fun key ->
@@ -77,21 +72,18 @@ module PickField =
                 effects
                 (SimpleSelect.fieldState props.selected props.options.Length false)
 
-        // a field narrowed to one option cannot be opened, since there is nothing else to
-        // choose, but it can still be emptied, and emptying it is how the user widens the
-        // filter and reaches the other options again. Without this a filter built out leaves
-        // every field shut, with no way back.
+        // A field with a single option cannot be opened but can still be cleared. Clearing it widens
+        // the filter, so the user gets the other options back.
         let hasClear =
             offer.CanClear
             || (offer.Disabled && props.clearable && props.enabled && offer.Selected.IsSome)
 
-        // such a field is not greyed out but held: greying it takes the cross with it, since
-        // what a disabled field holds is disabled too
+        // Such a field is read-only rather than disabled, because a disabled field also disables
+        // its clear button.
         let isHeld = offer.Disabled && hasClear
 
-        // a field that is held still takes a clearing, since the cross is the only way out of
-        // it, and it takes the one value it holds, since a field offered as usable that refuses
-        // what it offers is a field that lies. A field with nothing to choose takes neither.
+        // A read-only field accepts a clear, its only way out, and a pick of the value it shows.
+        // A field without options accepts neither.
         let updateSelected value =
             match value with
             | None when hasClear ->

@@ -1,11 +1,10 @@
 namespace Components
 
 
-/// A bin that removes the section it sits in, small enough for a heading or the summary of a
-/// disclosure. A click, Enter or Space removes; each stays with the bin, so a summary it sits in
-/// does not open or close, and it removes nothing while the caller is busy. The bin is not a
-/// button element, since the summary of a disclosure is a button and one button cannot hold
-/// another; it takes the role of a button and the keyboard focus instead.
+/// A small bin icon that removes the section it sits in, such as from a heading or the summary of
+/// a disclosure. A click, Enter or Space calls onRemove, unless busy, and does not propagate, so a
+/// summary around it does not open or close. The bin is a span with the button role, because the
+/// summary of a disclosure is a button and a button cannot contain another button.
 module RemoveIconButton =
 
 
@@ -13,7 +12,7 @@ module RemoveIconButton =
     open Feliz
 
 
-    /// The bin: the name a screen reader gives it, what a click does, and whether a change is under way.
+    /// The name for a screen reader, the remove handler, and whether a change is under way.
     type Props =
         {|
             label: string

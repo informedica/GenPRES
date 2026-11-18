@@ -1,11 +1,9 @@
 namespace Components
 
 
-/// The controls of the user above a list, in one row: a filter that keeps the rows of a chosen
-/// kind, and a search that narrows the list as it is typed. One of each and no more: a second
-/// filter in the grid's own toolbar, beside the one above it, made it unclear whether the list
-/// was filtered at all. The search and the filter are the caller's, built where their state is;
-/// the row only places them, and draws nothing when it is given nothing.
+/// Places a filter and a search field in one row above a list. The caller builds both controls.
+/// Shows nothing when neither is given. A list has only this one filter, so the user can always
+/// see whether the list is filtered.
 module ListToolbar =
 
 
@@ -14,7 +12,7 @@ module ListToolbar =
     open Feliz
 
 
-    /// The row: the filter and the search, each when the list has one.
+    /// The search field and the filter, each absent when the list has none.
     type Props =
         {|
             search: JSX.Element option
@@ -22,8 +20,8 @@ module ListToolbar =
         |}
 
 
-    // the filter and the search are widened here, in the row above a list, and not in their own
-    // components, which other pages use at their own width
+    // The filter and the search are widened here and not in their own components, because other
+    // pages use those components at their own width.
     let private rowSx =
         createObj
             [

@@ -41,8 +41,8 @@ module ResponsiveTable =
                 |})
             =
 
-            // a column may carry a renderer for the cards, called as the grid calls renderCell,
-            // with the row id and the value; the cell then shows what it renders
+            // A column may carry a renderCard function for the cards. It is called like renderCell
+            // of the grid, with the row id and the value, and the card cell shows its result.
             let renderCardOf (field: string) : (obj -> obj) option =
                 props.columns
                 |> Array.tryFind (fun c -> c.field = field)
@@ -374,8 +374,8 @@ module ResponsiveTable =
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
 
-        // Return an alternating class name based on the row index within the current page, and mark
-        // the marked row
+        // Returns an alternating class name from the row index within the current page, with the
+        // class marked added for the marked row.
         let getRowClassName =
             fun (pars: obj) ->
                 let idx: int = pars?indexRelativeToCurrentPage
@@ -386,11 +386,10 @@ module ResponsiveTable =
                 else
                     stripe
 
-        // Style for striped rows: apply background to even rows. The row under the pointer shows a
-        // blue bar on its left, drawn as an inset shadow: a border would take room and shift the
-        // row's cells each time the hover comes or goes, as it does when the rows are rendered anew.
-        // A click acts on the whole row, so the grid's focus outline on the clicked cell is hidden, and
-        // the marked row shows the same bar. The outline stays for focus from the keyboard
+        // Even rows get a grey background. The row under the pointer and the marked row show a blue
+        // bar on the left, drawn as an inset shadow, because a border takes room and shifts the cells.
+        // A click acts on the whole row, so the focus outline of the clicked cell is hidden; focus
+        // from the keyboard keeps an outline.
         let rowBar = $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
 
         let stripedSx: obj =
@@ -448,7 +447,7 @@ module ResponsiveTable =
                     actions: ReactElement option
                 |})
             =
-            // the cells the user sees: the id is a hidden column, by the same name the grid hides it
+            // only the cells the user sees: the grid hides the id column
             needle |> String.length = 0
             || r.cells
                |> Array.exists (fun cell -> cell.field <> "id" && cell.value.ToLowerInvariant().Contains needle)
@@ -469,8 +468,8 @@ module ResponsiveTable =
 
         let filteredRows = rows
 
-        // the row of the user's controls above the list, the same on the cards and on the grid;
-        // not named toolbar, which the grid's own toolbar below is
+        // the controls above the list, the same for the cards and the grid; the grid has its own
+        // toolbar below them
         let controls =
             ListToolbar.View
                 {|

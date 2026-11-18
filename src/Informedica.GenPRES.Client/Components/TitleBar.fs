@@ -30,7 +30,7 @@ module TitleBar =
                 isAuthenticated: bool
                 onLogin: string -> unit
                 onLogout: unit -> unit
-                // the launch Session is read through the env, not threaded as props
+                // the launch session is read from the app environment, not passed as a prop
                 appEnv: obj
             |})
         =
@@ -42,8 +42,8 @@ module TitleBar =
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let getTerm = Global.getLocalizedTerm terms context.Localization
 
-        // the hospital, the language, the login and the session change what every request reads:
-        // they wait while anything is out
+        // the hospital, the language, the login and the session change what every request reads,
+        // so these controls are disabled while any request runs
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
 
         let anchorElSession, setAnchorElSession = React.useState None
@@ -63,8 +63,8 @@ module TitleBar =
 
         let anchorElLang, setAnchorElLang = React.useState None
 
-        // the language label beside the disabled icon button opens the menu too, so the handler
-        // checks as well
+        // the language label beside the icon button also opens the menu, even while the icon button
+        // is disabled, so the handler checks busy as well
         let handleOpenLangMenu =
             fun ev ->
                 if not busy then
@@ -207,8 +207,8 @@ module TitleBar =
                 marginLeft = 2
             |}
 
-        // one button, like Login: keyboard-focusable, named by its text; the name is capped
-        // and clipped so a long display name cannot push the language and login controls out
+        // A single button, like Login, that takes the keyboard focus and is named by its text. Its
+        // width is capped, so a long display name cannot push the language and login controls out.
         let sxSessionButton =
             {|
                 marginLeft = 1
@@ -223,9 +223,8 @@ module TitleBar =
                 whiteSpace = "nowrap"
             |}
 
-        // three columns, the outer two of equal width, so the middle one is centred against
-        // the whole toolbar for as long as both sides fit; when one side needs more room the
-        // middle one moves over rather than overlap it
+        // Three columns with outer columns of equal width, so the middle column is centred on the
+        // toolbar while both sides fit. When one side needs more room the middle column moves aside.
         let sxToolbar =
             {|
                 display = "grid"
@@ -253,9 +252,9 @@ module TitleBar =
                 minWidth = 0
             |}
 
-        // the middle column is always there, empty without a patient, so the right-hand
-        // controls keep to the third column; the hidden overflow lets it shrink below the width
-        // of the text, so that a long name or id gives way first
+        // The middle column is always present, empty without a patient, so the controls on the
+        // right stay in the third column. The hidden overflow lets it shrink below the width of its
+        // text, so a long name or id gives way first.
         let sxMiddleBox =
             {|
                 display = "flex"
@@ -264,9 +263,9 @@ module TitleBar =
                 overflow = "hidden"
             |}
 
-        // the patient in the middle: the id, the name and the birthdate on one line, shown in
-        // full since the user sits at the EHR that launched the Session; capped and clipped, the
-        // full text in the tooltip
+        // The patient on one line: the id, the name and the birth date, shown in full because the
+        // user works in the EHR that launched the session. The width is capped and the text clipped;
+        // the tooltip shows the full text.
         let sxPatientBox =
             {|
                 marginLeft = 2
@@ -277,7 +276,7 @@ module TitleBar =
                 minWidth = 0
             |}
 
-        // the session terms in the user's language, else the policy's English
+        // the session terms in the language of the user, else the English text of the policy
         let tr term = getTerm (SessionGatePolicy.english term) term
 
         let roleName role =
@@ -285,7 +284,7 @@ module TitleBar =
             | UserRole.Prescriber -> tr Terms.``Session Role Prescriber``
             | UserRole.Reader -> tr Terms.``Session Role Reader``
 
-        // the open Session with a user; nothing for anonymous use
+        // the open session with a user; None for anonymous use
         let openSession =
             match session.Session with
             | SessionView.Open opened
@@ -303,8 +302,8 @@ module TitleBar =
             | SessionView.SupplyingPin _
             | SessionView.EnrolmentFailed _ -> None
 
-        // whom the Session is for, when the EHR said: the id, the name and the birthdate in the
-        // middle of the toolbar, in that order, for a Reader as for a Prescriber
+        // the patient of the session, when the EHR gave one: the id, the name and the birth date in
+        // the middle of the toolbar, for a reader as well as for a prescriber
         let patientView =
             openSession
             |> Option.bind (fun opened ->
@@ -325,7 +324,7 @@ module TitleBar =
             )
             |> Option.defaultValue null
 
-        // who is in this Session, next to the hospital
+        // the user of this session, shown next to the hospital
         let sessionView =
             let userOf (opened: SessionOpened) =
                 opened.User

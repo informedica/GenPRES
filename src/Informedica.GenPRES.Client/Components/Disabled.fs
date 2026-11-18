@@ -1,9 +1,8 @@
 namespace Components
 
 
-/// Content disabled as a whole while a request is out: it takes no click, no key and no focus,
-/// and a small spinner lies over it. A control that has the focus loses it. It fills the column
-/// it is placed in.
+/// Disables the content as a whole while a request runs: the content takes no click, key or focus,
+/// and a small spinner lies over it. It fills the column it is placed in.
 module Disabled =
 
 
@@ -44,8 +43,8 @@ module Disabled =
 
     [<JSX.Component>]
     let View (props: Props) =
-        // the backdrop is beside the content, not in it: content that scrolls would carry it
-        // out of view; no fade, so it catches no click once the request is answered
+        // The backdrop is a sibling of the content, so scrolling content cannot carry it out of
+        // view. It has no transition, so it stops catching clicks as soon as the request ends.
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
