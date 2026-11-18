@@ -400,7 +400,7 @@ let linkedOfferTests =
             }
 
             test "an offer is evaluated for the main context's patient" {
-                let pat = PatientData.unknown |> Patient.setDepartment (Some "NEO")
+                let pat = PatientData.unknown |> SamplePatients.withDepartment (Some "NEO")
 
                 { feeding with Context = { feeding.Context with PatientData = pat } }
                 |> offersOf [| row |] [||]

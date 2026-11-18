@@ -12,7 +12,7 @@ module Tests =
     open Serilog.Formatting
 
 
-    /// The date of every weight and height in these tests.
+    /// The date the patient data is read on.
     let today = DateTime(2026, 1, 1)
     open Serilog.Parsing
     open Informedica.Logging.Lib
@@ -241,13 +241,19 @@ module Tests =
             |> Result.toOption
 
 
+        /// The patient that buildPatient builds from the input; fails the test when the input is refused.
+        let patientOf provider input =
+            input
+            |> GenOrderTools.buildPatient today provider
+            |> Expect.wantOk "the patient is built"
+
+
     module CheckDepartmentTests =
 
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
         open Informedica.MCP.Lib.GenOrderTools
 
-        /// The fixed date of every weight and height in these tests.
         /// The departments the tests prescribe for: two named by rules, the default among them.
         let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
 
@@ -406,7 +412,8 @@ module Tests =
                     test "the checked department is the one the patient is built with" {
                         { measured with Department = Some "neo" }
                         |> checkDepartment departments
-                        |> Result.map (buildPatient today departmentsOnly >> Patient.getDepartment)
+                        |> Result.bind (buildPatient today departmentsOnly)
+                        |> Result.map Patient.getDepartment
                         |> Expect.equal "NEO on the patient" (Ok(Some "NEO"))
                     }
 
@@ -438,7 +445,7 @@ module Tests =
 
                         let filter =
                             input
-                            |> buildPatient today departmentsOnly
+                            |> EstimateFixtures.patientOf departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
                             |> applyFilters input
                             |> _.Filter
@@ -452,7 +459,7 @@ module Tests =
                     test "applyFilters leaves out the filters the input does not name" {
                         let ctx =
                             measured
-                            |> buildPatient today departmentsOnly
+                            |> EstimateFixtures.patientOf departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
 
                         let filter = ctx |> applyFilters { measured with Generic = None } |> _.Filter
@@ -510,8 +517,10 @@ module Tests =
         module CoreHeight = Informedica.GenCore.Lib.Patients.Height
         module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
         module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+        module CoreSource = Informedica.GenCore.Lib.Patients.Source
 
-        /// The fixed date of every weight and height in these tests.
+        type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+
 
         let private weightMeasured (pat: PatientData) = pat.Weight |> CoreWeight.isMeasured
 
@@ -585,7 +594,7 @@ module Tests =
                 "the estimate at the MCP host"
                 [
                     test "an age and a sex alone build a patient with the weight and height the client shows" {
-                        let pat = ageAlone |> buildPatient today tablesOnly
+                        let pat = ageAlone |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight,
                          pat |> Patient.getHeight,
@@ -597,7 +606,7 @@ module Tests =
                     }
 
                     test "a measure given stays measured, the other estimated" {
-                        let pat = { ageAlone with WeightKg = Some 14.0 } |> buildPatient today tablesOnly
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight,
                          pat |> weightMeasured,
@@ -612,7 +621,7 @@ module Tests =
                                 WeightKg = Some 14.0
                                 HeightCm = Some 90.0
                             }
-                            |> buildPatient today tablesOnly
+                            |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> weightMeasured, pat |> heightMeasured)
                         |> Expect.equal "measured" (true, true)
@@ -620,13 +629,13 @@ module Tests =
 
                     test "no sex: the estimate is the average of the two, as the client's" {
                         { ageAlone with Sex = None }
-                        |> buildPatient today tablesOnly
+                        |> EstimateFixtures.patientOf tablesOnly
                         |> Patient.getWeight
                         |> Expect.equal "eleven and a half kilograms" (gram 11500m)
                     }
 
                     test "without an age nothing is estimated" {
-                        let pat = { ageAlone with AgeMonths = None } |> buildPatient today tablesOnly
+                        let pat = { ageAlone with AgeMonths = None } |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight, pat |> Patient.getHeight)
                         |> Expect.equal "none" (None, None)
@@ -653,10 +662,52 @@ module Tests =
                     }
 
                     test "an adult of 40 gets no estimate" {
-                        let pat = { ageAlone with AgeMonths = Some(40.0 * 12.0) } |> buildPatient today tablesOnly
+                        let pat =
+                            { ageAlone with AgeMonths = Some(40.0 * 12.0) }
+                            |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight, pat |> Patient.getHeight)
                         |> Expect.equal "none" (None, None)
+                    }
+
+                    test "without the tables nothing is estimated" {
+                        ageAlone
+                        |> EstimateFixtures.patientOf noTables
+                        |> Patient.getWeight
+                        |> Expect.isNone "no weight"
+                    }
+
+                    test "the age, the gender and the department are on the patient" {
+                        let pat =
+                            { ageAlone with Department = Some "NEO" }
+                            |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat |> Patient.getAge, pat |> Patient.getGender, pat |> Patient.getDepartment)
+                        |> Expect.equal "two years, a boy, the NEO" ([ Years 2 ], CoreGender.Male, Some "NEO")
+                    }
+
+                    test "the measured and the estimated weight and height have no date" {
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat.Weight.Calculation |> Option.map (CoreSource.value >> _.Date),
+                         pat.Height.Calculation |> Option.map (CoreSource.value >> _.Date))
+                        |> Expect.equal "no dates" (Some None, Some None)
+                    }
+
+                    test "the body surface area is calculated from the weight and the height" {
+                        { ageAlone with
+                            WeightKg = Some 14.0
+                            HeightCm = Some 90.0
+                        }
+                        |> EstimateFixtures.patientOf tablesOnly
+                        |> _.BodySurfaceArea
+                        |> Expect.isSome "a body surface area"
+                    }
+
+                    test "a weight outside the bounds is refused" {
+                        { ageAlone with WeightKg = Some 1000.0 }
+                        |> buildPatient today tablesOnly
+                        |> Expect.isError "1000 kg"
                     }
 
                     test "the tables loaded without a row for the sex are refused the same way" {

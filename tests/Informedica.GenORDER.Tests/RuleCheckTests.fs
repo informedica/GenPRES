@@ -174,9 +174,7 @@ let tests =
             test "no rule for the current patient gives a notice" {
                 let p, ctx = Fixture.start ()
 
-                let other =
-                    { Fixture.patient (19N / 2N) with Age = None }
-                    |> Patient.setWeight SamplePatients.measuredOn None
+                let other = { Fixture.patient (19N / 2N) with Age = None } |> SamplePatients.withWeight None
 
                 ctx |> Fixture.verdict p other |> Expect.equal "notice" (Some true)
             }

@@ -6,6 +6,7 @@ open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Informedica.GenOrder.Lib
 open Informedica.Utils.Lib.BCL
+open Validus
 
 open Patient.AgeParts
 
@@ -17,8 +18,17 @@ module GenOrderTools =
     module CoreEstimates = Informedica.GenCore.Lib.Patients.Estimates
     module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+    module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
+    module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
 
 
     // ── Tool input types ────────────────────────────────────────────────────
@@ -109,60 +119,74 @@ module GenOrderTools =
         | _ -> CoreGender.UnknownGender
 
 
-    /// Estimates a weight or height that the caller did not give, from the age and the gender,
-    /// dated today. A value the caller gave stays measured. Nothing is estimated without an age or
-    /// without the normal-value tables.
-    let estimated today normalValues (input: CreateOrderContextInput) (patientData: PatientData) =
-        match normalValues, input.WeightKg, input.HeightCm with
-        | _, Some _, Some _
-        | None, _, _ -> patientData
-        | Some tables, _, _ ->
-            let est = CoreEstimates.ofAge tables patientData.Gender patientData.Age None
-
-            let weight =
-                est.Weight
-                |> Option.map (fun e -> decimal e.Mean |> CoreWeightValue.weightInGram)
-
-            let height = est.Height |> Option.map (fun e -> decimal e.Mean |> CoreHeightValue.heightInCm)
-
-            let patientData =
-                match input.WeightKg, weight with
-                | None, Some _ -> patientData |> Patient.setEstimatedWeight today weight
-                | _ -> patientData
-
-            match input.HeightCm, height with
-            | None, Some _ -> patientData |> Patient.setEstimatedHeight today height
-            | _ -> patientData
+    /// Reads patient data from a Dto on a date. Returns the GenCORE messages when a value is invalid.
+    let readPatientData today dto =
+        dto
+        |> CorePatientData.Dto.fromDto today
+        |> Result.mapError (fun errs ->
+            let msgs = errs |> ValidationErrors.toList |> String.concat "; "
+            $"The patient data is not valid: %s{msgs}"
+        )
 
 
-    /// Builds the patient data from the tool input. A weight or height that is missing is
-    /// estimated from the age. Every weight and height is dated today.
+    /// Estimates the weight and the height from the age and the gender. Returns None for both without an age
+    /// or without the normal-value tables.
+    let estimated normalValues gender age =
+        match normalValues with
+        | None -> None, None
+        | Some tables ->
+            let est = CoreEstimates.ofAge tables gender age None
+
+            est.Weight
+            |> Option.map (fun e -> decimal e.Mean |> CoreWeightValue.weightInGram),
+            est.Height |> Option.map (fun e -> decimal e.Mean |> CoreHeightValue.heightInCm)
+
+
+    /// Builds the patient data from the tool input through the patient data Dto. A weight or height that
+    /// the input does not give is estimated from the age. Returns an error when a value of the input is
+    /// invalid.
     let buildPatient today (provider: IResourceProvider) (input: CreateOrderContextInput) =
-        let pat = PatientData.unknown
+        let gender =
+            input.Sex
+            |> Option.map parseGender
+            |> Option.defaultValue CoreGender.UnknownGender
 
-        let pat =
-            match input.AgeMonths with
-            | Some a -> pat |> Patient.setAge [ Months(a |> Math.Round |> int) ]
-            | None -> pat
+        let age =
+            input.AgeMonths
+            |> Option.map (fun a -> [ Months(a |> Math.Round |> int) ] |> daysOfParts |> CoreAgeValue.fromDays)
 
-        let pat =
+        let estWeight, estHeight = estimated (provider.Get Keys.normalValueTables) gender age
+
+        let weight =
             match input.WeightKg with
-            | Some w -> pat |> Patient.setWeight today (decimal w |> CoreWeightValue.weightInKg |> Some)
-            | None -> pat
+            | Some w ->
+                decimal w
+                |> CoreWeightValue.weightInKg
+                |> CoreWeightAtDate.undated
+                |> CoreSource.Measured
+                |> Some
+            | None -> estWeight |> Option.map (CoreWeightAtDate.undated >> CoreSource.Estimated)
 
-        let pat =
+        let height =
             match input.HeightCm with
-            | Some h -> pat |> Patient.setHeight today (decimal h |> CoreHeightValue.heightInCm |> Some)
-            | None -> pat
+            | Some h ->
+                decimal h
+                |> CoreHeightValue.heightInCm
+                |> CoreHeightAtDate.undated
+                |> CoreSource.Measured
+                |> Some
+            | None -> estHeight |> Option.map (CoreHeightAtDate.undated >> CoreSource.Estimated)
 
-        let pat =
-            match input.Sex with
-            | Some s -> pat |> Patient.setGender (parseGender s)
-            | None -> pat
+        let dto = CorePatientData.Dto.dto ()
+        dto.Age <- age |> Option.map CoreAgeValue.Dto.toDto
+        dto.Gender <- gender |> CoreGender.toString
+        dto.Weight <- weight |> CoreWeight.create [] None [] |> CoreWeight.Dto.toDto
+        dto.Height <- height |> CoreHeight.create [] None |> CoreHeight.Dto.toDto
 
-        pat
-        |> Patient.setDepartment input.Department
-        |> estimated today (provider.Get Keys.normalValueTables) input
+        input.Department
+        |> Option.iter (fun d -> dto.Department <- d |> CoreDepartment.otherDepartment |> CoreDepartment.toString)
+
+        dto |> readPatientData today
 
 
     // ── Tool handler functions ──────────────────────────────────────────────
@@ -303,9 +327,8 @@ module GenOrderTools =
         input
         |> requireAgeOrMeasures
         |> Result.bind (fun () -> input |> checkDepartment (provider.GetDepartments()))
-        |> Result.bind (fun input ->
-            let patient = buildPatient today provider input
-
+        |> Result.bind (fun input -> buildPatient today provider input |> Result.map (fun patient -> input, patient))
+        |> Result.bind (fun (input, patient) ->
             // the estimate can leave the weight blank, the tables not loaded or without a row for
             // the age and sex; for a child the rules would then answer nothing, so the caller is told
             if patient |> OrderContext.selectsRules then
