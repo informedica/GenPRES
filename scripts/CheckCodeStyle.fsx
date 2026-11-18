@@ -14,6 +14,18 @@
 //   COMMENT-001  no (* ... *) comment
 //   COMMENT-002  no comment line over 120 columns
 //
+// and two safety rules (class S in docs/implementation-plans/1665-static-analysis-rules.md),
+// run over every core project of the ring map in scripts/DependencyRule.fsx:
+//
+//   FAILWITH-001 no failwith or failwithf
+//   CATCH-001    a catch-all handler (a wildcard, a name, or a type test for exn or Exception,
+//                without a when guard) ends every path in a raise or an Error: raise, reraise,
+//                invalidArg, invalidOp, nullArg, failwith, Error, or a helper whose name starts
+//                with raise or ends with Error
+//
+// A class S finding is never baselined. It passes only with an entry in safetyAllowances that
+// states its reason, and an entry that matches no finding fails the run.
+//
 // Not covered: the param names of an XML block (compiler warning FS3390, on in the libraries
 // checked here), and the text rules (DOC-002 to DOC-004, COMMENT-002) can fire on a line inside
 // a triple-quoted string that looks like a comment.
@@ -37,6 +49,7 @@
 #r "nuget: Expecto, 10.2.3"
 // Must equal the Fantomas version in .config/dotnet-tools.json; a test checks it.
 #r "nuget: Fantomas.FCS, 8.0.0"
+#load "DependencyRule.fsx"
 
 open System
 open System.IO
@@ -545,6 +558,177 @@ let commentFindings file (lines: string[]) (comments: CommentTrivia list) =
 
 
 // ---------------------------------------------------------------------------
+// Class S rules: FAILWITH-001 and CATCH-001. Their findings are never baselined; each one
+// needs an allowance with a reason (see safetyAllowances).
+// ---------------------------------------------------------------------------
+
+/// Reads the fields of an F# union, record or tuple value, with a reader cached per runtime type.
+/// Any other value has no fields, so ranges, identifiers and strings end the walk.
+let fieldReaders = Collections.Generic.Dictionary<Type, obj -> obj[]>()
+
+
+let anyAccess =
+    Reflection.BindingFlags.Public ||| Reflection.BindingFlags.NonPublic
+
+
+let fieldsOf (v: obj) =
+    let t = v.GetType()
+
+    match fieldReaders.TryGetValue t with
+    | true, read -> read v
+    | false, _ ->
+        let read =
+            if t.Name.EndsWith("Trivia", StringComparison.Ordinal) then
+                fun _ -> [||]
+            elif Microsoft.FSharp.Reflection.FSharpType.IsUnion(t, anyAccess) then
+                let tag = Microsoft.FSharp.Reflection.FSharpValue.PreComputeUnionTagReader(t, anyAccess)
+
+                let readers =
+                    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(t, anyAccess)
+                    |> Array.map (fun c -> Microsoft.FSharp.Reflection.FSharpValue.PreComputeUnionReader(c, anyAccess))
+
+                fun o -> readers[tag o] o
+            elif Microsoft.FSharp.Reflection.FSharpType.IsRecord(t, anyAccess) then
+                Microsoft.FSharp.Reflection.FSharpValue.PreComputeRecordReader(t, anyAccess)
+            elif Microsoft.FSharp.Reflection.FSharpType.IsTuple t then
+                Microsoft.FSharp.Reflection.FSharpValue.PreComputeTupleReader t
+            else
+                fun _ -> [||]
+
+        fieldReaders[t] <- read
+        read v
+
+
+/// The names a syntax node adds to the scope of the nodes below it: a module, type or binding.
+let scopeNames (v: obj) =
+    match v with
+    | :? SynModuleOrNamespace as (SynModuleOrNamespace(longId = ids)) -> ids |> List.map _.idText
+    | :? SynModuleDecl as d ->
+        match d with
+        | SynModuleDecl.NestedModule(moduleInfo = info) -> info.LongIdent |> List.map _.idText
+        | _ -> []
+    | :? SynTypeDefn as (SynTypeDefn(typeInfo = info)) -> info.LongIdent |> List.map _.idText
+    | :? SynBinding as (SynBinding(headPat = p)) ->
+        match bindingNames p with
+        | [] -> []
+        | names -> [ names |> List.map (fun (id, _) -> id.idText) |> String.concat "," ]
+    | _ -> []
+
+
+/// Every node of a syntax tree with the scope it is in. The walk is generic over the F# values
+/// of the tree, so a new kind of expression in the parser cannot be skipped by a missing case.
+let rec nodes scope (v: obj) =
+    seq {
+        match v with
+        | null
+        | :? string -> ()
+        | :? Collections.IEnumerable as xs ->
+            for x in xs do
+                yield! nodes scope x
+        | _ ->
+            yield scope, v
+            let inner = scope @ scopeNames v
+
+            for f in fieldsOf v do
+                yield! nodes inner f
+    }
+
+
+/// The functions that end a handler by raising or by returning an Error.
+let raisers =
+    set [ "raise"; "reraise"; "invalidArg"; "invalidOp"; "nullArg"; "failwith"; "failwithf"; "Error" ]
+
+
+let rec headName expr =
+    match expr with
+    | SynExpr.Ident id -> Some id.idText
+    | SynExpr.LongIdent(longDotId = SynLongIdent(id = ids)) -> ids |> List.tryLast |> Option.map _.idText
+    | SynExpr.App(funcExpr = f)
+    | SynExpr.TypeApp(expr = f)
+    | SynExpr.Paren(expr = f) -> headName f
+    | _ -> None
+
+
+/// Whether an expression calls a function that raises or returns an Error: one of the raisers,
+/// or a helper named for it, such as raiseExc or Result.createError.
+let isRaiser expr =
+    headName expr
+    |> Option.exists (fun name ->
+        raisers.Contains name
+        || startsWith "raise" name
+        || name.EndsWith("Error", StringComparison.Ordinal)
+    )
+
+
+/// Whether every value an expression can return comes from a raise or an Error: the last
+/// expression of a sequence or a let, every branch of an if or a match.
+let rec ends expr =
+    let clauses cs =
+        cs |> List.forall (fun (SynMatchClause(resultExpr = r)) -> ends r)
+
+    match expr with
+    | SynExpr.Paren(expr = e)
+    | SynExpr.Typed(expr = e)
+    | SynExpr.DebugPoint(innerExpr = e)
+    | SynExpr.Sequential(expr2 = e) -> ends e
+    | SynExpr.LetOrUse letOrUse -> ends letOrUse.Body
+    | SynExpr.YieldOrReturn(expr = e) -> ends e
+    | SynExpr.IfThenElse(thenExpr = t; elseExpr = Some f) -> ends t && ends f
+    | SynExpr.Match(clauses = cs) -> clauses cs
+    | SynExpr.TryWith(tryExpr = t; withCases = cs) -> ends t && clauses cs
+    | SynExpr.App(
+        isInfix = false
+        funcExpr = SynExpr.App(isInfix = true; funcExpr = SynExpr.LongIdent(longDotId = SynLongIdent(id = [ op ])))
+        argExpr = rhs) when op.idText = "op_PipeRight" -> isRaiser rhs
+    | SynExpr.App _ -> isRaiser expr
+    | _ -> false
+
+
+/// Whether a handler pattern catches every exception: a wildcard, a name, or a type test for
+/// exn or Exception, each with or without a name.
+let rec isCatchAll pat =
+    match pat with
+    | SynPat.Wild _
+    | SynPat.Named _ -> true
+    | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ]); argPats = SynArgPats.Pats []) -> Char.IsLower id.idText[0]
+    | SynPat.Paren(pat = p)
+    | SynPat.Typed(pat = p) -> isCatchAll p
+    | SynPat.As(lhsPat = l; rhsPat = r) -> isCatchAll l && isCatchAll r
+    | SynPat.IsInst(pat = SynType.LongIdent(longDotId = SynLongIdent(id = ids))) ->
+        ids |> List.tryLast |> Option.exists (fun id -> id.idText = "exn" || id.idText = "Exception")
+    | _ -> false
+
+
+/// The class S findings of a tree, keyed by the module, type and binding they are in.
+let safetyFindings file tree =
+    let ofNode (scope, v: obj) =
+        let key = String.concat "." scope
+
+        match v with
+        | :? SynExpr as e ->
+            match e with
+            | SynExpr.Ident id when id.idText = "failwith" || id.idText = "failwithf" ->
+                [
+                    finding file e.Range.StartLine "FAILWITH-001" key $"%s{id.idText} at column %i{e.Range.StartColumn + 1} throws a bare System.Exception"
+                ]
+            | SynExpr.TryWith(withCases = cs) ->
+                cs
+                |> List.filter (fun (SynMatchClause(pat = p; whenExpr = w; resultExpr = r)) ->
+                    Option.isNone w && isCatchAll p && not (ends r)
+                )
+                |> List.map (fun (SynMatchClause(pat = p)) ->
+                    finding file p.Range.StartLine "CATCH-001" key $"catch-all handler at column %i{p.Range.StartColumn + 1} that neither raises nor returns an Error"
+                )
+            | _ -> []
+        | _ -> []
+
+    match tree with
+    | ParsedInput.ImplFile(ParsedImplFileInput(contents = contents)) ->
+        nodes [] (box contents) |> Seq.collect ofNode |> Seq.toList
+    | ParsedInput.SigFile _ -> []
+
+
+// ---------------------------------------------------------------------------
 // All rules over one file.
 // ---------------------------------------------------------------------------
 
@@ -573,6 +757,17 @@ let checkSource file (source: string) =
         |> List.distinctBy (fun f -> f.Rule, f.Line, f.Key)
 
     errors @ fromTrees @ docStyleFindings file lines
+    |> List.sortBy (fun f -> f.Line, f.Rule, f.Key)
+
+
+/// The class S findings of a source, under every combination of its #if symbols.
+let checkSafetySource file (source: string) =
+    let trees, _ = parse file (source.Replace("\r\n", "\n"))
+
+    // The same site under several define sets is one finding; the message holds the column.
+    trees
+    |> List.collect (safetyFindings file)
+    |> List.distinct
     |> List.sortBy (fun f -> f.Line, f.Rule, f.Key)
 
 
@@ -613,6 +808,21 @@ let checkRepository () =
     |> List.collect (fun f -> checkSource f (File.ReadAllText(Path.Combine(root, f))))
 
 
+/// The class S rules run over every project in the core ring of scripts/DependencyRule.fsx, where
+/// the calculations and the helpers they call live.
+let safetyProjects () =
+    DependencyRule.rings
+    |> Map.toList
+    |> List.filter (fun (_, ring) -> ring = DependencyRule.Ring.Core)
+    |> List.map (fun (name, _) -> $"src/%s{name}/%s{name}.fsproj")
+
+
+let checkSafety () =
+    safetyProjects ()
+    |> List.collect sourceFiles
+    |> List.collect (fun f -> checkSafetySource f (File.ReadAllText(Path.Combine(root, f))))
+
+
 // ---------------------------------------------------------------------------
 // The baseline: one line per finding, rule, file and key separated by tabs.
 // ---------------------------------------------------------------------------
@@ -635,14 +845,14 @@ let readBaseline path =
 
 /// Compares findings with baseline entries as multisets, since a key can occur twice in a file.
 /// Returns the findings not in the baseline and the entries that match no finding.
-let compareBaseline (baseline: string list) (findings: Finding list) =
+let compareEntries isKept (baseline: string list) (findings: Finding list) =
     let counts xs =
         xs |> List.countBy id |> Map.ofList
 
     let known = counts baseline
 
     let current =
-        findings |> List.filter isBaselinable |> List.map entry |> counts
+        findings |> List.filter isKept |> List.map entry |> counts
 
     let excess (a: Map<string, int>) (b: Map<string, int>) =
         a
@@ -659,9 +869,12 @@ let compareBaseline (baseline: string list) (findings: Finding list) =
     // Report every finding under a key that has more findings than baseline entries.
     let fresh =
         findings
-        |> List.filter (fun f -> not (isBaselinable f) || added.ContainsKey(entry f))
+        |> List.filter (fun f -> not (isKept f) || added.ContainsKey(entry f))
 
     fresh, stale |> Map.toList |> List.collect (fun (k, n) -> List.replicate n k)
+
+
+let compareBaseline baseline findings = compareEntries isBaselinable baseline findings
 
 
 let baselineHeader =
@@ -692,6 +905,70 @@ let prune (baseline: string list) (findings: Finding list) =
 
 
 // ---------------------------------------------------------------------------
+// Allowances for class S findings: each names the rule, the file, the scope of the finding and
+// the reason it is accepted. An allowance that matches no finding fails the run. Add one only in
+// a reviewed pull request that states it.
+// ---------------------------------------------------------------------------
+
+type Allowance =
+    {
+        Rule: string
+        File: string
+        Key: string
+        Reason: string
+    }
+
+
+let allow rule file key reason =
+    {
+        Rule = rule
+        File = file
+        Key = key
+        Reason = reason
+    }
+
+
+let safetyAllowances =
+    let catch = allow "CATCH-001"
+    let core = "src/Informedica.GenCORE.Lib/"
+    let order = "src/Informedica.GenORDER.Lib/"
+    let utils = "src/Informedica.Utils.Lib/"
+
+    let openFallback =
+        "Open in issue #1665: a failure in a calculation step becomes a fallback value without a trace"
+
+    [
+        catch $"%s{core}Validus.fs" "Informedica.GenCore.Lib.Validus.Validators.dateValidator.rule"
+            "a validator: a date the DateTime constructor rejects is an invalid date"
+        catch $"%s{core}Patient.fs" "Informedica.GenCore.Lib.Patients.BirthDate.Validation.ageValidator.rule"
+            "a validator: a birth date the DateTime constructor rejects is an invalid birth date"
+        catch "src/Informedica.GenFORM.Lib/DoseRuleData.fs" "Informedica.GenForm.Lib.DoseRuleData.parseDoseRuleData.getIfNull"
+            "Open in issue #1665: a column that may be missing from the dose rule sheet reads as empty; the handler also hides any other failure of the column read"
+        catch $"%s{order}OrderVariable.fs" "Informedica.GenOrder.Lib.Variable.ValueRange.setOpt" openFallback
+        catch $"%s{order}Order.fs" "Informedica.GenOrder.Lib.Order.Orderable.increaseQuantityIncrement.count" openFallback
+        catch $"%s{order}Order.fs" "Informedica.GenOrder.Lib.Order.Orderable.increaseQuantityIncrement.setIncr" openFallback
+        catch "src/Informedica.GenSOLVER.Lib/Variable.fs" "Informedica.GenSolver.Lib.Variable.ValueRange.increaseIncrement" openFallback
+        catch $"%s{order}OrderLogging.fs" "Informedica.GenOrder.Lib.OrderLogging.printOrderEqs"
+            "logging: a failure to print the equations is logged as an error event and prints nothing"
+        catch $"%s{utils}BCL/BigRational.fs" "Informedica.Utils.Lib.BCL.BigRational.parseCont"
+            "a parser in continuation style: a string that does not parse is passed to the fail continuation"
+        catch $"%s{utils}Directory.fs" "Informedica.Utils.Lib.Directory.tryFindParent.startFrom"
+            "file system search: a path that cannot be read is not a starting directory"
+        catch $"%s{utils}Directory.fs" "Informedica.Utils.Lib.Directory.tryFindParent.found"
+            "file system search: a directory that cannot be listed does not contain the file"
+        catch $"%s{utils}Env.fs" "Informedica.Utils.Lib.Env.getSystemInfo.workingSet"
+            "diagnostic text only: a working set that cannot be read is shown as 0 bytes"
+    ]
+
+
+let allowanceEntry a = $"%s{a.Rule}\t%s{a.File}\t%s{a.Key}"
+
+
+let compareAllowances allowances findings =
+    compareEntries (fun _ -> true) (allowances |> List.map allowanceEntry) findings
+
+
+// ---------------------------------------------------------------------------
 // Tests of the rules on small sources.
 // ---------------------------------------------------------------------------
 
@@ -711,6 +988,18 @@ let keys rule source =
 
 
 let src (lines: string list) = String.Join("\n", lines)
+
+
+/// The scopes of the class S findings of one rule in a source.
+let safety rule source =
+    checkSafetySource "Test.fs" source
+    |> List.filter (fun f -> f.Rule = rule)
+    |> List.map _.Key
+
+
+/// A module with one function f whose body is the given lines, indented under it.
+let inF (body: string list) =
+    src ("module M" :: "let f x =" :: (body |> List.map (fun l -> "    " + l)))
 
 
 let tests =
@@ -1064,6 +1353,142 @@ let tests =
                     }
                 ]
 
+            testList
+                "FAILWITH-001"
+                [
+                    test "failwith is a finding in the scope of its function" {
+                        inF [ "failwith \"x\"" ]
+                        |> safety "FAILWITH-001"
+                        |> Expect.equal "found in M.f" [ "M.f" ]
+                    }
+
+                    test "failwithf is a finding" {
+                        inF [ "failwithf \"%s\" x" ]
+                        |> safety "FAILWITH-001"
+                        |> Expect.equal "found" [ "M.f" ]
+                    }
+
+                    test "invalidArg is not a finding" {
+                        inF [ "invalidArg \"x\" \"bad\"" ]
+                        |> safety "FAILWITH-001"
+                        |> Expect.isEmpty "no finding"
+                    }
+
+                    test "failwith in a nested module and function has the full scope" {
+                        src [ "module M"; "module N ="; "    let g () ="; "        let h () = failwith \"x\""; "        h" ]
+                        |> safety "FAILWITH-001"
+                        |> Expect.equal "scope" [ "M.N.g.h" ]
+                    }
+                ]
+
+            testList
+                "CATCH-001"
+                [
+                    for handler in
+                        [
+                            "with _ -> 0"
+                            "with e -> 0"
+                            "with (e: exn) -> 0"
+                            "with :? exn -> 0"
+                            "with :? System.Exception as e -> 0"
+                            "with _ -> None"
+                            "with e -> if x then reraise () else 0"
+                            "with e -> match x with | 1 -> reraise () | _ -> 0"
+                            "with e -> log e"
+                        ] do
+                        test $"a catch-all handler that returns a value is a finding: %s{handler}" {
+                            inF [ "try x"; handler ]
+                            |> safety "CATCH-001"
+                            |> Expect.equal "found" [ "M.f" ]
+                        }
+
+                    for handler in
+                        [
+                            "with e -> reraise ()"
+                            "with e -> raise e"
+                            "with e -> raise (InvalidOperationException(\"x\", e))"
+                            "with e -> invalidOp e.Message"
+                            "with e -> Error e.Message"
+                            "with e -> e.Message |> Error"
+                            "with e -> Result.createError \"f\" e"
+                            "with e -> e.Message |> Exceptions.ValueRangeEmptyValueSet |> raiseExc []"
+                            "with e -> log e; reraise ()"
+                            "with e -> let m = e.Message in invalidOp m"
+                            "with e -> if x then reraise () else invalidOp \"y\""
+                            "with :? FormatException -> 0"
+                            "with e when x > 0 -> 0"
+                        ] do
+                        test $"a handler that raises, returns an Error or is not a catch-all passes: %s{handler}" {
+                            inF [ "try x"; handler ]
+                            |> safety "CATCH-001"
+                            |> Expect.isEmpty "no finding"
+                        }
+
+                    test "only the catch-all clause of several is a finding" {
+                        inF [ "try x"; "with"; "| :? FormatException -> raise (ArgumentException())"; "| e -> 0" ]
+                        |> checkSafetySource "Test.fs"
+                        |> List.map _.Line
+                        |> Expect.equal "the line of the catch-all clause" [ 6 ]
+                    }
+
+                    test "return Error in a computation expression passes" {
+                        inF [ "async {"; "    try"; "        return Ok 1"; "    with e ->"; "        return Error e.Message"; "}" ]
+                        |> safety "CATCH-001"
+                        |> Expect.isEmpty "no finding"
+                    }
+
+                    test "a handler in a method of a type has the type and method in its scope" {
+                        src [ "module M"; "type T() ="; "    member _.F x ="; "        try x with _ -> 0" ]
+                        |> safety "CATCH-001"
+                        |> Expect.equal "scope" [ "M.T.F" ]
+                    }
+
+                    test "a handler under #if is found" {
+                        src [ "module M"; "#if DEBUG"; "let f x = try x with _ -> 0"; "#endif" ]
+                        |> safety "CATCH-001"
+                        |> Expect.equal "found" [ "M.f" ]
+                    }
+                ]
+
+            testList
+                "allowances"
+                [
+                    let found = inF [ "try x"; "with _ -> 0" ] |> checkSafetySource "Test.fs"
+                    let allowed = allow "CATCH-001" "Test.fs" "M.f" "a reason"
+
+                    test "a finding with an allowance passes" {
+                        compareAllowances [ allowed ] found
+                        |> Expect.equal "nothing unallowed or unused" ([], [])
+                    }
+
+                    test "a finding without an allowance fails" {
+                        compareAllowances [] found
+                        |> fst
+                        |> Expect.equal "unallowed" found
+                    }
+
+                    test "an allowance that matches no finding is reported" {
+                        compareAllowances [ allowed ] []
+                        |> snd
+                        |> Expect.equal "unused" [ allowanceEntry allowed ]
+                    }
+
+                    test "a second finding in the same scope needs its own allowance" {
+                        let two = inF [ "(try x with _ -> 0) + (try x with _ -> 1)" ] |> checkSafetySource "Test.fs"
+
+                        compareAllowances [ allowed ] two
+                        |> fst
+                        |> List.length
+                        |> Expect.equal "both reported" 2
+                    }
+
+                    test "every allowance has a reason" {
+                        safetyAllowances
+                        |> List.filter (fun a -> String.IsNullOrWhiteSpace a.Reason)
+                        |> Expect.isEmpty "no allowance without a reason"
+                    }
+                ]
+
             test "the Fantomas.FCS version equals the Fantomas tool version" {
                 let manifest =
                     File.ReadAllText(Path.Combine(root, ".config", "dotnet-tools.json"))
@@ -1107,7 +1532,7 @@ let testResult = runTestsWithCLIArgs [] [| "--summary" |] tests
 if testResult <> 0 || Array.contains "--test" args then
     exit testResult
 elif Array.contains "--report" args then
-    let findings = checkRepository ()
+    let findings = checkRepository () @ checkSafety ()
     findings |> List.iter print
     printfn ""
     summary findings
@@ -1142,4 +1567,21 @@ else
         stale |> List.iter (printfn "  %s")
 
     printfn $"""%i{List.length findings} findings, %i{List.length fresh} new, %i{List.length stale} stale"""
-    exit (if List.isEmpty fresh && List.isEmpty stale then 0 else 1)
+
+    let safety = checkSafety ()
+    let unallowed, unused = compareAllowances safetyAllowances safety
+
+    if not (List.isEmpty unallowed) then
+        printfn "Class S findings without an allowance; fix them or add an allowance with a reason:"
+        unallowed |> List.iter (fun f -> printfn $"%s{f.File}(%i{f.Line}): %s{f.Rule} %s{f.Message}, scope %s{f.Key}")
+
+    if not (List.isEmpty unused) then
+        printfn "Allowances that match no finding; delete them:"
+        unused |> List.iter (printfn "  %s")
+
+    printfn $"""%i{List.length safety} class S findings, %i{List.length unallowed} without an allowance, %i{List.length unused} unused allowances"""
+
+    let passed =
+        [ fresh; unallowed ] |> List.forall List.isEmpty && [ stale; unused ] |> List.forall List.isEmpty
+
+    exit (if passed then 0 else 1)

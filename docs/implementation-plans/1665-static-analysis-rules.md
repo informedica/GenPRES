@@ -64,8 +64,8 @@ counts come from `dotnet fsi scripts/CheckCodeStyle.fsx --report`.
 | Rule | Detector | GenUNITS | GenSOLVER | GenORDER | Notes |
 |---|---|---|---|---|---|
 | S1 Compiler warnings are errors | compiler | 0 | 0 | 0 | No project sets `TreatWarningsAsErrors`. A `--no-incremental` build of GenORDER and its dependencies gave 0 warnings, so the switch costs nothing now. Covers incomplete matches (FS0025) and malformed XML documentation (FS3390) |
-| S2 No `failwith` or `failwithf` | checker, syntactic | 0 | 0 | 0 | 0 in all of `src/` outside the scripts. The rule keeps it at zero |
-| S3 A catch-all handler re-raises, raises a specific exception or returns `Error` | checker, syntactic | 0 | 3 | 11 | Read by hand: 5 convert to a specific exception or `Error`, 4 rethrow with `raise e`, 4 return a fallback value, 1 is in logging. The fallback sites are `Variable.fs:2399`, `Order.fs:1869`, `Order.fs:1960` and `OrderVariable.fs:135`; the last returns the value range unchanged when setting a limit fails, so a limit from a rule can be skipped without a trace. Each needs a fix or a stated reason |
+| S2 No `failwith` or `failwithf` | checker, FAILWITH-001 | 0 | 0 | 0 | 0 in every core project. The rule keeps it at zero |
+| S3 A catch-all handler re-raises, raises a specific exception or returns `Error` | checker, CATCH-001 | 0 | 1 | 4 | Measured by the detector over every core project: 12 findings, each with an allowance in `safetyAllowances`. The four fallback sites are `Variable.ValueRange.increaseIncrement` in GenSOLVER, `Order.Orderable.increaseQuantityIncrement` (two handlers, `count` and `setIncr`) and `Variable.ValueRange.setOpt` in GenORDER; the last returns the value range unchanged when setting a limit fails, so a limit from a rule can be skipped without a trace. They and `DoseRuleData.parseDoseRuleData.getIfNull` in GenFORM, which reads any failure of a column read as an empty cell, are marked open. The other seven are two date validators in GenCORE, the equation printer in GenORDER logging, and four in Utils.Lib (a parser in continuation style, two file system searches, a diagnostic) |
 | S4 No partial collection function without a guard | checker, syntactic | 13 | 9 | 15 | `List.head`, `List.find`, `List.reduce`, `List.max`, `Option.get` and their Seq, Array and Map forms. Many sit after a match that excludes the empty case; such a site gets an allowance that names the guard |
 | S5 String comparison and case mapping are culture-invariant | checker, syntactic | 1 | 0 | 2 | The counts are calls to the Utils.Lib case helpers; the three libraries call no culture-sensitive BCL method directly. They call `String.toLower` and `String.toUpper` from Utils.Lib, which use `ToLower()` and `ToUpper()` under the current culture; GenUNITS uses `String.toLower` when it parses a unit (`ValueUnit.fs:1474`). One change in Utils.Lib fixes all callers. In all of `src/`, 23 calls to `StartsWith`, `EndsWith`, `IndexOf` or `LastIndexOf` pass no `StringComparison`: 18 in the server, 2 in Client.Core, 2 in Utils.Lib, 1 in Shared |
 | S6 No `float` in a calculation library | checker, syntactic | 1 | 2 | 1 | None of the four is in a calculation: the number parser in GenUNITS, the sizing of parallel chunks in GenSOLVER, the type of a list of logged events in GenORDER (`OrderLogging.fs:135`). Each gets an allowance |
@@ -109,7 +109,10 @@ only for what is harmful to expose; test names that state the behaviour.
    culture. This changes behaviour only for a server whose culture maps case differently from the
    invariant culture. Script first, as the policy requires.
 4. Add the class S detectors S2 to S8 to the checker, each with its allowance list and a reason per
-   entry, and decide the four fallback handlers of S3 one by one.
+   entry, and decide the four fallback handlers of S3 one by one. S2 and S3 are in the checker. Their
+   tests have cases that fire and cases that pass, and each of 23 mutants of the detector fails at least
+   one test. The class S rules run over the core ring of `scripts/DependencyRule.fsx`, not over every
+   library: the infrastructure projects log and continue by design, and the core does not call them.
 5. Move the checker from a script to a compiled project with its tests under `tests/`, so that its
    validation evidence is in the test results CI keeps. Add `.fsi` files to its input.
 6. Keep the class M rules on the baseline, and add the not-yet-measured syntactic rules one at a
