@@ -14,7 +14,6 @@ module OrderLogging =
     open Types.Logging
 
     module Units = ValueUnit.Units
-    module Quantity = OrderVariable.Quantity
     module Name = Variable.Name
     module Mapping = EquationMapping
 
@@ -212,37 +211,3 @@ messages: {msgs.Value.Count}
 
     /// A logger that does nothing.
     let noOp = Logging.noOp
-
-
-    /// Logs the prescription, preparation and administration text of each order, with the adjust quantity of the
-    /// first order in the heading. The names in ns select the orderable items to print. When verbose is true, also
-    /// logs the full order.
-    let printScenarios logger verbose ns (orders: Order list) =
-        let w =
-            match orders with
-            | h :: _ -> h.Adjust |> Quantity.toValueUnitStringList |> Option.defaultValue ""
-            | _ -> ""
-
-        $"\n\n=== SCENARIOS for Weight: %s{w} ==="
-        |> Events.OrderScenario
-        |> logOrderEvent logger
-
-        orders
-        |> List.iteri (fun i o ->
-            o
-            |> Order.Print.printOrderToString true ns
-            |> fun (p, a, d) ->
-                $"%i{i + 1}\tprescription:\t%s{p}"
-                |> Events.OrderScenario
-                |> logOrderEvent logger
-
-                $"  \tdispensing:\t%s{a}" |> Events.OrderScenario |> logOrderEvent logger
-                $"  \tpreparation:\t%s{d}" |> Events.OrderScenario |> logOrderEvent logger
-
-            if verbose then
-                o
-                |> Order.toString
-                |> List.iteri (fun i s -> $"%i{i + 1}\t%s{s}" |> Events.OrderScenario |> logOrderEvent logger)
-
-                "\n" |> Events.OrderScenario |> logOrderEvent logger
-        )
