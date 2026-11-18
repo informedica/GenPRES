@@ -1,7 +1,5 @@
-/// The patient as the EHR knows them: the identity, the birthdate, the gender, the dated
-/// weights and heights, the gestational age, the department and the access. The rules do not
-/// read this record; they read the GenFORM patient projected from it at a date, with the age
-/// in days and one weight and one height.
+/// The patient types and the age rules: the identity, the birth date, the gender, the ages, the dated weights and
+/// heights, the department, the accesses and the renal function.
 namespace Informedica.GenCore.Lib.Patients
 
 #nowarn "40"
@@ -104,7 +102,7 @@ type AgeValue =
 type AdultMark =
     /// Younger than 16 years: the patient cannot be marked as an adult.
     | NotAdult
-    /// From 16 to 18 years, or without an age: an adult when the user marks the patient as one.
+    /// From 16 years to under 18 years, or without an age: an adult when the user marks the patient as one.
     | MarkableAdult of marked: bool
     /// From 18 years: an adult without a mark.
     | Adult
@@ -113,7 +111,7 @@ type AdultMark =
 /// Whether the gestational age of a patient is needed, set from the age of the patient.
 [<RequireQualifiedAccess>]
 type GestationalAgeNeed =
-    /// From 1 year, or without an age: the gestational age says nothing and is ignored.
+    /// From 1 year, or without an age: the gestational age is not used.
     | NoGestationalAge
     /// From 28 days and under 1 year: the gestational age may be given.
     | OptionalGestationalAge
@@ -121,8 +119,7 @@ type GestationalAgeNeed =
     | RequiredGestationalAge
 
 
-/// A birthdate, fully specified: a year, a month and a day. A year alone, or a year and a
-/// month, is no birthdate.
+/// A full birth date with a year, a month and a day.
 type BirthDate =
     {
         Year: int<year>
@@ -217,14 +214,14 @@ type Percentiles<'v> =
     {
         /// The 3rd percentile.
         P3: 'v
-        /// The mean; in an estimate rounded to the nearest weight or height a user can pick.
+        /// The mean. In an estimate, the mean is rounded to the nearest weight step or height step.
         Mean: 'v
         /// The 97th percentile.
         P97: 'v
     }
 
 
-/// The estimates of the weight and the height of a patient; none where a table gives none.
+/// The estimated weight and height of a patient; None when the table gives no value.
 type Estimates =
     {
         /// The weight in gram.
@@ -234,11 +231,10 @@ type Estimates =
     }
 
 
-/// Why the rows of a normal-value sheet do not make a table. A row is counted as in the sheet: the
-/// header is row 1.
+/// An error in the rows of a normal-value sheet. Row numbers count the header as row 1.
 [<RequireQualifiedAccess>]
 type NormalValueError =
-    /// The rows hold no sheet of this name.
+    /// No sheet has this name.
     | MissingSheet of sheet: string
     /// The sheet lacks these columns.
     | MissingColumns of sheet: string * columns: string list
@@ -248,9 +244,7 @@ type NormalValueError =
     | UnknownSex of sheet: string * row: int * sex: string
 
 
-/// Who the patient is, when the EHR gave enough to say: the id, the name and the birthdate.
-/// Shown in full to the user, kept by the Session and its store, never printed by a patient
-/// printer or a log line.
+/// The id, the name and the birth date of an identified patient. Patient.toString never prints the identity.
 type PatientIdentity =
     {
         /// The id the EHR knows the patient by.
@@ -265,7 +259,7 @@ type PatientIdentity =
 /// Every patient characteristic except the identity.
 type PatientData =
     {
-        /// The location of the patient, as a rule names it.
+        /// The location of the patient, with the name the rules use.
         Location: string option
         /// The ward the patient is admitted to.
         Department: Department
@@ -300,8 +294,7 @@ type PatientData =
 /// Why patient data is not enough to select rules with.
 [<RequireQualifiedAccess>]
 type PatientDataError =
-    /// Below the minimum data: no age, no mark as an adult, and no measured weight with a
-    /// measured height.
+    /// The patient data has no age, no adult mark and no measured weight with a measured height.
     | NoAgeOrMeasuredWeightAndHeight
     /// A patient marked as an adult who is younger than 16 years.
     | MarkedAdultBelowSixteen
@@ -416,7 +409,6 @@ module AgeValue =
         let days = (fun (a: AgeValue) -> a.Days), (fun d (a: AgeValue) -> { a with Days = d })
 
 
-    //[<AutoOpen>]
     module SetGet =
 
         let getYears (a: AgeValue) = a.Years
@@ -473,13 +465,13 @@ module AgeValue =
     let toValueUnit av = av |> getAgeInDays |> ValueUnits.ValueUnit.Measures.fromIntDay
 
 
-    /// The age value of a number of days: a year 365 days, a month 30 days, at most 11 months. The
-    /// inverse of getAgeInDays for every age a birth date gives.
+    /// Splits a number of days into years of 365 days, months of 30 days (at most 11), weeks and days.
+    /// getAgeInDays of the result returns the same number of days.
     let fromDays (days: int<day>) =
         let days = int days
         let ys = days / Constants.daysInYear
         let afterYears = days - ys * Constants.daysInYear
-        // a plain min names the unit of measure for minutes here
+        // Operators.min is needed because min alone is the unit of measure for minutes here.
         let ms = afterYears / Constants.daysInMonth |> Operators.min (Constants.monthsInYear - 1)
 
         let rest = afterYears - ms * Constants.daysInMonth
@@ -495,11 +487,10 @@ module AgeValue =
     let fromValueUnit vu = vu |> ValueUnits.ValueUnit.Measures.toSingleIntDay |> fromDays
 
 
-    /// The age value at a date of a birth date: the days from the birth date to the date, taken on
-    /// the date alone, split by fromDays into years of 365 days, months of 30 days, weeks and days. A
-    /// birth date after the date is refused.
+    /// Returns the age at a date of a patient born on the birth date, from the whole days between the two
+    /// dates, split by fromDays. Raises an argument exception for a birth date after the date.
     let fromBirthDate (now: DateTime) (bd: BirthDate) =
-        // the birthdate module comes later in the file, so the date is built here
+        // The BirthDate module comes later in the file, so the date is built here.
         let birth = DateTime(int bd.Year, int bd.Month, int bd.Day)
 
         if birth > now.Date then
@@ -613,8 +604,9 @@ module AdultMark =
     open AgeValue.Operators
 
 
-    /// The adult mark of an age and the choice of the user: without an age the choice of the user,
-    /// below 16 years not an adult, below 18 years the choice of the user, from 18 years an adult.
+    /// Returns the adult mark for an age and the mark the user set. Under 16 years the patient is not an
+    /// adult, from 18 years the patient is an adult. From 16 to under 18 years, or without an age, the mark
+    /// the user set decides.
     let ofAge age marked =
         match age with
         | None -> AdultMark.MarkableAdult marked
@@ -623,7 +615,7 @@ module AdultMark =
         | Some _ -> AdultMark.Adult
 
 
-    /// Whether the mark makes an adult: from 18 years, or marked by the user.
+    /// True from 18 years, or when the user marked a patient of 16 to under 18 years or without an age.
     let isAdult mark =
         match mark with
         | AdultMark.Adult
@@ -642,8 +634,8 @@ module GestationalAgeNeed =
     let requiredUnder = AgeValue.create None None None (Some 28<day>)
 
 
-    /// The need for the gestational age at an age: without an age none, under 28 days required,
-    /// under 1 year optional, from 1 year none.
+    /// Returns the need for the gestational age at an age: required under 28 days, optional under 1 year,
+    /// not used from 1 year or without an age.
     let ofAge age =
         match age with
         | None -> GestationalAgeNeed.NoGestationalAge
@@ -765,7 +757,8 @@ module BirthDate =
         let dto () = Dto()
 
 
-        /// The birthdate of a Dto: a real date, at most 120 years before the date passed in.
+        /// Validates a Dto as a birth date: a valid date from 1900 on, less than 120 years of 365 days
+        /// before today.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! y = Validation.yearValidator "Year" dto.Year
@@ -940,8 +933,8 @@ module WeightAtDate =
         let dto () = Dto()
 
 
-        /// The dated weight of a Dto: a weight within the bounds, dated on or before the calendar
-        /// date passed in.
+        /// Validates a Dto as a dated weight: a weight within the bounds and a date on or before today.
+        /// A missing date is an error.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! wv = WeightValue.Dto.fromDto dto.WeightValue
@@ -975,7 +968,7 @@ module Source =
         | Estimated _ -> false
 
 
-    /// The source of a Dto value and its flag that says estimated.
+    /// Returns Estimated v when estimated is true, else Measured v.
     let fromDto estimated v = if estimated then Estimated v else Measured v
 
 
@@ -993,11 +986,11 @@ module Weight =
     let unknown = create [] None [] None
 
 
-    /// Whether the calculation weight is measured; false for an estimate and without one.
+    /// True when the calculation weight is measured; false for an estimate or without a calculation weight.
     let isMeasured (w: Weight) = w.Calculation |> Option.exists Source.isMeasured
 
 
-    /// The normal weight of an age category: an estimate.
+    /// Creates a weight with the normal weight of the age type as an estimated calculation weight.
     let fromAgeType gend dt =
         WeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None []
 
@@ -1065,7 +1058,7 @@ module Weight =
         type Dto() =
             member val Actual: WeightAtDate.Dto.Dto list = [] with get, set
             member val Calculation: WeightAtDate.Dto.Dto option = None with get, set
-            /// Whether the calculation weight is an estimate; says nothing without one.
+            /// True when the calculation weight is an estimate; not used without a calculation weight.
             member val CalculationEstimated = false with get, set
             member val Birth: WeightValue.Dto.Dto option = None with get, set
             member val Admission: WeightAtDate.Dto.Dto list = [] with get, set
@@ -1074,8 +1067,8 @@ module Weight =
         let dto () = Dto()
 
 
-        /// The weights of a Dto, or the error of the first weight that does not read: a value outside
-        /// the bounds, or a date after the read date.
+        /// Validates a Dto as weights. Returns the error of the first invalid weight: a value outside the
+        /// bounds, or a missing date or a date after today.
         let fromDto today (dto: Dto) =
             validate {
                 let! act = dto.Actual |> List.traverseResultM (WeightAtDate.Dto.fromDto today)
@@ -1251,8 +1244,8 @@ module HeightAtDate =
         let dto () = Dto()
 
 
-        /// The dated height of a Dto: a height within the bounds, dated on or before the calendar
-        /// date passed in.
+        /// Validates a Dto as a dated height: a height within the bounds and a date on or before today.
+        /// A missing date is an error.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! wv = HeightValue.Dto.fromDto dto.HeightValue
@@ -1283,11 +1276,11 @@ module Height =
     let unknown = create [] None None
 
 
-    /// Whether the calculation height is measured; false for an estimate and without one.
+    /// True when the calculation height is measured; false for an estimate or without a calculation height.
     let isMeasured (h: Height) = h.Calculation |> Option.exists Source.isMeasured
 
 
-    /// The normal height of an age category: an estimate.
+    /// Creates a height with the normal height of the age type as an estimated calculation height.
     let fromAgeType gend dt =
         HeightAtDate.fromAgeType gend dt >> Option.map Estimated >> create [] None
 
@@ -1344,15 +1337,15 @@ module Height =
             member val Actual: HeightAtDate.Dto.Dto list = [] with get, set
             member val Birth: HeightValue.Dto.Dto option = None with get, set
             member val Calculation: HeightAtDate.Dto.Dto option = None with get, set
-            /// Whether the calculation height is an estimate; says nothing without one.
+            /// True when the calculation height is an estimate; not used without a calculation height.
             member val CalculationEstimated = false with get, set
 
 
         let dto () = Dto()
 
 
-        /// The heights of a Dto, or the error of the first height that does not read: a value outside
-        /// the bounds, or a date after the read date.
+        /// Validates a Dto as heights. Returns the error of the first invalid height: a value outside the
+        /// bounds, or a missing date or a date after today.
         let fromDto today (dto: Dto) =
             validate {
                 let! act = dto.Actual |> List.traverseResultM (HeightAtDate.Dto.fromDto today)
@@ -1375,10 +1368,10 @@ module Height =
             dto
 
 
-/// The string form of an access, for the Dto.
+/// Converts an access to and from its string form in the Dto.
 module Access =
 
-    /// The string an access is written as.
+    /// Returns the string form of an access.
     let toString =
         function
         | PVL -> "pvl"
@@ -1386,7 +1379,7 @@ module Access =
         | EnteralTube -> "enteral-tube"
 
 
-    /// The access a string names; none for any other string.
+    /// Returns the access a string names, ignoring case and outer white space; None for any other string.
     let tryFromString s =
         match s |> String.toLower |> String.trim with
         | "pvl" -> Some PVL
@@ -1397,8 +1390,7 @@ module Access =
 
 module EGFRBand =
 
-    /// The band of a calculated eGFR; none for an eGFR below zero, an infinite one, or one that is
-    /// no number.
+    /// Returns the band of a calculated eGFR; None for a negative, infinite or NaN eGFR.
     let ofEGFR (eGfr: float<mL / min / normalM2>) =
         match float eGfr with
         | x when x |> Double.IsFinite |> not -> None
@@ -1409,11 +1401,11 @@ module EGFRBand =
         | _ -> None
 
 
-/// The string form of a renal function, for the Dto: egfr:min:max with an empty bound where the
-/// band has none, or the name of a dialysis.
+/// Converts a renal function to and from its string form in the Dto: egfr:min:max, with an empty bound where
+/// the band has none, or the name of the dialysis.
 module RenalFunction =
 
-    /// The string a renal function is written as.
+    /// Returns the string form of a renal function.
     let toString =
         function
         | EGFR Above50 -> "egfr:50:"
@@ -1425,8 +1417,8 @@ module RenalFunction =
         | PeritonealDialysis -> "peritoneal-dialysis"
 
 
-    /// The renal function a string names; none for any other string, also for an eGFR that is no
-    /// band.
+    /// Returns the renal function a string names, ignoring case and outer white space; None for any other
+    /// string, such as an eGFR range that is not a band.
     let tryFromString s =
         match s |> String.toLower |> String.trim with
         | "egfr:50:" -> Some(EGFR Above50)
@@ -1525,8 +1517,8 @@ module rec Department =
     let fromString = Validation.validate "Department" >> Result.map id
 
 
-    /// The name the rules match: the ward's own name; none for any ward, an unknown one or a
-    /// ward without a name.
+    /// Returns the department name the rules match; None for any department, an unknown department or a
+    /// department without a name.
     let name =
         let named (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
@@ -1538,9 +1530,8 @@ module rec Department =
         open Validus
         open Validus.Operators
 
-        /// The kind's words dropped from the front, where the pattern found them, and the name
-        /// trimmed: a ward without a name comes back without one, a ward named after its kind
-        /// keeps its name.
+        /// Removes the kind from the start of a department string and trims the rest, which is the
+        /// department name. The name is empty when the string holds only the kind.
         let named (kind: string) (s: string) = s.Substring(kind.Length) |> String.trim
 
 
@@ -1557,8 +1548,8 @@ module rec Department =
                 *|* (named Constants.adultDepartment >> adultDepartment)
             <|> Check.String.pattern $"^{Constants.pediatricDepartment}"
                 *|* (named Constants.pediatricDepartment >> pediatricDepartment)
-            // Anchored at the start: "Adult Department ..." and "Pediatric Department ..." are not read
-            // as a department whose kind is not known.
+            // Matched from the start, so "Adult Department X" and "Pediatric Department X" are not read
+            // as a department of unknown kind.
             <|> Check.String.pattern $"^{Constants.otherDepartment}"
                 *|* (named Constants.otherDepartment >> otherDepartment)
 
@@ -1669,13 +1660,11 @@ module AgeWeeksDays =
     let toValueUnit awd = awd |> toDays |> ValueUnits.ValueUnit.Measures.fromIntDay
 
 
-    /// The post-menstrual age of an age and a gestational age: the gestational age plus the age in
-    /// days, in weeks and days.
+    /// Returns the post-menstrual age in weeks and days: the age in days plus the gestational age.
     let postMenstrualAge av ga = (av |> AgeValue.getAgeInDays) + (ga |> toDays) |> fromDays
 
 
-    /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
-    /// gestation type starts.
+    /// The gestational age at term: 37 weeks, where the FullTerm gestation type starts.
     let term = fromWeeks GestationType.moderate
 
 
@@ -1700,7 +1689,7 @@ module AgeWeeksDays =
     let isPreterm awd = awd <? term
 
 
-    /// Whether a gestational age value, a time value, is below term.
+    /// Whether a gestational age given as a time value is below term.
     let isPretermValue vu = vu |> fromValueUnit |> isPreterm
 
 
@@ -1722,8 +1711,7 @@ module AgeWeeksDays =
         let validateDays = Check.Int.between 0 maxDays *|* Conversions.dayFromInt
 
 
-        /// The weeks of the oldest post-menstrual age: the maximum gestational age plus the maximum
-        /// age in weeks.
+        /// The maximum post-menstrual age in weeks: the maximum gestational age plus 120 years in weeks.
         let maxPostMenstrualWeeks =
             AgeValue.Validation.maxYear
             |> Conversions.intYearsToDays
@@ -1773,7 +1761,7 @@ module AgeWeeksDays =
             }
 
 
-        /// The post-menstrual age of a Dto, with the bounds of a post-menstrual age.
+        /// Validates a Dto as a post-menstrual age: from 20 weeks up to maxPostMenstrualWeeks, and 0 to 6 days.
         let fromPostMenstrualDto (dto: Dto) =
             validate {
                 let! ws = dto.Weeks |> Validation.validatePostMenstrualWeeks "Weeks"
@@ -1797,7 +1785,7 @@ module Estimates =
     open AgeValue.Operators
 
 
-    /// No estimate of either.
+    /// Estimates without a weight and without a height.
     let none =
         {
             Weight = None
@@ -1805,8 +1793,8 @@ module Estimates =
         }
 
 
-    /// The weight steps a mean is rounded to: by 50 gram up to 2 kg, by 100 gram up to 10 kg, by
-    /// 500 gram up to 20 kg and by 1 kg up to 100 kg.
+    /// The weights in gram a mean is rounded to: steps of 50 gram from 400 gram, 100 gram from 2 kg,
+    /// 500 gram from 10.5 kg and 1 kg from 21 kg up to 100 kg.
     let weightSteps =
         [|
             [| 400..50..1950 |]
@@ -1822,7 +1810,7 @@ module Estimates =
     let heightSteps = [| 40..220 |] |> Array.map Conversions.cmFromInt
 
 
-    /// The value to a whole number in its unit, cut, not rounded.
+    /// Truncates a value to a whole number in its unit.
     let toWhole (v: float<'u>) : int<'u> = v |> float |> int |> LanguagePrimitives.Int32WithMeasure
 
 
@@ -1830,8 +1818,8 @@ module Estimates =
     let nearestStep (steps: int<'u>[]) (v: int<'u>) = steps[steps |> Informedica.Utils.Lib.Array.nearestIndex v]
 
 
-    /// The percentiles of a gender at an age: the 3rd percentile, the mean and the 97th percentile of
-    /// the row nearest to the age; none when the table has no row for the gender.
+    /// Returns the percentiles of the row nearest to the age for a gender; None when the table has no row
+    /// for the gender.
     let percentilesOfGender (rows: NormalValue<'age, 'u> list) (age: float<'age>) gender =
         match rows |> List.filter (fun nv -> nv.Gender = gender) |> List.toArray with
         | [||] -> None
@@ -1846,8 +1834,8 @@ module Estimates =
                 }
 
 
-    /// The nearest percentiles at an age for the gender of a patient; for a patient without a known
-    /// gender the average of the male and the female percentiles.
+    /// Returns the nearest percentiles at an age for a gender. For an unknown gender, returns the average
+    /// of the male and the female percentiles.
     let nearestPercentiles gender (age: float<'age>) (rows: NormalValue<'age, 'u> list) =
         match gender with
         | Male
@@ -1865,22 +1853,21 @@ module Estimates =
                 (Female |> percentilesOfGender rows age)
 
 
-    /// The age in years the age tables are read at: the years and the months.
+    /// Returns the age in years, with the months as a fraction, to read the age tables at.
     let tableYears age =
         let y, m, _, _ = age |> AgeValue.getDef0
         (float (int y) + float (int m) / 12.) * 1.<year>
 
 
-    /// The post-menstrual age in weeks, when a neonatal table reaches it: past its last week an
-    /// older infant takes the age table, or the nearest row would give a newborn's value.
+    /// Returns the post-menstrual age in weeks when the neonatal table has a row at or above it; None
+    /// otherwise, so an older infant gets the age table and not the value of the last neonatal row.
     let neonatalWeeks pma (rows: NormalValue<week, 'u> list) =
         pma
         |> Option.map (fun pma -> float (int (pma |> AgeWeeksDays.toDays)) / 7. * 1.<week>)
         |> Option.filter (fun weeks -> rows |> List.exists (fun nv -> nv.Age >= weeks))
 
 
-    /// The estimate of the percentiles of a table: cut to whole numbers, the mean on the nearest
-    /// step.
+    /// Truncates table percentiles to whole numbers and rounds the mean to the nearest step.
     let estimate steps (pct: Percentiles<float<'u>>) =
         {
             P3 = pct.P3 |> toWhole
@@ -1889,10 +1876,10 @@ module Estimates =
         }
 
 
-    /// The estimates of a patient of a gender, an age and a post-menstrual age from the tables:
-    /// none without an age or from 18 years. Each measure takes the neonatal table while it reaches
-    /// the post-menstrual age, otherwise the age table. An age-table weight in kg has its
-    /// percentiles cut to whole kg.
+    /// Estimates the weight and height from the tables for a gender, an age and a post-menstrual age;
+    /// none without an age or from 18 years. Uses the neonatal table when it has a row at or above the
+    /// post-menstrual age, otherwise the age table. A weight from the age table has its 3rd and 97th
+    /// percentiles truncated to whole kg.
     let ofAge tables gender age pma =
         match age with
         | None -> none
@@ -1956,17 +1943,17 @@ module NormalValueTables =
     let neoHeightSheet = "height neo"
 
 
-    /// The four normal-value sheets, the names a source fetches them by.
+    /// The names of the four normal-value sheets.
     let sheets = [ weightSheet; heightSheet; neoWeightSheet; neoHeightSheet ]
 
 
-    /// The columns a normal-value sheet must have: the sex, then the numeric ones.
+    /// The columns a normal-value sheet must have.
     let requiredColumns = [ "sex"; "age"; "p3"; "mean"; "p97" ]
 
 
-    /// The rows of a normal-value sheet, the header first, as a table with the unit of the age and
-    /// the unit of the values the caller gives it; every error the rows hold otherwise. Without
-    /// rows below the header the table is empty.
+    /// Parses the rows of a normal-value sheet, header first, into a table with the units the caller sets.
+    /// Returns every error in the rows. A header without rows gives an empty table; no header gives
+    /// MissingColumns.
     let parseSheet sheet (rows: string[][]) : Validation<NormalValue<'age, 'u> list, NormalValueError> =
         match rows |> Array.tryHead with
         | None -> Validation.error (NormalValueError.MissingColumns(sheet, requiredColumns))
@@ -2009,8 +1996,8 @@ module NormalValueTables =
                             }
                     }
 
-                // a fold with and! keeps the errors of a row in the column order, which
-                // List.sequenceValidationA reverses
+                // A fold with and! keeps the errors of a row in column order; List.sequenceValidationA
+                // would reverse them.
                 rows[1..]
                 |> Array.toList
                 |> List.mapi (fun i row -> parseRow (i + 2) row)
@@ -2026,8 +2013,8 @@ module NormalValueTables =
                 |> Validation.map List.rev
 
 
-    /// The tables from the rows of the four sheets, by sheet name; every error of every sheet
-    /// otherwise, a sheet absent from the rows among them.
+    /// Builds the tables from the rows of the four sheets, keyed by sheet name. Returns every error of every
+    /// sheet, with MissingSheet for a sheet that is not in the map.
     let ofRows (rows: Map<string, string[][]>) =
         let table sheet : Validation<NormalValue<'age, 'u> list, NormalValueError> =
             match rows |> Map.tryFind sheet with
@@ -2052,7 +2039,7 @@ module NormalValueTables =
 
 module PatientIdentity =
 
-    /// The identity of an id, a name and a birthdate.
+    /// Creates a patient identity from an id, a name and a birth date.
     let create id name bd : PatientIdentity =
         {
             Id = id
@@ -2066,8 +2053,8 @@ module PatientData =
     module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
 
-    /// The patient data of its characteristics: without a location, a mark as an adult, an access
-    /// or a renal function, and without a post-menstrual age until Patient.atDate calculates it.
+    /// Creates patient data without a location, an adult mark, an access or a renal function. The
+    /// post-menstrual age is None until Patient.atDate calculates it.
     let create dep diagn gend age wght hght gest =
         {
             Location = None
@@ -2089,8 +2076,8 @@ module PatientData =
     let unknown = create Department.unknown [||] UnknownGender None Weight.unknown Height.unknown None
 
 
-    /// The data at the start of an age category: the age of the category, and the normal weight and
-    /// height of the category for a gender at a date.
+    /// Creates patient data with the age at the start of an age type, and the normal weight and height of
+    /// that age type for a gender as estimates at a date.
     let fromAgeType gend dt at =
         { unknown with
             Age = at |> AgeValue.fromAgeType |> Some
@@ -2123,8 +2110,8 @@ module PatientData =
         |> Option.map (Source.value >> _.Height >> HeightValue.getHeightCm >> Measures.fromDecimalCm)
 
 
-    /// The body surface area by a formula, of the calculation weight and height, measured or
-    /// estimated; none without both.
+    /// Calculates the body surface area with a formula from the calculation weight and height, measured or
+    /// estimated; None without both.
     let calcBsa formula (dat: PatientData) =
         let w =
             dat.Weight.Calculation
@@ -2139,30 +2126,28 @@ module PatientData =
         | _ -> None
 
 
-    /// The body surface area in m2 by the formula of Du Bois, rounded to 2 decimals as the rules
-    /// match it; none without a calculation weight and height.
+    /// Returns the body surface area in m2 by the Du Bois formula, rounded to 2 decimals; None without a
+    /// calculation weight and height.
     let bodySurfaceArea dat =
         dat
         |> calcBsa (fun _ -> BSA.calcDuBois (Some 2))
         |> Option.map Measures.fromDecimalM2
 
 
-    /// Whether the mark as an adult is refused: a patient marked as an adult who is younger than
-    /// 16 years.
+    /// True for a patient marked as an adult who is younger than 16 years.
     let markRefused (dat: PatientData) =
         dat.MarkedAdult && AdultMark.ofAge dat.Age dat.MarkedAdult = AdultMark.NotAdult
 
 
-    /// Whether the patient data is enough to select rules with: an age, or the mark as an adult,
-    /// or a measured weight with a measured height.
+    /// True when the patient data has an age, an adult mark, or a measured weight with a measured height.
     let meetsMinimumData (dat: PatientData) =
         dat.MarkedAdult
         || dat.Age.IsSome
         || (dat.Weight |> Weight.isMeasured && dat.Height |> Height.isMeasured)
 
 
-    /// The patient data, or why it is not enough: a mark as an adult below 16 years, or less than
-    /// the minimum data.
+    /// Returns the patient data when it is enough to select rules with. Returns MarkedAdultBelowSixteen for a
+    /// patient under 16 years marked as an adult, and NoAgeOrMeasuredWeightAndHeight otherwise.
     let checkMinimumData dat =
         if dat |> markRefused then
             Error PatientDataError.MarkedAdultBelowSixteen
@@ -2172,7 +2157,7 @@ module PatientData =
             Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
 
 
-    /// The serializable patient data, without an identity.
+    /// The Dto of the patient data, without the patient identity.
     module Dto =
 
         open Validus
@@ -2197,16 +2182,17 @@ module PatientData =
         let dto () = Dto()
 
 
-        /// The string read by a function, or an error that names the field and the string.
+        /// Parses a string with a function. Returns an error that names the field and the string when the
+        /// function returns None.
         let parseField field tryFromString s =
             match s |> tryFromString with
             | Some v -> Result.Ok v
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// The patient data of a Dto read at a date: no weight or height may be dated after it. The
-        /// post-menstrual age is read back as it was calculated, with the bounds of a post-menstrual
-        /// age.
+        /// Validates a Dto as patient data. A weight or height dated after today is an error. The
+        /// post-menstrual age is read as stored, not calculated again, within the bounds of a
+        /// post-menstrual age.
         let fromDto today (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.fromString
@@ -2266,7 +2252,7 @@ module PatientData =
 module Patient =
 
 
-    /// The patient of an identity, none for an anonymous patient, and the patient data.
+    /// Creates a patient from an identity, None for an anonymous patient, and the patient data.
     let create idn dat =
         {
             Identity = idn
@@ -2278,7 +2264,7 @@ module Patient =
     let unknown = create None PatientData.unknown
 
 
-    /// The anonymous patient at the start of an age category, see PatientData.fromAgeType.
+    /// Creates an anonymous patient at the start of an age type; see PatientData.fromAgeType.
     let fromAgeType gend dt at = PatientData.fromAgeType gend dt at |> create None
 
 
@@ -2286,7 +2272,7 @@ module Patient =
 
         open Calculations
 
-        /// The body surface area by a formula, of the calculation weight and height of the patient.
+        /// Calculates the body surface area with a formula from the calculation weight and height.
         let calcBsa formula pat = pat.Data |> PatientData.calcBsa formula
 
 
@@ -2300,7 +2286,7 @@ module Patient =
         open Validus
 
 
-        /// An identity is an id, a name and a birthdate together, or none of the three.
+        /// Checks that the id, the name and the birth date are all given or all absent.
         let identityValidator field value =
             let msg = sprintf "%s needs an id, a name and a birthdate, or none of the three"
 
@@ -2313,8 +2299,7 @@ module Patient =
             Validator.create msg rule field value
 
 
-    /// The patient with its post-menstrual age calculated: the gestational age plus the age in days.
-    /// None without either.
+    /// Sets the post-menstrual age to the age in days plus the gestational age; None without either.
     let calculatePostMenstrualAge pat =
         { pat with
             Patient.Data.PostMenstrualAge =
@@ -2322,8 +2307,7 @@ module Patient =
         }
 
 
-    /// The patient without a gestational age when its age needs none: from 1 year, or without an
-    /// age.
+    /// Removes the gestational age from 1 year, or without an age.
     let ignoreGestationalAge pat =
         match pat.Data.Age |> GestationalAgeNeed.ofAge with
         | GestationalAgeNeed.NoGestationalAge -> { pat with Patient.Data.GestationalAge = None }
@@ -2331,9 +2315,9 @@ module Patient =
         | GestationalAgeNeed.RequiredGestationalAge -> pat
 
 
-    /// The patient as created at a date: for an identified patient the age value its birthdate
-    /// gives at that date, for an anonymous patient the age as entered; from 1 year or without an
-    /// age without the gestational age; then the post-menstrual age.
+    /// Sets the ages of a patient at a date. An identified patient gets the age from the birth date; an
+    /// anonymous patient keeps the entered age. Then the gestational age is removed from 1 year or
+    /// without an age, and the post-menstrual age is calculated.
     let atDate dt pat =
         match pat.Identity with
         | Some idn -> { pat with Patient.Data.Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
@@ -2342,12 +2326,11 @@ module Patient =
         |> calculatePostMenstrualAge
 
 
-    /// The patient of an identity and the patient data, created at a date: with its ages.
+    /// Creates a patient from an identity and patient data, with the ages set at a date.
     let createAt dt idn dat = create idn dat |> atDate dt
 
 
-    /// The patient data as strings, with the ages as created at a date; the identity is never
-    /// printed.
+    /// Returns the patient data as strings, with the ages set at a date. The identity is never printed.
     let toString dt pat =
         let created = pat |> atDate dt
 
@@ -2375,8 +2358,7 @@ module Patient =
         ]
 
 
-    /// The serializable patient: the id, the name and the birthdate of the identity beside the
-    /// patient data.
+    /// The Dto of a patient: the id, the name and the birth date of the identity, and the patient data.
     module Dto =
 
         open Validus
@@ -2393,8 +2375,8 @@ module Patient =
         let dto () = Dto()
 
 
-        /// The patient of a Dto read at a date: identified with an id, a name and a birthdate,
-        /// anonymous with none of the three; a part of an identity is an error.
+        /// Validates a Dto as a patient. An id, a name and a birth date make an identified patient, none
+        /// of the three an anonymous patient; only some of the three is an error.
         let fromDto today (dto: Dto) =
             validate {
                 let! dat = dto.Data |> PatientData.Dto.fromDto today

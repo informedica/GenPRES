@@ -75,7 +75,7 @@ module Constants =
     [<Literal>]
     let daysInYear = 365
 
-    /// The days of a month in an age in days: every month counts 30 days.
+    /// The number of days in a month of an age: every month counts 30 days.
     [<Literal>]
     let daysInMonth = 30
 

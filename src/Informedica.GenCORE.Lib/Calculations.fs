@@ -10,7 +10,7 @@ module Calculations =
     module Age =
 
 
-        /// The days of a number of months: each 12 months a year of 365 days, the rest 30 days each.
+        /// Converts months to days. Each 12 months count as a year of 365 days, each remaining month as 30 days.
         let monthsToDays (m: int<month>) =
             (int m / Constants.monthsInYear
              |> Conversions.yearFromInt
@@ -20,8 +20,8 @@ module Calculations =
                |> Conversions.dayFromInt)
 
 
-        /// The days of an age in months that may hold a fraction of a month: each 12 months a year of
-        /// 365 days, the rest 30 days each. So 12.5 months is 380 days and 0.5 months 15 days.
+        /// Converts an age in months, which may hold a fraction of a month, to days. Each 12 months count as
+        /// a year of 365 days, each remaining month as 30 days, so 12.5 months is 380 days.
         let fractionalMonthsToDays m =
             let months = Constants.monthsInYear |> BigRational.fromInt
             let years = m / months |> BigRational.ToBigInt |> BigRational.FromBigInt
@@ -30,17 +30,17 @@ module Calculations =
             + (m - years * months) * (Constants.daysInMonth |> BigRational.fromInt)
 
 
-        /// The months of an age in days: each year of 365 days 12 months, the rest 30 days to the month.
-        /// For whole months this is the inverse of fractionalMonthsToDays. The rest of 360 to 364 days
-        /// after the whole years is capped at 11.99 months; without the cap it would count as 12 months
-        /// or more and match a rule from the next year up to 5 days early.
+        /// Converts an age in days to months. Each 365 days count as 12 months, the remaining days as 30 days
+        /// to the month. For whole months this is the inverse of fractionalMonthsToDays. The months after the
+        /// whole years are capped at 11.99, so 360 to 364 remaining days do not match a rule for the next year
+        /// up to 5 days early.
         let daysToFractionalMonths d =
-            // the highest bound below a whole year that a G-Standaard age bound with two decimals can hold
+            // The highest number of months below a whole year that a G-Standaard age bound with two decimals holds.
             let highestMonthsBelowAYear = 1199N / 100N
             let days = Constants.daysInYear |> BigRational.fromInt
             let years = d / days |> BigRational.ToBigInt |> BigRational.FromBigInt
 
-            // a plain min names the unit of measure for minutes here
+            // Operators.min is written in full because min is also the unit of measure for minutes.
             years * (Constants.monthsInYear |> BigRational.fromInt)
             + Operators.min
                 ((d - years * days) / (Constants.daysInMonth |> BigRational.fromInt))
@@ -392,7 +392,7 @@ module Calculations =
             ((30. / bun) ** 0.079)
             * // x [30/BUN]0.079
             ((height / 1.4) ** 0.179)
-            * // x [ht/140]0.179
+            * // x [ht/1.4]0.179
             k // x [1.076male] [1.00female]
             |> toMlMinNormBsa
 
