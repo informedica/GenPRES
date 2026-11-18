@@ -263,6 +263,14 @@ module OrderVariable =
         let setMax incl vu (cs: Constraints) = { cs with Max = vu |> Option.map (Maximum.create incl) }
 
 
+        /// The factor that setMinMax multiplies a norm dose with to get the minimum.
+        let normMinFactor = 9N / 10N |> ValueUnit.singleWithUnit Units.Count.times
+
+
+        /// The factor that setMinMax multiplies a norm dose with to get the maximum.
+        let normMaxFactor = 11N / 10N |> ValueUnit.singleWithUnit Units.Count.times
+
+
         /// <summary>
         /// Sets the minimum and maximum of a MinMax as inclusive bounds. A bound the MinMax does not have
         /// is left unchanged.
@@ -282,17 +290,12 @@ module OrderVariable =
                     | _ -> false
                 )
 
-            let bound f =
+            let bound factor =
                 Option.map Limit.getValueUnit
-                >> Option.map (fun vu ->
-                    if isNormDose then
-                        vu * (f |> ValueUnit.singleWithUnit Units.Count.times)
-                    else
-                        vu
-                )
+                >> Option.map (fun vu -> if isNormDose then vu * factor else vu)
 
-            let min = minMax.Min |> bound (90N / 100N)
-            let max = minMax.Max |> bound (11N / 10N)
+            let min = minMax.Min |> bound normMinFactor
+            let max = minMax.Max |> bound normMaxFactor
 
             cs
             |> fun cs -> if min |> Option.isSome then cs |> setMin true min else cs
@@ -312,18 +315,14 @@ module OrderVariable =
             cs.Min.IsNone && cs.Incr.IsNone && cs.Max.IsNone && cs.Values.IsNone
 
 
-        /// Returns the minimum times 1.1 when that equals the maximum times 0.9, as for a norm dose set by
-        /// setMinMax; otherwise None.
+        /// Returns the norm dose when the minimum is 0.9 and the maximum is 1.1 times the same value, as
+        /// setMinMax stores a norm dose; otherwise None.
         let getNorm (cs: Constraints) =
-            let times0_90 = 90N / 100N |> ValueUnit.singleWithUnit Units.Count.times
-            let times1_10 = 11N / 10N |> ValueUnit.singleWithUnit Units.Count.times
-
             match cs.Min |> Option.map Minimum.toValueUnit, cs.Max |> Option.map Maximum.toValueUnit with
             | Some minVu, Some maxVu ->
-                if minVu * times1_10 = maxVu * times0_90 then
-                    minVu * times1_10 |> Some
-                else
-                    None
+                let norm = minVu / normMinFactor
+
+                if norm = maxVu / normMaxFactor then Some norm else None
             | _ -> None
 
 
@@ -413,21 +412,18 @@ module OrderVariable =
             let toVal =
                 ValueUnit.getValue
                 >> Array.tryHead
-                >> Option.map BigRational.toDecimal
-                >> Option.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
+                >> Option.map (BigRational.formatDecimal (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3))
                 >> Option.defaultValue ""
-
-            let times0_90 = (90N / 100N) |> ValueUnit.singleWithUnit Units.Count.times
-            let times1_10 = (11N / 10N) |> ValueUnit.singleWithUnit Units.Count.times
 
             match cs.Min |> Option.map Minimum.toValueUnit, cs.Max |> Option.map Maximum.toValueUnit with
             | Some min, Some max ->
                 if min |> ValueUnit.eqs max then
-                    $"{min |> toStr}"
-                else if min / times0_90 = max / times1_10 then
-                    $"{min / times0_90 |> toStr}"
+                    min |> toStr
                 else
-                    $"{min |> toVal} - {max |> toStr}"
+                    cs
+                    |> getNorm
+                    |> Option.map toStr
+                    |> Option.defaultWith (fun () -> $"%s{min |> toVal} - %s{max |> toStr}")
             | _ -> ""
 
 
@@ -804,24 +800,6 @@ module OrderVariable =
             |> Option.defaultValue tu
 
         { ovar with Variable = ovar.Variable |> Variable.convertToUnit u }
-
-
-    /// Sets the Variable to the value in its value set nearest to vu. When the Variable has no value set,
-    /// sets it to its median value.
-    let setNearestValue vu (ovar: OrderVariable) =
-        { ovar with
-            Variable =
-                if ovar.Variable.Values.IsValSet then
-                    ovar.Variable |> Variable.setNearestValue vu
-                else
-                    ovar.Variable |> Variable.setMedianValue
-        }
-
-
-    let setNormValue ovar =
-        match ovar |> getNormValue with
-        | Some vu -> ovar |> setNearestValue vu
-        | None -> ovar
 
 
     /// <summary>
@@ -2428,10 +2406,6 @@ module OrderVariable =
         /// Convert the first unit of a QuantityAdjust (e.g., mg/kg -> g/kg)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
 
-        /// Set the nearest value of a QuantityAdjust to a given ValueUnit
-        let setNearestValue vu = toOrdVar >> setNearestValue vu >> QuantityAdjust
-
-
         /// Turn a QuantityAdjust to a string
         let toString = toOrdVar >> (toString false)
 
@@ -2485,9 +2459,6 @@ module OrderVariable =
         let hasNormValue = toOrdVar >> getNormValue >> Option.isSome
 
 
-        let setNormValue = toOrdVar >> setNormValue >> QuantityAdjust
-
-
     /// Type and functions that represent an adjusted per-time value,
     /// i.e., an amount per adjust unit per time (for example, mg/kg/day)
     module PerTimeAdjust =
@@ -2537,9 +2508,6 @@ module OrderVariable =
 
         /// Convert the time unit of a PerTimeAdjust (e.g., mg/kg/day -> mg/kg/week)
         let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
-
-
-        let setNearestValue vu = toOrdVar >> setNearestValue vu >> PerTimeAdjust
 
 
         let toString = toOrdVar >> (toString false)
@@ -2595,9 +2563,6 @@ module OrderVariable =
 
 
         let hasNormValue = toOrdVar >> getNormValue >> Option.isSome
-
-
-        let setNormValue = toOrdVar >> setNormValue >> PerTimeAdjust
 
 
     /// Type and functions that represent an adjusted rate,
@@ -2706,9 +2671,6 @@ module OrderVariable =
 
 
         let hasNormValue = toOrdVar >> getNormValue >> Option.isSome
-
-
-        let setNormValue = toOrdVar >> setNormValue >> RateAdjust
 
 
     /// Type and functions that represent an adjusted total,

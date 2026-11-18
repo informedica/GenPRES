@@ -1711,6 +1711,25 @@ module ConstraintsTests =
             (two |> Maximum.create true |> Some)
             (one |> ValueSet.create |> Some)
 
+    let private noConstraints = Constraints.create None None None None
+
+    /// The value 10 to the power 30, which is above the largest decimal.
+    let private beyondDecimal = List.replicate 30 10N |> List.reduce (*)
+
+    /// The constraints of a dose limit with the minimum lo and the maximum hi in milligram.
+    /// Equal bounds are stored as a norm dose when calcNormDose is true.
+    let private limitedWith calcNormDose lo hi =
+        let minMax =
+            { MinMax.empty with
+                Min = lo |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+                Max = hi |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+            }
+
+        noConstraints |> Constraints.setMinMax calcNormDose minMax
+
+    /// The constraints of a dose limit in milligram, with equal bounds stored as a norm dose.
+    let private limited = limitedWith true
+
     let tests =
         testList
             "OrderVariable.Constraints setters"
@@ -1793,6 +1812,70 @@ module ConstraintsTests =
                     |> _.Max
                     |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
                     |> Expect.equal "a range is not a norm dose" (Some 2N)
+                }
+
+                for norm in [ 1N; 5N; 1N / 3N; 250N ] do
+                    test $"getNorm reads back a norm dose of %A{norm} mg" {
+                        limited norm norm
+                        |> Constraints.getNorm
+                        |> Expect.equal "the norm dose itself" (norm |> ValueUnit.singleWithUnit mg |> Some)
+                    }
+
+                test "getNorm of a range is no norm dose" {
+                    limited 1N 2N |> Constraints.getNorm |> Expect.isNone "a range has no norm dose"
+                }
+
+                test "getNorm of constraints without a minimum and a maximum is no norm dose" {
+                    noConstraints |> Constraints.getNorm |> Expect.isNone "no bounds, no norm dose"
+                }
+
+                test "getNorm of constraints with only a minimum is no norm dose" {
+                    noConstraints
+                    |> Constraints.setMin true (Some one)
+                    |> Constraints.getNorm
+                    |> Expect.isNone "a single bound is not a norm dose"
+                }
+
+                test "toMinMaxString of a norm dose is the norm dose" {
+                    limited 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose" "5 mg"
+                }
+
+                test "toMinMaxString of a norm dose of a third is rounded to the precision" {
+                    limited (1N / 3N) (1N / 3N)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "three significant digits" "0,333 mg"
+                }
+
+                test "toMinMaxString of equal bounds is the single value" {
+                    limitedWith false 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the single value" "5 mg"
+                }
+
+                test "toMinMaxString of a range is the minimum and the maximum" {
+                    limited 1N 2N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the range" "1 - 2 mg"
+                }
+
+                test "toMinMaxString of a norm dose beyond a decimal is the norm dose" {
+                    limited beyondDecimal beyondDecimal
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose in full" "1000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString of a range beyond a decimal is the minimum and the maximum" {
+                    limited beyondDecimal (2N * beyondDecimal)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal
+                        "the range in full"
+                        "1000000000000000000000000000000 - 2000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString without bounds is an empty text" {
+                    noConstraints |> Constraints.toMinMaxString 3 |> Expect.equal "no text" ""
                 }
             ]
 
