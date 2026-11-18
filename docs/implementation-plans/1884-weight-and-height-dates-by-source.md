@@ -139,17 +139,23 @@ Decided by the maintainer on 2026-11-18.
 3. **The estimates.** An estimate is not measured on a date, so it has no date: `Patient.estimated`
    (`Server/ServerApi.Mappers.Patient.fs:486`) and the `fromAgeType` functions set `None`, and the
    `fromAgeType` functions lose their date parameter.
+4. **A refused Dto in the server.** When `PatientData.Dto.fromDto` refuses the changed Dto in
+   `Patient.estimated` or `Session.signedPatientDataAt`, they raise `invalidOp` with the validation
+   errors. GenCORE then refuses data it wrote itself from valid data, which is a bug, not bad input.
+   Their callers have no error case: `estimated` runs inside the port member `patientData`
+   (`Server/ServerApi.Ports.fs:138`), and `signedPatientDataAt` inside `sessionPatientData`, which
+   gives the patient data of the launch and session answers, where `None` means that the user enters
+   the data. Falling back on the data before the change would be wrong: in `signedPatientDataAt` that
+   data still holds the estimates the branch removes.
+5. **The GenFORM test helpers.** `TestPatient` (`tests/Informedica.GenFORM.Tests/Tests.fs`) builds
+   patient data through the Dto as well, so `fromDto` calculates the derived values.
+   `withPostMenstrualAgeInDays` goes. Test cases with patient data that `fromDto` cannot give are
+   rewritten or deleted: a post-menstrual age that does not fit the age and the gestational age
+   (`:4258`), no post-menstrual age with an age and a gestational age (`:4266`), and a gestational age
+   without an age (`:4296`).
 
 ## Open points
 
-- `PatientData.Dto.fromDto` returns a `Result`. What `Patient.estimated` and
-  `Session.signedPatientDataAt` return when it refuses the changed Dto is open. Falling back on the
-  data before the change is wrong for `signedPatientDataAt`: that data still holds the estimates this
-  branch removes.
-- The GenFORM test helpers (`TestPatient`, `tests/Informedica.GenFORM.Tests/Tests.fs`) set the age,
-  the gestational age, the post-menstrual age, the weight and the height by record update.
-  `withPostMenstrualAgeInDays` sets a post-menstrual age that `fromDto` would calculate from the age
-  and the gestational age. Whether these helpers go through the Dto is open.
 
 - The client never sends or receives a date for the weight or the height. Nothing on the client
   changes.
@@ -175,7 +181,8 @@ Each step is one pull request within the limit of 200 changed source lines.
    `Weight.toString` and `Height.toString` sort the lists with it. The six `fromAgeType` functions
    (`:906`, `:1002`, `:1217`, `:1292`, `:2117`, `:2275`) set estimates without a date and lose their
    date parameter (decision 3); their callers are the GenCORE tests and `Scripts/Scripts.fsx`. The
-   GenCORE tests follow.
+   GenCORE tests follow, and the GenFORM `TestPatient` helpers build patient data through the Dto
+   (decision 5).
 2. **GenORDER and MCP: patient data only through the Dto.** Delete the setters of the GenORDER
    `Patient` module (`GenORDER.Lib/Patient.fs`): `setAge` (`:89`), `setGestAge` (`:144`), `withPMAge`
    (`:85`), `setWeightFrom` (`:101`), `setWeight` (`:112`), `setEstimatedWeight` (`:116`),
@@ -195,7 +202,8 @@ Each step is one pull request within the limit of 200 changed source lines.
    "dated today". `Patient.estimated` (`Server/ServerApi.Mappers.Patient.fs:486`) and
    `Session.signedPatientDataAt` (`Server/ServerApi.Session.fs:751`) change the patient data through the
    Dto instead of a record update with `calculateBodySurfaceArea`: they write the Dto, set or remove
-   the calculation weight and height on it, and read it back with `PatientData.Dto.fromDto`. The
+   the calculation weight and height on it, and read it back with `PatientData.Dto.fromDto`, raising
+   `invalidOp` when it refuses the Dto (decision 4). The
    `CoreSource` alias of `Session` (`:414`) then has no use and goes. Remove `challengeDate`, its port member and adapters, the branch in `SigningCommand`
    that reads a submission on the date of its challenge, and their tests. Delete
    `SessionMapper.noticeData` (`Server/ServerApi.Mappers.Session.fs:93`): the server only sends a data
