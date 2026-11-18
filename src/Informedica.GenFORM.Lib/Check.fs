@@ -383,7 +383,7 @@ module Check =
 
 
     let maximizeDosages (dosages: Dosage list) =
-        let maximize = MinMax.foldMaximize true true
+        let maximize = MinMax.foldMaximize
 
         let maxRange (first: DoseRange) (rest: DoseRange list) =
             rest

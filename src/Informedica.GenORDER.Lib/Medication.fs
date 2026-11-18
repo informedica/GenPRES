@@ -995,7 +995,7 @@ module Medication =
                                                         dilutionLimit.Quantity
                                                         dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w)
                                                     ]
-                                                    |> MinMax.foldMinimize true true
+                                                    |> MinMax.foldMinimize
                                                 | _ -> dilutionLimit.Quantity
                                     }
                                 )

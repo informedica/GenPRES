@@ -196,8 +196,7 @@ module PrescriptionRule =
                             if sl.VolumeAdjust |> MinMax.isEmpty then
                                 sl.Volume
                             else
-                                [ sl.VolumeAdjust |> MinMax.apply ((*) w); sl.Volume ]
-                                |> MinMax.foldMinimize true true
+                                [ sl.VolumeAdjust |> MinMax.apply ((*) w); sl.Volume ] |> MinMax.foldMinimize
                     }
                 DilutionLimits =
                     solRule.DilutionLimits
@@ -208,7 +207,7 @@ module PrescriptionRule =
                             { dilutionLimit with
                                 Quantity =
                                     [ dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w); dilutionLimit.Quantity ]
-                                    |> MinMax.foldMinimize true true
+                                    |> MinMax.foldMinimize
                             }
                     )
             }

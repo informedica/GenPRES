@@ -191,15 +191,13 @@ open Informedica.GenUnits.Lib
 open Informedica.GenCore.Lib.Ranges
 
 
-let foldMaximize = MinMax.foldMaximize true true
-
 // a Minimum
 
 [
     MinMax.create None None
     MinMax.create None (Some(1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.exclusive))
 ]
-|> foldMaximize
+|> MinMax.foldMaximize
 
 
 [
@@ -209,7 +207,7 @@ let foldMaximize = MinMax.foldMaximize true true
     MinMax.create None (Some(2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
 
 ]
-|> foldMaximize
+|> MinMax.foldMaximize
 
 
 [
@@ -225,4 +223,4 @@ let foldMaximize = MinMax.foldMaximize true true
         (Some(2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
 
 ]
-|> foldMaximize
+|> MinMax.foldMaximize
