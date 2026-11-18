@@ -1266,7 +1266,7 @@ module OrderVariable =
                     if vu <? floor then floor else vu
                 | true, None, Some maxVal -> maxVal + (incr |> calcIncr (n - 1))
                 // Fallback when no min or max: use incr as the base value
-                | true, _, _ -> incr + incr |> calcIncr (n - 1)
+                | true, _, _ -> incr + (incr |> calcIncr (n - 1))
                 // Decrease: there is both a min and a max
                 | false, Some minVal, Some maxVal ->
                     // A specific value has been set, decrease that value
