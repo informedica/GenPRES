@@ -21,8 +21,7 @@ module Determination =
             Rows: Map<Name, BigRational> list
             /// The sums of more than one term, as the total and its terms.
             Sums: (Name * Name list) list
-            /// The variables of the equations that are not variables of the order, such as the
-            /// orderable share of 1 the equation mapping adds; they always count as known.
+            /// The variables that always count as known: the orderable share, which is the value 1.
             Constants: Set<Name>
         }
 
@@ -66,7 +65,7 @@ module Determination =
                     | OrderSumEquation(y, xs) when xs.Length > 1 -> Some(y |> name, xs |> List.map name)
                     | _ -> None
                 )
-            Constants = names - (ord |> Order.toOrdVars |> List.map name |> Set.ofList)
+            Constants = Set.singleton (ord |> Order.orderableShare |> name)
         }
 
 

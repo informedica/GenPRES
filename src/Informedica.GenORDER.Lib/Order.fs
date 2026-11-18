@@ -9,6 +9,7 @@ module Order =
 
 
     open System
+    open System.Collections.Generic
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
     open Informedica.GenUnits.Lib
@@ -3440,8 +3441,20 @@ module Order =
         | Continuous _ -> { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }
 
 
-    /// An order variable for the share of the orderable in itself: the constant value 1 times, which the
-    /// shares of the components add up to. The order does not hold this variable; only the equations use it.
+    /// An order variable that only the equations use, with the maximum max and the values vs as its constraints.
+    /// The order does not hold it.
+    let equationOnlyVariable name max vs =
+        let cs = OrderVariable.Constraints.create None None max vs
+
+        OrderVariable.create name None None max vs cs cs
+
+
+    /// The value 1 times.
+    let oneTimes = Units.Count.times |> ValueUnit.singleWithValue 1N
+
+
+    /// The share of the orderable in itself: the constant value 1 times, which the shares of the components
+    /// add up to.
     let orderableShare (ord: Order) =
         let name =
             [ ord.Id |> Id.toString; ord.Orderable.Name |> Name.toString ]
@@ -3449,14 +3462,21 @@ module Order =
             |> Name.add Mapping.Literals.orb
             |> Name.add Mapping.Literals.cnc
 
-        let one =
-            Units.Count.times
-            |> ValueUnit.singleWithValue 1N
-            |> ValueRange.ValueSet.create
-            |> Some
-        let cs = OrderVariable.Constraints.create None None None one
+        oneTimes |> ValueRange.ValueSet.create |> Some |> equationOnlyVariable name None
 
-        OrderVariable.create name None None None one cs cs
+
+    /// The schedule count: the administration time times the frequency, at most 1 times, so that one
+    /// administration ends before the next starts. Only the equations of a timed order use it.
+    let scheduleCount (ord: Order) =
+        let name =
+            [ ord.Id |> Id.toString ]
+            |> Name.create
+            |> Name.add Mapping.Literals.sch
+            |> Name.add Mapping.Literals.cnt
+
+        let max = oneTimes |> ValueRange.Maximum.create true |> Some
+
+        equationOnlyVariable name max None
 
 
     /// <summary>Maps an order to order equations with a sum mapping and a product mapping.</summary>
@@ -3464,68 +3484,55 @@ module Order =
     /// <param name="ord">The Order</param>
     /// <returns>A list of OrderEquations</returns>
     /// <exception cref="System.Collections.Generic.KeyNotFoundException">
-    /// When a mapping names a variable the order does not have.
+    /// When a mapping names a variable that is not a variable of the order, the orderable share or the
+    /// schedule count.
     /// </exception>
     let mapToOrderEquations eqMapping ord =
-        let ovars = (ord |> toOrdVars) @ [ ord |> orderableShare ]
+        let ovars = (ord |> toOrdVars) @ [ ord |> orderableShare; ord |> scheduleCount ]
 
-        let map repl eqMapping =
-            let eqs, c =
-                match eqMapping with
+        let toEquations operator mapping =
+            let eqs, create =
+                match mapping with
                 | SumMapping eqs -> eqs, OrderSumEquation
                 | ProductMapping eqs -> eqs, OrderProductEquation
 
+            let find name =
+                match ovars |> List.tryFind (fun v -> v.Variable.Name |> Name.toString = name) with
+                | Some v -> v
+                | None ->
+                    let name =
+                        if name |> String.isNullOrWhiteSpace then
+                            "'empty string'"
+                        else
+                            name
+
+                    raise (
+                        KeyNotFoundException
+                            $"cannot find %s{name} from\n%A{mapping}\nin %s{ovars |> OrderVariable.getNames}"
+                    )
+
             eqs
-            |> List.map (String.replace "=" repl)
-            |> List.map (String.split repl >> List.map String.trim >> List.filter String.notEmpty)
-            |> List.map (fun xs ->
-                match xs with
-                | h :: rest ->
-                    let h =
-                        match ovars |> List.tryFind (fun v -> v.Variable.Name |> Name.toString = h) with
-                        | Some v -> v
-                        | None ->
-                            let h =
-                                if h |> String.isNullOrWhiteSpace then
-                                    "'empty string'"
-                                else
-                                    h
+            |> List.map (String.replace "=" operator)
+            |> List.map (String.split operator >> List.map String.trim >> List.filter String.notEmpty)
+            |> List.map (fun names ->
+                match names with
+                | y :: xs ->
+                    let y = y |> find
+                    let xs = xs |> List.map find
+                    // A sum adds only the variables in the unit group of its result.
+                    let xs =
+                        if operator = "+" then
+                            xs |> List.filter (OrderVariable.eqsUnitGroup y)
+                        else
+                            xs
 
-                            raise (
-                                System.Collections.Generic.KeyNotFoundException
-                                    $"cannot find {h} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
-                            )
-
-                    let rest =
-                        rest
-                        |> List.map (fun s ->
-                            match ovars |> List.tryFind (fun v -> v.Variable.Name |> Name.toString = s) with
-                            | Some v -> v
-                            | None ->
-                                let s =
-                                    if s |> String.isNullOrWhiteSpace then
-                                        "'empty string'"
-                                    else
-                                        s
-
-                                raise (
-                                    System.Collections.Generic.KeyNotFoundException
-                                        $"cannot find {s} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
-                                )
-                        )
-                        |> fun rest ->
-                            if repl <> "+" then
-                                rest
-                            else
-                                rest |> List.filter (OrderVariable.eqsUnitGroup h)
-
-                    (h, rest) |> c
-                | _ -> invalidOp $"cannot map {eqs}"
+                    (y, xs) |> create
+                | _ -> invalidOp $"cannot map %A{eqs}"
             )
 
         let sumEqs, prodEqs = eqMapping
 
-        sumEqs |> map "+" |> List.append (prodEqs |> map "*")
+        sumEqs |> toEquations "+" |> List.append (prodEqs |> toEquations "*")
 
 
     /// <summary>

@@ -3518,6 +3518,7 @@ module EquationsTests =
             "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", ".xx.x"
             "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", ".x..."
             "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", "x.x.."
+            "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", "..x.."
             "[orb]_orb_qty = sum([cmp]_orb_qty)", "xxxxx"
             "[orb]_dos_qty = sum([cmp]_dos_qty)", "....."
             "[orb]_dos_ptm = sum([cmp]_dos_ptm)", "....."
@@ -3574,8 +3575,8 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 67 sheet rows" {
-                    golden |> List.length |> Expect.equal "67 rows transcribed" 67
+                test "golden table has all 68 sheet rows" {
+                    golden |> List.length |> Expect.equal "68 rows transcribed" 68
                 }
 
                 for indx, pos, name in doseTypes do
@@ -3693,6 +3694,137 @@ module EquationsTests =
 
                     obj.ReferenceEquals(first, second)
                     |> Expect.isTrue "second call is served from the cache"
+                }
+            ]
+
+
+module ScheduleCountTests =
+
+    module Limit = Informedica.GenCore.Lib.Ranges.Limit
+
+
+    let hour = Units.Time.hour
+
+    let perDay = Units.Count.times |> ValueUnit.per Units.Time.day
+
+
+    let orderOf med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord |> Order.applyConstraints
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    let solve ord =
+        ord
+        |> Order.solveMinMax "schedule count" false OrderLogging.noOp
+        |> Result.defaultWith (fun (_, msgs) -> failtest $"solve failed: %A{msgs}")
+
+
+    let scheduleOf (ord: Order) =
+        match ord.Schedule with
+        | Timed(frq, tme) -> frq |> OrderVariable.Frequency.toOrdVar, tme |> OrderVariable.Time.toOrdVar
+        | _ -> failtest "not a timed order"
+
+
+    let maxIn u ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getMax
+        |> Option.map (
+            Variable.ValueRange.Maximum.toValueUnit
+            >> ValueUnit.convertTo u
+            >> ValueUnit.getValue
+            >> Array.max
+        )
+
+
+    let valuesIn u ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getValSet
+        |> Option.map (
+            Variable.ValueRange.ValueSet.toValueUnit
+            >> ValueUnit.convertTo u
+            >> ValueUnit.getValue
+        )
+
+
+    /// Whether the equations of the order use the schedule count of the order.
+    let usesScheduleCount ord =
+        ord
+        |> Order.equations
+        |> List.collect (
+            function
+            | OrderProductEquation(y, xs)
+            | OrderSumEquation(y, xs) -> y :: xs
+        )
+        |> List.map OrderVariable.getName
+        |> List.contains (ord |> Order.scheduleCount |> OrderVariable.getName)
+
+
+    /// morfTimedWithNaCl once a day, with an administration time of 20 to 55 hours.
+    let timed55Hours =
+        { Scenarios.morfTimedWithNaCl with
+            Time =
+                { Scenarios.morfTimedWithNaCl.Time with
+                    Max = 55N |> ValueUnit.singleWithUnit hour |> Limit.inclusive |> Some
+                }
+        }
+
+
+    /// morfTimedWithNaCl at 1, 2 or 3 times a day, with an administration time of at least 10 hours.
+    let timedThreeFrequencies =
+        { Scenarios.morfTimedWithNaCl with
+            Frequencies = perDay |> ValueUnit.withValue [| 1N; 2N; 3N |] |> Some
+            Time =
+                { Scenarios.morfTimedWithNaCl.Time with
+                    Min = 10N |> ValueUnit.singleWithUnit hour |> Limit.inclusive |> Some
+                }
+        }
+
+
+    [<Tests>]
+    let tests =
+        testList
+            "schedule count of a timed order"
+            [
+                test "the time of a timed order once a day is at most 24 hours" {
+                    timed55Hours
+                    |> orderOf
+                    |> solve
+                    |> scheduleOf
+                    |> snd
+                    |> maxIn hour
+                    |> Option.exists (fun h -> h <= 24N)
+                    |> Expect.isTrue "max at most 24 hours"
+                }
+
+                test "a frequency whose interval is shorter than the minimum time is removed" {
+                    // at least 10 hours an administration: at most 2.4 administrations a day
+                    timedThreeFrequencies
+                    |> orderOf
+                    |> solve
+                    |> scheduleOf
+                    |> fst
+                    |> valuesIn perDay
+                    |> Option.exists (Array.forall (fun f -> f * 10N <= 24N))
+                    |> Expect.isTrue "only 1 or 2 times a day"
+                }
+
+                test "the equations of a timed order use the schedule count" {
+                    Scenarios.morfTimedWithNaCl
+                    |> orderOf
+                    |> usesScheduleCount
+                    |> Expect.isTrue "schedule count"
+                }
+
+                test "the equations of a continuous order do not use the schedule count" {
+                    Scenarios.morfCont
+                    |> orderOf
+                    |> usesScheduleCount
+                    |> Expect.isFalse "no schedule count"
                 }
             ]
 

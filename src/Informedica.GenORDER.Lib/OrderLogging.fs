@@ -15,7 +15,6 @@ module OrderLogging =
 
     module Units = ValueUnit.Units
     module Name = Variable.Name
-    module Mapping = EquationMapping
 
     module FormLogging = Informedica.GenForm.Lib.FormLogging
 
@@ -50,19 +49,9 @@ module OrderLogging =
         let (Id s) = o.Id
         let s = $"{s}."
 
-        let mapping =
-            match o.Schedule with
-            | Continuous _ -> Mapping.Literals.continuous
-            | Once -> Mapping.Literals.once
-            | OnceTimed _ -> Mapping.Literals.onceTimed
-            | Discontinuous _ -> Mapping.Literals.discontinuous
-            | Timed _ -> Mapping.Literals.timed
-            |> Mapping.getEquations
-            |> Mapping.getEqsMapping o
-
         try
             eqs
-            |> Solver.mapToOrderEqs (o |> Order.mapToOrderEquations mapping)
+            |> Solver.mapToOrderEqs (o |> Order.equations)
             |> List.map (fun e ->
                 match e with
                 | OrderProductEquation(ovar, ovars)
