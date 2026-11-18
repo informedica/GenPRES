@@ -435,7 +435,7 @@ let adjustEquationTests =
                 )
                 |> Expect.equal
                     "the number of equations"
-                    [ "pcmSupp", 38; "cotrim", 55; "amfo", 107; "morfCont", 87; "tpn", 157 ]
+                    [ "pcmSupp", 38; "cotrim", 55; "amfo", 107; "morfCont", 87; "tpn", 158 ]
             }
 
             test "without an adjusted constraint exactly the equations with an adjusted variable are left out" {

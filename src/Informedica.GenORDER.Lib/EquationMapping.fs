@@ -102,6 +102,8 @@ module EquationMapping =
 
     let contOnly = [ Literals.continuous ]
 
+    let timedOnly = [ Literals.timed ]
+
 
     /// The item concentration in the orderable equals the item concentration in the component times the component
     /// concentration in the orderable, and the component concentrations in the orderable add up to one. Used only
@@ -177,6 +179,8 @@ module EquationMapping =
             "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", contTimedOnceTimed
             "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", contOnly
             "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", discTimed
+            // The schedule count is at most 1, so one administration ends before the next starts.
+            "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", timedOnly
             "[orb]_orb_qty = sum([cmp]_orb_qty)", allDoseTypes
             yield! tieEquations |> List.map (fun e -> e, allDoseTypes)
         ]
