@@ -1,16 +1,14 @@
 namespace ServerApi
 
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// The order plan mapper: the contract model's order plan to the domain's Dto and back, its
-/// contexts through the order context mapper.
+/// Maps an order plan of the contract to the order plan Dto of GenORDER and back.
 module OrderPlanMapper =
 
-    /// Maps the order plan of the contract to the Dto of the domain. Every weight and height gets
-    /// the date today.
+    /// Maps an order plan to the Dto. Every weight and height gets the date today.
     let ofModel today (plan: OrderPlan) : OrderPlan.Dto.Dto =
         {
             PatientData = plan.PatientData |> Patient.ofModel today
@@ -20,8 +18,7 @@ module OrderPlanMapper =
         }
 
 
-    /// The Dto as the contract model's order plan, from the Dto alone; the demo flag on every
-    /// context is the server's.
+    /// Maps an order plan Dto to an order plan with the demo flag of the server.
     let toModel (demo: bool) (dto: OrderPlan.Dto.Dto) : OrderPlan =
         {
             PatientData = dto.PatientData |> Patient.toModel
@@ -31,7 +28,7 @@ module OrderPlanMapper =
         }
 
 
-    /// The server's words for a change the plan refuses.
+    /// Returns the message for an order plan error.
     let rec words =
         function
         | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"

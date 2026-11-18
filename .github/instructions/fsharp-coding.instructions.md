@@ -46,6 +46,17 @@ In an XML block: escape every literal angle bracket (`70.0&lt;kg&gt;`), document
 - Never `(* … *)`, not for documentation and not for commented-out code; delete the code, git holds the history
 - A comment says the thing in words and does not cite a rule, plan step or issue number, which goes stale. Two exceptions: a comment on code not built yet keeps the rule it will be built to, and a stop-gap keeps the issue number that will remove it
 - Wording, for every comment and document in the repository: plain complete English that stands without the surrounding code or conversation; say a thing in full ("a single value", "the value 1", not "its one value"); state the condition a statement holds under; write a value as a value; repeat the noun when a pronoun could point at two things; no coined terms
+- Brevity: one short sentence that says what the code takes, does and returns, with a subject and a verb; add the error or empty case when the name does not show it. Leave out what the name and the types already say
+
+```fsharp
+// Bad - a chain of clauses without a verb, in private shorthand
+/// A scenario with its order as the domain's Dto, numbered by its place, the text blocks
+/// as marked-up text. Total: an order that cannot be created is fromDto's to report.
+
+// Good
+/// Maps a scenario to the scenario Dto with number no. The order is not checked here;
+/// OrderScenario.Dto.fromDto returns OrderNotCreated for an invalid order.
+```
 
 ## Types
 

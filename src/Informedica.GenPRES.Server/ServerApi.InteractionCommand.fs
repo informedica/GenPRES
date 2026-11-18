@@ -1,14 +1,13 @@
 namespace ServerApi
 
 
-/// The interaction member: the drug names and the check, over the interaction port.
+/// Handles the interaction commands.
 module InteractionCommand =
 
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The drug names come from the interaction source, not the formulary; a check over a
-    /// plan's drugs needs the formulary loaded.
+    /// Returns which commands need the loaded resources: only the interaction check.
     let gate =
         function
         | InteractionCommand.GetDrugNames -> Gate.Open

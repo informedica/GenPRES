@@ -5,13 +5,12 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Api
 
 
-/// The order-context member: the prescribing workbench over the order-context port.
+/// Handles a command on an order context.
 module OrderContextCommand =
 
-    /// The context's patient made at the inbound boundary, the context parsed into the domain, the
-    /// port asked with the domain command, or the context answered as it is without one; the
-    /// outcome mapped out as the response with the environment's demo flag. A draft that is none,
-    /// or a context the domain does not read, is a failure.
+    /// Checks the patient data, reads the order context and runs the domain command on it.
+    /// Without a command, returns the order context as read. Returns the messages for invalid
+    /// patient data or an invalid order context.
     let evaluated (env: AppEnv) (viewCmd: OrderViewCommand) (ctx: OrderContext) domainCmd =
         Patient.over
             ctx.PatientData
@@ -28,7 +27,7 @@ module OrderContextCommand =
                         | Ok(Evaluated e) when viewCmd |> OrderViewCommand.offersLinked ->
                             let! offers = env.orderContext.linkedOrders e
 
-                            // the offers never fail the evaluation: without them the answer offers none
+                            // An error in the linked orders gives no linked orders, not an error.
                             return
                                 Evaluated e
                                 |> OrderContextService.toResponse env.demo (offers |> Result.defaultValue [||])
@@ -38,9 +37,8 @@ module OrderContextCommand =
             )
 
 
-    /// The verb mapped to the domain's command and the context evaluated with it; the
-    /// argumentation is written by the server and answered without the domain, and a reset
-    /// clears it, since it puts the order back within the rules.
+    /// Maps the command to GenORDER and runs it. The server writes the argumentation itself.
+    /// A reset clears the argumentation, because the order is back within the rules.
     let processViewCmd (env: AppEnv) (cmd: OrderViewCommand, ctx: OrderContext) =
         let ctx, domainCmd =
             match cmd with
@@ -53,5 +51,5 @@ module OrderContextCommand =
         evaluated env cmd ctx domainCmd
 
 
-    /// A command over the order context being worked on.
+    /// Runs a command on an order context.
     let processCmd (env: AppEnv) (OrderContextCommand.Command(cmd, ctx)) = processViewCmd env (cmd, ctx)

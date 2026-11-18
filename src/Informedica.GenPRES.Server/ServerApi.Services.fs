@@ -13,8 +13,8 @@ module FormularyService =
     open Informedica.GenPRES.Shared
 
 
-    /// The dose filter of the formulary request, with the patient of the request at a date through
-    /// the mapping every request uses, or why the patient is none. No patient is the empty patient.
+    /// Maps the formulary request to a dose filter for the patient on date today. A request without patient
+    /// data gets the unknown patient. Returns the error when the patient data cannot be read.
     let mapFormularyToFilter today (form: Formulary) =
         form.PatientData
         |> Option.map (ServerApi.Patient.toCore today)
@@ -41,7 +41,7 @@ module FormularyService =
     /// result strings into colored TextBlocks. Exposed for unit testing.
     module DoseCheck =
 
-        // `Informedica.GenPRES.Shared.Utils.String.split` (in scope via `open Informedica.GenPRES.Shared`) returns string[].
+        // String.split here comes from Informedica.GenPRES.Shared and returns a string array.
 
         /// True if the line is a frequency-mismatch entry emitted by Check.fs.
         /// Expected raw shape: "{target}\t{route}\t{patientCategory}\t{message}".
@@ -61,12 +61,9 @@ module FormularyService =
                     $"%s{s1} %s{p} %s{s2}"
             | _ -> s
 
-        /// Map a GenFORM dose-check Severity to the Formulary's colored TextBlock
-        /// case. This is what gives the UI its advisory-vs-absolute grading:
-        ///   - OverAbsolute                         → red (Alert)
-        ///   - AdvisoryOverNorm/UnderNorm/Frequency → orange (Warning)
-        ///   - UnitMismatch/Incomparable/NotComparable/NoMonitor → blue (Caution)
-        ///   - Within                               → green (Valid)
+        /// Maps a dose check severity to a coloured text block: OverAbsolute to Alert (red), the advisory,
+        /// under-norm and frequency severities to Warning (orange), the unit, comparison and no-monitoring
+        /// severities to Caution (blue), and Within to Valid (green).
         let severityWrap (sev: Check.Severity) : TextItem[] -> TextBlock =
             match sev with
             | Check.Within -> Valid
@@ -79,29 +76,20 @@ module FormularyService =
             | Check.NotComparable
             | Check.NoMonitoring -> Caution
 
-        /// Build the colored TextBlock[] for the Formulary's DoseCheck field from
-        /// the graded dose-check signals.
-        ///   - empty input            → single green "Ok!" block
-        ///   - only "no monitoring"   → blue (Caution) info blocks; signals
-        ///                              no G-Standaard rule exists for the
-        ///                              selection
-        ///   - otherwise              → one block per signal, colored by its
-        ///                              Severity (advisory = orange, absolute =
-        ///                              red, etc.)
-        /// NoMonitoring sentinels are dropped once real violations exist so a
-        /// non-violation isn't painted as a violation.
+        /// Builds the dose check text blocks from the dose check signals. No signals give one green Ok! block.
+        /// Only NoMonitoring signals, meaning no G-Standaard rule exists, give blue Caution blocks. Otherwise
+        /// each violation gives a block coloured by its severity, and the NoMonitoring signals are dropped.
         let build
             (parseTextItem: string -> TextItem[])
             (singleRule: bool)
             (signals: (Check.Severity * string)[])
             : TextBlock[]
             =
-            // Sentinel identity is carried by the Severity, not the message text.
+            // The severity, not the message text, marks a no-monitoring signal.
             let violations = signals |> Array.filter (fst >> (<>) Check.NoMonitoring)
 
-            // "no monitoring" only: signals is non-empty but every signal is a
-            // NoMonitoring sentinel. Distinct from the pure pass-through
-            // (signals = [||]) which keeps the green "Ok!" badge.
+            // True when there are signals and all of them are NoMonitoring signals.
+            // No signals at all give the green Ok! block instead.
             let allNoMonitoring = violations |> Array.isEmpty && signals |> Array.isEmpty |> not
 
             if signals |> Array.isEmpty then
@@ -115,8 +103,7 @@ module FormularyService =
 
 
     let checkDoseRules provider pat (dsrs: DoseRule[]) =
-        // GStand dose rules now come from the Resources provider as a
-        // function-valued resource, not built ad hoc from the route mapping.
+        // The resource provider supplies the G-Standaard dose rules as a function.
         let gstand = Api.getGStandProvider provider
 
         let empt, rs =
@@ -144,7 +131,8 @@ module FormularyService =
             | xs -> xs
 
 
-    /// The formulary of the dose rules a filter selects.
+    /// Fills the formulary with the dose rules the filter selects. Adds the markdown and the dose check
+    /// only when a generic, an indication and a route are selected.
     let getFiltered provider (form: Formulary) (filter: DoseFilter) =
         $"""
 
@@ -227,7 +215,7 @@ DoseTypes: {form.DoseTypes |> Array.length}
         Ok form
 
 
-    /// The formulary of the request at a date, or why the patient of the request is none.
+    /// Returns the formulary for the request on date today, or the error when the patient data cannot be read.
     let get today provider (form: Formulary) =
         form |> mapFormularyToFilter today |> Result.bind (getFiltered provider form)
 
@@ -283,7 +271,7 @@ module OrderContextService =
     module GenOrderContext = OrderContext
 
 
-    /// The messages of a failed evaluation as one refusal.
+    /// Joins the messages of a failed evaluation into a single error text.
     let refusal messages =
         messages
         |> List.map (fun m -> OrderLogging.formatOrderMessage (m :> Informedica.Logging.Lib.IMessage))
@@ -291,9 +279,8 @@ module OrderContextService =
         |> Array.singleton
 
 
-    /// The plan context evaluated against the rules: the domain's pipeline, the intake over
-    /// the provider's totals data. The start every order built here is given is the caller's,
-    /// read from the clock at the edge. An exception on the way is the refusal.
+    /// Evaluates the plan context against the rules, with start as the start time of every new order.
+    /// Returns the error messages, or the exception message when an exception is raised.
     let evaluate
         (start: System.DateTime)
         logger
@@ -313,9 +300,8 @@ module OrderContextService =
             Error [| e.Message |]
 
 
-    /// The plan context evaluated against the rules, as an outcome: the domain's pipeline, the
-    /// intake over the provider's totals data. An exception on the way is the refusal of the
-    /// error channel.
+    /// Evaluates the plan context against the rules and returns the outcome, evaluated or refused.
+    /// Returns the error messages, or the exception message when an exception is raised.
     let evaluateOutcome
         (start: System.DateTime)
         logger
@@ -335,7 +321,7 @@ module OrderContextService =
             Error [| e.Message |]
 
 
-    /// GenORDER's refusal as the contract's.
+    /// Maps a GenORDER refusal to the contract refusal.
     let refusalToModel =
         function
         | Refusal.NoDoseRules -> OrderContextRefusal.NoDoseRules
@@ -347,27 +333,26 @@ module OrderContextService =
         | Refusal.NoAdjustedDose -> OrderContextRefusal.NoAdjustedDose
 
 
-    /// The plan context as the contract's order context, with the environment's demo flag.
+    /// Maps the plan context to the contract order context with the demo flag.
     let toModel demo (pc: PlanContext) = pc |> PlanContext.Dto.toDto |> OrderContextMapper.toModel demo
 
 
-    /// The outcome mapped out as the contract's response, with the environment's demo flag: an evaluated
-    /// context with the offers given, a refused one without offers.
+    /// Maps the outcome to the contract response with the demo flag. An evaluated context carries the
+    /// offers; a refused context carries none.
     let toResponse (demo: bool) (offers: PlanContext[]) (outcome: Outcome<PlanContext>) : OrderContextResponse =
         match outcome with
         | Evaluated pc -> OrderContextResponse.Evaluated(toModel demo pc, offers |> Array.map (toModel demo))
         | Refused(pc, refusal) -> OrderContextResponse.Refused(toModel demo pc, refusalToModel refusal)
 
 
-    /// The argumentation as the server takes it in: at most maxLength characters. The client
-    /// normalises the text; the server only refuses what is too long to store.
+    /// Checks the argumentation text the server receives. The client normalises the text; the server
+    /// only refuses a text longer than maxLength characters.
     module Argumentation =
 
         let maxLength = 1000
 
 
-        /// The text as sent, or the reason it is refused in the server's words: longer than
-        /// the cap. None passes.
+        /// Returns the text, or an error when it is longer than maxLength. No text passes.
         let check (text: string option) : Result<string option, string[]> =
             match text with
             | Some s when s.Length > maxLength ->
@@ -378,7 +363,7 @@ module OrderContextService =
             | _ -> Ok text
 
 
-        /// Every context's text checked, the first refusal the answer.
+        /// Checks the argumentation of every context and returns the first error.
         let checkAll (contexts: OrderContext[]) : Result<unit, string[]> =
             contexts
             |> Array.tryPick (fun ctx ->

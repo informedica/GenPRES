@@ -3,22 +3,22 @@ namespace ServerApi
 open Informedica.GenPRES.Shared.Types
 
 
-/// The formulary view's member: the formulary port over the request's filter.
+/// Handles a formulary request.
 module FormularyCommand =
 
-    /// For the log: the record is long and says nothing a log needs.
+    /// Returns a short name for the log instead of the whole request.
     let toString (_: Formulary) = "Formulary"
 
 
-    /// The filter's patient, where it has one, made at the inbound boundary; a draft that is
-    /// none is refused, no patient is the formulary unfiltered.
+    /// Returns the formulary. Returns the messages for invalid patient data. Without patient data
+    /// the formulary is not filtered on a patient.
     let processCmd (env: AppEnv) (form: Formulary) =
         match Patient.patientOption form.PatientData with
         | Ok _ -> env.formulary.getFormulary form
         | Error errs -> async { return Error errs }
 
 
-/// The parenteralia view's member, over the same port.
+/// Handles a parenteralia request.
 module ParenteraliaCommand =
 
     let toString (_: Parenteralia) = "Parenteralia"

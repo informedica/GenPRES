@@ -6,7 +6,7 @@ module GenOrder = Informedica.GenOrder.Lib.Types
 module GenForm = Informedica.GenForm.Lib.Types
 
 
-/// The GenCORE patient: an identity, none for an anonymous patient, and the patient data.
+/// The GenCORE patient: an optional identity, absent for an anonymous patient, and the patient data.
 type CorePatient = Informedica.GenCore.Lib.Patients.Patient
 
 
@@ -24,10 +24,9 @@ type Signer =
     }
 
 
-/// An order plan version: the order plan as the prescriber signed it, as the record holds it. A
-/// prescriber creates one by signing; it stores the whole plan, filter, totals and the totals of
-/// each context included, so opening the version again shows what the
-/// signer saw, nothing recomputed.
+/// An order plan version: the order plan as the prescriber signed it. It stores the whole plan, with the
+/// filter, the totals and the totals of each order context, so opening the version again shows what the
+/// signer saw without calculating it again.
 type OrderPlanVersion =
     {
         /// The id of the version.
@@ -44,10 +43,10 @@ type OrderPlanVersion =
         SignedAt: DateTime
         /// The order plan as signed.
         Plan: GenOrder.OrderPlan
-        /// Whether the patient data was verified against the reading of the platform at the
-        /// challenge.
+        /// Whether the EHR could be read at the signing challenge. False when the version was signed
+        /// without an EHR reading.
         Verified: bool
-        /// The patient as the EHR gave it at the challenge, none when it could not be read. A value the
-        /// prescriber typed shows as a difference with the patient of the plan.
+        /// The patient read from the EHR at the signing challenge. None when the EHR could not be read.
+        /// A value the prescriber typed shows as a difference from the patient of the plan.
         EhrPatient: CorePatient option
     }

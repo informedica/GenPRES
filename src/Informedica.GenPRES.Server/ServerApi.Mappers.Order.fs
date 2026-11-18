@@ -1,10 +1,7 @@
 namespace ServerApi
 
 
-/// The order mapper, and what the services still map by hand: the order context and the totals,
-/// each now with a mapper of its own next to this file. Those parts go once the services take
-/// the domain-typed ports; the order mapping, the dose type both ways and the text markup parser
-/// stay.
+/// Maps orders and dose types between the contract and GenORDER, and parses marked-up text.
 module Mappers =
 
     open Informedica.Utils.Lib.BCL
@@ -64,7 +61,7 @@ module Mappers =
             dto
 
 
-        /// The increment a large step moves by, as the domain names it in the DTO.
+        /// Maps the large increment of an order variable Dto.
         let mapLargeIncr (dto: OrderVariable.Dto.Dto) = dto.LargeIncrOpt |> Option.map mapToValueUnit
 
 
@@ -234,13 +231,6 @@ module Mappers =
                 (dto.Components |> List.toArray |> Array.map (mapToComponent sns))
 
 
-        // member val Name = "" with get, set
-        // member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
-        // member val OrderQuantity = OrderVariable.Dto.dto () with get, set
-        // member val OrderCount = OrderVariable.Dto.dto () with get, set
-        // member val DoseCount = OrderVariable.Dto.dto () with get, set
-        // member val Dose = Dose.Dto.dto () with get, set
-        // member val Components : Component.Dto.Dto list = [] with get, set
         let mapFromOrderable id n (orderable: Orderable) : Order.Orderable.Dto.Dto =
             let dto = Order.Orderable.Dto.dto id n
             dto.OrderableQuantity <- orderable.OrderableQuantity |> mapFromOrderVariable
@@ -323,8 +313,7 @@ module Mappers =
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-    /// Configuration for text item delimiters
-    /// Each delimiter maps to a constructor function and its delimiter character
+    /// A text item delimiter with the constructor of its item.
     type private DelimiterConfig =
         {
             Delimiter: string
@@ -337,7 +326,6 @@ module Mappers =
         if s |> String.isNullOrWhiteSpace then
             [||]
         else
-            // Define delimiter configurations - easy to extend with new cases
             let delimiters =
                 [
                     {

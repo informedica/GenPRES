@@ -13,16 +13,13 @@ module AdminCommand =
     let tokenLifetime = TimeSpan.FromHours 1.0
 
 
-    /// An empty or whitespace secret is no secret. Env.getItem answers Some "" for a
-    /// setting that is set but empty (the Dockerfile's ENV GENPRES_PASSWORD=), and an empty
-    /// password compared with an empty secret would match, so blanks fail closed here as well
-    /// as at the port.
+    /// Treats a blank secret as no secret, so an empty password never matches an empty setting.
     let private nonBlank (secret: string option) = secret |> Option.filter String.notEmpty
 
 
-    /// SECURITY: FixedTimeEquals so equal-length comparisons do not leak through per-byte
-    /// timing. It short-circuits on a length mismatch; that leak is accepted because production
-    /// enforces a 16-character minimum and the password travels only at ValidatePassword.
+    /// Compares the password with the secret in constant time. False without a secret.
+    /// SECURITY: a length mismatch returns early; that leak is accepted because production
+    /// requires at least 16 characters.
     let validatePassword (secret: string option) (password: string) =
         match nonBlank secret with
         | None -> false
@@ -30,16 +27,15 @@ module AdminCommand =
             CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes password, Encoding.UTF8.GetBytes expected)
 
 
-    /// The key a token is signed with: the secret under the mode of the server, demo or production, so that a
-    /// token a demo or development server issued never verifies on a production server that shares its password,
-    /// nor the other way round.
+    /// Returns the signing key for the secret and the server mode, so a demo token never verifies
+    /// in production.
     let tokenKey (demo: bool) (secret: string) =
         let mode = if demo then "demo" else "production"
         Encoding.UTF8.GetBytes $"genpres-admin-token:%s{mode}:%s{secret}"
 
 
-    /// base64(expiresAt:nonce).base64(hmacsha256(tokenKey, expiresAt:nonce)); empty without a
-    /// secret, so that nothing signed with an empty key can ever verify.
+    /// Returns a signed token that expires, in the form base64(expiresAt:nonce).base64(hmac).
+    /// Returns an empty string without a secret.
     let generateToken (demo: bool) (secret: string option) (now: DateTimeOffset) =
         match nonBlank secret with
         | None -> ""
@@ -52,7 +48,7 @@ module AdminCommand =
             $"%s{Convert.ToBase64String payload}.%s{Convert.ToBase64String signature}"
 
 
-    /// A token verifies only under the secret and the mode it was signed with, and only until it expires.
+    /// Checks that a token was signed with the secret and the mode, and has not expired.
     let validateToken (demo: bool) (secret: string option) (now: DateTimeOffset) (token: string) =
         match nonBlank secret with
         | None -> false
@@ -82,9 +78,8 @@ module AdminCommand =
                 | _ -> false
 
 
-    /// The admin commands over the admin port: the password buys a token, the token opens the
-    /// log and the reload. Not behind requireLoaded: the reload is what makes a failed load
-    /// loadable again.
+    /// Runs an admin command. A valid password returns a token; the other commands need the token.
+    /// Works before the resources are loaded, so a reload can repair a failed load.
     let processCmd (env: AppEnv) (cmd: AdminCommand) : Async<Result<AdminResponse, string[]>> =
         let admin = env.admin
 
