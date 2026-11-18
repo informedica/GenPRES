@@ -128,8 +128,8 @@ module SolutionRule =
         Web.getDataFromSheet dataUrlId "SolutionRules" |> parseSolutionRuleData
 
 
-    /// The Component of a SolutionRules row that limits the diluent of the rule, whichever diluent is
-    /// chosen.
+    /// The Component value of a SolutionRules row that limits the diluent of the rule, whichever diluent
+    /// is chosen.
     let diluentComponent = "diluent"
 
 
@@ -139,8 +139,8 @@ module SolutionRule =
         && r.Component |> String.equalsCapInsens diluentComponent
 
 
-    /// Each diluent row is replaced by one row per diluent, named after that diluent; the other rows
-    /// stay.
+    /// Replaces each diluent row with one row per diluent, with the diluent name as the Component.
+    /// Returns the other rows unchanged.
     let expandDiluentRows diluents rows =
         rows
         |> Array.collect (fun r ->
@@ -183,8 +183,7 @@ module SolutionRule =
                     }
                 Dose = (r.MinDose, r.MaxDose) |> fromTupleInclIncl du
                 DoseType = DoseType.fromString r.DoseType r.DoseText
-                // in the order of the cell, so that the first diluent of the cell is the one an order
-                // takes when none is chosen
+                // Keep the order of the cell: an order takes the first diluent when no diluent is chosen.
                 Diluents =
                     r.Diluents
                     |> List.toArray
@@ -262,8 +261,8 @@ module SolutionRule =
         |> Ok
 
 
-    /// The rule as an admin finds it in the sheet: generic, form, route, indication,
-    /// patient, which includes the department, and dose type.
+    /// Returns a label for warnings with the generic, form, route, indication, patient category
+    /// (with the department) and dose type of the rule, as they appear in the sheet.
     let label (solRule: SolutionRule) =
         [
             solRule.Generic
@@ -278,7 +277,8 @@ module SolutionRule =
         |> sprintf "solution rule %s"
 
 
-    /// Every range a solution rule carries, each with its name.
+    /// Returns every range of a solution rule with its name: the patient ranges, the dose,
+    /// the solution limits and the dilution limits.
     let ranges (solRule: SolutionRule) =
         let sl = solRule.SolutionLimit
 
@@ -311,8 +311,8 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per component or substance that a solution rule gives more than one dilution limit,
-    /// names compared case-insensitively. An order takes only the first of those dilution limits.
+    /// One warning per component or substance with more than one dilution limit in a solution rule.
+    /// Names are compared case-insensitively. An order takes only the first dilution limit.
     let repeatedTargets (rules: SolutionRule[]) =
         rules
         |> Array.toList
@@ -336,25 +336,23 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// A limit, or nothing when the limit is 0, which counts as empty.
+    /// Returns the limit, or None when the limit is 0, because a limit of 0 counts as empty.
     let nonZeroLimit (lim: Limit option) =
         lim |> Option.filter (Limit.getValueUnit >> ValueUnit.isZero >> not)
 
 
-    /// Whether a dilution limit bounds the preparation: the maximum quantity of a substance, or
-    /// the maximum quantity per kg once the weight is known, divided by the minimum concentration
-    /// of that substance is a maximum volume.
+    /// Whether a dilution limit bounds the volume of the preparation: it has a maximum quantity or a
+    /// maximum quantity per kg, and a minimum concentration above 0. The maximum quantity divided by
+    /// the minimum concentration is then a maximum volume.
     let boundsPreparation (dilutionLimit: DilutionLimit) =
         (dilutionLimit.Quantity.Max.IsSome || dilutionLimit.QuantityAdjust.Max.IsSome)
         && dilutionLimit.Concentration.Min
            |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
 
 
-    /// One warning per solution rule whose dose count has no maximum, because the rule gives a
-    /// maximum dose fraction and no minimum, while the preparation has no maximum either: no
-    /// maximum volume, no list of volumes, no maximum volume per kg, which bounds the preparation
-    /// once the weight is known, and no dilution limit that bounds it. The user then cannot set
-    /// the preparation.
+    /// One warning per solution rule with a maximum dose fraction but no minimum, and no maximum
+    /// volume, no list of volumes, no maximum volume per kg and no dilution limit that bounds the
+    /// volume. The dose count then has no maximum and the preparation cannot be set.
     let openDoseCounts (rules: SolutionRule[]) =
         rules
         |> Array.filter (fun solRule ->
@@ -376,10 +374,9 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per solution rule whose rows name diluents none of which matches a
-    /// parenteral product, so the rule loads with no diluents. Each row is built into a rule
-    /// on its own and the rules are grouped without their limits, which is the grouping map
-    /// makes, so a rule of several rows gives a single warning.
+    /// One warning per solution rule whose Diluents cell names no parenteral product, so the rule
+    /// loads without diluents. Each row is mapped on its own and grouped by the rule without its
+    /// dilution limits, so a rule of several rows gives one warning.
     let missingDiluents parenteral (data: SolutionRuleData[]) =
         data
         |> Array.filter (fun r -> r.Diluents |> List.exists String.notEmpty)
@@ -420,10 +417,10 @@ module SolutionRule =
         |> Array.toList
 
 
-    /// Whether a solution rule applies to a dose rule: the generic and the route, and the form,
-    /// indication and dose type when the solution rule names them, matched as filter matches them
-    /// for an order. A solution rule and a dose rule that name different departments or different
-    /// locations apply to different patients, so they do not match.
+    /// Whether a solution rule applies to a dose rule: the same generic and route, and the same form,
+    /// indication and dose type when the solution rule names them, matched as the function filter
+    /// matches them for an order. Rules that name different departments or different locations do
+    /// not match.
     let appliesToDoseRule routeMapping (solRule: SolutionRule) (dr: DoseRule) =
         solRule.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
         && PatientCategory.canMeet solRule.PatientCategory.Department dr.PatientCategory.Department
@@ -445,13 +442,10 @@ module SolutionRule =
         && PatientCategory.canShare solRule.PatientCategory dr.PatientCategory
 
 
-    /// The dose count range of the solution rule: the number of doses in the preparation, from the
-    /// fraction of the preparation that makes up one dose. A higher fraction is fewer doses, so the
-    /// minimum of the dose count comes from the maximum of the fraction and the maximum from the
-    /// minimum. Without a maximum fraction, and with a minimum fraction of at most 1, the maximum
-    /// fraction is 1, the whole preparation, so the dose count is at least 1. Without a minimum
-    /// fraction the dose count has no maximum. A fraction of 0 counts as no fraction, and without
-    /// either fraction the dose count is empty.
+    /// Returns the range of the number of doses in the preparation: the reciprocal of the dose
+    /// fraction, so the maximum fraction gives the minimum count and the minimum fraction the maximum
+    /// count. Without a maximum fraction the maximum fraction is 1, unless the minimum fraction is
+    /// above 1. A fraction of 0 counts as absent. Without either fraction the range is empty.
     let doseCountRange (solRule: SolutionRule) =
         let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
         let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
@@ -473,8 +467,8 @@ module SolutionRule =
             }
 
 
-    /// Whether the dose count of the solution rule is at least 1, so that the dose is at most the
-    /// preparation. Without a dose fraction the order builder sets the dose count to 1.
+    /// Whether the dose count of the solution rule is at least 1, so that a dose is at most the whole
+    /// preparation. An empty dose count counts as 1, because the order builder then sets it to 1.
     let hasDoseCountOfAtLeastOne solRule =
         match solRule |> doseCountRange with
         | {
@@ -484,7 +478,8 @@ module SolutionRule =
         | count -> count.Min |> Option.bind Limit.getValue |> Option.exists (fun c -> c >= 1N)
 
 
-    /// The first dilution limit of the component, the one the order takes.
+    /// Returns the first dilution limit of the component, the one an order takes. Names are compared
+    /// case-insensitively.
     let componentLimit name (solRule: SolutionRule) =
         solRule.DilutionLimits
         |> Array.tryFind (fun dl ->
@@ -494,7 +489,7 @@ module SolutionRule =
         )
 
 
-    /// Whether the solution rule can limit the component for some patient: its first dilution limit of
+    /// Whether the solution rule can limit the component for some patient: the first dilution limit of
     /// the component has a maximum quantity, a maximum quantity per kg or a list of quantities.
     let canLimitComponent (solRule: SolutionRule) name =
         solRule
@@ -506,8 +501,8 @@ module SolutionRule =
         )
 
 
-    /// Whether a solution rule that applies to the dose rule limits every component of it, with a dose
-    /// count of at least 1.
+    /// Whether a solution rule that applies to the dose rule and can meet its patient limits every
+    /// component of the dose rule, with a dose count of at least 1.
     let anyLimitsDoseRule routeMapping (solutionRules: SolutionRule[]) (dr: DoseRule) =
         let names = dr.ComponentLimits |> Array.map _.Name
 
@@ -519,11 +514,10 @@ module SolutionRule =
         )
 
 
-    /// Whether no dose count in the range lets an order meet both the dose range and the range in the
-    /// preparation: the dose minimum above the preparation maximum divided by the dose count minimum,
-    /// or the dose maximum below the preparation minimum divided by the dose count maximum. An empty
-    /// dose count range is a dose count of 1, as the order builder sets it. Ranges in different unit
-    /// groups are not compared.
+    /// Whether no dose count in the range meets both the dose range and the range in the preparation:
+    /// the dose minimum is above the preparation maximum divided by the minimum dose count, or the dose
+    /// maximum is below the preparation minimum divided by the maximum dose count. An empty dose count
+    /// range counts as a dose count of 1. Ranges in different unit groups are not compared.
     let noDoseCountMeets (count: MinMax) (dose: MinMax) (prep: MinMax) =
         let countMin, countMax =
             match count.Min, count.Max with
@@ -540,10 +534,9 @@ module SolutionRule =
         || outOfReach ValueUnit.st dose.Max prep.Min countMax
 
 
-    /// The warnings for one solution rule and one dose rule: per component they both limit, whose
-    /// dose range and range in the preparation no order can meet for any dose count of the solution
-    /// rule. A quantity is compared with a quantity, a quantity per kg with a quantity per kg; the
-    /// dilution limit is the first of the component.
+    /// Returns a warning per component that both rules limit, when the dose range and the range in the
+    /// preparation meet for no dose count of the solution rule. Quantities and quantities per kg are
+    /// compared separately, with the first dilution limit of the component.
     let pairConflicts (solRule: SolutionRule) (dr: DoseRule) =
         let count = solRule |> doseCountRange
         let rangeText = MinMax.toString "min. " "min. " "max. " "max. "
@@ -569,9 +562,9 @@ module SolutionRule =
         )
 
 
-    /// One warning per dose rule and solution rule that apply to each other and can meet the same
-    /// patient, and a component they both limit, whose dose range and range in the preparation no order
-    /// can meet for any dose count of the solution rule.
+    /// One warning per dose rule, solution rule and component, when the rules apply to each other and
+    /// can meet the same patient, and the dose range and the range in the preparation of the component
+    /// meet for no dose count of the solution rule.
     let conflictingLimits routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         rules
         |> Array.toList
@@ -585,8 +578,8 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per dose rule without limits that a solution rule applies to, while no solution
-    /// rule limits every component of it, so loading leaves it out.
+    /// One warning per dose rule without limits that a solution rule can meet, when no solution rule
+    /// limits every component of it. Loading leaves such a dose rule out.
     let unlimitedDoseRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         doseRules
         |> Array.filter (fun dr ->
@@ -605,11 +598,11 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per pair of solution rules that apply to the same dose rule and can meet the
-    /// same patient of that dose rule. Ranges that overlap pair by pair share a value, so comparing
-    /// each pair of the three rules is enough. Each rule gives its own scenario, so the user has to choose between them, and
-    /// a view that shows a single order shows none. The dose range of a solution rule does not
-    /// take part in the matching, so rules that differ only in dose range also compete.
+    /// One warning per pair of solution rules that apply to the same dose rule and can meet the same
+    /// patient. Ranges that overlap two by two share a common value, so checking each pair of the two
+    /// solution rules and the dose rule is enough. Each solution rule gives its own scenario, so the
+    /// user must choose between them. The dose range of a solution rule is not part of the matching,
+    /// so rules that differ only in dose range also compete.
     let competingRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         let appliesToBoth a b dr =
             a |> canMeetDoseRule routeMapping dr && b |> canMeetDoseRule routeMapping dr
@@ -689,9 +682,10 @@ module SolutionRule =
         |> Array.toList
 
 
-    /// The substances whose concentration limit allows no strength of the products. A strength
-    /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive: a limit
-    /// with a minimum equal to the maximum allows that one strength.
+    /// Returns the substances whose concentration limit allows no strength of the products. A strength
+    /// in a unit group that the limit cannot be compared with is skipped, and a substance without a
+    /// comparable strength is not returned. The limit is inclusive, so a minimum equal to the maximum
+    /// allows that one strength.
     let substancesWithoutAllowedStrength (products: ProductComponent[]) (solRule: SolutionRule) =
         solRule.DilutionLimits
         |> Array.choose (fun dilutionLimit ->
@@ -722,12 +716,12 @@ module SolutionRule =
         )
 
 
-    /// A warning for each solution rule without diluents whose concentration limit allows no
-    /// strength of the products of a dose rule it applies to. Only a dose rule with one component
-    /// is checked, because a second component can dilute the first. The products are
-    /// reconstituted for the location and the department of the solution rule. A solution rule
-    /// and a dose rule without a department apply to every department, so the products are then
-    /// reconstituted for each department their reconstitution rules name, and for none.
+    /// One warning per solution rule without diluents whose concentration limit allows no strength of
+    /// the products of a dose rule it applies to. Only a dose rule with one component is checked,
+    /// because a second component can dilute the first. The products are reconstituted for the
+    /// location of the solution rule and the department of the solution rule, else of the dose rule.
+    /// When neither rule names a department, the products are reconstituted for each department their
+    /// reconstitution rules name, and for no department.
     let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         let substances (solRule: SolutionRule) =
             doseRules
@@ -781,8 +775,9 @@ module SolutionRule =
             Result.createError "Error in SolutionRule.getResult: " exn
 
 
-    /// The solution rule without the amounts the rule lookup works out from a per kg limit with the
-    /// weight of the patient, so that one rule compares as equal at every weight.
+    /// Clears the volume when a volume per kg is set, and the quantity when a quantity per kg is set,
+    /// because the rule lookup calculates those from the weight. One rule then compares equal at every
+    /// weight.
     let withoutPatientAmounts (solRule: SolutionRule) =
         let sl = solRule.SolutionLimit
 
@@ -806,8 +801,9 @@ module SolutionRule =
         }
 
 
-    /// The solution rules that match the filter. A patient with no data besides the department is checked on
-    /// the department alone, so that a lookup without a patient returns every rule.
+    /// Returns the solution rules that match the filter. The department is checked only when given, and
+    /// the other patient data only when set, so a lookup without patient data returns the rules of every
+    /// patient. When the filter names a diluent, each rule keeps only that diluent.
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
@@ -856,11 +852,11 @@ module SolutionRule =
         )
 
 
-    /// Helper function to get the distinct values of a member of SolutionRule.
+    /// Returns the sorted distinct values of a field of the solution rules.
     let private getMember getter (rules: SolutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
 
 
-    /// Get all the distinct Generics from the given SolutionRules.
+    /// Returns the sorted distinct generics of the solution rules.
     let generics = getMember _.Generic
 
     let forms = getMember _.Form >> Array.choose id
@@ -897,9 +893,8 @@ module SolutionRule =
             |> ValueUnit.toStringDecimalDutchShortWithPrec 2
 
 
-        /// Format the rule-wide "geef X% van de bereiding" line from the
-        /// DoseFraction bounds on the rule. Returns an empty string when no bounds
-        /// are set.
+        /// Formats the dose fraction of the rule as the line "geef X% van de bereiding". Returns an
+        /// empty string when the rule has no dose fraction.
         let printDoseFraction (solRule: SolutionRule) =
             let toPerc l =
                 l
@@ -928,10 +923,9 @@ module SolutionRule =
                 $"* geef %s{p}%% van de bereiding"
 
 
-        /// Split a DilutionLimit into its display parts so callers can de-duplicate
-        /// trailing lines that are identical across multiple limits of the same rule.
-        /// includeSubstanceName = false suppresses the inline substance prefix
-        /// (used when the substance is rendered as a separate heading).
+        /// Returns the head line and the concentration line of a dilution limit, so a caller can remove
+        /// repeated concentration lines. With includeSubstanceName false the head leaves out the
+        /// substance name, for a substance that has its own heading.
         let printDilutionLimit (solRule: SolutionRule) (includeSubstanceName: bool) (limit: DilutionLimit) =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
             let sl = solRule.SolutionLimit
@@ -993,7 +987,8 @@ module SolutionRule =
             |}
 
 
-        /// Get the markdown representation of the given SolutionRules.
+        /// Returns the Markdown text of the solution rules, grouped by generic, department, patient
+        /// and dose, and access. The text is the heading; an empty text gives the generic.
         let toMarkdown text (rules: SolutionRule[]) =
             let generic_md generic products =
                 let text = if text |> String.isNullOrWhiteSpace then generic else text
@@ -1099,10 +1094,9 @@ module SolutionRule =
                                                 match rs |> Array.tryHead with
                                                 | None -> [||]
                                                 | Some r ->
-                                                    // Group limits by their substance/component target so that
-                                                    // concentratie lines stay adjacent to the heads they describe.
-                                                    // Within a single-target group the concentratie is de-duplicated
-                                                    // (same substance + same conc across different qty ranges).
+                                                    // Group the limits by target so the concentration lines
+                                                    // stay next to the head lines they describe. Within one
+                                                    // target a repeated concentration line is printed once.
                                                     let targetBlocks =
                                                         r.DilutionLimits
                                                         |> Array.groupBy _.DilutionLimitTarget
@@ -1181,7 +1175,7 @@ module SolutionRule =
             |> _.md
 
 
-        /// Get the markdown representation of the given SolutionRules.
+        /// Returns the Markdown text of the solution rules, one text per generic.
         let printGenerics (rules: SolutionRule[]) =
             rules
             |> generics

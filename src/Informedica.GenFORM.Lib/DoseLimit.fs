@@ -23,7 +23,7 @@ module DoseLimit =
         }
 
 
-    /// An empty DoseLimit.
+    /// A dose limit without a target, units or limits.
     let limit =
         {
             DoseLimitTarget = NoLimitTarget
@@ -70,12 +70,12 @@ module DoseLimit =
     let isNormDose = getNormDose >> Option.isSome
 
 
-    /// <summary>Formats the MinMax of a dose in Dutch decimals, with a per-dose suffix.</summary>
-    /// <param name="perDose">The suffix after the formatted MinMax, as "/dosis"; may be empty.</param>
-    /// <param name="minMax">The MinMax to format.</param>
+    /// <summary>Formats a dose range as text in Dutch, followed by a suffix.</summary>
+    /// <param name="perDose">The text after the range, such as "/dosis"; may be empty.</param>
+    /// <param name="minMax">The range to format.</param>
     /// <returns>
-    /// An empty string for an empty MinMax; the single value when min equals max, a norm dose;
-    /// else the range, as "10 - 20 mg/dosis", or the one limit, as "max 20 mg/dosis".
+    /// An empty string for an empty range; the single value when min equals max;
+    /// otherwise the range, such as "10 - 20 mg/dosis", or a single limit, such as "max 20 mg/dosis".
     /// </returns>
     let printMinMaxDose perDose (minMax: MinMax) =
         let vuToStr = Utils.ValueUnit.toString 3
@@ -97,8 +97,8 @@ module DoseLimit =
         |> String.trim
 
 
-    /// The ranges of a dose limit, each named after the limit target, or after the
-    /// fallback name when the target has no name.
+    /// Returns the six ranges of a dose limit, each named after the limit target and the kind of range.
+    /// Uses the fallback name when the target has no name.
     let ranges fallback (dl: DoseLimit) =
         let target =
             match dl.DoseLimitTarget |> LimitTarget.toString with

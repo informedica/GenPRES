@@ -6,24 +6,19 @@ module Source =
     open Informedica.Utils.Lib.BCL
 
 
-    /// One Nederlands Kinder Formularium (NKF) entry: the generic name and the id
-    /// its URL is built from.
+    /// One Nederlands Kinder Formularium (NKF) entry: the generic name and the id its URL is built from.
     type NKFMedication =
         {
-            /// The generic name as the NKF spells it: trimmed, lower case, and with
-            /// combination preparations joined by "+".
+            /// The generic name as the NKF writes it, trimmed and in lower case, with the generics of a
+            /// combination joined by "+".
             Generic: string
-            /// The NKF's own id, the first path segment of a medication URL.
+            /// The NKF id, the first path segment of the medication URL.
             Id: string
         }
 
 
-    /// Resolve the external formulary link for a Source / GenericLabel
-    /// pair, or None when there is none.
-    ///
-    /// A function type rather than a data dependency so that DoseRule.Print
-    /// stays pure and the NKF fetch can live in the loader that the resource registry
-    /// composes. Mirrors Check.GStandProvider.
+    /// Returns the external formulary link for a source and a generic label, or None when there is none.
+    /// A function type, so DoseRule.Print stays pure and the resources load the NKF index.
     type LinkProvider = Source -> GenericLabel -> string option
 
 
@@ -38,18 +33,12 @@ module Source =
     let other = Other
 
 
-    /// <summary>
-    /// Find the external formulary link for a <c>Source</c> / <c>GenericLabel</c> pair.
-    /// </summary>
-    /// <remarks>
-    /// The source is matched first and <c>meds</c> is consulted only by the NKF branch,
-    /// which is the only one that needs an id. An empty <c>meds</c> — what the resource
-    /// registry yields when kinderformularium.nl is unreachable — therefore drops NKF
-    /// links only, and leaves FTK links intact.
-    /// </remarks>
+    /// Returns the Markdown link for the source NKF or FK and the generic label, or None for another
+    /// source or a generic without a link. Only the NKF link reads meds, so an empty list, used when
+    /// the NKF index could not be fetched, loses only the NKF links.
     let getLink (meds: NKFMedication list) source gen : string option =
-        // The base substance name: a brand or form qualifier ("glycopyrronium (Sialanar)")
-        // is neither an NKF index entry nor an FK monograph slug.
+        // The generic name without a brand or form, as in "glycopyrronium (Sialanar)", because the
+        // NKF index and the FK page names use the generic name only.
         let gen = gen |> GenericLabel.genericName
         let src = source |> toString
         let slug = gen |> String.replace "/" "-"
@@ -68,8 +57,8 @@ module Source =
                 $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/%s{m.Id}/%s{slug})"
             )
         | _ when src = "FK" ->
-            // The FK files each monograph under the first letter of its (lower case)
-            // generic name: .../preparaatteksten/p/paracetamol. An empty label has no page.
+            // The FK places each page under the first letter of the lower case generic name, as in
+            // .../preparaatteksten/p/paracetamol. An empty generic name has no page.
             let slug = slug |> String.toLower
 
             if slug |> String.isNullOrWhiteSpace then
@@ -80,13 +69,6 @@ module Source =
         | _ -> None
 
 
-    /// <summary>
-    /// A <c>LinkProvider</c> that never finds a link, so every caller falls back to its
-    /// own default.
-    /// </summary>
-    /// <remarks>
-    /// For scripts and tests that want no external links at all. It is deliberately *not*
-    /// what the resource registry falls back to when the NKF fetch fails: that degrades to
-    /// <c>getLink []</c>, which loses the NKF links but keeps the FTK ones.
-    /// </remarks>
+    /// A link provider that never finds a link, for scripts and tests without external links. The
+    /// resources use getLink [] instead when the NKF fetch fails, which keeps the FK links.
     let noLinks: LinkProvider = fun _ _ -> None

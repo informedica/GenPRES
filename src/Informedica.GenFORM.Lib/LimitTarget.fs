@@ -4,7 +4,7 @@ namespace Informedica.GenForm.Lib
 module LimitTarget =
 
 
-    /// Get the LimitTarget as a string.
+    /// Returns the name of a component or substance target, or an empty string for any other target.
     let toString =
         function
         | NoLimitTarget
@@ -13,20 +13,20 @@ module LimitTarget =
         | SubstanceLimitTarget s -> s
 
 
-    /// Get the substance from the SubstanceLimitTarget.
+    /// Returns the component name of a component target, or an empty string for any other target.
     let componentTargetToString =
         function
         | ComponentLimitTarget s -> s
         | _ -> ""
 
-    /// Get the substance from the SubstanceLimitTarget.
+    /// Returns the substance name of a substance target, or an empty string for any other target.
     let substanceTargetToString =
         function
         | SubstanceLimitTarget s -> s
         | _ -> ""
 
 
-    /// Check whether the LimitTarget is a OrderableLimitTarget.
+    /// Checks whether the target is the orderable.
     let isOrderableTarget target =
         target
         |> function
@@ -34,7 +34,7 @@ module LimitTarget =
             | _ -> false
 
 
-    /// Check whether the LimitTarget is a SubstanceLimitTarget.
+    /// Checks whether the target is a component.
     let isComponentTarget target =
         target
         |> function
@@ -42,7 +42,7 @@ module LimitTarget =
             | _ -> false
 
 
-    /// Check whether the LimitTarget is a SubstanceLimitTarget.
+    /// Checks whether the target is a substance.
     let isSubstanceTarget target =
         target
         |> function

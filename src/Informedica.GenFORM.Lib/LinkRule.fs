@@ -1,21 +1,21 @@
 namespace Informedica.GenForm.Lib
 
 
-/// The rows of the "LinkRules" sheet read, checked against the dose rules, and matched against an
-/// order.
+/// Reads the rows of the LinkRules sheet, checks them against the dose rules and matches them against
+/// an order.
 module LinkRule =
 
     open Informedica.Utils.Lib.BCL
 
 
-    /// Whether a row of the sheet is blank: both dose types are empty, so the row is no rule. Text in
-    /// the other cells of a blank row is ignored, as the RuleSets sheet ignores a row without a category.
+    /// Whether a row of the sheet is blank: both dose type columns are empty. A blank row is no rule,
+    /// whatever its other cells hold.
     let isBlank (d: LinkRuleData) =
         String.isNullOrWhiteSpace d.DoseType && String.isNullOrWhiteSpace d.MainDoseType
 
 
-    /// A side of a row read, with the name of its dose type column in the reasons. Refused when the
-    /// dose type is empty or unknown, or is once or onceTimed: a once dose is never linked.
+    /// Reads one side of a row. Returns an error that names the dose type column when the dose type is
+    /// empty or unknown, or is once or onceTimed, because a once dose is never linked.
     let side doseTypeColumn generic route indication doseType doseText =
         match DoseType.parse doseType doseText with
         | NoDoseType, warning ->
@@ -33,7 +33,8 @@ module LinkRule =
                 }
 
 
-    /// Whether the linked order needs its main order: yes is required; no or empty is optional.
+    /// Parses the Required column in any case: yes gives Required, no or empty gives Optional, and any
+    /// other value is an error.
     let requirement s =
         match s |> String.toLower with
         | "yes" -> Ok LinkRequirement.Required
@@ -42,7 +43,7 @@ module LinkRule =
         | _ -> Error $"Required: %s{s} is not yes or no"
 
 
-    /// A row read, or every reason it is refused.
+    /// Reads a row into a link rule, or returns every reason the row is refused.
     let ofData (d: LinkRuleData) =
         let errorOf =
             function
@@ -66,8 +67,8 @@ module LinkRule =
         | _ -> Error(errorOf linked @ errorOf main @ errorOf required)
 
 
-    /// Every row that is not blank, with its number in the sheet, the header being row 1. The number
-    /// assumes that the export of the sheet keeps the blank rows between the rows, as quoted empty cells.
+    /// Returns the rows that are not blank with their row number in the sheet, counting the header as
+    /// row 1. The number is correct only when the sheet export keeps blank rows as quoted empty cells.
     let numbered (rows: LinkRuleData[]) =
         rows
         |> Array.indexed
@@ -75,12 +76,12 @@ module LinkRule =
         |> Array.map (fun (i, d) -> i + 2, d)
 
 
-    /// Every row that is not blank read, with its number in the sheet.
+    /// Reads every row that is not blank, with its row number in the sheet.
     let read rows = rows |> numbered |> Array.map (fun (no, d) -> no, d |> ofData)
 
 
-    /// The rows read, or every refused row with its number in the sheet. One refused row refuses the
-    /// sheet: a required link that is left out would let its order be prescribed alone.
+    /// Returns the link rules of the rows, or an error per refusal with its row number. One refused row
+    /// refuses the whole sheet, because leaving out a required link would let its order be prescribed alone.
     let ofRows (rows: LinkRuleData[]) =
         let read = rows |> read
 
@@ -97,7 +98,7 @@ module LinkRule =
         | es -> Error es
 
 
-    /// A field of a side as an option: a blank field gives none.
+    /// Returns a field of a side as an option; a blank field gives None.
     let fieldOf (field: string) =
         if field |> String.isNullOrWhiteSpace then
             None
@@ -144,14 +145,14 @@ module LinkRule =
         doseRules |> Array.filter (needsMainOrder routeMapping rules >> not)
 
 
-    /// The warnings for each side of a row that matches no dose rule, since no order can match it. When
-    /// a dose rule has the generic under its plain name, the warning gives the label to write. A refused
-    /// row is reported by the read, not here.
+    /// Returns a warning for each side of a row that matches no dose rule, because no order can match
+    /// that side. When a dose rule has the generic of the side as its generic name, the warning gives the
+    /// labels to write instead. A refused row is skipped here; the read reports it.
     let check routeMapping (doseRules: RuleSet.DoseRuleNames[]) (rows: LinkRuleData[]) =
         let matchesRule (side: LinkSide) (d: RuleSet.DoseRuleNames) =
             matches routeMapping side d.Indication d.Label d.Route d.DoseType
 
-        // the labels of the dose rules a side would match with the generic by its name
+        // the labels of the dose rules that match the side when its generic is compared with the generic name
         let labelsOf (side: LinkSide) =
             doseRules
             |> Array.filter (fun d ->

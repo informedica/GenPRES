@@ -4,7 +4,7 @@ namespace Informedica.GenForm.Lib
 module Filter =
 
 
-    /// An empty Filter.
+    /// A dose filter with no criteria, all components and unknown patient data.
     let doseFilter =
         {
             Indication = None

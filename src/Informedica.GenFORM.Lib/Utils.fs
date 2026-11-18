@@ -57,12 +57,10 @@ module Utils =
 
     module Web =
 
-        /// <summary>
-        /// Get data from a web sheet
-        /// </summary>
-        /// <param name="urlId">The Url Id of the web sheet</param>
-        /// <param name="sheet">The specific sheet</param>
-        /// <returns>The data as a table of string array array</returns>
+        /// <summary>Downloads a sheet of a Google spreadsheet as rows of cells and logs the time it took.</summary>
+        /// <param name="urlId">The id of the spreadsheet.</param>
+        /// <param name="sheet">The name of the sheet.</param>
+        /// <returns>The rows of cells; an empty array when the download fails.</returns>
         let getDataFromSheet urlId sheet =
             fun () -> Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet |> Result.defaultValue [||]
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
@@ -71,12 +69,8 @@ module Utils =
     module BigRational =
 
 
-        /// <summary>
-        /// Parse an array of strings in float format to an array of BigRational
-        /// </summary>
-        /// <remarks>
-        /// Uses ; as separator. Filters out non-parsable strings.
-        /// </remarks>
+        /// <summary>Parses a text of numbers separated by ; into an array of BigRationals.</summary>
+        /// <remarks>A part that does not parse as a number is skipped.</remarks>
         /// <example>
         /// <code>
         /// let brs = toBrs "1.0;2.0;3.0"
@@ -92,10 +86,8 @@ module Utils =
             |> Array.choose BigRational.fromFloat
 
 
-        /// <summary>
-        /// Return 2 BigRational arrays as a tuple of optional first BigRational
-        /// of the first and second array. A None is returned for an empty array.
-        /// </summary>
+        /// <summary>Returns the first value of each of two arrays as a pair of options; None for an empty
+        /// array.</summary>
         /// <example>
         /// <code>
         /// let brs1 = [|1N|]
@@ -129,7 +121,7 @@ module Utils =
             if s |> String.isNullOrWhiteSpace then
                 None
             else
-                // TODO need better fix than this
+                // TODO: "keer" and "x" mean times; find a better fix than this special case.
                 if s = "keer" || s = "x" then
                     "times[Count]"
                 else
@@ -161,8 +153,8 @@ module Utils =
         module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
 
 
-        /// The age from which a patient is an adult: the domain's eighteen years, in days as GenCORE
-        /// counts them. The sheet's age bounds are days, so the matcher compares days.
+        /// The adult age of eighteen years, in days as GenCORE counts them, because the age limits in the sheets
+        /// are in days.
         let ageAdult = AgeValue.eighteen |> AgeValue.getAgeInDays |> Measures.fromIntDay
 
 
@@ -200,9 +192,8 @@ module Utils =
                 |> Option.defaultValue false
 
 
-        /// Turn a MinMax to a string with
-        /// mins and maxs as annotations
-        /// for resp. the min and max value.
+        /// Formats a MinMax as text, with the given labels for an inclusive or exclusive minimum and maximum.
+        /// A value of 10,000 mg or mg/day or more is shown in g or g/day.
         let toString
             minInclStr
             minExclStr
@@ -258,8 +249,8 @@ module Utils =
                 }
 
 
-        /// One text per named range whose minimum lies above its maximum, giving the name and
-        /// both limits. A range with only a minimum, only a maximum or neither is never inverted.
+        /// Returns a text for each named range whose minimum is above its maximum, with the name and both limits.
+        /// A range with only a minimum, only a maximum or neither is never inverted.
         let invertedRanges named =
             named
             |> List.choose (fun (name, mm) ->

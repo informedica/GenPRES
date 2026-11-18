@@ -23,7 +23,7 @@ module RenalRule =
         [<Literal>]
         let REPL = "repl"
 
-        /// The old sheet value of the replacing reduction, still read until the sheet is updated.
+        /// An older sheet value of the replacing reduction, read as well as repl.
         [<Literal>]
         let ABS = "abs"
 
@@ -51,12 +51,7 @@ module RenalRule =
 
     module Limit =
 
-        /// <summary>
-        /// Create a RenalLimit
-        /// </summary>
-        /// <returns>
-        /// RenalLimit
-        /// </returns>
+        /// Creates a renal limit.
         let create doseLimitTarget doseReduction quantity quantityAdjust perTime perTimeAdjust rate rateAdjust =
             {
                 DoseLimitTarget = doseLimitTarget
@@ -187,14 +182,14 @@ module RenalRule =
         createRenalFunction r.ContDial r.IntDial r.PerDial r.MinGFR r.MaxGFR
 
 
-    /// The rows of the sheet grouped per renal rule.
+    /// The rows of the sheet with a generic and a source, grouped per renal rule.
     let groups (data: RenalRuleData[]) =
         data
         |> Array.filter (fun r -> r.Generic <> "" && r.Source <> "")
         |> Array.groupBy groupKey
 
 
-    /// The renal rule of the rows of one group; none for rows without a renal function.
+    /// Makes the renal rule of the rows of one group. Returns None when the group has no renal function.
     let ofRows logger ((gen, rte, ind, src, minAge, maxAge, dt, fr, it, rf), rules: RenalRuleData[]) =
         let limits =
             rules
@@ -292,10 +287,10 @@ module RenalRule =
         |> List.exists Option.isSome
 
 
-    /// The reasons a renal rule, given as its rows, is refused at load: both per kg and per m2
-    /// bounds, which the single adjust quantity of an order cannot hold, and a per kg or per m2
-    /// value without an adjust unit, which is lost. Only the rows with a replacing reduction are
-    /// checked: the relative rows hold reduction factors without a unit in the same columns.
+    /// Returns the reasons the rows of a renal rule are refused at load: per kg and per m2 bounds in one
+    /// rule, which the single adjust quantity of an order cannot hold, and a per kg or per m2 value without
+    /// an adjust unit. Only the rows with a replacing reduction are checked, because the relative rows hold
+    /// reduction factors without a unit in the same columns.
     let unitRefusals (rows: RenalRuleData[]) =
         let rows =
             rows
@@ -312,8 +307,8 @@ module RenalRule =
         ]
 
 
-    /// The groups of the sheet, each with the reasons the unit checks refuse it; no reasons for a group
-    /// that passes.
+    /// Returns the groups of the sheet, each with the reasons the unit checks refuse it. A group that
+    /// passes has an empty list.
     let checkedGroups data =
         data |> groups |> Array.map (fun grp -> grp, grp |> snd |> unitRefusals)
 
@@ -413,29 +408,27 @@ module RenalRule =
         | _ -> false
 
 
-    /// The bounds of one dose under a replacing renal reduction. A dose has an absolute and an
-    /// adjusted form, per kg or per m2, and the dose rule and the renal rule each give both. The
-    /// adjust value is the patient's weight or BSA, when known, and converts a bound from one form
-    /// into the other. When the renal rule gives no bound for the dose, the dose rule's maximum
-    /// stays and its minimum is dropped, since no renal bound can make that minimum fit. On a side
-    /// where the renal rule gives a bound, in either form, the renal bounds replace the dose rule's
-    /// bounds in both forms. On a side where the renal rule gives no bound, the dose rule's bounds
-    /// stay, each moved to a renal bound on the other side that it conflicts with, compared at the
-    /// adjust value when the two are in different forms. Without an adjust value no per kg or per m2
-    /// bound of the dose rule is dropped: a bound the renal rule does not give in that form stays.
+    /// Returns the absolute and the per kg or per m2 bounds of one dose under a replacing renal reduction.
+    /// The dose rule and the renal rule each give both forms, and adj, the weight or the BSA of the patient,
+    /// converts a bound between the forms. A renal rule without any bound for the dose keeps the maximum of
+    /// the dose rule and drops its minimum. For a side, minimum or maximum, that the renal rule gives in
+    /// either form, the renal bounds replace the dose rule bounds in both forms. For a side the renal rule
+    /// does not give, the dose rule bound stays, but moves to a renal bound on the other side that it
+    /// conflicts with. Without adj, no per kg or per m2 bound of the dose rule is dropped.
     let replaceDose adj (renal: MinMax, renalAdj: MinMax) (dose: MinMax, doseAdj: MinMax) =
         let convert (f: ValueUnit -> ValueUnit -> ValueUnit) lim =
             adj
             |> Option.map (fun adj -> lim |> Limit.apply (fun vu -> f vu adj) (fun vu -> f vu adj))
 
-        // the renal bounds of a side in one form: the renal rule's own, and the other form converted
+        // Returns the renal bounds of one side in one form: the bound in that form and the bound in the
+        // other form, converted with adj.
         let renalBounds same other f bound =
             [ same |> bound; other |> bound |> Option.bind (convert f) ] |> List.choose id
 
         let gives bound =
             renal |> bound |> Option.isSome || renalAdj |> bound |> Option.isSome
 
-        // a kept bound moves to every renal bound it conflicts with, so it ends at the tightest
+        // A dose rule bound moves to each renal bound it conflicts with, so it ends at the tightest one.
         let move conflicts renalBounds kept =
             kept
             |> Option.map (fun k -> renalBounds |> List.fold (fun k r -> if conflicts k r then r else k) k)
@@ -464,8 +457,8 @@ module RenalRule =
         let reducedAdj =
             match adj with
             | Some _ -> reducedAdj
-            // without the patient's weight or BSA no per kg or per m2 bound of the dose rule is dropped,
-            // so the rule still shows the measurement it needs
+            // Without the weight or the BSA of the patient, the per kg and per m2 bounds of the dose rule
+            // stay, so the rule shows the measurement it needs.
             | None ->
                 {
                     Min = reducedAdj.Min |> Option.orElse doseAdj.Min
@@ -475,6 +468,9 @@ module RenalRule =
         reduced, reducedAdj
 
 
+    /// Applies the renal limit for the target of a dose limit. A replacing reduction replaces the bounds and
+    /// a relative reduction multiplies them by the renal factors. Without a renal limit for the target, or
+    /// without a reduction, the dose limit is unchanged.
     let adjustDoseLimit (patientData: PatientData) (renalRule: RenalRule) (dl: DoseLimit) =
         let relative mmNew mmOrig =
             if mmOrig = MinMax.empty || mmNew = MinMax.empty then
@@ -491,13 +487,13 @@ module RenalRule =
                         | _ -> mmOrig.Max
                 }
 
-        // the adjust unit of the dose limit, or, for a dose limit without one, the unit of the
-        // renal rule's per kg or per m2 bounds, which the order applies at the weight or the BSA
+        // Returns the adjust unit of the dose limit, or else the unit of the per kg or per m2 bounds of the
+        // renal limit.
         let adjustUnit (rl: RenalLimit) =
             dl.AdjustUnit |> Option.orElse (rl |> limitMeasures |> List.tryHead)
 
-        // a renal per kg or per m2 range in another measurement than the dose limit's adjust unit
-        // moves to the absolute form at its own measurement, and is left out without it
+        // A renal per kg range for a per m2 dose limit, or the reverse, becomes an absolute range at the
+        // weight or the BSA of the patient. Without that measurement the renal range is left out.
         let ownMeasure (renal: MinMax, renalAdj: MinMax) =
             match dl.AdjustUnit, renalAdj |> measureOf with
             | Some du, Some ru when not (sameMeasure du ru) ->
@@ -558,8 +554,9 @@ module RenalRule =
                     }
 
 
-    /// The dose rule under a renal rule. A dose rule without an adjust unit takes the adjust unit
-    /// that a dose limit took from the renal rule.
+    /// Applies a renal rule to the substance limits of a dose rule, and sets the renal source and, when the
+    /// renal rule has them, the frequencies. A dose rule without an adjust unit takes the adjust unit that
+    /// a substance limit took from the renal rule.
     let adjustDoseRule patientData (renalRule: RenalRule) (doseRule: DoseRule) =
 
         { doseRule with
@@ -600,14 +597,11 @@ module RenalRule =
         | PeritonealDialysis -> true
 
 
-    /// The warnings for the renal rules checked against the dose rules they apply to. A renal rule
-    /// applies to the dose rules of its generic, and of its route, indication and dose type when
-    /// it names them. Only a replacing reduction is checked. A renal rule whose per kg or per m2
-    /// bound has another measurement than the dose rule's adjust unit is reported for every
-    /// renal function. A renal rule for a reduced kidney function with a higher maximum than the
-    /// dose rule is reported, comparing a maximum only with one of the same kind and form, since
-    /// there is no patient to convert a per kg bound with. The rules are still used as the sheet
-    /// gives them.
+    /// Returns warnings for the replacing renal limits checked against the dose rules they apply to. A per kg
+    /// or per m2 renal bound in another measurement than the adjust unit of the dose rule gives a warning for
+    /// every renal function. For a reduced renal function, a renal maximum above the dose rule maximum gives
+    /// a warning. Only maxima of the same kind and unit group are compared, since there is no patient to
+    /// convert a per kg bound with. The rules are used as the sheet gives them.
     let doseRuleWarnings routeMapping (doseRules: DoseRule[]) (renalRules: RenalRule[]) =
         let raises (dose: MinMax) (renal: MinMax) =
             match dose.Max, renal.Max with
@@ -660,15 +654,16 @@ module RenalRule =
         ]
 
 
-    /// The renal rule as a sheet author finds it.
+    /// Describes a renal rule by generic, route, indication, source and renal function, as a sheet author
+    /// finds it.
     let describe (rr: RenalRule) =
         let rf = rr.RenalFunction |> RenalFunction.toString
         $"the renal rule %s{rr.Generic} %s{rr.Route} %s{rr.Indication} (%s{rr.Source}, %s{rf})"
 
 
-    /// The dose rules without those a refused renal rule applies to, and one message per refused
-    /// renal rule. A refused renal rule matches no patient, so without this a patient in its eGFR
-    /// range would get the dose rule's full dose.
+    /// Returns the dose rules without those a refused renal rule applies to, and one warning per refused
+    /// renal rule. A refused renal rule matches no patient, so without this a patient in its eGFR range
+    /// would get the full dose of the dose rule.
     let withoutRefused routeMapping (refused: (RenalRule * string list)[]) (doseRules: DoseRule[]) =
         let applies dr =
             refused |> Array.exists (fun (rr, _) -> appliesToDoseRule routeMapping rr dr)

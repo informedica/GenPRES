@@ -13,11 +13,8 @@ module GenericLabel =
         | GenericBrand(g, b) -> $"%s{g} (%s{b})"
 
 
-    /// The base generic substance name, without the form/brand qualifier.
-    /// Used for lookups against external sources (e.g. the G-Standaard) that
-    /// key on the substance name only — e.g. GenericBrand ("glycopyrronium",
-    /// "Sialanar") resolves to "glycopyrronium", not "glycopyrronium
-    /// (Sialanar)".
+    /// Returns the generic name without the form or brand, for lookups in sources such as the G-Standaard
+    /// that use the substance name only. GenericBrand ("glycopyrronium", "Sialanar") gives "glycopyrronium".
     let genericName =
         function
         | Shorthand s -> s
@@ -34,12 +31,8 @@ module GenericLabel =
     let fromGenericBrand g b = (g, b) |> GenericBrand
 
 
-    /// Build the GenericLabel from the original source restriction.
-    /// Brand takes precedence over form when both are present (source data
-    /// should not restrict both; that is flagged as a validation warning).
-    /// When neither form nor brand restricts, the label is the canonical/
-    /// shorthand generic name (form/brand are not shown), even though the
-    /// domain Generic.Form still carries the expanded grouping form.
+    /// Creates a label from the generic g, the form f and the brand b. A brand wins over a form when both
+    /// are given; with neither, the label is the generic name alone.
     let toLabel g f b =
         match b |> String.isNullOrWhiteSpace, f |> String.isNullOrWhiteSpace with
         | false, _ -> fromGenericBrand g b
@@ -47,5 +40,5 @@ module GenericLabel =
         | _ -> fromShorthand g
 
 
-    /// The label of the generic of a dose rule row, as the dose rule offers it.
+    /// Creates the label of the generic of a dose rule row from its name, form and brand.
     let ofGenericData (g: GenericData) = toLabel g.Name g.Form g.Brand

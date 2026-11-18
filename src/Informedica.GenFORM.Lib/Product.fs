@@ -50,7 +50,7 @@ module Product =
                         [ "UMCU"; "ICC"; "NEO"; "ICK"; "HCK" ]
                         |> List.filter (fun dept -> (get dept) = "x")
 
-                    // Determine product type - this is a placeholder, actual logic needed
+                    // Maps the Type column to a product type; an unknown value gives NoProduct.
                     let getProdType s =
                         match s with
                         | "medication" -> ProductType.MedicationProduct
@@ -77,10 +77,8 @@ module Product =
                     // a cell of only separators gives no route either
                     failOnEmptyVirtualColumn "Routes" (routes |> Array.isEmpty)
 
-                    // TODO: the sheet still carries "UseForm" and "UseBrand"
-                    // columns that nothing reads any more (the naming flags were
-                    // dropped from FormularyProduct). Confirm with the sheet owner
-                    // and remove the columns, or start honouring them again.
+                    // TODO: the sheet has the columns UseForm and UseBrand, which no code reads. Confirm
+                    // with the sheet owner and remove the columns, or read them.
                     {
                         GPKODE = get "GPKODE"
                         ProductType = prodType
@@ -114,7 +112,7 @@ module Product =
                         CanBeUsedAsAdditive = getFlag "IsAdditive"
                     }
                 )
-                // filter out dummy
+                // leave out the dummy row with GPKODE 0
                 |> Array.filter (fun fp -> fp.GPKODE <> "0")
 
             Ok products
@@ -150,7 +148,7 @@ module Product =
     module Location =
 
 
-        /// Get a string representation of the VenousAccess.
+        /// Returns the sheet code of a venous access: PVL, CVL, TUBE, or an empty string for any access.
         let toString =
             function
             | PVL -> "PVL"
@@ -160,7 +158,7 @@ module Product =
             | AnyAccess -> ""
 
 
-        /// Get a VenousAccess from a string.
+        /// Parses PVL, CVL or TUBE in any case into a venous access; any other string gives AnyAccess.
         let fromString s =
             match s with
             | _ when s |> String.equalsCapInsens "PVL" -> PVL
@@ -221,9 +219,9 @@ module Product =
             Web.getDataFromSheet dataUrlId "Reconstitution" |> parseReconstitution
 
 
-        /// Whether a reconstitution applies to a patient's location and department and a
-        /// route: the route when one is asked for; the location when both sides name one; the
-        /// department by the one rule of PatientCategory.departmentMatches.
+        /// Whether a reconstitution applies to a location, a department and a route. The route must match
+        /// when one is given, the location when both name one, and the department as
+        /// PatientCategory.departmentMatches decides.
         let matches routeMapping (loc: string option) (dep: string option) (rte: string option) (r: Reconstitution) =
             let eqsOpt a b =
                 match a, b with
@@ -271,8 +269,8 @@ module Product =
         | _ -> None
 
 
-    /// The routes of a virtual product: every route of its row through the route mapping, as the ZIndex name. A route
-    /// the mapping does not know fails, naming the route and the Generic of the row.
+    /// Returns the routes of a virtual product as ZIndex names, through the route mapping. Raises a
+    /// FormatException for a route that the route mapping does not know.
     let virtualRoutes routeMapping (fp: FormularyProduct) =
         fp.Routes
         |> Array.map (fun r ->
@@ -285,8 +283,9 @@ module Product =
         )
 
 
-    /// A virtual product: a parenteral or enteral row of the Formulary sheet, with the nutrient columns as its
-    /// substances. The form is lowercased like the form of a G-Standaard product.
+    /// Creates a virtual product from a parenteral or enteral row of the Formulary sheet, with the
+    /// nutrient columns as its substances. The form is lowercased like the form of a G-Standaard product.
+    /// Raises a FormatException for a substance name that is not a name and a unit.
     let createVirtualProduct logger name (form: string) routes formUnit unitMapping substs =
         {
             GPK = name
@@ -525,7 +524,7 @@ module Product =
                 |> Array.collect _.TradeProducts
                 |> Array.map (fun tp ->
                     {
-                        HPK = tp.Id |> string //|> Hpk
+                        HPK = tp.Id |> string
                         Brand = tp.Brand
                         Substances = tp.Substances |> Array.map mapSubst |> Array.toList
 
@@ -551,9 +550,9 @@ module Product =
         |> Set.ofArray
 
 
-    /// The name of a generic product: the AltName of its Formulary row as written, else its G-Standaard name. An
-    /// AltName that a virtual product has is not used, so the parenteral fluids keep their virtual products until a
-    /// later step of #1444 replaces them.
+    /// Returns the name of a generic product: the AltName of its Formulary row as written, else its
+    /// G-Standaard name. An AltName that is also the name of a virtual product is not used, so the
+    /// parenteral fluids keep their virtual products until #1444 replaces them.
     let productName virtualNames fp gp =
         fp
         |> Option.bind _.AltName
@@ -562,9 +561,8 @@ module Product =
 
 
     /// <summary>
-    /// Pure: build the ProductComponent array from already-loaded ZIndex
-    /// GenPresProducts. Performs no IO so it is directly testable; the ZIndex
-    /// read is hoisted into the impure shell (see <c>get</c>).
+    /// Builds the product components from ZIndex GenPresProducts that are already loaded, and adds the
+    /// parenteral and enteral virtual products. Performs no IO.
     /// </summary>
     let fromGenPresProducts
         logger
@@ -579,8 +577,7 @@ module Product =
         (genPresProducts: Informedica.ZIndex.Lib.Types.GenPresProduct[])
         : ProductComponent[]
         =
-        // build a GPK -> FormularyProduct lookup once, so matching is
-        // O(1) per GenericProduct instead of O(formularyProducts).
+        // A lookup from GPK to Formulary row, built once, so each generic product is matched in constant time.
         let formByGpk =
             formularyProducts
             |> Array.choose (fun fp -> fp.GPKODE |> Int32.tryParse |> Option.map (fun gpk -> gpk, fp))
@@ -588,10 +585,8 @@ module Product =
 
         let virtualNames = formularyProducts |> virtualProductNames
 
-        // start from ALL GenPresProducts (not just formulary GPKs), collect the
-        // GenericProducts filtered by "valid form" and at least one substance
-        // quantity > 0, then match each with a formulary product by GPK (None if
-        // absent, so the generic product is still included). This prep is cheap.
+        // Every generic product with a valid form and a substance quantity above 0, also one without a
+        // Formulary row, paired with its Formulary row by GPK or with None.
         let pairs =
             genPresProducts
             |> Array.collect (fun gpp ->
@@ -603,17 +598,15 @@ module Product =
             )
             |> Array.map (fun gp -> (formByGpk |> Map.tryFind gp.Id), gp)
 
-        // Build one Product record per (formulary, generic-product) pair.
+        // Builds one product component per pair of Formulary row and generic product.
         let buildProduct (fp: FormularyProduct option, gp: Informedica.ZIndex.Lib.Types.GenericProduct) =
-            // The G-Standaard name drives the Mmol column and the display label. The
-            // product name, the AltName when there is one, is the match key the rules
-            // select the product by; see productName. Any brand/form suffix the
-            // formulary adds is kept out of both and surfaced for display via Label.
+            // The G-Standaard name selects the substance that the Mmol column applies to. The rules
+            // select the product by its product name, the AltName when there is one. A brand or form
+            // suffix in the Formulary Generic stays out of both names and goes into the label.
             let name = gstandName fp gp
 
-            // Display label: when the formulary Generic carries a brand/form
-            // suffix (i.e. differs from the G-Standaard name) keep it as the
-            // human-facing label; otherwise fall back to the ZIndex label.
+            // The label is the Formulary Generic when it differs from the G-Standaard name, else the
+            // ZIndex label.
             let displayLabel =
                 match fp with
                 | Some fp when fp.Generic |> String.toLower <> name -> fp.Generic
@@ -641,11 +634,9 @@ module Product =
                     Label = displayLabel
                 }
 
-        // Build the products in parallel: buildProduct is pure but heavy
-        // (~99% of this function). Warm a single chunk single-threaded first to
-        // force the one-time (static) initialization of the unit modules on one
-        // thread, avoiding a cold concurrent type-initialization deadlock when the
-        // parallel tasks below trigger those inits at once.
+        // Build the products in parallel, because buildProduct takes most of the time. Build the first
+        // chunk on one thread, so the static initialization of the unit modules runs once: a first use
+        // of those modules from several threads at once can deadlock.
         let warm, tail =
             if pairs |> Array.length <= Parallel.totalWorders then
                 pairs, [||]
@@ -666,8 +657,8 @@ module Product =
 
 
     /// <summary>
-    /// Impure adapter: reads the ZIndex GenPresProducts and delegates to the
-    /// pure <c>fromGenPresProducts</c>. Kept for existing callers/tests.
+    /// Reads the ZIndex GenPresProducts and builds the product components with fromGenPresProducts,
+    /// timing the call.
     /// </summary>
     let get
         logger
@@ -696,16 +687,13 @@ module Product =
 
 
     /// <summary>
-    /// Pure: keep only the ZIndex GenericProducts that dose-rule data can select, so that far
-    /// fewer ProductComponents are built. A GenericProduct is kept when its GPK is in the GPKs
-    /// of a row, when one of its trade products is in the HPKs of a row, or, for a row with
-    /// neither, when its product name is a component name of the row on one of its routes. A
-    /// row has at most one of GPKs and HPKs after parsing. Returns the GenPresProducts with
-    /// their GenericProducts narrowed and the empty ones dropped.
-    /// The result is a superset of what DoseRuleLoader.group then selects per rule with
-    /// Product.filter, where the GPKs and HPKs of a row only narrow the products that match
-    /// the component name and never replace that name. The dose-rule output is therefore the
-    /// same as without this prefilter.
+    /// Keeps only the ZIndex generic products that the dose rule data can select, so fewer product
+    /// components are built. A generic product is kept when its GPK is in the GPKs of a row, when one
+    /// of its trade products is in the HPKs of a row, or, for a row with neither, when its product name
+    /// is the component name of the row and one of its routes is the route of the row. Returns the
+    /// GenPresProducts with only the kept generic products, and leaves out a GenPresProduct with none.
+    /// Product.filter then selects the products per rule from this result, so the dose rules are the
+    /// same as without this filter.
     /// </summary>
     let filterGenPresProductsByData
         routeMapping
@@ -722,7 +710,7 @@ module Product =
 
         let virtualNames = formularyProducts |> virtualProductNames
 
-        // same normalization Product.filter uses for name comparison
+        // the same normalization that Product.filter uses to compare names
         let canon (s: string) =
             s
             |> String.replace "/" ""
@@ -736,7 +724,7 @@ module Product =
         // neither by its component name and route
         let gpkSet = System.Collections.Generic.HashSet<string>()
         let hpkSet = System.Collections.Generic.HashSet<string>()
-        // name rows: canonical route (via mapRoute) -> set of canonical component names
+        // for a row without GPKs or HPKs: the mapped route to the set of normalized component names
         let nameByRoute =
             System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>()
 
@@ -791,18 +779,16 @@ module Product =
         )
 
 
-    /// <summary>
-    /// Reconstitute the given product according to
-    /// route, DoseType, department and VenousAccess location.
-    /// </summary>
-    /// <param name="mapping"></param>
-    /// <param name="dep">The department</param>
-    /// <param name="loc">The venous access location</param>
-    /// <param name="rte">The route</param>
-    /// <param name="prod">The product</param>
+    /// <summary>Reconstitutes a product for a venous access location, a department and a route.</summary>
+    /// <param name="mapping">The route mapping.</param>
+    /// <param name="loc">The venous access location.</param>
+    /// <param name="dep">The department.</param>
+    /// <param name="rte">The route; an empty route is not checked.</param>
+    /// <param name="prod">The product.</param>
     /// <returns>
-    /// The reconstituted product or None if the product
-    /// does not require reconstitution.
+    /// The product unchanged when it requires no reconstitution, else one product per matching
+    /// reconstitution rule, with each concentration multiplied by 1 mL and divided by the solvent volume
+    /// plus the expansion volume. Also returns a warning when no reconstitution rule matches.
     /// </returns>
     let reconstitute mapping loc dep rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
@@ -812,8 +798,7 @@ module Product =
 
         let prods =
             [|
-                // if reconstitution is not required, the
-                // original product is returned as well
+                // a product that requires no reconstitution is returned unchanged
                 if prod.RequiresReconstitution |> not then
                     [| prod |]
                 else
@@ -875,10 +860,9 @@ module Product =
             |> Array.filter (_.TradeProducts >> List.isEmpty >> not)
             |> Array.map (fun p ->
                 let substs = p.TradeProducts |> List.collect _.Substances
-                // Match by substance name only: the generic-product substances and
-                // the trade-product substances are separate ZIndex records, so a
-                // concentration/unit/BigRational rounding difference would make
-                // structural (=) drop a substance that is in fact the same one.
+                // Match the substances by name only. The substances of the generic product and of the trade
+                // product are separate ZIndex records, so a small difference in concentration, unit or
+                // rounding would make structural equality drop the same substance.
                 { p with
                     Substances =
                         p.Substances
@@ -890,16 +874,18 @@ module Product =
 
 
     /// <summary>
-    /// Filter the Product array to get all the products
+    /// Returns the products that match the route, and the name, form and GPKs when given, with their trade
+    /// products narrowed by brand or HPKs. When a brand or HPKs are given, a product without a matching
+    /// trade product is left out.
     /// </summary>
-    /// <param name="mapping">The route mapping</param>
-    /// <param name="route">The route</param>
-    /// <param name="name">The Filter</param>
-    /// <param name="form"></param>
-    /// <param name="brand"></param>
-    /// <param name="gpks"></param>
-    /// <param name="hpks"></param>
-    /// <param name="prods">The array of Products</param>
+    /// <param name="mapping">The route mapping.</param>
+    /// <param name="route">The route.</param>
+    /// <param name="name">The generic name; empty matches any name. Ignores case and / + ( ).</param>
+    /// <param name="form">The pharmaceutical form; empty matches any form, compared like the name.</param>
+    /// <param name="brand">The brand of the trade products to keep; empty keeps every brand.</param>
+    /// <param name="gpks">The GPKs to keep; empty keeps every GPK.</param>
+    /// <param name="hpks">The HPKs of the trade products to keep when no brand is given; empty keeps every HPK.</param>
+    /// <param name="prods">The products.</param>
     let filter mapping route name form brand gpks hpks (prods: ProductComponent[]) =
         let eqsRoute = Mapping.eqsRoute mapping
 
@@ -935,11 +921,11 @@ module Product =
         |> filterOutTradeProducts brand hpks
 
 
-    /// Get all Generics from the given Product array.
+    /// Returns the distinct generics of the products.
     let generics (products: ProductComponent array) = products |> Array.map _.Generic |> Array.distinct
 
 
-    /// Get all Synonyms from the given Product array.
+    /// Returns the distinct synonyms and generics of the products.
     let synonyms (products: ProductComponent array) =
         products
         |> Array.collect _.Synonyms
@@ -947,5 +933,5 @@ module Product =
         |> Array.distinct
 
 
-    /// Get all pharmaceutical forms from the given Product array.
+    /// Returns the distinct pharmaceutical forms of the products.
     let forms (products: ProductComponent array) = products |> Array.map _.Form |> Array.distinct

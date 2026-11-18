@@ -11,8 +11,8 @@ module VenousAccess =
         | _ -> venousAccess |> List.exists ((=) location)
 
 
-    /// Whether a patient can have both access devices: any access goes with every device, and
-    /// otherwise the devices are the same.
+    /// Returns true when one patient can have both access devices: AnyAccess goes with every device, and
+    /// other devices must be equal.
     let canMeet a b =
         match a, b with
         | AnyAccess, _
@@ -27,7 +27,7 @@ module Gender =
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
 
-    /// Map a string to a Gender.
+    /// Parses man or vrouw, in any case. Any other string gives AnyGender.
     let fromString s =
         let s = s |> String.toLower |> String.trim
 
@@ -45,8 +45,8 @@ module Gender =
         | AnyGender -> ""
 
 
-    /// A gender from its string form; an empty string is AnyGender, anything else
-    /// that toString never writes is None.
+    /// Parses the string form of a gender. An empty string gives AnyGender, and any other string that
+    /// toString does not write gives None.
     let tryFromString s =
         match s |> String.toLower |> String.trim with
         | "man" -> Some Male
@@ -55,8 +55,8 @@ module Gender =
         | _ -> None
 
 
-    /// The gender a rule matches, of the gender of a patient. A patient without a known gender
-    /// matches the rules for any gender.
+    /// Maps the gender of a patient to the gender of the rules. An unknown gender matches only the rules
+    /// for any gender.
     let ofPatient =
         function
         | CoreGender.Male -> Male
@@ -64,8 +64,7 @@ module Gender =
         | CoreGender.UnknownGender -> AnyGender
 
 
-    /// Check if a Filter contains a Gender.
-    /// Note if AnyGender is specified, this will always return true.
+    /// Returns true when gender is AnyGender or equals filterGender.
     let isMatch gender filterGender =
         match filterGender, gender with
         | _, AnyGender -> true
@@ -114,16 +113,15 @@ module PatientCategory =
             p
 
 
-    /// The age range a category applies to: the absolute range it names, or, for a rule that
-    /// says adults, from the adult threshold up. A patient with no age is in neither, since
-    /// the facet asserts something about the patient and nothing is known.
+    /// Returns the age range of a category: the absolute range, or for an adult category the range from
+    /// the adult age of 18 years up.
     let getAge (pat: PatientCategory) =
         match pat.Age with
         | AbsoluteAge a -> a
         | IsAdult -> { MinMax.empty with Min = Some(Inclusive Utils.ValueUnit.ageAdult) }
 
 
-    /// Whether two optional values can hold together: a value only one side names restricts nothing.
+    /// Returns true when the two values are equal, or when either value is None.
     let canMeet a b =
         match a, b with
         | Some a, Some b -> a = b
@@ -143,17 +141,9 @@ module PatientCategory =
         && MinMax.canMeet a.PMAge b.PMAge
 
 
-    /// <summary>
-    /// Use a PatientCategory to get a sort value.
-    /// </summary>
-    /// <remarks>
-    /// The order will be based on the following:
-    /// - Age
-    /// - Weight
-    /// - Gestational Age
-    /// - Post Menstrual Age
-    /// The first will receive the highest weight and the last the lowest.
-    /// </remarks>
+    /// Returns a sort value for a patient category. The value is the sum of the minimum age in days, plus 300
+    /// when above zero, the minimum gestational and post-menstrual age in days, term when absent, and the
+    /// minimum weight divided by 1000.
     let sortBy (pat: PatientCategory) =
         let toInt def =
             function
@@ -176,9 +166,9 @@ module PatientCategory =
         + (pat.Weight.Min |> toInt 0 |> (fun w -> w / 1000))
 
 
-    /// Whether a patient's department is one a rule applies to. A rule that names no
-    /// department is a rule for everybody; a patient with no department matches no rule that
-    /// names one; a patient with one matches the rules that name it, written the same way.
+    /// Returns true when a rule applies to the department of a patient. A rule without a department
+    /// applies to every patient. A patient without a department matches only those rules; otherwise the
+    /// names must be written the same.
     let departmentMatches (rule: string option) (patient: string option) =
         match rule, patient with
         | None, _ -> true
@@ -186,7 +176,9 @@ module PatientCategory =
         | Some rule, Some patient -> rule = patient
 
 
-    /// Check whether patCat2 is a match with patCat2
+    /// Returns true when patCat2 matches patCat1 on department, gender and access device, and the minimum
+    /// of each range of patCat1, for age, gestational age, post-menstrual age, weight and BSA, is in the
+    /// matching range of patCat2.
     let isMatch (patCat1: PatientCategory) (patCat2: PatientCategory) =
         let eqsOpt a b =
             match a, b with
@@ -235,7 +227,8 @@ module PatientCategory =
         $"%i{weeks} weken"
 
 
-    /// Print an MinMax age as a string.
+    /// Prints an age range as Dutch text, such as leeftijd vanaf 1 jaar. An empty range gives an empty
+    /// string.
     let printAgeMinMax (age: MinMax) =
         let printAge = Limit.getValueUnit >> printAge
 
@@ -253,15 +246,14 @@ module PatientCategory =
         | _ -> ""
 
 
-    /// The age as the category words it: "volwassenen" for a rule that says adults, the range
-    /// otherwise.
+    /// Prints the age of a category: volwassenen for an adult category, otherwise the age range.
     let ageToString (pat: PatientCategory) =
         match pat.Age with
         | IsAdult -> "volwassenen"
         | AbsoluteAge a -> a |> printAgeMinMax
 
 
-    /// Print an PatientCategory as a string.
+    /// Prints a patient category as Dutch text: the department, gender, neonatal ages, age and weight.
     let toString (pat: PatientCategory) =
 
         let gender = pat.Gender |> Gender.toString
@@ -327,7 +319,8 @@ module PatientCategory =
         |> String.concat ", "
 
 
-    /// The ranges of a patient category, each with its name. An adult age is no range.
+    /// Returns the ranges of a patient category, each with its name. An adult category has no age range
+    /// in the list.
     let ranges (pc: PatientCategory) =
         [
             match pc.Age with
@@ -340,7 +333,8 @@ module PatientCategory =
         ]
 
 
-/// The string form of an access device, for the Dto.
+/// Maps the access of a patient to an access device, and an access device to and from its string form
+/// for the Dto.
 module AccessDevice =
 
     open Informedica.Utils.Lib.BCL
@@ -348,7 +342,7 @@ module AccessDevice =
     type CoreAccess = Informedica.GenCore.Lib.Patients.Access
 
 
-    /// The access a rule names, of an access of a patient.
+    /// Maps the access of a patient to the access device of the rules.
     let ofPatient =
         function
         | CoreAccess.PVL -> PVL
@@ -383,8 +377,8 @@ module RenalFunction =
     type EGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
 
 
-    /// The renal function a renal rule matches, of the renal function of a patient. An eGFR band is
-    /// the pair of its bounds.
+    /// Maps the renal function of a patient to the renal function of the renal rules. An eGFR band
+    /// becomes the pair of its bounds.
     let ofPatient =
         function
         | CoreRenalFunction.EGFR EGFRBand.Above50 -> EGFR(Some 50, None)
@@ -429,7 +423,7 @@ module RenalFunction =
         | _ -> None
 
 
-/// Functions of the rules on the GenCORE patient data: the values of a patient in the terms of the
+/// Reads the GenCORE patient data for rule selection: the values of a patient in the terms of the
 /// rules, whether a patient is an adult, and whether a patient matches a patient category.
 module PatientData =
 
@@ -469,12 +463,12 @@ module PatientData =
     let renalFunction (dat: CorePatientData) = dat.RenalFunction |> Option.map RenalFunction.ofPatient
 
 
-    /// The adult mark of GenCORE for the age and the mark of the user.
+    /// Returns the adult mark that GenCORE gives for the age and the MarkedAdult value of the patient data.
     let adultMark (dat: CorePatientData) = CoreAdultMark.ofAge dat.Age dat.MarkedAdult
 
 
-    /// Whether a patient is an adult. A patient of 18 years or older is an adult. A patient marked
-    /// as an adult is an adult from 16 years, or without an age.
+    /// Returns true when the GenCORE adult mark says adult: from 18 years, or from 16 years or without an
+    /// age when the patient is marked as an adult.
     let isAdult dat = dat |> adultMark |> CoreAdultMark.isAdult
 
 
@@ -547,8 +541,8 @@ module PatientData =
         && matchesCategoryWithoutLocationAndGender dat patCat
 
 
-    /// The value to adjust a limit with: the weight for a unit per kg, the body surface area for
-    /// any other adjust unit.
+    /// Returns the value to adjust a limit with: the weight in kg for the adjust unit kg, the body surface
+    /// area for any other adjust unit. Returns None without an adjust unit or without that value.
     let adjustValue dat adjustUnit =
         adjustUnit
         |> Option.bind (fun u ->
@@ -564,7 +558,7 @@ module PatientData =
         { dat with Department = CoreDepartment.unknown } <> CorePatientData.unknown
 
 
-    /// The patient data as text.
+    /// Prints the patient data as Dutch text.
     let toString dat =
         let gestAge = dat |> CorePatientData.gestationalAgeInDays
 

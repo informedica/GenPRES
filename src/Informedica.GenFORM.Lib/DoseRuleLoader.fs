@@ -1,13 +1,8 @@
 namespace Informedica.GenForm.Lib
 
 
-/// <summary>
-/// Orchestration / loading layer for dose rules. Composes the pure dose-rule
-/// DATA module (<c>DoseRuleData</c>) with the pure mapping module
-/// (<c>DoseRule</c>) and the resource-dependent <c>Product</c>/<c>Mapping</c>
-/// modules. This is the resources-side seam: <c>DoseRule</c> never references
-/// <c>DoseRuleData</c>; instead this module wires the two together.
-/// </summary>
+/// Builds the dose rules from the rows of the DoseRules sheet and the products. DoseRule does not
+/// reference DoseRuleData; this module joins the two.
 module DoseRuleLoader =
 
     open Informedica.Utils.Lib.BCL
@@ -19,8 +14,7 @@ module DoseRuleLoader =
         Web.getDataFromSheet dataUrlId "DoseRules" |> DoseRuleData.parseDoseRuleData
 
 
-    /// Cheap pre-filter: keep only products whose Generic matches a component
-    /// used somewhere in the group, before the per-component product narrowing.
+    /// Returns the products whose generic equals, ignoring case, a component of one of the rows.
     let candidateProducts (prods: ProductComponent[]) (rs: DoseRuleData[]) =
         let cmps = rs |> Array.map _.ScheduleData.DoseLimitData.Component |> Array.distinct
 
@@ -31,26 +25,20 @@ module DoseRuleLoader =
     let group routeMapping (prods: ProductComponent[]) chunk =
         chunk
         |> Array.collect (fun (_groupKey: string list, data) ->
-            // every row in the group shares the same DataGroupKey (it is part of
-            // the group identity); rebuild the structured key from a representative
-            // row for the Generic/Route access below and for GroupedRuleData.
+            // Every row in the group has the same group key, so the first row gives it.
             let key = DoseRuleData.dataGroupKey (Array.head data)
 
             let candidates = data |> candidateProducts prods
 
             data
-            // make sure that the chunked dose rule data
-            // have ids set
             |> Array.map DoseRuleData.setDataHashIds
-            // make sure the sort order is preserved
+            // Keeps the order of the rows.
             |> Array.mapi (fun i dd -> { dd with SortNo = i })
-            // perform an additional grouping to differentiate
-            // between dose type, note dose type is part of the
-            // dose rule hashed id
+            // Groups by rule id, which includes the dose type.
             |> Array.groupBy _.RuleId
             |> Array.map (fun (_, data) ->
-                // collapse duplicate (component, substance) rows within the rule;
-                // warns when collapsed rows carry differing dose-limit values
+                // Keeps the first of the rows of a rule with the same component and substance, with a
+                // warning when their dose limits differ.
                 let data, rowWarns = data |> DoseRuleData.dedupRowsByRowId
 
                 let cmps = data |> Array.map _.ScheduleData.DoseLimitData.Component |> Array.distinct
@@ -87,46 +75,38 @@ module DoseRuleLoader =
     /// solution rule that applies to it limits every component; when a solution rule applies but does
     /// not, it is left out with a warning.
     let fromData routeMapping formRoutes prods (solutionRules: SolutionRule[]) (data: DoseRuleData[]) =
-        // get the validated dose rule data from data
-        // and the warnings
+        // Keeps the valid rows, with a warning for each error of an invalid row.
         let data, warnings =
             let valid, invalid =
                 data
-                // validate the dose rule data
                 |> Array.map (fun d -> d, DoseRuleData.validateData d)
                 |> Array.partition (snd >> List.isEmpty)
 
             valid |> Array.map fst, invalid |> Array.map (snd >> List.toArray) |> Array.collect id
 
-        // a rule whose rows do not share one adjust unit, or with a per kg or per m2 value without
-        // one, is left out
+        // Leaves out a rule whose rows do not share one adjust unit, or that has a per kg or per m2
+        // value without an adjust unit.
         let data, unitWarnings = data |> DoseRuleData.checkUnits
 
         let addFormLimits = DoseRule.addFormLimits routeMapping formRoutes
 
         let grouped =
             data
-            // group by dose rule data group (single source of truth shared with
-            // the GrpId hash in DoseRuleData.setDataHashIds)
+            // Groups by the same fields that DoseRuleData.setDataHashIds hashes into the GrpId.
             |> Array.groupBy DoseRuleData.groupKeyFields
-            // setup chunks of grouped dose rule data
             |> Array.chunkBySize Parallel.totalWorders
-            // map to grouped dose rule data to map to a dose rule
             |> Array.map (fun chunk -> async { return chunk |> group routeMapping prods })
             |> Async.Parallel
             |> Async.RunSynchronously
             |> Array.collect id
 
-        // RowId dedup warnings raised inside the parallel group pass
+        // The warnings for rows of a rule with the same component and substance.
         let dedupWarnings = grouped |> Array.collect (_.Warnings >> List.toArray)
 
-        // Warm-up phase to enable safe parallelization below. mapToDoseRule /
-        // addFormLimits are the first code to exercise the unit / dose-limit
-        // modules; running a sample single-threaded forces their one-time
-        // (static) initialization on one thread, avoiding a cold concurrent
-        // type-initialization deadlock when the parallel tasks below trigger
-        // those inits at once. We warm a whole chunk (not a single group) so the
-        // initialized code paths do not depend on which group happens to be first.
+        // Maps the first chunk on one thread before the rest in parallel. This runs the static
+        // initialization of the unit and dose-limit modules on one thread, because concurrent type
+        // initialization can deadlock. A whole chunk is used so that the initialization does not
+        // depend on which group comes first.
         let warm, tail =
             if grouped |> Array.length <= Parallel.totalWorders then
                 grouped, [||]
@@ -138,9 +118,7 @@ module DoseRuleLoader =
         let rules =
             tail
             |> Array.chunkBySize Parallel.totalWorders
-            // map each grouped dose rule data to mapToDoseRule
-            // that will expand for all available product forms
-            // and form unit groups
+            // Maps each group to a dose rule per product form and form unit group.
             |> Array.map (fun grps ->
                 async {
                     let rules = grps |> Array.collect DoseRule.mapToDoseRule |> Array.map addFormLimits
@@ -153,9 +131,8 @@ module DoseRuleLoader =
             |> Array.append head
 
         rules
-        // drop dose rules left with no meaningful limits (a row that passes
-        // validateData but carries no dose values yields an empty dose rule), but keep a dose rule
-        // without limits that a solution rule limits
+        // Leaves out the dose rules without limits, such as a valid row without dose values, except
+        // a dose rule that a solution rule limits.
         |> DoseRule.removeEmptyLimits (SolutionRule.anyLimitsDoseRule routeMapping solutionRules),
         ([ warnings; unitWarnings; dedupWarnings ]
          |> Array.concat
