@@ -2135,28 +2135,36 @@ module Tests =
         open Informedica.GenCore.Lib
         open Informedica.GenCore.Lib.Patients
 
-        /// The date of every weight and height in the tests.
-        let measuredOn = DateTime(2026, 1, 1)
+        /// The date the patient data Dto is read on. The weights and heights have no date, so the date
+        /// checks nothing.
+        let readAt = DateTime(2026, 1, 1)
 
         /// A patient with nothing known.
         let unknown = CorePatientData.unknown
 
+        /// Writes the patient data to its Dto and reads it back, so that PatientData.Dto.fromDto calculates
+        /// the post-menstrual age and the body surface area. A gestational age is removed without an age or
+        /// from 1 year. Fails the test when the Dto does not read.
+        let throughDto pat =
+            pat
+            |> CorePatientData.Dto.toDto
+            |> CorePatientData.Dto.fromDto readAt
+            |> Expect.wantOk "the patient data Dto reads"
+
         /// Sets the age from a time value. The age is rounded down to whole days.
-        let withAge age (pat: PatientData) = { pat with Age = age |> AgeValue.fromValueUnit |> Some }
+        let withAge age (pat: PatientData) =
+            { pat with Age = age |> AgeValue.fromValueUnit |> Some } |> throughDto
 
         /// Sets the age in days.
-        let withAgeInDays days (pat: PatientData) = { pat with Age = days * 1<day> |> AgeValue.fromDays |> Some }
+        let withAgeInDays days (pat: PatientData) =
+            { pat with Age = days * 1<day> |> AgeValue.fromDays |> Some } |> throughDto
 
-        /// Sets the weight in kg and calculates the body surface area again. The source is Measured or Estimated.
+        /// Sets an undated weight in kg. The source is Measured or Estimated.
         let withWeightFrom source kg (pat: PatientData) =
-            let weight =
-                kg
-                |> BigRational.toDecimal
-                |> WeightValue.weightInKg
-                |> WeightAtDate.create measuredOn
+            let weight = kg |> BigRational.toDecimal |> WeightValue.weightInKg |> WeightAtDate.undated
 
             { pat with Weight = Weight.create [] None [] (Some(source weight)) }
-            |> PatientData.calculateBodySurfaceArea
+            |> throughDto
 
         /// Sets a measured weight in kg.
         let withWeightInKg kg = withWeightFrom Measured kg
@@ -2164,16 +2172,11 @@ module Tests =
         /// Sets an estimated weight in kg.
         let withEstimatedWeightInKg kg = withWeightFrom Estimated kg
 
-        /// Sets the height in cm and calculates the body surface area again. The source is Measured or Estimated.
+        /// Sets an undated height in cm. The source is Measured or Estimated.
         let withHeightFrom source cm (pat: PatientData) =
-            let height =
-                cm
-                |> BigRational.toDecimal
-                |> HeightValue.heightInCm
-                |> HeightAtDate.create measuredOn
+            let height = cm |> BigRational.toDecimal |> HeightValue.heightInCm |> HeightAtDate.undated
 
-            { pat with Height = Height.create [] None (Some(source height)) }
-            |> PatientData.calculateBodySurfaceArea
+            { pat with Height = Height.create [] None (Some(source height)) } |> throughDto
 
         /// Sets a measured height in cm.
         let withHeightInCm cm = withHeightFrom Measured cm
@@ -2181,13 +2184,11 @@ module Tests =
         /// Sets an estimated height in cm.
         let withEstimatedHeightInCm cm = withHeightFrom Estimated cm
 
-        /// Sets the gestational age in days.
+        /// Sets the gestational age in days. The patient data keeps it only with an age under 1 year, so set
+        /// the age first.
         let withGestationalAgeInDays days (pat: PatientData) =
             { pat with GestationalAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
-
-        /// Sets the post-menstrual age in days.
-        let withPostMenstrualAgeInDays days (pat: PatientData) =
-            { pat with PostMenstrualAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
+            |> throughDto
 
         /// Sets the department by name. Without a name the department is unknown.
         let withDepartment name (pat: PatientData) =
@@ -2197,18 +2198,20 @@ module Tests =
                     |> Option.map Department.otherDepartment
                     |> Option.defaultValue Department.unknown
             }
+            |> throughDto
 
         /// Sets the gender.
-        let withGender gender (pat: PatientData) = { pat with Gender = gender }
+        let withGender gender (pat: PatientData) = { pat with Gender = gender } |> throughDto
 
         /// Sets the access devices.
-        let withAccess access (pat: PatientData) = { pat with Access = access }
+        let withAccess access (pat: PatientData) = { pat with Access = access } |> throughDto
 
         /// Sets the renal function.
-        let withRenalFunction renalFunction (pat: PatientData) = { pat with RenalFunction = Some renalFunction }
+        let withRenalFunction renalFunction (pat: PatientData) =
+            { pat with RenalFunction = Some renalFunction } |> throughDto
 
         /// Marks the patient as an adult.
-        let markedAsAdult (pat: PatientData) = { pat with MarkedAdult = true }
+        let markedAsAdult (pat: PatientData) = { pat with MarkedAdult = true } |> throughDto
 
 
     module DoseLimitTests =
@@ -2969,13 +2972,11 @@ module Tests =
                 |> TestPatient.withWeightInKg (35N / 10N)
                 |> TestPatient.withHeightInCm 51N
                 |> TestPatient.withGestationalAgeInDays (40 * 7)
-                |> TestPatient.withPostMenstrualAgeInDays (40 * 7 + 3)
                 "a preterm newborn of 10 days",
                 Core.unknown
                 |> TestPatient.withAgeInDays 10
                 |> TestPatient.withWeightInKg (12N / 10N)
                 |> TestPatient.withGestationalAgeInDays (30 * 7 + 2)
-                |> TestPatient.withPostMenstrualAgeInDays (31 * 7 + 5)
                 "an infant of 100 days with a gestational age",
                 Core.unknown
                 |> TestPatient.withAgeInDays 100
@@ -2986,11 +2987,6 @@ module Tests =
                 "16 years", child |> TestPatient.withAgeInDays (16 * 365)
                 "16 years, marked as an adult",
                 child |> TestPatient.withAgeInDays (16 * 365) |> TestPatient.markedAsAdult
-                "17 years, marked as an adult, with a gestational age",
-                child
-                |> TestPatient.withAgeInDays (17 * 365 + 200)
-                |> TestPatient.markedAsAdult
-                |> TestPatient.withGestationalAgeInDays (39 * 7)
                 "18 years", child |> TestPatient.withAgeInDays (18 * 365)
                 "40 years, 80 kg and 180 cm",
                 Core.unknown
@@ -3393,7 +3389,7 @@ module Tests =
                     MatchedAsAdult = false
                     WeightInKg = Some(28N / 5N)
                     BsaInM2 = None
-                    Text = "3 maanden, neonaten zwangerschapsduur 38 weken, gewicht 5.6 kg"
+                    Text = "3 maanden, neonaten postconceptie leeftijd 52 weken, gewicht 5.6 kg"
                     Matches =
                         [
                             "all patients"
@@ -3460,29 +3456,6 @@ module Tests =
                     WeightInKg = Some 32N
                     BsaInM2 = Some(11N / 10N)
                     Text = "16 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
-                    Matches =
-                        [
-                            "all patients"
-                            "adults"
-                            "from 18 years, by days"
-                            "10 to 40 kg"
-                            "body surface area 1 to 1.5 m2"
-                            "location OK"
-                            "location ward"
-                            "boys"
-                            "girls"
-                            "central line"
-                            "peripheral line"
-                        ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
-                }
-                "17 years, marked as an adult, with a gestational age",
-                {
-                    IsAdult = true
-                    MatchedAsAdult = true
-                    WeightInKg = Some 32N
-                    BsaInM2 = Some(11N / 10N)
-                    Text = "17 jaar, neonaten zwangerschapsduur 39 weken, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
                     Matches =
                         [
                             "all patients"
@@ -4233,14 +4206,14 @@ module Tests =
                     let inDays n =
                         n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
 
-                    let neonate age gestAge pmAge =
+                    // The post-menstrual age is the age plus the gestational age.
+                    let neonate age gestAge =
                         let set f value pat =
                             value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
 
                         TestPatient.unknown
                         |> set TestPatient.withAgeInDays age
                         |> set TestPatient.withGestationalAgeInDays gestAge
-                        |> set TestPatient.withPostMenstrualAgeInDays pmAge
 
                     let pmaRule =
                         { patCat with
@@ -4254,24 +4227,21 @@ module Tests =
                     let matches rule pat = rule |> PatientData.matchesCategory pat
 
                     test "a post-menstrual age rule matches the patient's exact post-menstrual age" {
-                        [
-                            neonate (Some 14) (Some 199) (Some 215)
-                            neonate (Some 14) (Some 199) (Some 213)
-                        ]
+                        [ neonate (Some 14) (Some 201); neonate (Some 14) (Some 199) ]
                         |> List.map (matches pmaRule)
                         |> Expect.equal "215 days in, 213 days out" [ true; false ]
                     }
 
                     test "a patient without a post-menstrual age matches no post-menstrual age rule" {
-                        [ neonate (Some 14) None None; neonate (Some 14) (Some 199) None ]
-                        |> List.map (matches pmaRule)
-                        |> Expect.equal "no post-menstrual age, no match" [ false; false ]
+                        neonate (Some 14) None
+                        |> matches pmaRule
+                        |> Expect.isFalse "no post-menstrual age, no match"
                     }
 
                     test "a patient without a gestational age matches no gestational age rule" {
                         let gestRule = { patCat with GestAge = { MinMax.empty with Min = Some(Inclusive(inDays 259)) } }
 
-                        [ neonate (Some 14) None None; neonate (Some 14) (Some 266) None ]
+                        [ neonate (Some 14) None; neonate (Some 14) (Some 266) ]
                         |> List.map (matches gestRule)
                         |> Expect.equal "no gestational age out, 38 weeks in" [ false; true ]
                     }
@@ -4279,7 +4249,7 @@ module Tests =
                     test "a patient without an age matches no gestational or post-menstrual age rule, in both filters" {
                         let gestRule = { patCat with GestAge = { MinMax.empty with Min = Some(Inclusive(inDays 259)) } }
 
-                        let noAge = neonate None None None
+                        let noAge = neonate None None
 
                         [
                             noAge |> matches gestRule
@@ -4290,31 +4260,11 @@ module Tests =
                         |> Expect.allEqual "no match" false
                     }
 
-                    test "a patient without an age but with a preterm gestational age matches no rule without one" {
-                        // a rule that names a location is not one for all patients
-                        let locationRule = { patCat with Location = Some "UMCU" }
-                        let pat = neonate None (Some 210) None
-
-                        [
-                            pat |> matches locationRule
-                            PatientData.matchesCategoryWithoutLocationAndGender pat locationRule
-                        ]
-                        |> Expect.allEqual "left out, as a patient with an age is" false
-                    }
-
                     test "a patient without a post-menstrual age matches a rule without a post-menstrual age range" {
                         let neonatal =
                             { patCat with Age = { MinMax.empty with Max = Some(Inclusive(inDays 28)) } |> AbsoluteAge }
 
-                        neonate (Some 14) None None |> matches neonatal |> Expect.isTrue "matches"
-                    }
-
-                    test "setting a patient on a filter keeps the patient's post-menstrual age" {
-                        Filter.doseFilter
-                        |> Filter.setPatientData (neonate (Some 45) (Some 196) (Some 242))
-                        |> _.PatientData
-                        |> CorePatientData.postMenstrualAgeInDays
-                        |> Expect.equal "242 days, not recalculated" (Some(inDays 242))
+                        neonate (Some 14) None |> matches neonatal |> Expect.isTrue "matches"
                     }
 
                     test "printAge prints an age in days in its largest unit" {
@@ -4618,7 +4568,6 @@ module Tests =
                             TestPatient.unknown
                             |> TestPatient.withAgeInDays 0
                             |> TestPatient.withGestationalAgeInDays (30 * 7)
-                            |> TestPatient.withPostMenstrualAgeInDays 210
                         )
 
                         |> Expect.isTrue "should return true"
@@ -4643,7 +4592,6 @@ module Tests =
                             TestPatient.unknown
                             |> TestPatient.withAgeInDays 0
                             |> TestPatient.withGestationalAgeInDays (37 * 7)
-                            |> TestPatient.withPostMenstrualAgeInDays 259
                         )
 
                         |> Expect.isFalse "should return false"
@@ -4668,7 +4616,6 @@ module Tests =
                             TestPatient.unknown
                             |> TestPatient.withAgeInDays 8
                             |> TestPatient.withGestationalAgeInDays (27 * 7)
-                            |> TestPatient.withPostMenstrualAgeInDays 197
                         )
                         |> Expect.isTrue "should return true"
                     }
@@ -4924,19 +4871,6 @@ module Tests =
                                 [ adults; childrenOneToEighteen ]
                                 |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
                                 |> Expect.equal "the adult rule only" [ true; false ]
-                            }
-
-                            test "a marked patient with a preterm gestational age matches the adult rules" {
-                                let pat =
-                                    aged (Some(years 17N))
-                                    |> TestPatient.withGestationalAgeInDays (30 * 7)
-                                    |> marked
-
-                                adults |> PatientData.matchesCategory pat |> Expect.isTrue "matches"
-
-                                adults
-                                |> PatientData.matchesCategoryWithoutLocationAndGender pat
-                                |> Expect.isTrue "matches without location and gender"
                             }
 
                             test "a marked patient without a weight does not match a rule with a weight range" {

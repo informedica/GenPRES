@@ -839,9 +839,9 @@ module Tests =
 
             let measuredOn = DateTime(2026, 1, 15)
 
-            let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
+            let weight = WeightAtDate.create (Some measuredOn) (WeightValue.weightInKg 32m)
 
-            let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
+            let height = HeightAtDate.create (Some measuredOn) (HeightValue.heightInCm 140m)
 
             let renalFunctions =
                 [
@@ -894,14 +894,14 @@ module Tests =
             /// A dated weight Dto of a number of kg at a date.
             let weightDto (kg: decimal) date =
                 let dto = WeightAtDate.Dto.dto ()
-                dto.DateTime <- date
+                dto.DateTime <- Some date
                 dto.WeightValue.Weight <- kg
                 dto
 
             /// A dated height Dto of a number of cm at a date.
             let heightDto (cm: decimal) date =
                 let dto = HeightAtDate.Dto.dto ()
-                dto.DateTime <- date
+                dto.DateTime <- Some date
                 dto.HeightValue.Height <- cm
                 dto.HeightValue.HeightInMeter <- false
                 dto
@@ -1000,8 +1000,8 @@ module Tests =
                             "Weight and Height"
                             [
                                 test "the normal weight and height of an age category are estimates" {
-                                    let w = Child |> Weight.fromAgeType Male measuredOn
-                                    let h = Child |> Height.fromAgeType Male measuredOn
+                                    let w = Child |> Weight.fromAgeType Male
+                                    let h = Child |> Height.fromAgeType Male
 
                                     w.Calculation
                                     |> Option.map Source.isMeasured
@@ -1009,6 +1009,13 @@ module Tests =
                                     h.Calculation
                                     |> Option.map Source.isMeasured
                                     |> Expect.equal "height" (Some false)
+
+                                    w.Calculation
+                                    |> Option.map (Source.value >> _.Date)
+                                    |> Expect.equal "weight without a date" (Some None)
+                                    h.Calculation
+                                    |> Option.map (Source.value >> _.Date)
+                                    |> Expect.equal "height without a date" (Some None)
                                 }
 
                                 test "a measured and an estimated weight read back from the Dto" {
@@ -1140,7 +1147,7 @@ module Tests =
                                     |> Expect.equal "nothing known" (Ok Weight.unknown)
                                 }
 
-                                test "a dated weight or height without a date is an error" {
+                                test "a weight or height without a date reads as an undated value" {
                                     let w = WeightAtDate.Dto.dto ()
                                     w.WeightValue.Weight <- 32m
 
@@ -1148,8 +1155,84 @@ module Tests =
                                     h.HeightValue.Height <- 140m
                                     h.HeightValue.HeightInMeter <- false
 
-                                    w |> WeightAtDate.Dto.fromDto readAt |> Expect.isError "weight"
-                                    h |> HeightAtDate.Dto.fromDto readAt |> Expect.isError "height"
+                                    w
+                                    |> WeightAtDate.Dto.fromDto readAt
+                                    |> Expect.equal "weight" (Ok(WeightAtDate.undated weight.Weight))
+
+                                    h
+                                    |> HeightAtDate.Dto.fromDto readAt
+                                    |> Expect.equal "height" (Ok(HeightAtDate.undated height.Height))
+                                }
+
+                                test "undated weights and heights read back from their Dto" {
+                                    let w = WeightAtDate.undated weight.Weight
+                                    let h = HeightAtDate.undated height.Height
+                                    let weights = Weight.create [ weight; w ] None [ w ] (Some(Measured w))
+                                    let heights = Height.create [ height; h ] None (Some(Estimated h))
+
+                                    weights
+                                    |> Weight.Dto.toDto
+                                    |> Weight.Dto.fromDto readAt
+                                    |> Expect.equal "weights" (Ok weights)
+
+                                    heights
+                                    |> Height.Dto.toDto
+                                    |> Height.Dto.fromDto readAt
+                                    |> Expect.equal "heights" (Ok heights)
+                                }
+
+                                test "a dated value prints its date, an undated value prints only the value" {
+                                    let ws = weight.Weight |> WeightValue.toString 2
+                                    let hs = height.Height |> HeightValue.toString 2
+                                    // toString writes the date in the current culture.
+                                    let ds = measuredOn.ToString "dd-MMM-yy"
+
+                                    weight
+                                    |> WeightAtDate.toString 2
+                                    |> Expect.equal "dated weight" $"%s{ws} (%s{ds})"
+
+                                    WeightAtDate.undated weight.Weight
+                                    |> WeightAtDate.toString 2
+                                    |> Expect.equal "undated weight" ws
+
+                                    height
+                                    |> HeightAtDate.toString 2
+                                    |> Expect.equal "dated height" $"%s{hs} (%s{ds})"
+
+                                    HeightAtDate.undated height.Height
+                                    |> HeightAtDate.toString 2
+                                    |> Expect.equal "undated height" hs
+                                }
+
+                                test "the lists go from the latest date to the earliest, the undated values last" {
+                                    let ws = weight.Weight |> WeightValue.toString 2
+                                    let hs = height.Height |> HeightValue.toString 2
+                                    // toString writes the date in the current culture.
+                                    let early = measuredOn.ToString "dd-MMM-yy"
+                                    let late = readAt.ToString "dd-MMM-yy"
+
+                                    Weight.create
+                                        [
+                                            WeightAtDate.undated weight.Weight
+                                            weight
+                                            WeightAtDate.create (Some readAt) weight.Weight
+                                        ]
+                                        None
+                                        []
+                                        None
+                                    |> Weight.actualToString 2
+                                    |> Expect.equal "weights" [ $"%s{ws} (%s{late})"; $"%s{ws} (%s{early})"; ws ]
+
+                                    Height.create
+                                        [
+                                            HeightAtDate.undated height.Height
+                                            height
+                                            HeightAtDate.create (Some readAt) height.Height
+                                        ]
+                                        None
+                                        None
+                                    |> Height.actualToString 2
+                                    |> Expect.equal "heights" [ $"%s{hs} (%s{late})"; $"%s{hs} (%s{early})"; hs ]
                                 }
 
                                 test "a Dto that does not say estimated reads as measured" {
@@ -1218,7 +1301,8 @@ module Tests =
                                         }
 
                                         test "a weight in gram is given in kg" {
-                                            let w = WeightAtDate.create measuredOn (WeightValue.weightInGram 750m)
+                                            let w =
+                                                WeightAtDate.create (Some measuredOn) (WeightValue.weightInGram 750m)
 
                                             PatientData.unknown
                                             |> withWeight (Measured w)
@@ -1262,7 +1346,7 @@ module Tests =
 
                                         test
                                             "patient data of an age type has the body surface area of its normal values" {
-                                            let dat = Adult |> PatientData.fromAgeType Male measuredOn
+                                            let dat = Adult |> PatientData.fromAgeType Male
 
                                             dat.BodySurfaceArea
                                             |> Expect.equal
@@ -1767,7 +1851,7 @@ module Tests =
                             let dto = WeightAtDate.Dto.dto ()
 
                             dto.WeightValue.Weight <- 10m
-                            dto.DateTime <- readAt.AddDays(7)
+                            dto.DateTime <- Some(readAt.AddDays 7)
 
                             dto
                             |> WeightAtDate.Dto.fromDto readAt
@@ -2329,7 +2413,7 @@ module Tests =
                     }
 
                     test "the newborn patient goes there and back" {
-                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender readAt
+                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender
 
                         newBorn |> thereAndBack |> Expect.equal "the same" (Ok newBorn)
                     }

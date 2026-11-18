@@ -173,17 +173,25 @@ values or call a `fromAgeType` function.
 Each step is one pull request within the limit of 200 changed source lines.
 
 1. **GenCORE.** `Date: DateTime option` in `WeightAtDate` and `HeightAtDate` (decision 1) and their
-   Dtos. `WeightAtDate.create` and `HeightAtDate.create` keep their date parameter, for a value from the
-   EHR; a value without a date gets its own constructor. The callers outside GenCORE, in GenORDER, MCP
-   and the server, then build unchanged until steps 2 and 3. `WeightAtDate.Dto.fromDto` and
-   `HeightAtDate.Dto.fromDto` check a date against the read date only when there is one; the shared
-   `notAfterValidator` stays as it is for the birth date.
+   Dtos, where the date defaults to `None`. `WeightAtDate.create` and `HeightAtDate.create` take the
+   date as an option, and `undated` is `create None`. The callers outside GenCORE pass `Some date` until
+   steps 2 and 3 remove the date: the GenORDER setters (`GenORDER.Lib/Patient.fs`), `ofModel`
+   (`Server/ServerApi.Mappers.Patient.fs`), the stub EHR (`Server/ServerApi.StubAdapters.fs`) and the
+   server tests `VersionIdentityTests` and `MappersPatientTests`. `WeightAtDate.Dto.fromDto` and
+   `HeightAtDate.Dto.fromDto` check a date against the read date only when there is one. The shared
+   `notAfterValidator` no longer treats `DateTime.MinValue` as a missing date: an undated value is
+   `None`, and a birth date passes its year check of at least 1900 first.
    `WeightAtDate.toString` and `HeightAtDate.toString` print an undated value without a date, and
-   `Weight.toString` and `Height.toString` sort the lists with it. The six `fromAgeType` functions
-   (`:906`, `:1002`, `:1217`, `:1292`, `:2117`, `:2275`) set estimates without a date and lose their
-   date parameter (decision 3); their callers are the GenCORE tests and `Scripts/Scripts.fsx`. The
-   GenCORE tests follow, and the GenFORM `TestPatient` helpers build patient data through the Dto
-   (decision 5).
+   `Weight.toString` and `Height.toString` sort the lists with the undated values last. The six
+   `fromAgeType` functions (`:906`, `:1002`, `:1217`, `:1292`, `:2117`, `:2275`) set estimates without a
+   date and lose their date parameter (decision 3); their callers are the GenCORE tests and
+   `Scripts/Scripts.fsx`. The GenCORE tests follow, and the GenFORM `TestPatient` helpers build patient
+   data through the Dto (decision 5). Besides the three test cases of decision 5, the GenFORM tests lose
+   the cases that set a gestational age from 1 year or a post-menstrual age that does not fit the age
+   and the gestational age: the filter test that kept a post-menstrual age of 242 days, the patient
+   "17 years, marked as an adult, with a gestational age" and the test of a marked patient with a
+   preterm gestational age. The infant of 100 days with a gestational age now has a post-menstrual age
+   in its text.
 2. **GenORDER and MCP: patient data only through the Dto.** Delete the setters of the GenORDER
    `Patient` module (`GenORDER.Lib/Patient.fs`): `setAge` (`:89`), `setGestAge` (`:144`), `withPMAge`
    (`:85`), `setWeightFrom` (`:101`), `setWeight` (`:112`), `setEstimatedWeight` (`:116`),

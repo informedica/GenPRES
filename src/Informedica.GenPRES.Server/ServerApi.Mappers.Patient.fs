@@ -271,7 +271,7 @@ module Patient =
                 int
                 >> decimal
                 >> CoreWeightValue.weightInGram
-                >> CoreWeightAtDate.create today
+                >> CoreWeightAtDate.create (Some today)
                 >> source model.Weight.Measured.IsSome
             )
             |> CoreWeight.create [] None []
@@ -284,7 +284,7 @@ module Patient =
                 int
                 >> decimal
                 >> CoreHeightValue.heightInCm
-                >> CoreHeightAtDate.create today
+                >> CoreHeightAtDate.create (Some today)
                 >> source model.Height.Measured.IsSome
             )
             |> CoreHeight.create [] None
