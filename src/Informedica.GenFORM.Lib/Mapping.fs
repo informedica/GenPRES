@@ -60,8 +60,7 @@ module Mapping =
     let getData dataUrlId sheet apply = Web.getDataFromSheet dataUrlId sheet |> parseSheet apply
 
 
-    /// Map one row of the "Routes" sheet. Named rather than inlined into
-    /// getRouteMapping so the column contract can be tested without IO.
+    /// Map one row of the "Routes" sheet. A separate function so the column-contract test runs without IO.
     let routeMappingRow (get: string -> string) (_: string -> float option) =
         {
             Long = get "ZIndex"
@@ -129,7 +128,7 @@ module Mapping =
         }
 
 
-    /// The rows of the "RuleSets" sheet, without the rows that name no category.
+    /// Returns the rows of the "RuleSets" sheet, without the rows that have no category.
     let getRuleSets dataUrlId =
         ruleSetRow
         |> getData dataUrlId Constants.ruleSetsSheet
@@ -154,21 +153,20 @@ module Mapping =
         }
 
 
-    /// The rows of the "LinkRules" sheet, blank rows included, so that a row keeps its number.
+    /// Returns the rows of the "LinkRules" sheet, blank rows included, so each row keeps its sheet row number.
     let getLinkRules dataUrlId =
         linkRuleRow
         |> getData dataUrlId Constants.linkRulesSheet
         |> Result.mapErrorSource "getLinkRules"
 
 
-    /// The emergency-list workbook, where the normal values of weight and height by age and
-    /// sex live. One hospital's workbook written in code, as it is in the client; the two
-    /// literals become one setting together.
+    /// The id of the emergency-list spreadsheet with the normal values of weight and height by age and sex.
+    /// The client has the same id written in code; both should become one setting.
     let normalValuesUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
 
 
-    /// The normal-value sheets GenCORE names, fetched as rows, all four or none; GenCORE parses and
-    /// checks the rows.
+    /// Fetches the rows of each normal-value sheet that GenCORE names, by sheet name.
+    /// Returns an error when any sheet fails to load. GenCORE parses and checks the rows.
     let getNormalValueRows urlId : Result<Map<string, string[][]>, Message list> =
         Informedica.GenCore.Lib.Patients.NormalValueTables.sheets
         |> List.fold
@@ -223,8 +221,8 @@ module Mapping =
 
 
     /// <summary>
-    /// Map one row of the "FormRoute" sheet. Takes the unit mappings because the
-    /// dose columns are only read once a dose unit resolves.
+    /// Map one row of the "FormRoute" sheet, using the unit mappings to parse the units.
+    /// The dose limits are read only when the dose unit, or else the unit, resolves.
     /// </summary>
     let formRouteRow unitMapping =
         let mapUnit = mapUnit unitMapping
