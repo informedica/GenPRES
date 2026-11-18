@@ -17,7 +17,7 @@ module OrderPlanCommand =
         |> OrderContextService.Argumentation.checkAll
         |> Result.bind (fun () ->
             plan
-            |> OrderPlanMapper.ofModel today
+            |> OrderPlanMapper.ofModel
             |> Informedica.GenOrder.Lib.OrderPlan.Dto.fromDto today
             |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
         )

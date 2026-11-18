@@ -389,7 +389,6 @@ module Adapters =
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            challengeDate = fun _ -> async { return None }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }

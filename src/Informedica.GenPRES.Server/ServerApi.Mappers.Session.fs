@@ -31,9 +31,9 @@ module SessionMapper =
     /// order plan.
     let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
         ({
-            PatientData = signed.PatientData |> Patient.ofModel today
+            PatientData = signed.PatientData |> Patient.ofModel
             Filtered = [||]
-            Contexts = signed.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
+            Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
             Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
         }
         : OrderPlan.Dto.Dto)
@@ -87,10 +87,6 @@ module SessionMapper =
             PatientIdentity = whom |> Option.map identity
             Verified = v.Verified
         }
-
-
-    /// Maps the patient data of a data notice to a Dto on the date today.
-    let noticeData today (notice: DataNotice) = notice.PatientData |> Option.map (Patient.ofModel today)
 
 
     let notice (token: string) (data: CorePatientData.Dto.Dto option) : DataNotice =

@@ -108,7 +108,7 @@ let tests =
 
             test "L3: to the Dto and back is the identity on what the Dto carries" {
                 full
-                |> ServerApi.Patient.ofModel readAt
+                |> ServerApi.Patient.ofModel
                 |> ServerApi.Patient.toModel
                 |> Expect.equal "measured" full
 
@@ -127,7 +127,7 @@ let tests =
                     }
 
                 estimated
-                |> ServerApi.Patient.ofModel readAt
+                |> ServerApi.Patient.ofModel
                 |> ServerApi.Patient.toModel
                 |> Expect.equal "estimated" estimated
             }
@@ -140,7 +140,7 @@ let tests =
                     }
 
                 withP3
-                |> ServerApi.Patient.ofModel readAt
+                |> ServerApi.Patient.ofModel
                 |> ServerApi.Patient.toModel
                 |> Expect.equal "the stub" stub
             }
@@ -243,13 +243,13 @@ let tests =
                     }
 
                 { stub with PostMenstrualAge = Some pma }
-                |> ServerApi.Patient.ofModel readAt
+                |> ServerApi.Patient.ofModel
                 |> pmaDays
                 |> Expect.equal "210 days" (Some 210)
             }
 
             test "toModel puts the body surface area of the Dto on the wire" {
-                let dto = stub |> ServerApi.Patient.ofModel readAt
+                let dto = stub |> ServerApi.Patient.ofModel
                 dto.BodySurfaceArea <- Some 1.1m
 
                 dto
@@ -286,12 +286,12 @@ let tests =
 
                 let dto =
                     { model with PostMenstrualAge = model.GestationalAge |> ServerApi.Age.postMenstrualAge model.Age }
-                    |> ServerApi.Patient.ofModel readAt
+                    |> ServerApi.Patient.ofModel
 
                 let back = dto |> ServerApi.Patient.toModel
 
                 (back.PostMenstrualAge |> Option.map (ServerApi.Age.weeksDaysInDays >> int),
-                 back |> ServerApi.Patient.ofModel readAt |> pmaDays)
+                 back |> ServerApi.Patient.ofModel |> pmaDays)
                 |> Expect.equal "241 days, 241 days" (Some 241, Some 241)
             }
 
@@ -398,7 +398,7 @@ let estimateTests =
     testList
         "the estimate at the platform boundary"
         [
-            test "an age alone gets the weight and height the client shows, as estimates" {
+            test "an age alone gets the weight and height the client shows, as estimates without a date" {
                 let pat =
                     PatientData.unknown
                     |> SamplePatients.withAge [ Years 2 ]
@@ -410,6 +410,11 @@ let estimateTests =
                  pat.Weight |> CoreWeight.isMeasured,
                  pat.Height |> CoreHeight.isMeasured)
                 |> Expect.equal "twelve kilograms, 87 centimetres, estimated" (Some 12N, Some 87N, false, false)
+
+                match pat.Weight.Calculation, pat.Height.Calculation with
+                | Some(CoreSource.Estimated w), Some(CoreSource.Estimated h) ->
+                    (w.Date, h.Date) |> Expect.equal "no dates" (None, None)
+                | other -> failtest $"no estimated weight and height: %A{other}"
             }
 
             test "the estimates give the body surface area of the estimated weight and height" {
@@ -566,9 +571,7 @@ let adultTests =
                             if days >= 0 then
                                 let shared = draft (Some days) marked None None
 
-                                match
-                                    shared |> ServerApi.Patient.ofModel readAt |> CorePatientData.Dto.fromDto readAt
-                                with
+                                match shared |> ServerApi.Patient.ofModel |> CorePatientData.Dto.fromDto readAt with
                                 | Ok lib ->
                                     shared
                                     |> ContractPatientData.isAdult
@@ -600,7 +603,7 @@ let adultTests =
                                 |> Expect.equal
                                     $"%A{age} %b{marked} %A{weight} %A{height}"
                                     (shared
-                                     |> ServerApi.Patient.ofModel readAt
+                                     |> ServerApi.Patient.ofModel
                                      |> CorePatientData.Dto.fromDto readAt
                                      |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
                                      |> CorePatientData.checkMinimumData
@@ -666,7 +669,7 @@ let adultTests =
                 |> Expect.equal "marked, an adult" (Ok(true, true))
 
                 marked
-                |> ServerApi.Patient.ofModel readAt
+                |> ServerApi.Patient.ofModel
                 |> ServerApi.Patient.toModel
                 |> _.AdultMark
                 |> Expect.equal "back" (AdultMark.MarkableAdult true)
@@ -752,7 +755,7 @@ let adultTests =
                     draft (Some(17 * 365)) true None None
                     draft (Some(40 * 365)) true None None
                 ]
-                |> List.map (ServerApi.Patient.ofModel readAt >> _.MarkedAdult)
+                |> List.map (ServerApi.Patient.ofModel >> _.MarkedAdult)
                 |> Expect.equal "only a marked patient" [ false; false; true; false ]
             }
 
@@ -823,7 +826,7 @@ let gestationalAgeTests =
                 [ 20; 365 ]
                 |> List.map (fun d ->
                     { full with Age = Some(ServerApi.Age.ofDays d) }
-                    |> ServerApi.Patient.ofModel readAt
+                    |> ServerApi.Patient.ofModel
                     |> ServerApi.Patient.toModel
                     |> _.GestationalAge
                 )
@@ -929,7 +932,7 @@ let coreTests =
                 |> Expect.equal "no department" (Ok None)
             }
 
-            test "the weight and the height get the date passed in" {
+            test "the weight and the height have no date" {
                 let dat =
                     stub
                     |> ServerApi.Patient.toCore readAt
@@ -937,7 +940,7 @@ let coreTests =
 
                 match dat.Weight.Calculation, dat.Height.Calculation with
                 | Some(CoreSource.Measured w), Some(CoreSource.Measured h) ->
-                    (w.Date, h.Date) |> Expect.equal "the date" (Some readAt, Some readAt)
+                    (w.Date, h.Date) |> Expect.equal "no dates" (None, None)
                 | other -> failtest $"no measured weight and height: %A{other}"
             }
 

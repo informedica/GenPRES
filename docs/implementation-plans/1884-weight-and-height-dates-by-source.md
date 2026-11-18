@@ -206,13 +206,21 @@ Each step is one pull request within the limit of 200 changed source lines.
    calls: in GenORDER `SamplePatients`, `OrderPlanTests`, `Tests`, `PlanOnDataTests`,
    `StrictPreparationTests` and `RuleCheckTests`, and in the server `MappersPatientTests` and
    `NutritionRuleSetsTests`.
-3. **Server.** `ofModel` sets undated values, and `estimated` sets undated estimates (decision 3), so
-   the patient data of a data notice has undated estimates too; the comment of `estimating` loses
-   "dated today". `Patient.estimated` (`Server/ServerApi.Mappers.Patient.fs:486`) and
+3. **Server.** `ofModel` sets undated values and no longer takes `today`. Neither do
+   `OrderContextMapper.ofModel` and `OrderPlanMapper.ofModel`, which pass it on only to `ofModel`.
+   Their callers still read the Dto on `today`. `estimated` sets undated estimates (decision 3), so the
+   patient data of a data notice has undated estimates too; the comment of `estimating` loses "dated
+   today". `Patient.estimated` (`Server/ServerApi.Mappers.Patient.fs:486`) and
    `Session.signedPatientDataAt` (`Server/ServerApi.Session.fs:751`) change the patient data through the
-   Dto instead of a record update with `calculateBodySurfaceArea`: they write the Dto, set or remove
-   the calculation weight and height on it, and read it back with `PatientData.Dto.fromDto`, raising
-   `invalidOp` when it refuses the Dto (decision 4). The `CoreSource` alias of `Session` (`:414`) then
+   Dto instead of a record update with `calculateBodySurfaceArea`. They write the Dto and set or remove
+   the calculation weight and height on it:
+   - `estimated` replaces the weight or the height that is not measured with the `Weight` or `Height`
+     of the estimate, written with `Weight.Dto.toDto` or `Height.Dto.toDto`.
+   - `signedPatientDataAt` removes the calculation weight or height that is not measured.
+
+   Both read the Dto back with a new helper of the patient mapper, `Patient.fromOwnDto`, which calls
+   `PatientData.Dto.fromDto` and raises `invalidOp` when it refuses the Dto (decision 4). `Session` thus
+   calls the patient mapper module for the first time. The `CoreSource` alias of `Session` (`:414`) then
    has no use and goes. Remove `challengeDate`, its port member and adapters, the branch in
    `SigningCommand` that reads a submission on the date of its challenge, and their tests. Delete
    `SessionMapper.noticeData` (`Server/ServerApi.Mappers.Session.fs:93`): the server only sends a data

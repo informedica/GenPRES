@@ -47,18 +47,7 @@ module SigningCommand =
                 then
                     return SigningResponse.Refused SigningRefusal.NoPatient
                 else
-                    // A submission is read on the date of its challenge. Otherwise a challenge made
-                    // before midnight and submitted after it would not match.
-                    let! today =
-                        match cmd with
-                        | SigningCommand.RequestSignChallenge _ -> async { return env.today () }
-                        | SigningCommand.Submit _ ->
-                            async {
-                                let! date = env.session.challengeDate id
-                                return date |> Option.defaultWith env.today
-                            }
-
-                    match plan |> OrderPlanCommand.parsePlan today with
+                    match plan |> OrderPlanCommand.parsePlan (env.today ()) with
                     | Error _ -> return SigningResponse.Refused SigningRefusal.PlanUnreadable
                     | Ok parsed ->
                         match cmd with

@@ -143,7 +143,6 @@ module StubAdapters =
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            challengeDate = fun _ -> async { return None }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }
@@ -4597,22 +4596,6 @@ module SessionStubTests =
                     | other -> failtest $"expected DataNotice, got {other}"
                 }
 
-                test "the date of a challenge is the local date it was made on, none without a challenge" {
-                    let challenge: Session.Challenge =
-                        {
-                            Nonce = "n-1"
-                            Digest = "d-1"
-                            EhrPatient = None
-                            Expiry = DateTime(2026, 9, 27, 0, 1, 30)
-                        }
-
-                    let state = { Session.emptyState with Challenges = Map.empty |> Map.add "s-1" challenge }
-
-                    (state |> Session.challengeDate TimeZoneInfo.Utc "s-1",
-                     state |> Session.challengeDate TimeZoneInfo.Utc "s-2")
-                    |> Expect.equal "made at 23:59:30 on 26-09-2026" (Some(DateTime(2026, 9, 26)), None)
-                }
-
                 testAsync "Submit: a challenge made before midnight is signed after midnight" {
                     let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
@@ -4631,7 +4614,7 @@ module SessionStubTests =
 
                     let! opened = sessionOf env cookie
 
-                    // the plan of a patient with a weight and a height, which get the date of the read
+                    // the plan of a patient with a weight and a height
                     let plan = OrderPlan.create StubEhrPatient.contractPatient [||]
 
                     let! challenge =
