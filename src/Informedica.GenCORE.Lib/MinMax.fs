@@ -542,44 +542,27 @@ module MinMax =
 
 
     /// Folds a list of ranges into one range, starting from the empty range. A minimum replaces the current
-    /// minimum when minCond holds, a maximum the current maximum when maxCond holds. A range without limits
-    /// clears the current minimum unless presMin is true and the current maximum unless presMax is true.
-    /// A range with only a minimum clears the current maximum unless presMin is true. A range with only
-    /// a maximum clears the current minimum unless presMax is true.
-    let foldCond presMin presMax minCond maxCond (mms: MinMax list) =
+    /// minimum when minCond holds, a maximum the current maximum when maxCond holds. A missing limit leaves
+    /// the current limit unchanged.
+    let foldCond minCond maxCond (mms: MinMax list) =
         mms
         |> List.fold
             (fun acc mm ->
                 match mm.Min, mm.Max with
-                | None, None ->
-                    match presMin, presMax with
-                    | true, true -> acc
-                    | true, false -> empty |> setMin acc.Min
-                    | false, true -> empty |> setMax acc.Max
-                    | false, false -> empty
-                | Some min, None ->
-                    if presMin then
-                        setMinCond minCond min acc
-                    else
-                        setMinCond minCond min acc |> setMax None
-                | None, Some max ->
-                    if presMax then
-                        setMaxCond maxCond max acc
-                    else
-                        setMaxCond maxCond max acc |> setMin None
+                | None, None -> acc
+                | Some min, None -> acc |> setMinCond minCond min
+                | None, Some max -> acc |> setMaxCond maxCond max
                 | Some min, Some max -> acc |> setMinCond minCond min |> setMaxCond maxCond max
             )
             empty
 
 
     /// Folds a list of ranges into the narrowest range, with the largest minimum and the smallest maximum.
-    let foldMinimize presMin presMax =
-        foldCond presMin presMax (Limit.gt true true) (Limit.st false false)
+    let foldMinimize = foldCond (Limit.gt true true) (Limit.st false false)
 
 
     /// Folds a list of ranges into the widest range, with the smallest minimum and the largest maximum.
-    let foldMaximize presMin presMax =
-        foldCond presMin presMax (Limit.st true true) (Limit.gt false false)
+    let foldMaximize = foldCond (Limit.st true true) (Limit.gt false false)
 
 
     /// Checks whether the value v lies in the range mm. An empty range contains every value.

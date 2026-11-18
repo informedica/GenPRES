@@ -438,10 +438,9 @@ module Tests =
             ]
 
 
-        // ToDo handle None cases correctly?
         let testFold () =
-            let maximize = MinMax.foldMaximize true true
-            let minimize = MinMax.foldMinimize true true
+            let maximize = MinMax.foldMaximize
+            let minimize = MinMax.foldMinimize
 
             let mms =
                 [
@@ -622,6 +621,57 @@ module Tests =
                         ]
 
                     test "minimize, maximize" { testFold () |> Expect.equal "should equal" ("10 mg - 40 mg", "30 mg") }
+
+                    testList
+                        "fold"
+                        [
+                            test "an empty list folds to the empty range" {
+                                [] |> MinMax.foldMinimize |> Expect.equal "minimize" MinMax.empty
+                                [] |> MinMax.foldMaximize |> Expect.equal "maximize" MinMax.empty
+                            }
+
+                            test "a range without limits keeps both current limits" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg10 mg30)
+
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg30)
+                            }
+
+                            test "a range with only a minimum keeps the current maximum" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMin mgIncl20 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg20 mg30)
+
+                                [ MinMax.createInclIncl mg20 mg30; MinMax.empty |> MinMax.setMin mgIncl10 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg30)
+                            }
+
+                            test "a range with only a maximum keeps the current minimum" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMax mgIncl20 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg10 mg20)
+
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMax mgIncl40 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg40)
+                            }
+
+                            test "minimize takes the largest minimum and the smallest maximum" {
+                                [ MinMax.createInclIncl mg10 mg40; MinMax.createInclIncl mg20 mg30 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "narrowest" (MinMax.createInclIncl mg20 mg30)
+                            }
+
+                            test "maximize takes the smallest minimum and the largest maximum" {
+                                [ MinMax.createInclIncl mg20 mg30; MinMax.createInclIncl mg10 mg40 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "widest" (MinMax.createInclIncl mg10 mg40)
+                            }
+                        ]
 
                     testList
                         "in range"
