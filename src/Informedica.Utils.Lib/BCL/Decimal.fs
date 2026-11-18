@@ -77,7 +77,7 @@ module Decimal =
                 let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
 
-                if int leftPart > 0 then
+                if leftPart <> "0" then
                     p
                 else
                     let rightPart = parts[1]
@@ -134,14 +134,15 @@ module Decimal =
             formattedInteger + "," + decimalPart
 
     /// Formats d as a Dutch number with at least n significant digits and without trailing zeros.
-    /// A negative n prints the number in full: it counts as 28, the most significant digits of a decimal.
+    /// A negative n prints the number in full, without rounding.
     /// Example: 0.0666m with n = 2 gives "0,067".
     let toStringNumberNLWithoutTrailingZerosFixPrecision n d =
-        let n = if n < 0 then 28 else n
+        // a decimal has at most 28 decimals
+        let decimals = if n < 0 then 28 else d |> roundingDecimals n
 
         d
         |> fixPrecision n
-        |> toStringNumberNL $"%i{d |> roundingDecimals n}"
+        |> toStringNumberNL $"%i{decimals}"
         |> String.removeTrailingZerosFromDutchNumber
 
 

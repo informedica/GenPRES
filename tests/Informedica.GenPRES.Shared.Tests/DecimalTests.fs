@@ -50,6 +50,12 @@ let tests =
             testList
                 "Math.fixPrecision"
                 [
+                    test "the float 3000000000.6 with 3 significant digits keeps its whole part" {
+                        3000000000.6
+                        |> Math.fixPrecision 3
+                        |> Expect.equal "the whole number" 3000000001.
+                    }
+
                     test "the float -0.1 with 0 significant digits is zero, without a minus sign" {
                         -0.1 |> Math.fixPrecision 0 |> string |> Expect.equal "no minus sign" "0"
                     }
@@ -99,6 +105,25 @@ let tests =
                             |> Decimal.toStringNumberNLWithoutTrailingZeros
                             |> Expect.equal "the Dutch text" exp
                         }
+
+                    // 3 000 000 000 is above the largest 32 bit whole number
+                    test "the decimal 3000000000 without a precision prints in full" {
+                        3000000000m
+                        |> Decimal.toStringNumberNLWithoutTrailingZeros
+                        |> Expect.equal "the Dutch text" "3 000 000 000"
+                    }
+
+                    test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
+                        3000000000.6m
+                        |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                        |> Expect.equal "the Dutch text" "3 000 000 001"
+                    }
+
+                    test "a decimal with 29 significant digits and a negative n prints every digit" {
+                        1.1234567890123456789012345678m
+                        |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                        |> Expect.equal "the Dutch text" "1,1234567890123456789012345678"
+                    }
 
                     test "the decimal 1e-27 with 3 significant digits prints with all its decimals" {
                         1e-27m

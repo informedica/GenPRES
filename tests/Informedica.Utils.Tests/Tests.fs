@@ -790,6 +790,37 @@ module Tests =
                                     d |> Decimal.toStringNumberNLWithoutTrailingZeros |> equals exp "the Dutch text"
                                 }
 
+                            // 3 000 000 000 is above the largest 32 bit whole number
+                            test "the decimal 3000000000 without a precision prints in full" {
+                                3000000000m
+                                |> Decimal.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
+                                3000000000.6m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                                |> equals "3 000 000 001" "the Dutch text"
+                            }
+
+                            test "a decimal with 29 significant digits and a negative n prints every digit" {
+                                1.1234567890123456789012345678m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "1,1234567890123456789012345678" "the Dutch text"
+                            }
+
+                            test "the float 3000000000 without a precision prints in full" {
+                                3e9
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the float 12.55 with a negative n prints as 12,55" {
+                                12.55
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "12,55" "the Dutch text"
+                            }
+
                             test "the decimal 1e-27 with 3 significant digits prints with all its decimals" {
                                 1e-27m
                                 |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3

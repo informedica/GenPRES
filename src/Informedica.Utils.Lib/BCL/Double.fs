@@ -108,7 +108,7 @@ module Double =
                 let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
 
-                if int leftPart > 0 then
+                if leftPart <> "0" then
                     p
                 else
                     let rightPart = parts[1]
@@ -189,7 +189,7 @@ module Double =
 
 
     /// Formats f as a Dutch number with at least n significant digits and without trailing zeros.
-    /// A negative n prints the number in full: it counts as 15, the most significant digits of a float.
+    /// A negative n counts as 15, the most significant digits that a float holds exactly.
     /// Example: 0.0666 with n = 2 gives "0,067".
     let toStringNumberNLWithoutTrailingZerosFixPrecision n f =
         let n = if n < 0 then 15 else n
