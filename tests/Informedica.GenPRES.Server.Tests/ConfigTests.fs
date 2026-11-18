@@ -213,6 +213,7 @@ let fromEnvTests =
                 s.Password |> Expect.isNone "no password"
                 s.TrustedProxies |> Expect.equal "loopback" loopback
                 s.Log |> Expect.equal "log" "0"
+                s.Debug |> Expect.equal "debug" "0"
                 s.Lang |> Expect.isNone "no language"
                 s.DbConnection |> Expect.isNone "no session store"
             }
