@@ -740,6 +740,154 @@ module Tests =
                     // * 6.6666 |> Double.fixPrecision 3 = 6.67
                     test "6.6666 |> Double.fixPrecision 3 = 6.67" { 6.6666 |> Double.fixPrecision 3 |> equals 6.67 "" }
 
+                    testList
+                        "toStringNumberNLWithoutTrailingZerosFixPrecision"
+                        [
+                            // the value, the number of significant digits and the expected text
+                            for d, n, exp in
+                                [
+                                    0.00123m, 3, "0,00123"
+                                    0.125m, 3, "0,125"
+                                    0.0666m, 2, "0,067"
+                                    0.035m, 2, "0,035"
+                                    0.0999m, 1, "0,1"
+                                    0.5m, 1, "0,5"
+                                    12.3456m, 3, "12,3"
+                                    105m, 3, "105"
+                                    1234.5678m, 3, "1 235"
+                                    0.0666m, 0, "0"
+                                    0m, 3, "0"
+                                    -0.00123m, 3, "-0,00123"
+                                    // a negative precision: the number in full
+                                    0.041666m, -1, "0,041666"
+                                    12.55m, -1, "12,55"
+                                ] do
+                                test $"the float %M{d} with %i{n} significant digits is %s{exp}" {
+                                    d
+                                    |> float
+                                    |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision n
+                                    |> equals exp "the Dutch text"
+                                }
+
+                                test $"the decimal %M{d} with %i{n} significant digits is %s{exp}" {
+                                    d
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n
+                                    |> equals exp "the Dutch text"
+                                }
+
+                            // the value and the expected text at 3 significant digits
+                            for d, exp in
+                                [
+                                    0.00123m, "0,00123"
+                                    1m / 3m, "0,333"
+                                    12.55m, "12,6"
+                                    125.55m, "126"
+                                    1234.6m, "1 235"
+                                    105m, "105"
+                                    0m, "0"
+                                ] do
+                                test $"the decimal %M{d} without a precision is %s{exp}" {
+                                    d |> Decimal.toStringNumberNLWithoutTrailingZeros |> equals exp "the Dutch text"
+                                }
+
+                            // 3 000 000 000 is above the largest 32 bit whole number
+                            test "the decimal 3000000000 without a precision prints in full" {
+                                3000000000m
+                                |> Decimal.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
+                                3000000000.6m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                                |> equals "3 000 000 001" "the Dutch text"
+                            }
+
+                            test "a decimal with 29 significant digits and a negative n prints every digit" {
+                                1.1234567890123456789012345678m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "1,1234567890123456789012345678" "the Dutch text"
+                            }
+
+                            test "the float 3000000000 without a precision prints in full" {
+                                3e9
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the float 12.55 with a negative n prints as 12,55" {
+                                12.55
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "12,55" "the Dutch text"
+                            }
+
+                            test "the decimal 1e-27 with 3 significant digits prints with all its decimals" {
+                                1e-27m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                                |> equals "0,000000000000000000000000001" "the Dutch text"
+                            }
+
+
+                            test "the float 1e-10 with 7 significant digits prints as 0,0000000001" {
+                                1e-10
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 7
+                                |> equals "0,0000000001" "the Dutch text"
+                            }
+
+                            test "the float -0.1 with 0 significant digits prints as 0" {
+                                -0.1
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 0
+                                |> equals "0" "the Dutch text"
+                            }
+
+                            test "the float 1/3 without a precision is 0,333" {
+                                1. / 3.
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "0,333" "the Dutch text"
+                            }
+
+                            // a decimal with at most 8 decimals, and a number of significant digits from 0 to 6
+                            let value (whole: int) (decimals: byte) = decimal whole / pown 10m (int decimals % 9)
+                            let digits (n: byte) = int n % 7
+                            // Reads a Dutch number text back as a decimal.
+                            let parse (s: string) = s.Replace(" ", "").Replace(",", ".") |> decimal
+
+                            testPropertyWithConfig
+                                config
+                                "the decimal text reads back as the value rounded to n significant digits"
+                            <| fun whole decimals n ->
+                                let d, n = value whole decimals, digits n
+
+                                d |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n |> parse =
+                                    (d |> Decimal.fixPrecision n)
+
+                            testPropertyWithConfig config "the decimal text has no trailing zeros after the comma"
+                            <| fun whole decimals n ->
+                                let s =
+                                    value whole decimals
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision (digits n)
+
+                                not (s.Contains ",") || not (s.EndsWith "0" || s.EndsWith ",")
+
+                            testPropertyWithConfig config "with a negative n, the text reads back as the value itself"
+                            <| fun whole decimals ->
+                                let d = value whole decimals
+
+                                d |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1 |> parse = d
+
+                            testPropertyWithConfig config "the float text is the decimal text of the same value"
+                            <| fun whole decimals n ->
+                                let f, n = value whole decimals |> float, digits n
+
+                                let expected =
+                                    f
+                                    |> Double.fixPrecision n
+                                    |> decimal
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n
+
+                                f |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision n = expected
+                        ]
+
                     testPropertyWithConfig config "for any valid float, this float can be converted to a fraction"
                     <| fun f ->
                         if f |> Double.isValid |> not then

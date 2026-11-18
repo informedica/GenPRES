@@ -116,7 +116,7 @@ module Math =
 
             let p = if p < 0 then 0 else p
 
-            if (int s[0]) > 0 then
+            if s[0] <> "0" then
                 p
             else
                 // Adds the zeros after the decimal point that come before the first non-zero digit.
@@ -125,8 +125,11 @@ module Math =
 
     /// Rounds f to the number of decimals that shows at least n significant digits.
     /// For example, 0.0666 |> fixPrecision 2 = 0.067 and 6.6666 |> fixPrecision 2 = 6.7.
-    /// A negative n counts as 0.
-    let fixPrecision n (f: float) = Math.Round(f, f |> getPrecision n)
+    /// A negative n counts as 0. The number of decimals is at most 15, because Math.Round takes at
+    /// most 15 decimals for a float.
+    let fixPrecision n (f: float) =
+        // Adding zero turns a negative zero into zero, so that it does not print as "-0".
+        Math.Round(f, f |> getPrecision n |> min 15) + 0.
 
 
 module List =
@@ -177,12 +180,17 @@ module Decimal =
                 let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
 
-                if int leftPart > 0 then
+                if leftPart <> "0" then
                     p
                 else
                     let rightPart = parts[1]
                     let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
                     zeroCount + p
+
+
+    /// Returns the number of decimals that d is rounded to for n significant digits.
+    /// The number is at most 28, because Math.Round takes at most 28 decimals for a decimal.
+    let roundingDecimals n (d: decimal) = d |> getPrecision n |> min 28
 
 
     /// Rounds d to the number of decimals that shows at least n significant digits.
@@ -197,7 +205,7 @@ module Decimal =
             // decimals as 0.04167. Multiplying by one stores the digits without those zeros; in .NET it
             // changes nothing.
             let d = d * 1m
-            Math.Round(d, d |> getPrecision n)
+            Math.Round(d, d |> roundingDecimals n)
 
 
     //----------------------------------------------------------------------------
@@ -228,15 +236,21 @@ module Decimal =
             formattedInteger + "," + decimalPart
 
 
-    /// Formats d as a Dutch number without trailing zeros. The number is first rounded to the default
-    /// number of decimals of the F format, two in .NET.
-    let toStringNumberNLWithoutTrailingZeros =
-        toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
+    /// Formats d as a Dutch number with at least n significant digits and without trailing zeros.
+    /// A negative n prints the number in full, without rounding.
+    /// Example: 0.0666m with n = 2 gives "0,067".
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n d =
+        // a decimal has at most 28 decimals
+        let decimals = if n < 0 then 28 else d |> roundingDecimals n
+
+        d
+        |> fixPrecision n
+        |> toStringNumberNL $"%i{decimals}"
+        |> String.removeTrailingZerosFromDutchNumber
 
 
-    /// Rounds d to at least n significant digits and formats it as a Dutch number without trailing zeros.
-    /// The formatting then rounds to two decimals in .NET, so 0.0666m with n = 2 gives "0,07".
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    /// Formats d as a Dutch number with at least 3 significant digits and without trailing zeros.
+    let toStringNumberNLWithoutTrailingZeros d = d |> toStringNumberNLWithoutTrailingZerosFixPrecision 3
 
 
 module Csv =
