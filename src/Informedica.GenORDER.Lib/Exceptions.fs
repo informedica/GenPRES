@@ -4,11 +4,12 @@ namespace Informedica.GenOrder.Lib
 module Exceptions =
 
 
-    /// Equation exception
+    /// Raised when an order cannot be solved or created.
     exception OrderException of Exceptions.Message
 
 
-    /// Raise an EquationException with Message m.
+    /// Logs the message and the order when a logger is given, then raises an OrderException that the
+    /// order could not be solved.
     let raiseExc log m o =
         match log with
         | Some log -> (m, o) |> Exceptions.OrderCouldNotBeSolved |> Logging.logError log

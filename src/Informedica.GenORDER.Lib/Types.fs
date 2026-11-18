@@ -30,13 +30,12 @@ module Types =
     /// </summary>
     type OrderVariable =
         {
-            /// The constraints the order builder writes from the rules and the products. No step changes
-            /// them. Only a patient data update does: the order then takes the defined constraints of
-            /// the order built again from the current rule, and the new adjust value.
+            /// The constraints set from the rules and the products. Only a patient data update changes
+            /// them, to the constraints and the adjust value of the order built again from the current rule.
             DefinedConstraints: Constraints
             /// The constraints calculated from the defined constraints by solving the order.
             CalculatedConstraints: Constraints
-            /// Stores the values/range
+            /// The current values or range of the variable
             Variable: Variable
 
         }
@@ -73,9 +72,9 @@ module Types =
         | SelectableList
         /// A minimum, an increment and a maximum; a value is selected without writing out the list.
         | SelectableRange
-        /// One value with an increment in its defined constraints, to step.
+        /// A single value with an increment in its defined constraints, so the value can be stepped.
         | Steppable
-        /// Nothing to choose.
+        /// The variable has no value to set.
         | NotSettable
 
 
@@ -182,13 +181,13 @@ module Types =
         }
 
 
-    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    /// A product a component can be made of, with the strength of each of its substances.
     type ComponentProduct =
         {
             /// The id of the product: a GPK, PRK or HPK
             Id: string
-            /// The quantities of the product as the component counts them: 1 mL for a liquid
-            /// that needs no reconstitution, the product's own quantities otherwise
+            /// The quantities of the product: 1 mL for a liquid that needs no reconstitution, otherwise
+            /// the quantities of the product itself
             FormQuantities: ValueUnit option
             /// The strength of each substance of the product; a substance without a concentration
             /// has no strength here
@@ -326,18 +325,16 @@ module Types =
         | IncreaseIncrements of Order
         | CalcValues of Order
         | ReCalcValues of Order
-        /// The order on a new value of what its doses are adjusted to, such as a new weight.
+        /// Recalculates the order for a new adjust value, such as a new weight.
         | Readjust of Order * ValueUnit
         | SolveOrder of Order
-        /// The order with each named component set to its quantity in the orderable, where the order allows it.
+        /// Sets each named component to the given quantity in the orderable, where the order allows it.
         | SetComponentQuantities of Order * (string * ValueUnit) list
         | ChangeProperty of Order * ChangePropertyCommand
 
-    /// Change an order property, either by
-    /// - Decrementing or Incrementing by using the set increment constraint.
-    ///   This can result in an in- or decrease below of above the min max constraint.
-    /// - Set to Min or Max. Uses the calculated min max constraints
-    /// - Set to Median. Uses the calculated values or the increment with a min and max constraint.
+    /// Changes an order property. A decrease or increase steps by the increment constraint and can go
+    /// below the min or above the max. Min and max set the calculated min or max. Median sets the median
+    /// of the calculated values, or of the increment between the min and the max.
     and ChangePropertyCommand =
         | DecreaseScheduleFrequency
         | IncreaseScheduleFrequency
@@ -361,7 +358,7 @@ module Types =
         | SetMaxComponentOrderableQuantity of cmp: string
         | SetMedianComponentOrderableQuantity of cmp: string
         | ComponentInStock of cmp: string * onlyInStock: bool
-        // the nth value of one variable, counted from 0
+        // Set the nth value of one variable, counted from 0.
         | SetNthScheduleFrequency of nth: int
         | SetNthScheduleTime of nth: int
         | SetNthOrderableQuantity of nth: int
@@ -378,7 +375,7 @@ module Types =
         | SetNthItemComponentConcentration of cmp: string * itm: string * nth: int
         | SetNthItemOrderableConcentration of cmp: string * itm: string * nth: int
         | SetNthItemOrderableQuantity of cmp: string * itm: string * nth: int
-        // one variable recalculated
+        // Recalculate one variable.
         | ReCalcScheduleTime
         | ReCalcOrderableQuantity
         | ReCalcComponentDoseQuantityAdjust of cmp: string
@@ -392,8 +389,7 @@ module Types =
         | ReCalcItemOrderableQuantity of cmp: string * itm: string
 
 
-    /// The variables of a dose. Total and TotalAdjust belong to Ordering: a recipe sets them back, a
-    /// client does not select them.
+    /// The variables of a dose. Total and TotalAdjust are only set back by a recipe, never selected.
     [<RequireQualifiedAccess>]
     type DoseProperty =
         | Quantity
@@ -449,30 +445,29 @@ module Types =
         | Median
         /// The nth value, counted from 0.
         | Nth of int
-        /// The value at that percentage of the way through the values, from 0 to 100.
+        /// The value at the given percentage through the values, from 0 to 100.
         | Percentile of int
-        /// The value that many increments up, or down when negative.
+        /// The value the given number of increments up, or down when the number is negative.
         | Step of int * StepIncrement
 
 
-    /// What the client asks the server to do with an order: the client names the variable, the
-    /// server chooses the recipe.
+    /// An action on an order. The action names the variable; the recipe that runs it is chosen per action.
     [<RequireQualifiedAccess>]
     type OrderAction =
-        /// Calculate the constraints of an order made from its medication: the defined constraints
-        /// applied, solved for min and max, the increments coarsened, the result recorded as the
-        /// calculated constraints, and the norm dose set where there is one.
+        /// Calculates the constraints of an order made from its medication: applies the defined constraints,
+        /// solves for min and max, coarsens the increments, stores the result as the calculated constraints
+        /// and sets the norm dose when there is one.
         | CalcConstraints
         /// Select a value for one variable.
         | Set of OrderVariableReference * Choice
-        /// Recalculate one variable: set it back with what depends on it, keep the rest.
+        /// Recalculates one variable: sets it and the variables that depend on it back, and leaves the rest.
         | ReCalc of OrderVariableReference
         /// Set every variable back to its calculated constraints.
         | Reset
-        /// Calculate the values to select from, as selecting a scenario does with its order.
+        /// Calculates the values to select from, as for the order of a selected scenario.
         | CalcValues
-        /// Follow the adjust value the order holds: what the patient gets stays, the calculated
-        /// constraints and the per kg or per m2 values are calculated again.
+        /// Recalculates the order for its current adjust value. The dose the patient gets stays the same;
+        /// the calculated constraints and the per kg or per m2 values are calculated again.
         | Readjust
         /// Set each named component to its quantity in the orderable, where the order allows it.
         | SetComponentQuantities of (string * ValueUnit) list
@@ -510,23 +505,23 @@ module Types =
         | Values
 
 
-    /// How many values a list made from a min, increment and max may hold: the cap of the dose type,
-    /// or its larger cap.
+    /// The maximum number of values in a list made from a min, increment and max: the default for the
+    /// dose type, or the larger one.
     [<RequireQualifiedAccess>]
     type ValueCap =
         | Default
         | Larger
 
 
-    /// Whether a list is made for the orderable dose rate too. The rate of a timed order waits until
-    /// its dose quantity holds one value.
+    /// Whether a list is made for the orderable dose rate too. A timed order gets a rate list only when
+    /// its dose quantity has a single value.
     [<RequireQualifiedAccess>]
     type RateList =
         | WithRate
         | WithoutRate
 
 
-    /// What happens to a rate list once it is made: its median selected, or the list kept.
+    /// Whether the median of a rate list is selected, or the whole list is offered.
     [<RequireQualifiedAccess>]
     type RateSelection =
         | SelectMedianRate
@@ -536,65 +531,65 @@ module Types =
     /// A state of an order an effect can depend on.
     [<RequireQualifiedAccess>]
     type OrderCondition =
-        /// Every dose variable holds one value.
+        /// Every dose variable has a single value.
         | DoseSolved
-        /// Every variable holds one value.
+        /// Every variable has a single value.
         | OrderSolved
-        /// The variables the values are made for hold a value list or one value.
+        /// Each variable that values are made for has a value list or a single value.
         | HasValues
-        /// The dose quantity, or on Continuous the rate, holds a value list or one value, so the norm
-        /// dose can be set.
+        /// The dose quantity, or the rate of a continuous order, has a value list or a single value, so
+        /// the norm dose can be set.
         | CanSetNormDose
 
 
     /// One effect on an order. An action is run as a list of effects.
     [<RequireQualifiedAccess>]
     type OrderEffect =
-        /// The current range of the variable set back to the target.
+        /// Sets the current range of the variable back to the target.
         | SetOrderVariableRangeBack of OrderVariableReference * SetBackTo
-        /// Every variable the kept variables do not determine set back to the target, except the
-        /// ones in stays. The variable a step moves is in stays: not kept, since its value changes,
-        /// and not set back, since the step gives it its value.
+        /// Sets back to the target every variable that the variables in kept do not determine, except
+        /// the variables in stays. A step puts the variable it moves in stays: its value changes and the
+        /// step sets that value.
         | SetBackUndetermined of kept: OrderVariableReference list * stays: OrderVariableReference list * SetBackTo
-        /// Every variable of the order set back to the target.
+        /// Sets every variable of the order back to the target.
         | SetAllOrderVariableRangesBack of SetBackTo
-        /// The current range of the variable narrowed to one value.
+        /// Narrows the current range of the variable to a single value.
         | ConstrainOrderVariableRange of OrderVariableReference * ValueUnit
-        /// The current range of the variable narrowed to the value the choice selects from the range
-        /// as it is when the effect runs.
+        /// Narrows the current range of the variable to the value the choice selects from the range at
+        /// the time the effect runs.
         | SelectOrderVariableValue of OrderVariableReference * Choice
-        /// The order solved.
+        /// Solves the order.
         | SolveOrder of SolveMode
-        /// The first component quantity, dose quantity or rate that is a min, increment and max made
-        /// a list, the order solved, and again until none is left. With an original order, a variable
-        /// made a list includes the value it held there when the pruning dropped it and the value
-        /// lies within its calculated constraints.
+        /// Turns the first component quantity, dose quantity or rate that is a min, increment and max into
+        /// a list of values and solves the order, until none is left. With an original order, the list
+        /// also has the value of the variable in that order, when the pruning dropped that value and it
+        /// lies within the calculated constraints.
         | EnumerateOrderVariableValues of ValueCap * RateList * original: Order option
-        /// The rate of a timed order made a list once its dose quantity holds one value; with an
-        /// original order, the rate includes the value it held there, as above.
+        /// Turns the rate of a timed order into a list once its dose quantity has a single value. With an
+        /// original order, the list also has the rate of that order, as for EnumerateOrderVariableValues.
         | EnumerateRateValues of ValueCap * RateSelection * original: Order option
-        /// The increment of the volume quantities made larger, so the orderable quantity holds at
-        /// most this many values; not on Continuous.
+        /// Makes the increment of the volume quantities larger, so the orderable quantity has at most
+        /// maxCount values. Does not apply to a continuous order.
         | CoarsenIncrements of maxCount: int
-        /// The current range of every variable stored as its calculated constraints.
+        /// Stores the current range of every variable as its calculated constraints.
         | RecordCalculatedConstraints
-        /// The dose set to the median of its values, and the order solved for min and max.
+        /// Sets the dose to the median of its values and solves the order for min and max.
         | SetNormDose
-        /// Each component quantity set to the value nearest above it, else below it, and the order
-        /// solved with values.
+        /// Sets each component quantity to the nearest value above it, else below it, and solves the order
+        /// with values.
         | SelectNearestComponentQuantity
-        /// The values a search proves impossible dropped from the list of the variable, and the order
-        /// solved with values, so the other lists follow; a value a search cannot decide stays. Only
-        /// when the dose count holds more than one value, the one case seen to offer values no
-        /// complete order reaches.
+        /// Drops the values a search proves impossible from the list of the variable and solves the order
+        /// with values, so the other lists follow. A value the search cannot decide stays. Runs only when
+        /// the dose count has more than one value, the only case found to offer values that no complete
+        /// order reaches.
         | DropImpossibleValues of OrderVariableReference
-        /// The effect, run only when none of the conditions holds on the order as it is then.
+        /// Runs the effect only when none of the conditions holds on the order at that time.
         | Unless of OrderCondition list * OrderEffect
-        /// The effects run in turn; when one fails, the order is kept as it was before the first.
+        /// Runs the effects in turn. When one fails, the order is returned as it was before the first effect.
         | Try of OrderEffect list
-        /// The calculated constraints worked out from the defined constraints by the effects, on a
-        /// copy of the order, so its values stay. Effects that fail leave the calculated constraints
-        /// as they are.
+        /// Calculates the calculated constraints from the defined constraints by running the effects on a
+        /// copy of the order, so the values of the order stay. When the effects fail, the calculated
+        /// constraints stay as they are.
         | RecalculateConstraints of OrderEffect list
 
 
@@ -615,9 +610,8 @@ module Types =
         | Unexpected of string
 
 
-    /// The recipes: a step or percentile named by its target, a recalculation by its kind. The kind
-    /// Dose recalculates the dose quantity, Per time the dose quantity and the frequency, and Time
-    /// the rate.
+    /// The recipes. A step or percentile recipe is named after its target variable. ReCalcDose recalculates
+    /// the dose quantity, ReCalcPerTime the dose quantity and the frequency, and ReCalcTime the rate.
     [<RequireQualifiedAccess>]
     type Recipe =
         | ScheduleFrequencyStep
@@ -630,7 +624,7 @@ module Types =
         | ReCalcTime
 
 
-    /// What a set of a variable with a choice does.
+    /// What setting a variable with a choice runs.
     [<RequireQualifiedAccess>]
     type SetCommand =
         /// No command sets the variable this way.
@@ -652,17 +646,15 @@ module Types =
         | TimedOrder
 
 
-    /// The representation of a medication order that
-    /// can be derived by a drug product inventory
-    /// and the related dose rule. A medication order maps
-    /// to an Orderable and a Prescription.
+    /// A medication order made from the products and the matching dose rule. It maps to the Orderable
+    /// and the Schedule of an Order.
     type Medication =
         {
             /// Identifies the specific medication order
             Id: string
             /// The name of the order
             Name: string
-            /// The list of drug products that can be used for the order
+            /// The product components that can be used for the order
             Components: ProductComponent list
             /// The min max quantity
             Quantity: MinMax
@@ -672,11 +664,9 @@ module Types =
             Route: string
             /// The type of order
             OrderType: OrderType
-            /// The unit to adjust the dose with
-            /// AdjustUnit : Unit option
             /// The list of possible frequency values
             Frequencies: ValueUnit option
-            /// The min and/or max time for the infusion time
+            /// The min and max of the infusion time
             Time: MinMax
             /// The dose limits for a medication order
             Dose: DoseLimit option
@@ -684,7 +674,7 @@ module Types =
             DoseCount: MinMax
             /// The number of equal parts one unit of the orderable can be divided into, set by a
             /// solution rule. The step of the orderable is 1 divided by this value, in the unit of
-            /// the orderable, and it takes the place of the Divisible of the components.
+            /// the orderable, and it replaces the Divisible of the components.
             Div: BigRational option
             /// The adjust quantity for the adjusted dose calculations
             Adjust: ValueUnit option
@@ -787,7 +777,7 @@ module Types =
     type NormDose = Informedica.GenForm.Lib.Types.NormDose
 
 
-    /// Type alias for the GenForm product component (formerly Product).
+    /// Type alias for ProductComponent from Informedica.GenForm.Lib.Types
     type Product = Informedica.GenForm.Lib.Types.ProductComponent
 
 
@@ -806,7 +796,7 @@ module Types =
         {
             /// The scenario number
             No: int
-            /// The generic of the order by its label, as the dose rules offer it
+            /// The label of the generic of the order, as in the dose rules
             Name: string
             /// The indication for the order
             Indication: string
@@ -824,8 +814,8 @@ module Types =
             Item: string option
             /// The list of diluents to choose from
             Diluents: string[]
-            /// The additives after the first component that the order holds. An additive the
-            /// selection left out is not among them; Filter.Components keeps every option.
+            /// The additives of the order, the components after the first. An additive the selection left
+            /// out is not in this list; Filter.Components lists every option.
             Components: string[]
             /// The list of substances to print out
             Items: string[]
@@ -845,16 +835,16 @@ module Types =
             RenalRule: string option
             /// Whether the order only fits its rule without the Divisible of its products
             FitsOnlyWithoutDivisible: bool
-            /// Whether the current patient gets no rule for the picks of the order, or other rules
-            /// than the patient of its context gets
+            /// Whether the current patient data select no rules, or other rules, for the filter choices of
+            /// the order than the patient data of its context
             RulesNoLongerApply: bool
-            /// Whether the order could not be calculated on the current patient data, so that it stands
-            /// as calculated on the patient data before; it is for the prescriber to accept or remove
+            /// Whether the order could not be calculated for the current patient data and shows the
+            /// calculation for the previous patient data; the prescriber accepts or removes the order
             NotRecalculated: bool
             /// Associated product identifiers
             ProductsIds: string[]
-            /// The access device the scenario's solution rule makes the preparation for; AnyAccess
-            /// when the rule names none or the scenario has no solution rule. Never the patient's access.
+            /// The access device the solution rule of the scenario prepares for; AnyAccess when the rule
+            /// names none or there is no solution rule. This is never the access device of the patient.
             Access: Informedica.GenForm.Lib.Types.AccessDevice
         }
 
@@ -874,10 +864,10 @@ module Types =
             DoseTypes: DoseType[]
             /// The list of diluents to choose from
             Diluents: string[]
-            /// The components a prescriber can switch on and off, the options of the selection
+            /// The optional components the prescriber can select or leave out
             Components: string[]
-            /// Every component of the dose rule, the main component first, in the order of the rule; set
-            /// from the first scenario, before a selection can leave an additive out
+            /// Every component of the dose rule in rule order, the main component first; set from the first
+            /// scenario, before a selection can leave out an additive
             DoseRuleComponents: string[]
             /// The selected indication
             Indication: string option
@@ -893,14 +883,14 @@ module Types =
             Diluent: string option
             /// Which optional components the prescriber selected, among the options in Components
             SelectedComponents: ComponentSelection
-            /// The products of the picked scenario. A rule splits per Divisible and the other fields
-            /// cannot tell these rules apart, so this says which one was picked.
+            /// The products of the selected scenario. A rule is split per Divisible, and only these products
+            /// tell the split rules apart.
             PickedProducts: string[]
         }
 
 
-    /// A field of the filter: a choice is the field with the index of its option, a clear is the
-    /// field alone.
+    /// A field of the filter. A choice names the field with the index of an option; a clear names only
+    /// the field.
     [<RequireQualifiedAccess>]
     type FilterField =
         | Indication
@@ -912,57 +902,52 @@ module Types =
         | Components
 
 
-    /// Where the choices of a filter come from when they are set from outside its own fields.
+    /// The source of filter choices that are not set through the fields of the filter.
     [<RequireQualifiedAccess>]
     type SeedSource =
-        /// The medication in the url, written over the filter as it is.
+        /// The medication in the URL, written over the current filter.
         | Url
         /// An item of the emergency or continuous medication list, written over an empty filter.
         | MedicationList
-        /// The choices of the formulary page.
+        /// The choices made in the formulary.
         | Formulary
-        /// The medication, route and form of the parenteralia page.
+        /// The medication, route and form chosen in the parenteralia.
         | Parenteralia
-        /// The rules reloaded: the filter evaluated again as it is.
+        /// A reload of the rules; the current filter is evaluated again.
         | Reload
 
 
     /// <summary>
-    /// The main communication object to transfer the
-    /// results of the solver to the client. The Filter
-    /// is used to select the correct scenario.
+    /// The filter, the patient data and the scenarios calculated for them. The filter selects the scenario.
     /// </summary>
     type OrderContext =
         {
             /// The filter for selecting scenarios
             Filter: Filter
-            /// The patient information
+            /// The patient data
             PatientData: PatientData
             /// The list of available scenarios
             Scenarios: OrderScenario[]
-            /// What the clinician wrote when the dose left what the rules allow; none until
-            /// written. Kept as written: the client normalises it, the server caps its length.
+            /// The reason the prescriber gives for a dose outside what the rules allow; None when no reason
+            /// is given. Stored as written: the client normalises the text and the server limits its length.
             Argumentation: string option
         }
 
 
-    /// Why an evaluation is refused: the picks of the filter match no dose rule, the picked rule
-    /// needs a measurement the patient does not have or a diluent the formulary does not have, the
-    /// order cannot be solved with a change to it, or the change sets a dose per kg or per m2 the
-    /// order does not have.
+    /// Why an evaluation is refused.
     [<RequireQualifiedAccess>]
     type Refusal =
-        /// No dose rule exists for the picks at all.
+        /// No dose rule exists for the filter choices.
         | NoDoseRules
-        /// Dose rules exist for the picks, and none of them covers this patient.
+        /// Dose rules exist for the filter choices, and none of them covers this patient.
         | NoDoseRulesForPatient
-        /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+        /// Dose rules cover the filter choices and the patient, and none of them can be prescribed: no
         /// product, or no dose type.
         | NoProducts
-        /// Dose rules cover the picks and the patient, and each needs a weight, or a weight and a
-        /// height, the patient does not have.
+        /// Dose rules cover the filter choices and the patient, and each needs a weight, or a weight and
+        /// a height, the patient does not have.
         | MeasurementMissing
-        /// Dose rules cover the picks and the patient, and each medication is given undiluted
+        /// Dose rules cover the filter choices and the patient, and each medication is given undiluted
         /// while its concentration limit allows none of its product concentrations.
         | NoDiluent
         /// The order cannot be solved with the change; the order stays as it was.
@@ -981,9 +966,8 @@ module Types =
         | Refused of 'a * Refusal
 
 
-    /// The kinds of nutrition order an order plan holds, one context per category
-    /// except supplements (any number, each under a feeding) and the electrolyte
-    /// and glucose lines (any number).
+    /// The categories of nutrition order. An order plan has one context per category, except for any
+    /// number of supplements, each under an enteral feeding, and any number of electrolyte and glucose orders.
     [<RequireQualifiedAccess>]
     type NutritionCategory =
         | EnteralFeeding
@@ -993,9 +977,9 @@ module Types =
         | ElectrolyteGlucose
 
 
-    /// What kind of order an order context holds: a medication, or a nutrition order of
-    /// one category. Recorded on the context, never derived from the generic, since
-    /// electrolytes and glucose are prescribable as drugs too.
+    /// The category of the order in an order context: medication, or a nutrition category. It is stored
+    /// on the context, not derived from the generic, because electrolytes and glucose can also be
+    /// prescribed as medication.
     [<RequireQualifiedAccess>]
     type OrderCategory =
         | Medication
@@ -1003,61 +987,56 @@ module Types =
 
 
     /// <summary>
-    /// An order context as held in an order plan: its id in the plan, its category,
-    /// the context itself, its totals, and the context whose order is its main order. The
-    /// context is wrapped, not extended, so evaluation and the equation system never see the
-    /// plan's bookkeeping.
+    /// An order context in an order plan, with its id, its category, its totals and the link to its
+    /// main order. The plan data wrap the context, so evaluation and the equation system never see them.
     /// </summary>
     /// <remarks>
-    /// The totals are computed when the context is evaluated and copied unchanged
-    /// everywhere else, so a stored plan holds the totals the prescriber saw.
+    /// The totals are calculated when the context is evaluated and copied unchanged otherwise, so a
+    /// stored plan has the totals the prescriber saw.
     /// </remarks>
     type PlanContext =
         {
-            /// The context's id in the order plan
+            /// The id of the context in the order plan
             Id: string
-            /// A medication, or the nutrition category the context holds
+            /// Medication, or the nutrition category of the order
             Category: OrderCategory
-            /// The order context, evaluated within its own patient
+            /// The order context, evaluated with its own patient data
             Context: OrderContext
-            /// The totals over the one scenario the context is narrowed to
+            /// The totals of the single scenario the context is narrowed to
             Totals: Totals
-            /// The id of the plan context that holds the main order of this order; none for an order
-            /// that is not linked
+            /// The id of the plan context with the main order of this order; None when the order is not
+            /// linked
             LinkedTo: string option
         }
 
 
     /// <summary>
-    /// The one order plan for a patient: the patient data as shown, the plan's
-    /// contexts, the ids the row filter keeps, and the totals over the orders of the
-    /// filtered contexts. Its orders are derived, the scenario of every narrowed
-    /// context; nothing beside the contexts is stored.
+    /// The order plan of a patient. The orders of the plan are the scenarios of its narrowed contexts
+    /// and are not stored apart from the contexts.
     /// </summary>
     type OrderPlan =
         {
-            /// The patient data as shown to the prescriber
+            /// The patient data the plan is calculated with
             PatientData: PatientData
-            /// The ids of the contexts the row filter keeps; empty for all of them
+            /// The ids of the contexts the filter selects; empty when it selects all contexts
             Filtered: string[]
-            /// Every order context of the plan, drug and nutrition alike
+            /// Every order context of the plan, medication and nutrition
             Contexts: PlanContext[]
             /// The totals over the orders of the filtered contexts
             Totals: Totals
         }
 
 
-    /// What a nutrition category draws from: data passed in by the composition
-    /// root, never a constant in this library.
+    /// The dose rule selection of a nutrition category, passed in as data and not defined in this library.
     type NutritionRuleSet =
         {
             /// The category the set serves
             Category: NutritionCategory
-            /// The label shown for the category
+            /// The label of the category
             Label: string
-            /// The indications the category's dose rules are filtered on
+            /// The indications the dose rules of the category are filtered on
             Indications: string[]
-            /// The generics the category's dose rules are filtered on
+            /// The generics the dose rules of the category are filtered on
             Generics: string[]
         }
 
@@ -1069,27 +1048,27 @@ module Types =
         | NoSuchMainOrder of id: string
         /// The main order with the id is itself linked to another order
         | MainOrderLinked of id: string
-        /// No link rule links the order to the main order, named by its generic
+        /// No link rule links the order with the given generic to the main order
         | NotAllowed of generic: string
         /// A link rule requires a main order for the order, and the order is not linked
         | MainOrderRequired
 
 
-    /// Why an order plan refuses a change. The words shown for each are the server's, so
-    /// that the label of a category stays out of the domain.
+    /// Why an order plan refuses a change. The server writes the message for each case, so the label of
+    /// a category stays out of the domain.
     [<RequireQualifiedAccess>]
     type OrderPlanError =
         /// The plan holds no context with the id
         | NoSuchContext of id: string
-        /// The order context holds the number of candidates, not one order
+        /// The order context has the given number of candidate scenarios, not a single one
         | NotNarrowed of candidates: int
-        /// The plan already holds the order
+        /// The plan already has the order
         | OrderHeld of orderId: string
-        /// The rule sets name a category the code does not know
+        /// A rule set names an unknown category
         | UnknownCategory of name: string
-        /// The rule sets have no rule set for the category
+        /// No rule set exists for the category
         | NoRuleSet of NutritionCategory
-        /// The plan refuses the link of the context to its main order, for the reason
+        /// The plan refuses the link of the context to its main order, for the given reason
         | BrokenLink of LinkError
         /// The plan refuses one order of a group add, named by its generic, for the reason given
         | OrderRefused of generic: string * OrderPlanError
@@ -1098,13 +1077,13 @@ module Types =
     /// Why a Dto does not parse to its domain value.
     [<RequireQualifiedAccess>]
     type DtoError =
-        /// A dose type string the Dto carries that names no dose type
+        /// A dose type string that names no dose type
         | UnknownDoseType of string
-        /// A text block kind the Dto carries that names no kind
+        /// A text block kind string that names no text block kind
         | UnknownTextKind of string
         /// The order of a scenario could not be created from its Dto
         | OrderNotCreated of string
-        /// An order category string the Dto carries that names no category
+        /// An order category string that names no order category
         | UnknownCategory of string
         /// A Dto that is null after JSON deserialization, with the name of the field or the path of
         /// the array item
@@ -1113,22 +1092,22 @@ module Types =
         | PatientData of string
         /// The patient data is not enough to select rules.
         | PatientDataNotEnough of PatientDataError
-        /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
-        /// with the reader's message, its line and its column
+        /// A text that is not a valid document of the expected shape: not YAML, a wrong type or an
+        /// unknown key. The message is the reader error with its line and column.
         | Unreadable of message: string
-        /// A number that is neither a decimal nor a fraction, by the path of its field
+        /// A number that is neither a decimal nor a fraction, with the path of its field
         | NotANumber of path: string * number: string
-        /// A unit that does not parse, by the path of its field
+        /// A unit that does not parse, with the path of its field
         | UnknownUnit of path: string * unit: string
-        /// A unit that does not fit its field, as an adjusted limit without an adjust unit, by the
-        /// path of its field
+        /// A unit that does not fit its field, such as an adjusted limit without an adjust unit, with
+        /// the path of its field
         | WrongUnit of path: string * reason: string
-        /// An order type that names no case of OrderType, by the path of its field
+        /// An order type that names no case of OrderType, with the path of its field
         | UnknownOrderType of path: string * orderType: string
-        /// A product a strength of which names no substance of its component, or a substance
-        /// without concentrations in the strength's unit group, by the path of the product
+        /// A product with a strength that names no substance of its component, or a substance without
+        /// concentrations in the unit group of the strength, with the path of the product
         | NotMadeOf of path: string * productId: string
-        /// The plan context with the id has a link the plan refuses, for the reason
+        /// The plan context with the id has a link the plan refuses, for the given reason
         | BrokenLink of contextId: string * LinkError
 
 

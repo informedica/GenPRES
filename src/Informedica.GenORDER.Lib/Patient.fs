@@ -79,9 +79,9 @@ module Patient =
     let getAge (p: PatientData) = p.Age |> Option.map partsOfAge |> Option.defaultValue []
 
 
-    /// The patient with the post-menstrual age GenCORE calculates from its age and its gestational
-    /// age; none without either. The setters of the age and of the gestational age both call it, so
-    /// the order they are called in does not matter.
+    /// Sets the post-menstrual age that GenCORE calculates from the age and the gestational age, or
+    /// None when either is missing. The age and gestational age setters both call this function, so
+    /// the order of those calls does not matter.
     let withPMAge (p: PatientData) =
         { p with PostMenstrualAge = Option.map2 CoreAgeWeeksDays.postMenstrualAge p.Age p.GestationalAge }
 

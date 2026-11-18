@@ -21,7 +21,7 @@ module OrderLogging =
     module FormLogging = Informedica.GenForm.Lib.FormLogging
 
 
-    /// Convenience functions for logging order events
+    /// Logs an order event at the informative level.
     let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
 
 
@@ -119,7 +119,8 @@ module OrderLogging =
         | Exceptions.OrderCouldNotBeCreated exn -> $"Order could not be created:\n%A{exn}"
 
 
-    /// Format order messages using the IMessage interface
+    /// Formats an order message or a GenFORM message as text.
+    /// Returns a notice with the type name for any other message.
     let formatOrderMessage (msg: IMessage) : string =
         match msg with
         | :? OrderMessage as orderMsg ->
@@ -131,7 +132,9 @@ module OrderLogging =
         | _ -> $"Unknown message type: {msg.GetType().Name}"
 
 
-    /// Enhanced print function that can handle messages with context
+    /// Formats an order message as text. For an order that could not be solved, adds the order equations of the
+    /// first solver error found in msgs and logs the text. Logs an error and returns an empty string
+    /// for a message that is not an order message.
     let printOrderMsgWithContext logger (msgs: ResizeArray<float * Event> option) (msg: Event) =
         match msg.Message with
         | :? OrderMessage as m ->
@@ -185,7 +188,8 @@ messages: {msgs.Value.Count}
             ""
 
 
-    /// Backward compatibility - create a logger that matches the old interface
+    /// Creates a logger that formats order and solver messages and passes each non-empty text to f.
+    /// The logger is enabled for every level.
     let create (f: string -> unit) =
         let formatter =
             MessageFormatter.create
@@ -206,17 +210,13 @@ messages: {msgs.Value.Count}
         }
 
 
-    /// A logger that does nothing
+    /// A logger that does nothing.
     let noOp = Logging.noOp
 
 
-    /// <summary>
-    /// Prints the scenarios for a given list of orders
-    /// </summary>
-    /// <param name="logger">The logger</param>
-    /// <param name="verbose">Also print the Order</param>
-    /// <param name="ns">The items to print</param>
-    /// <param name="orders">The list of Orders</param>
+    /// Logs the prescription, preparation and administration text of each order, with the adjust quantity of the
+    /// first order in the heading. The names in ns select the orderable items to print. When verbose is true, also
+    /// logs the full order.
     let printScenarios logger verbose ns (orders: Order list) =
         let w =
             match orders with
