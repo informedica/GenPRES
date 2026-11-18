@@ -36,6 +36,11 @@ let ovarWith u v calc def =
     }
 
 
+/// The order variable without a value, a minimum and a maximum.
+let withoutBounds (ovar: OrderVariable) =
+    { ovar with Variable = { ovar.Variable with Values = Unrestricted } }
+
+
 let valueOf ovar =
     ovar |> OrderVariable.solvedValue |> Option.map ValueUnit.getValue
 
@@ -140,6 +145,32 @@ let tests =
                         |> OrderVariable.increase true 1
                         |> valueOf
                         |> Expect.equal "5.5 mL" (Some [| 11N / 2N |])
+                    }
+
+                    for n, exp in [ 1, 1N / 10N; 2, 2N / 10N; 3, 3N / 10N; 10, 1N ] do
+                        test
+                            $"%i{n} small steps up without a minimum and a maximum give %s{exp |> BigRational.toString}" {
+                            ovarWith mLPerHour 10N (Some(1N / 10N)) (Some(1N / 10N))
+                            |> withoutBounds
+                            |> OrderVariable.increase false n
+                            |> valueOf
+                            |> Expect.equal "n times the increment of 0.1 mL/hour" (Some [| exp |])
+                        }
+
+                    test "a large step up without a minimum and a maximum gives the large increment, 1" {
+                        ovarWith mLPerHour 10N (Some(1N / 10N)) (Some(1N / 10N))
+                        |> withoutBounds
+                        |> OrderVariable.increase true 1
+                        |> valueOf
+                        |> Expect.equal "1 mL/hour" (Some [| 1N |])
+                    }
+
+                    test "a small step down without a minimum and a maximum gives the increment, 0.1" {
+                        ovarWith mLPerHour 10N (Some(1N / 10N)) (Some(1N / 10N))
+                        |> withoutBounds
+                        |> OrderVariable.decrease false 1
+                        |> valueOf
+                        |> Expect.equal "0.1 mL/hour" (Some [| 1N / 10N |])
                     }
                 ]
 
