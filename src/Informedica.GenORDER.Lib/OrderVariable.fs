@@ -412,8 +412,7 @@ module OrderVariable =
             let toVal =
                 ValueUnit.getValue
                 >> Array.tryHead
-                >> Option.map BigRational.toDecimal
-                >> Option.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
+                >> Option.map (BigRational.formatDecimal (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3))
                 >> Option.defaultValue ""
 
             match cs.Min |> Option.map Minimum.toValueUnit, cs.Max |> Option.map Maximum.toValueUnit with
@@ -424,7 +423,7 @@ module OrderVariable =
                     cs
                     |> getNorm
                     |> Option.map toStr
-                    |> Option.defaultValue $"%s{min |> toVal} - %s{max |> toStr}"
+                    |> Option.defaultWith (fun () -> $"%s{min |> toVal} - %s{max |> toStr}")
             | _ -> ""
 
 

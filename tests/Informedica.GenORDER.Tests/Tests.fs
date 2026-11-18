@@ -1713,6 +1713,9 @@ module ConstraintsTests =
 
     let private noConstraints = Constraints.create None None None None
 
+    /// The value 10 to the power 30, which is above the largest decimal.
+    let private beyondDecimal = List.replicate 30 10N |> List.reduce (*)
+
     /// The constraints of a dose limit with the minimum lo and the maximum hi in milligram.
     /// Equal bounds are stored as a norm dose when calcNormDose is true.
     let private limitedWith calcNormDose lo hi =
@@ -1855,6 +1858,20 @@ module ConstraintsTests =
                     limited 1N 2N
                     |> Constraints.toMinMaxString 3
                     |> Expect.equal "the range" "1 - 2 mg"
+                }
+
+                test "toMinMaxString of a norm dose beyond a decimal is the norm dose" {
+                    limited beyondDecimal beyondDecimal
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose in full" "1000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString of a range beyond a decimal is the minimum and the maximum" {
+                    limited beyondDecimal (2N * beyondDecimal)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal
+                        "the range in full"
+                        "1000000000000000000000000000000 - 2000000000000000000000000000000 mg"
                 }
 
                 test "toMinMaxString without bounds is an empty text" {
