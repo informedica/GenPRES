@@ -92,6 +92,9 @@ module Types =
             /// The post-menstrual age the server calculates from the age and the gestational age. The client
             /// never calculates it.
             PostMenstrualAge: AgeWeeksDays option
+            /// The body surface area in m2 the server calculates from the weight and the height. The client
+            /// never calculates it.
+            BodySurfaceArea: decimal option
             Weight: Weight
             Height: Height
             Gender: Gender

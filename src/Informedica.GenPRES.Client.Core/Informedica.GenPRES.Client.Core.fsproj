@@ -12,7 +12,6 @@
     <!-- the code from Shared the client alone uses; it reads only Shared -->
     <Compile Include="Models/Terms.fs" />
     <Compile Include="Models/LocalizationText.fs" />
-    <Compile Include="Models/BodySurfaceArea.fs" />
     <Compile Include="Models/RenalFunctionText.fs" />
     <Compile Include="Models/PatientRead.fs" />
     <Compile Include="Models/PatientText.fs" />

@@ -17,6 +17,7 @@ open Informedica.GenCore.Lib
 
 module Lib = Informedica.GenForm.Lib.Types
 module GA = Informedica.GenPRES.Shared.Models.GestationalAge
+module ContractPatientData = Informedica.GenPRES.Shared.Models.PatientData
 module Measures = Informedica.GenPRES.Shared.Measures
 module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
@@ -247,6 +248,29 @@ let tests =
                 |> Expect.equal "210 days" (Some 210)
             }
 
+            test "toModel puts the body surface area of the Dto on the wire" {
+                let dto = stub |> ServerApi.Patient.ofModel readAt
+                dto.BodySurfaceArea <- Some 1.1m
+
+                dto
+                |> ServerApi.Patient.toModel
+                |> _.BodySurfaceArea
+                |> Expect.equal "1.1 m2" (Some 1.1m)
+            }
+
+            test "the body surface area is the one GenCORE calculates, none without a height or a patient" {
+                [
+                    stub
+                    { stub with AdultMark = AdultMark.MarkableAdult true }
+                    { stub with Height = { stub.Height with Measured = None } }
+                    ContractPatientData.empty
+                ]
+                |> List.map (ServerApi.Patient.bodySurfaceArea readAt)
+                |> Expect.equal
+                    "32 kg and 140 cm, also marked as an adult under 16; no height; no patient"
+                    [ Some 1.1m; Some 1.1m; None; None ]
+            }
+
             test "toModel puts the post-menstrual age on the wire, and ofModel reads it back" {
                 let gest: AgeWeeksDays =
                     {
@@ -325,11 +349,11 @@ let tests =
             }
 
             test "the refusals keep the server's words" {
-                Informedica.GenPRES.Shared.Models.PatientData.empty
+                ContractPatientData.empty
                 |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no patient" (Error [| ServerApi.Patient.noPatient |])
 
-                { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = stub.Age }
+                { ContractPatientData.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse readAt
                 |> Expect.equal "no weight" (Error [| ServerApi.Patient.noWeight |])
             }
@@ -514,7 +538,7 @@ let estimateTests =
 /// The draft with an age in days, the mark as an adult as the server sets it for the choice of the
 /// user, and the measured weight in kg and height in cm.
 let draft days marked weight height : Informedica.GenPRES.Shared.Types.PatientData =
-    let empty = Informedica.GenPRES.Shared.Models.PatientData.empty
+    let empty = ContractPatientData.empty
     let age = days |> Option.map ServerApi.Age.ofDays
 
     { empty with
@@ -547,13 +571,13 @@ let adultTests =
                                 with
                                 | Ok lib ->
                                     shared
-                                    |> Informedica.GenPRES.Shared.Models.PatientData.isAdult
+                                    |> ContractPatientData.isAdult
                                     |> Expect.equal $"%i{days} days, marked %b{marked}" (lib |> PatientData.isAdult)
                                 | Error errs -> failtest $"%i{days} days, marked %b{marked}: %A{errs}"
 
                 for marked in [ false; true ] do
                     draft None marked None None
-                    |> Informedica.GenPRES.Shared.Models.PatientData.isAdult
+                    |> ContractPatientData.isAdult
                     |> Expect.equal $"no age, marked %b{marked}" marked
             }
 
@@ -570,7 +594,7 @@ let adultTests =
                                 let shared = draft age marked weight height
 
                                 shared
-                                |> Informedica.GenPRES.Shared.Models.PatientData.validate
+                                |> ContractPatientData.validate
                                 |> Result.map ignore
                                 |> Result.mapError libError
                                 |> Expect.equal
@@ -685,7 +709,7 @@ let adultTests =
                 [ 191; 192; 215; 216 ]
                 |> List.map (fun months ->
                     let age =
-                        Informedica.GenPRES.Shared.Models.PatientData.Age.create
+                        ContractPatientData.Age.create
                             (Informedica.GenPRES.Shared.Measures.toYear 0)
                             (Some(Informedica.GenPRES.Shared.Measures.toMonth months))
                             None
@@ -834,11 +858,11 @@ let withEstimatesTests =
                     }
 
                 let model =
-                    { Informedica.GenPRES.Shared.Models.PatientData.empty with
+                    { ContractPatientData.empty with
                         Age = Some(ServerApi.Age.ofDays (10 * 365))
                         Gender = Male
                         Height =
-                            { Informedica.GenPRES.Shared.Models.PatientData.empty.Height with
+                            { ContractPatientData.empty.Height with
                                 Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
                             }
                     }

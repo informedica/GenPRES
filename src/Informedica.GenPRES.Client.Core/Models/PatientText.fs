@@ -96,17 +96,6 @@ module PatientText =
                 | _ -> $"{y}"
 
 
-    let calcBSA (pat: PatientData) =
-        match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
-        | None, None, _, _
-        | _, _, None, None -> None
-
-        | Some w, _, Some h, _
-        | Some w, _, None, Some h
-        | None, Some w, Some h, _
-        | None, Some w, None, Some h -> BodySurfaceArea.calcDuBois w h |> Some
-
-
     /// Returns the translated word for the gender and age group, such as Boy or Female. Uses isAdult,
     /// which takes the adult mark into account.
     let genderWord tr (pat: PatientData) =
@@ -217,13 +206,7 @@ module PatientText =
 
 
             Some $"%s{text Terms.``Patient BSA``}:" |> italic
-            pat
-            |> calcBSA
-            |> Option.map (fun x ->
-                let x = x |> float |> Math.fixPrecision 2
-                $"{x} m2"
-            )
-            |> bold
+            pat.BodySurfaceArea |> Option.map (fun bsa -> $"%s{bsa |> string} m2") |> bold
 
             if pat.GestationalAge |> GestationalAge.mayBeGiven then
                 (Some $", %s{text Terms.``Patient GA Age``}:") |> italic

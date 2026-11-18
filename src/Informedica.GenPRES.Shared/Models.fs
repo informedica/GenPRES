@@ -57,6 +57,7 @@ module Models =
                 Age = None
                 GestationalAge = GestationalAge.NoGestationalAge
                 PostMenstrualAge = None
+                BodySurfaceArea = None
                 Weight =
                     {
                         EstimatedP3 = None
@@ -222,6 +223,7 @@ module Models =
                 Age = a
                 GestationalAge = ga
                 PostMenstrualAge = None
+                BodySurfaceArea = None
                 Weight =
                     {
                         EstimatedP3 = None

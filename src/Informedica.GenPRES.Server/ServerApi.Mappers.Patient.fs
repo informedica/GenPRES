@@ -260,6 +260,7 @@ module Patient =
         dto.MarkedAdult <- model.AdultMark = AdultMark.MarkableAdult true
         dto.GestationalAge <- model.GestationalAge |> GestationalAge.value |> Option.map weeksDays
         dto.PostMenstrualAge <- model.PostMenstrualAge |> Option.map weeksDays
+        dto.BodySurfaceArea <- model.BodySurfaceArea
         dto.Access <- model.Access |> List.map (coreAccess >> CoreAccess.toString) |> List.toArray
         dto.RenalFunction <- model.RenalFunction |> Option.map renalString
 
@@ -362,6 +363,7 @@ module Patient =
             Age = age
             GestationalAge = dto.GestationalAge |> Option.map weeksDays |> Age.gestationalAge age
             PostMenstrualAge = dto.PostMenstrualAge |> Option.map weeksDays
+            BodySurfaceArea = dto.BodySurfaceArea
             Weight =
                 {
                     EstimatedP3 = None
@@ -421,6 +423,17 @@ module Patient =
             CorePatientData.checkMinimumData
             >> Result.mapError (notEnoughMessage >> Array.singleton)
         )
+
+
+    /// Returns the body surface area in m2 that GenCORE calculates for the contract patient on today's date.
+    /// None when the patient data is invalid or has no weight and height.
+    let bodySurfaceArea today model =
+        model
+        |> ofModel today
+        |> CorePatientData.Dto.fromDto today
+        |> Result.toOption
+        |> Option.bind _.BodySurfaceArea
+        |> Option.map decimal
 
 
     /// Maps the contract patient to GenCORE patient data and checks that the rules can be looked up:

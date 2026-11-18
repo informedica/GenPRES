@@ -65,6 +65,11 @@ let tests =
                     (Some 28000<gram>, Some 32000<gram>, Some 140<cm>)
             }
 
+            test "the answer has the body surface area of the weight and height in use" {
+                (changed loaded None (ageOnly 10 |> withWeight 28000<gram>)).BodySurfaceArea
+                |> Expect.equal "28 kg measured and 140 cm estimated" (Some 1.1m)
+            }
+
             test "the gestational age with the need the age gives, and the post-menstrual age of it" {
                 let ga30: AgeWeeksDays =
                     {

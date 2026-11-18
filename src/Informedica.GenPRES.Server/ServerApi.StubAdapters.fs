@@ -147,26 +147,6 @@ module StubDirectory =
 /// patient id no-data has no record, so the session opens on the last signed data or on no data.
 module StubEhrPatient =
 
-    /// The fixed stub patient as contract patient data: 10 years, 32 kg and 140 cm, nothing else known.
-    let contractPatient: PatientData =
-        Informedica.GenPRES.Shared.Models.PatientData.create
-            (Some(Informedica.GenPRES.Shared.Measures.toYear 10))
-            None
-            None
-            None
-            (Some 32000)
-            (Some 140)
-            None
-            None
-            UnknownGender
-            []
-            None
-            None
-        |> Option.defaultValue Informedica.GenPRES.Shared.Models.PatientData.empty
-        // Set the adult mark from the age, as the server does.
-        |> fun pat -> { pat with AdultMark = pat.AdultMark |> Age.adultMark pat.Age }
-
-
     open Informedica.GenCore.Lib
     open Informedica.GenCore.Lib.Patients
 
@@ -198,6 +178,11 @@ module StubEhrPatient =
             (Height.create [ height ] None (Some(Measured height)))
             None
         |> Patient.createAt now (PatientIdentity.create pid name birthDate |> Some)
+
+
+    /// The fixed stub patient as contract patient data, as the server sends it: 10 years, 32 kg and 140 cm,
+    /// nothing else known.
+    let contractPatient = patient measuredOn "any" |> _.Data |> Patient.ofPatientData
 
 
     /// A patient of the stub EHR that the stub launch page offers by its PatientId.

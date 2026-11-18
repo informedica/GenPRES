@@ -4,7 +4,6 @@
 
 #load "../Models/Terms.fs"
 #load "../Models/LocalizationText.fs"
-#load "../Models/BodySurfaceArea.fs"
 #load "../Models/RenalFunctionText.fs"
 #load "../Models/PatientRead.fs"
 #load "../Models/PatientText.fs"

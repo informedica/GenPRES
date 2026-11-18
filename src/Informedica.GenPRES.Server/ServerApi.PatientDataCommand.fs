@@ -19,20 +19,20 @@ module PatientDataCommand =
 
     /// Completes the patient data: sets the need for the gestational age from the age, drops a
     /// gestational age that is not needed, calculates the post-menstrual age, sets the adult mark,
-    /// and adds the weight and height estimates.
+    /// adds the weight and height estimates, and sets the body surface area.
     let processCmd (env: AppEnv) (cmd: PatientDataCommand) =
         async {
             match cmd with
             | PatientDataCommand.ChangePatientData pat ->
                 let ga = pat.GestationalAge |> GestationalAge.value |> Age.gestationalAge pat.Age
 
-                return
-                    Ok(
-                        { pat with
-                            GestationalAge = ga
-                            PostMenstrualAge = ga |> Age.postMenstrualAge pat.Age
-                            AdultMark = pat.AdultMark |> Age.adultMark pat.Age
-                        }
-                        |> Patient.estimate env.normalValues
-                    )
+                let pat =
+                    { pat with
+                        GestationalAge = ga
+                        PostMenstrualAge = ga |> Age.postMenstrualAge pat.Age
+                        AdultMark = pat.AdultMark |> Age.adultMark pat.Age
+                    }
+                    |> Patient.estimate env.normalValues
+
+                return Ok { pat with BodySurfaceArea = pat |> Patient.bodySurfaceArea (env.today ()) }
         }
