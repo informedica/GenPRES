@@ -679,9 +679,11 @@ let buildDockerImage () =
         | "" -> []
         | platform -> [ "--platform"; platform ]
 
+    // The final stage uses the floating aspnet:10.0 tag, and without --pull a machine that still holds
+    // an older copy builds an image with an older ASP.NET Core runtime, one that may lack a security fix.
     run
         docker
-        ([ "build" ]
+        ([ "build"; "--pull" ]
          @ platformArgs
          @ [ "--build-arg"; $"APP_VERSION={version}"; "-t"; dockerImage; "." ])
         "."
