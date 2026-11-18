@@ -1043,6 +1043,21 @@ module Tests =
                                 |> equals None "no decimal form"
                             }
 
+                            test "formatDecimal of a value within the range of a decimal uses the format function" {
+                                1N / 2N |> BigRational.formatDecimal string |> equals "0.5" "the decimal text"
+                            }
+
+                            for sign, exp in
+                                [
+                                    1N, "10000000000000000000000000000000000000000/3"
+                                    -1N, "-10000000000000000000000000000000000000000/3"
+                                ] do
+                                test $"formatDecimal of %s{exp} is the fraction" {
+                                    sign * BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40)) / 3N
+                                    |> BigRational.formatDecimal string
+                                    |> equals exp "the fraction"
+                                }
+
                             for br, exp in [ 1N / 2N, "0.5"; 1N / 3N, "1/3"; -7N / 3N, "-7/3"; 500N, "500" ] do
                                 test $"toStringExact of %s{br |> BigRational.toString} is %s{exp}" {
                                     br |> BigRational.toStringExact |> equals exp "the exact text"

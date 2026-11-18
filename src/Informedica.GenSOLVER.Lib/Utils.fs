@@ -102,8 +102,7 @@ module Utils =
 
             let vs =
                 v
-                |> Array.map BigRational.toDecimal
-                |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
+                |> Array.map (BigRational.formatDecimal (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec))
                 |> Array.distinct
                 |> String.concat "; "
                 |> sprintf "#%s#"
