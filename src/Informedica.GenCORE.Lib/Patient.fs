@@ -757,8 +757,8 @@ module BirthDate =
         let dto () = Dto()
 
 
-        /// Validates a Dto as a birth date: a valid date from 1900 on, less than 120 years of 365 days
-        /// before today.
+        /// Validates a Dto as a birth date: a valid date from 1900 on, not after today and less than 120 years
+        /// of 365 days before today.
         let fromDto (today: DateTime) (dto: Dto) =
             validate {
                 let! y = Validation.yearValidator "Year" dto.Year
@@ -769,7 +769,12 @@ module BirthDate =
 
                 and! _ = Validation.ageValidator "Valid Age" (today, y, m, d)
 
-                return create y m d
+                let birthDate = create y m d
+
+                // A let! and not an and!: toDate needs a date that the date validator accepted.
+                let! _ = Validators.notAfterValidator today "Birth date" (birthDate |> toDate)
+
+                return birthDate
             }
 
 

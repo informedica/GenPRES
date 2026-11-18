@@ -438,10 +438,9 @@ module Tests =
             ]
 
 
-        // ToDo handle None cases correctly?
         let testFold () =
-            let maximize = MinMax.foldMaximize true true
-            let minimize = MinMax.foldMinimize true true
+            let maximize = MinMax.foldMaximize
+            let minimize = MinMax.foldMinimize
 
             let mms =
                 [
@@ -622,6 +621,57 @@ module Tests =
                         ]
 
                     test "minimize, maximize" { testFold () |> Expect.equal "should equal" ("10 mg - 40 mg", "30 mg") }
+
+                    testList
+                        "fold"
+                        [
+                            test "an empty list folds to the empty range" {
+                                [] |> MinMax.foldMinimize |> Expect.equal "minimize" MinMax.empty
+                                [] |> MinMax.foldMaximize |> Expect.equal "maximize" MinMax.empty
+                            }
+
+                            test "a range without limits keeps both current limits" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg10 mg30)
+
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg30)
+                            }
+
+                            test "a range with only a minimum keeps the current maximum" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMin mgIncl20 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg20 mg30)
+
+                                [ MinMax.createInclIncl mg20 mg30; MinMax.empty |> MinMax.setMin mgIncl10 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg30)
+                            }
+
+                            test "a range with only a maximum keeps the current minimum" {
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMax mgIncl20 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "minimize" (MinMax.createInclIncl mg10 mg20)
+
+                                [ MinMax.createInclIncl mg10 mg30; MinMax.empty |> MinMax.setMax mgIncl40 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "maximize" (MinMax.createInclIncl mg10 mg40)
+                            }
+
+                            test "minimize takes the largest minimum and the smallest maximum" {
+                                [ MinMax.createInclIncl mg10 mg40; MinMax.createInclIncl mg20 mg30 ]
+                                |> MinMax.foldMinimize
+                                |> Expect.equal "narrowest" (MinMax.createInclIncl mg20 mg30)
+                            }
+
+                            test "maximize takes the smallest minimum and the largest maximum" {
+                                [ MinMax.createInclIncl mg20 mg30; MinMax.createInclIncl mg10 mg40 ]
+                                |> MinMax.foldMaximize
+                                |> Expect.equal "widest" (MinMax.createInclIncl mg10 mg40)
+                            }
+                        ]
 
                     testList
                         "in range"
@@ -1458,6 +1508,13 @@ module Tests =
 
             let intGenerator s n = Gen.sample s n Arb.generate<int>
 
+            /// Today at 10:00. A birth date tomorrow is then less than one day after today, so a check on the whole
+            /// number of days would accept it.
+            let today = DateTime(2026, 11, 18, 10, 0, 0)
+
+            /// The birth date Dto of the date dt.
+            let ofDate (dt: DateTime) = dt |> BirthDate.fromDate |> BirthDate.Dto.toDto
+
 
             let tests =
                 testList
@@ -1470,6 +1527,38 @@ module Tests =
                             dto
                             |> BirthDate.Dto.fromDto (DateTime(2026, 1, 1))
                             |> Expect.isError "126 years"
+                        }
+
+                        test "a birth date tomorrow is refused" {
+                            today.AddDays 1.
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "tomorrow"
+                        }
+
+                        test "a birth date next year is refused" {
+                            today.AddYears 1
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "next year"
+                        }
+
+                        test "a birth date today is accepted" {
+                            today |> ofDate |> BirthDate.Dto.fromDto today |> Expect.isOk "today"
+                        }
+
+                        test "a birth date yesterday is accepted" {
+                            today.AddDays -1.
+                            |> ofDate
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isOk "yesterday"
+                        }
+
+                        test "an invalid birth date is refused without an exception" {
+                            BirthDate.create 2020<year> 2<month> 30<day>
+                            |> BirthDate.Dto.toDto
+                            |> BirthDate.Dto.fromDto today
+                            |> Expect.isError "30 February does not exist"
                         }
 
                         test "should always return a valid date" {

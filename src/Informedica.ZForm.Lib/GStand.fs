@@ -328,8 +328,8 @@ module GStand =
         |}
 
 
-    /// fold maximize with preservation of min
-    let foldMaximize (mm: MinMax) (mm_: MinMax) = [ mm; mm_ ] |> MinMax.foldMaximize true true
+    /// Folds two ranges into the widest range, with the smallest minimum and the largest maximum.
+    let foldMaximize (mm: MinMax) (mm_: MinMax) = [ mm; mm_ ] |> MinMax.foldMaximize
 
 
     /// <summary>
