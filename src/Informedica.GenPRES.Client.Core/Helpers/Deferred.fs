@@ -30,8 +30,8 @@ module Deferred =
             | Refreshing value -> Refreshing(transform value)
 
 
-        /// A value kept while a fetch runs again stays kept: a Resolved answer of the function over it
-        /// is Refreshing.
+        /// Applies a function that returns a Deferred to the value. A Resolved result for a Refreshing
+        /// value stays Refreshing, so the value still shows as reloading.
         let bind (transform: 'T -> Deferred<'U>) (deferred: Deferred<'T>) : Deferred<'U> =
             match deferred with
             | HasNotStartedYet -> HasNotStartedYet

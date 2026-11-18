@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.MachinePolicies
 
-/// Decides whether the application has started: it is on hold until everything the page load
-/// asked for has answered and the loads it cannot be used without have loaded. A required load
-/// that failed keeps it on hold and is named, so a list is never silently empty.
+/// Decides whether the application has started. It waits until every request of the page load has
+/// answered and every required load has loaded. A failed required load stops the start and is named,
+/// so a list is never silently empty.
 module StartupPolicy =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -16,16 +16,16 @@ module StartupPolicy =
     /// Where the start-up is.
     [<RequireQualifiedAccess>]
     type Startup =
-        /// Something is still out, or a required load has not loaded yet.
+        /// A request is still pending, or a required load has not loaded yet.
         | Starting
-        /// Nothing is out and every required load has loaded.
+        /// No request is pending and every required load has loaded.
         | Started
-        /// These required loads failed; only a reload of the page goes on.
+        /// These required loads failed; only a page reload can continue.
         | Failed of Load list
 
 
-    /// Where the start-up is, from the requests out, the required loads that loaded and the loads
-    /// that failed. The drug names never hold it, as BusyPolicy.any leaves them out.
+    /// Returns the start-up status from the pending requests, the loaded loads and the failed loads. The
+    /// medication names and totals loads do not delay the start, because BusyPolicy.any ignores them.
     let status out loaded failed =
         match required |> List.filter (fun load -> failed |> List.contains load) with
         | [] when
@@ -38,8 +38,8 @@ module StartupPolicy =
 
 
     /// The English of the start-up terms, used when the sheet has no row for a term or has not
-    /// loaded; the localization itself may be the load that failed. Any other term is the session
-    /// gate's.
+    /// loaded; the localization itself may be the load that failed. Any other term falls back to
+    /// SessionGatePolicy.english.
     let english (term: Terms) =
         match term with
         | Terms.``Startup Gate Starting`` -> "Starting GenPRES"
@@ -89,14 +89,14 @@ module StartupPolicy =
                 }
 
 
-    /// What the gate shows: the session's gate when the session has one, else the start-up's.
+    /// Returns the gate to show: the session gate when the session has one, else the start-up gate.
     let gate tr startup session =
         SessionGatePolicy.gateFor tr session |> Option.orElse (startupGate tr startup)
 
 
-    /// Whether the gate covers the application: until it has started, and while the session's
-    /// gate does. The session's gate waits for a signature under way: a submission out when the
-    /// session ended still tells its outcome, and the gate follows it.
+    /// Whether the gate covers the application: until start-up completes, and while the session gate is
+    /// shown and no signature is under way. A submission sent before the session ended still shows its
+    /// outcome before the session gate covers the application.
     let isGated startup session signing =
         startup <> Startup.Started
         || (SessionGatePolicy.isGated session && not (SigningPolicy.underWay signing))

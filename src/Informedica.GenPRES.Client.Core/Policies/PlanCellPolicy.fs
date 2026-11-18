@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides which cells of the order plan table the user can step, and which order variable a
-/// cell steps: a cell opens a quantity field only for a variable the plan context rule lets
-/// change, of a context that is not locked, whose value can be stepped now.
+/// Decides which cells of the order plan table the user can step, and which order variable a cell
+/// steps. A cell opens a quantity field only when the plan context policy lets the variable change,
+/// the context is not locked, and the value can be stepped.
 module PlanCellPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -11,7 +11,7 @@ module PlanCellPolicy =
     /// A column of the order plan table.
     [<RequireQualifiedAccess>]
     type Column =
-        /// The medication's name.
+        /// The medication name.
         | Medication
         /// The route.
         | Route
@@ -25,10 +25,9 @@ module PlanCellPolicy =
         | Dose
 
 
-    /// The field and the order variable a column shows that has a step command, by the order's
-    /// schedule; nothing for a column whose variable has none. The frequency column shows the dose
-    /// rate of a continuous order, and the solution column its orderable quantity, which has no
-    /// step command.
+    /// Returns the field and order variable with a step command that a column shows, by the schedule of
+    /// the order; None when the column has no such variable. For a continuous order the frequency column
+    /// shows the dose rate, and the solution column shows the orderable quantity, which has no step command.
     let fieldOf (column: Column) (ord: Order) : (QuantityModePolicy.Field * OrderVariable) option =
         let schedule = ord.Schedule
 
@@ -52,8 +51,8 @@ module PlanCellPolicy =
         | Column.Dose -> None
 
 
-    /// The field and the order variable that a cell of a context steps, over the plan given; nothing when
-    /// the cell keeps its text.
+    /// Returns the field and order variable that a cell of a context steps in the given plan; None when the
+    /// cell shows only text.
     let stepable plan (ctx: OrderContext) (column: Column) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
         |> Option.filter (fun _ -> not (PlanContextPolicy.locked plan ctx))

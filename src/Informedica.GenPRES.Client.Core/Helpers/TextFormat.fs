@@ -12,5 +12,5 @@ module TextFormat =
         && s |> Seq.forall (fun c -> c >= '0' && c <= '9')
 
 
-    /// A moment as the user reads it: the local time of day.
+    /// Formats a moment as the local time of day, such as 14:05.
     let time (at: System.DateTime) = at.ToLocalTime().ToString "HH:mm"

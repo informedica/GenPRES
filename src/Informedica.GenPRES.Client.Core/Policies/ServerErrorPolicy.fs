@@ -1,9 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides how long a server error stays on the banner. An error is the answer to one kind of
-/// request, so the next successful answer of that kind replaces it; an answer of another kind
-/// says nothing about it and leaves it. An unreachable server is cleared only by a server
-/// check that succeeds, and that check clears every error, since the server answers again.
+/// Decides how long a server error stays on the banner. The next successful answer to the same kind of
+/// request clears the error; answers to other kinds leave it. A successful server check clears every
+/// error, and is the only answer that clears an unreachable server error.
 module ServerErrorPolicy =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -45,7 +44,7 @@ module ServerErrorPolicy =
         }
 
 
-    /// The error a failed request of source raises, with the first three errors, each cut at 200
+    /// Creates the error for a failed request of this source, with the first three errors, each cut at 200
     /// characters.
     let raised source (errs: string[]) =
         let cut (s: string) = if s.Length > 200 then s[..199] + "..." else s
@@ -56,8 +55,8 @@ module ServerErrorPolicy =
         }
 
 
-    /// The banner after a successful answer of source: gone when that source raised it, or when
-    /// the server check succeeded; kept otherwise.
+    /// Returns the banner error after a successful answer of this source: None when this source raised it
+    /// or when the server check succeeded; unchanged otherwise.
     let clearedBy source (error: ServerError option) =
         match error with
         | Some e when e.Source = source || source = ErrorSource.Server -> None

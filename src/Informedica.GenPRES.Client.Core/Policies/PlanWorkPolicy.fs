@@ -20,7 +20,7 @@ module PlanWorkPolicy =
 
         /// Whether a plan command changes the plan: evaluating an order context, adding an order, opening a
         /// new nutrition context and removing contexts do; a row filter and opening a version do not. A
-        /// patient update does not by itself: its answer shows whether the orders changed.
+        /// patient data update does not by itself; the returned plan shows whether the orders changed.
         let changedBy (cmd: OrderPlanCommand) =
             match cmd with
             | OrderPlanCommand.UpdatePatientData _
@@ -31,5 +31,5 @@ module PlanWorkPolicy =
             | OrderPlanCommand.RemoveOrderContexts _ -> true
 
 
-        /// The plan's state after a command.
+        /// The plan work state after a command.
         let afterCommand (cmd: OrderPlanCommand) (work: PlanWork) = if changedBy cmd then PlanWork.Changed else work

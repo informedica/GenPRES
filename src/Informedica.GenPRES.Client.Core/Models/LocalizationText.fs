@@ -1,6 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// The translated terms, and the flag of a language, as the pages show them.
+/// Looks up translated terms and the flag of a language.
 module LocalizationText =
 
     open Informedica.GenPRES.Shared
@@ -20,12 +20,9 @@ module LocalizationText =
         | Italian -> "\U0001F1EE\U0001F1F9"
 
 
-    /// Looks up a translated string for `term` in `locale` from a `string[][]`
-    /// matrix produced by `Csv.parseCSV` on the "Localization" Google Sheet.
-    ///
-    /// ⚠️  Column positions are **hardcoded** (English = 1, Dutch = 2, …).
-    /// Reordering columns in the spreadsheet will silently return wrong
-    /// translations.
+    /// Looks up the translation of a term for a locale in the rows of the Localization sheet. Returns None
+    /// and prints a message when the term or its translation is missing. The column of each language is
+    /// fixed (English 1, Dutch 2, ...), so reordering the sheet columns gives wrong translations.
     let getTerm (terms: string[][]) locale term =
         let term = $"{term}".Trim()
 

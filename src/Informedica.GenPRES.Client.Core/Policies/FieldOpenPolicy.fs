@@ -1,9 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides whether a field of an order is selectable. An order variable never offers the cross that
-/// empties it: a field with one value is recalculated instead, when the intent policy allows it,
-/// since clearing it only has the solver fill it again. Decides too which filter fields of a linked offer
-/// take a pick.
+/// Decides whether an order field is selectable, and which filter fields of a linked offer can change.
+/// An order variable has no clear button, because the solver would fill it again. A field with a single
+/// value is recalculated instead when the intent policy allows it.
 module FieldOpenPolicy =
 
     open Informedica.GenPRES.Shared.Models
@@ -14,7 +13,7 @@ module FieldOpenPolicy =
     type Selectable =
         /// The server recalculates the field and its answer opens as a list.
         | ReCalc
-        /// The list of the values the field holds opens.
+        /// The list of the field values opens.
         | List
         /// Not selectable: nothing to choose, or a value no recalculation is allowed on.
         | No
@@ -36,8 +35,8 @@ module FieldOpenPolicy =
     type AfterReCalc =
         /// The list opens with the values answered, one or more.
         | ShowList
-        /// No values were answered, so no list opens: the field shows its range, whose click picks the
-        /// median when it can step, or a range it cannot move.
+        /// No values were returned, so no list opens. The field shows its range; a click on it picks the
+        /// median when the range has a step.
         | NoList
 
 
@@ -49,9 +48,9 @@ module FieldOpenPolicy =
         | _ -> AfterReCalc.ShowList
 
 
-    /// Whether a filter field of a linked offer takes a pick or a clear: only the form does. The link rule
-    /// decides the generic, the indication, the route and the dose type of the offer, and a change of one of
-    /// them could widen the offer to the dose of its main order.
+    /// Whether a filter field of a linked offer can be picked or cleared: only the form can. The link rule
+    /// sets the generic, indication, route and dose type of the offer; changing one of them could widen the
+    /// offer to the dose of its main order.
     let offerFilter (field: OrderContext.FilterField) =
         match field with
         | OrderContext.FilterField.Form -> true

@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// The body surface area by the Du Bois formula, and the conversions it needs. Takes weight in
-/// integer grams and height in integer centimetres, as the Shared patient holds them, and returns
-/// BSA in m². Reference: Du Bois D, Du Bois EF. Arch Intern Med 1916;17:863-71
+/// Calculates the body surface area in m² with the Du Bois formula from a weight in grams and a height
+/// in centimetres. Reference: Du Bois D, Du Bois EF. Arch Intern Med 1916;17:863-71
 module BodySurfaceArea =
 
     open Informedica.GenPRES.Shared.Types
@@ -19,16 +18,13 @@ module BodySurfaceArea =
         let gramToKg (w: int<gram>) : float<kg> = (float w / 1000.0) * 1.0<kg>
 
 
-        /// Convert integer centimetres to float centimetres (lifts int → float).
+        /// Convert integer centimetres to float centimetres.
         let intCmToFloat (h: int<cm>) : float<cm> = float h * 1.0<cm>
 
 
-    // -- Internal raw formula (dimensionless float → dimensionless float) --
-
+    // The Du Bois formula on a weight in kg and a height in cm, both without a unit of measure.
     let private duBois w h = 0.007184 * (w ** 0.425) * (h ** 0.725)
 
-
-    // -- Public typed wrapper -----------------------------------------------
 
     /// Calculate BSA (m²) using the Du Bois formula.
     let calcDuBois (weight: int<gram>) (height: int<cm>) : float<bsa> =

@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides which component and which item an order dialog shows. The choice is the dialog's own:
-/// it changes no order, so the dialog keeps it while it shows the same order, and takes it from
-/// the scenario only when it opens or shows another order.
+/// Decides which component and item an order dialog shows. The choice changes no order, so the dialog
+/// reuses it for the same order and takes it from the scenario when it opens or shows another order.
 module DialogTabPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -17,10 +16,10 @@ module DialogTabPolicy =
         }
 
 
-    /// The tab for the scenario: the one kept, for the same order while its component is still
-    /// there; otherwise the scenario's own. The component is the one chosen or the first, the item
-    /// the one chosen among the component's substances or its first; an additional substance is
-    /// never shown.
+    /// Returns the tab for a scenario. The previous tab is reused for the same order while its component
+    /// still exists; otherwise the scenario component and item are used. Without a chosen component the
+    /// first is shown. The item is the chosen substance or the first one; an additional substance is never
+    /// shown.
     let tab (kept: Tab option) (sc: OrderScenario) =
         let components = sc.Order.Orderable.Components
 

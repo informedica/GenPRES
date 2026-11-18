@@ -1,9 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.Helpers
 
 
-/// Reads what a url carries. The router gives the url as its segments; a "#/patient?..." url
-/// carries an anonymous patient, a page, a language, the disclaimer and a medication, a
-/// "#/session?..." url a launch or the refusal of one.
+/// Parses a url from its router segments. A "#/patient?..." url gives an anonymous patient, a page, a
+/// language, the disclaimer setting and a medication; a "#/session?..." url gives a launch or its refusal.
 module Url =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -14,8 +13,8 @@ module Url =
     open Informedica.GenPRES.Shared.Models
 
 
-    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
-    /// reason the return from the IdentityProvider refused it.
+    /// The content of a "#/session?..." url: the launch with which MainEHR opened GenPRES, or the reason
+    /// the IdentityProvider refused the launch.
     [<RequireQualifiedAccess>]
     type LaunchUrl =
         | Launch of Launch
@@ -33,21 +32,19 @@ module Url =
         |}
 
 
-    /// A part of the url that did not parse; it names no value, since the values are patient data.
+    /// A part of the url that did not parse. It contains no values, because the values are patient data.
     [<RequireQualifiedAccess>]
     type UrlPart =
-        /// A "#/patient?..." url with neither a birth year nor an age in days, with the names of the
-        /// parameters it did give.
+        /// A "#/patient?..." url without a valid age, with the names of the parameters it gave.
         | Patient of parameters: string list
         /// A url that is neither a patient nor a session url, with its first segment.
         | Route of segment: string
 
 
-    /// What a url carries: a "#/patient?..." url its patient, page, language, disclaimer and
-    /// medication, a "#/session?..." url its launch or refusal.
+    /// The parsed content of a url.
     type UrlParts =
         {
-            /// The patient, when the url gives a birth date or an age.
+            /// The anonymous patient, when the url gives a valid age.
             Patient: PatientData option
             /// The page, when the url names one.
             Page: Page.Page option
@@ -106,7 +103,7 @@ module Url =
         |> List.ofArray
 
 
-    /// The whole number of a parameter, when it is given and is one.
+    /// Returns the integer value of a parameter, or None when it is missing or not an integer.
     let tryInt key parameters =
         match parameters |> Map.tryFind key with
         | Some(s: string) ->
@@ -116,7 +113,7 @@ module Url =
         | None -> None
 
 
-    /// The fixed vocabulary of "#/session?refused={reason}"; an unknown reason is invalid.
+    /// Parses the reason of a "#/session?refused={reason}" url. An unknown reason gives LaunchInvalid.
     let parseRefusal reason =
         match reason with
         | "expired" -> LaunchRefusal.LaunchExpired
@@ -129,8 +126,8 @@ module Url =
         | _ -> LaunchRefusal.LaunchInvalid
 
 
-    /// The launch token of a "#/session?launch={token}" url, opaque to the client, or the
-    /// refusal of a "#/session?refused={reason}" url. Both are erased the same way.
+    /// Parses the launch token of a "#/session?launch={token}" url, which the client does not read, or the
+    /// refusal of a "#/session?refused={reason}" url. Returns None for any other url.
     let parseLaunch segments =
         match segments with
         | [ "session"; segment ] ->
@@ -143,9 +140,8 @@ module Url =
         | _ -> None
 
 
-    /// The age a "#/patient?..." url gives in parts: yrs years, mos months, wks weeks and dys days,
-    /// a part not given counted as zero. None when the url gives no part, or when a given part is
-    /// not a whole number of zero or more.
+    /// Parses the age parts yrs, mos, wks and dys of a "#/patient?..." url; a missing part counts as 0.
+    /// Returns None when no part is given, or when a given part is not a whole number of 0 or more.
     let parseAge parameters =
         let part key =
             match parameters |> Map.tryFind key with
@@ -166,7 +162,7 @@ module Url =
             |> Some
 
 
-    /// The anonymous patient of a "#/patient?..." url of this age.
+    /// Creates the anonymous patient of a "#/patient?..." url with the given age.
     let parsePatient (age: PatientData.Age) parameters =
         let cvl =
             match parameters |> Map.tryFind "cvl" with
@@ -188,8 +184,7 @@ module Url =
             (parameters |> Map.tryFind "dep")
 
 
-    /// The page of a "pag" code. Settings, the admin page behind the password, has none, so that no
-    /// link opens it.
+    /// Returns the page for a "pag" code. Settings, the admin page, has no code, so that no link opens it.
     let parsePage code =
         match code with
         | "el" -> Some Page.Page.LifeSupport
@@ -203,8 +198,8 @@ module Url =
         | _ -> None
 
 
-    /// What the url of these segments carries. A "#/session..." url carries none of the patient's
-    /// parts: the session supplies the patient. A patient url, as in
+    /// Parses the url segments. A "#/session..." url gives only the launch, because the session
+    /// supplies the patient. A patient url, such as
     /// http://localhost:5173/#/patient?yrs=6&mos=3&wgt=20000, takes:
     ///
     /// - pag: the page, el (emergency list), cm (continuous medication), pr (prescribe),
@@ -255,7 +250,7 @@ module Url =
             {
                 Patient = age |> Option.bind (fun age -> parameters |> parsePatient age)
                 Page = parameters |> Map.tryFind "pag" |> Option.bind parsePage
-                // an ISO 639-1 code only: one parser with the server's default language
+                // Only an ISO 639-1 code, parsed like the default language of the server.
                 Language = parameters |> Map.tryFind "lan" |> Option.bind Localization.tryParse
                 Disclaimer = parameters |> Map.tryFind "dsc" <> Some "n"
                 Medication = if given then Some medication else None

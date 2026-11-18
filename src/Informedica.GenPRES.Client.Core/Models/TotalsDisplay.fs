@@ -30,7 +30,7 @@ module TotalsDisplay =
         |]
 
 
-    /// The totals of the substance a row names.
+    /// Returns the totals for the substance name of a row, or an empty array for an unknown name.
     let substanceToField (intake: Totals) =
         function
         | "volume" -> intake.Volume

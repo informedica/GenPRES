@@ -20,7 +20,7 @@ module OrderLoader =
         }
 
 
-/// The order as the pages show it: values rendered, and whether a variable or the order is solved.
+/// Renders order values as text and tells whether an order variable or an order is solved.
 module OrderDisplay =
 
     open Informedica.GenPRES.Shared
@@ -29,7 +29,8 @@ module OrderDisplay =
 
     module Variable =
 
-        /// A variable as one text: its value, or its range, with the unit.
+        /// Renders a variable as its single value, or as its range, with the unit and precision prec.
+        /// Returns an empty string for a variable without values and without a minimum and maximum.
         let renderValue prec (var: Variable) =
             match var.Min, var.Max, var.Vals with
             | _, _, Some vals when vals.Value.Length = 1 ->
@@ -46,15 +47,12 @@ module OrderDisplay =
             | _ -> ""
 
 
-        /// <summary>
-        /// Render an array of variables as a single string, as used for the
-        /// items (substances) of one component in the order plan overview.
-        /// </summary>
-        /// <param name="prec">The precision</param>
-        /// <param name="vars">The variables, one per item</param>
+        /// <summary>Renders the variables of the items of one component as one string, grouped by unit.</summary>
+        /// <param name="prec">The precision.</param>
+        /// <param name="vars">The variables, one per item.</param>
         let renderValues prec (vars: Variable[]) =
-            // split a rendered variable in its value part and its unit,
-            // the unit is the last token as units never contain a space
+            // Splits a rendered variable into its value and its unit. The unit is the last token,
+            // because a unit never contains a space.
             let split s =
                 let tokens = s |> String.split " " |> Array.filter String.notEmpty
 
@@ -70,8 +68,7 @@ module OrderDisplay =
             |> Array.groupBy _.Unit
             |> Array.map (fun (unit, items) ->
                 let values = items |> Array.map _.Value
-                // a value can be a range itself, i.e. "10-20", so in that case
-                // the items are spaced out to keep the ranges apart visually
+                // A value can be a range, such as 10-20; a spaced separator keeps the ranges apart.
                 let sep =
                     if values |> Array.exists (String.contains "-") then
                         " / "
@@ -95,10 +92,8 @@ module OrderDisplay =
             if ovar |> isSolved then
                 false
             else
-                // note that an ordervariable with an increment always has a
-                // min value by definition as all order variables are initialized to
-                // be non-zero positive and a min value is always a multiple of an
-                // increment
+                // An order variable with an increment always has a minimum, because every order variable
+                // is positive and a minimum is a multiple of the increment.
                 (ovar.Variable.Max.IsSome && ovar.DefinedConstraints.Incr.IsSome)
                 || ovar.Variable.Vals
                    |> Option.map (_.Value >> Array.length >> (fun c -> c > 1))

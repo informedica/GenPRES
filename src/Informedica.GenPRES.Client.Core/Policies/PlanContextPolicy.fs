@@ -11,9 +11,9 @@ module PlanContextPolicy =
     /// Whether the intake slider of an order in the plan can set its dose as a share of the full intake.
     [<RequireQualifiedAccess>]
     type DoseShare =
-        /// The order is a TPN, composed, its dose count holds one value, and it is not locked.
+        /// The order is a composed TPN, its dose count has a single value, and it is not locked.
         | Settable
-        /// The slider shows the share and takes no change; so for every order in the plan that is not a TPN.
+        /// The slider shows the share but cannot change it, as for every order in the plan that is not a TPN.
         | Fixed
 
 
@@ -22,24 +22,23 @@ module PlanContextPolicy =
     type Editing =
         /// The prescribing workbench: every field, the argumentation and Reset.
         | Workbench
-        /// An order context in the plan: the fields the plan context rule allows, the argumentation and,
-        /// when it is settable, the dose share; no Reset, which re-solves from the rules and can change the
-        /// rest.
+        /// An order context in the plan: the editable fields, the argumentation and, when settable, the dose
+        /// share. No Reset, because Reset solves again from the rules and can change the other fields.
         | PlanContext of DoseShare
-        /// An order the current patient data could not be calculated on: nothing; the dialog sends
-        /// no command.
+        /// An order that could not be calculated on the current patient data, or whose group could not:
+        /// nothing can change and the dialog sends no command.
         | Locked
 
 
-    /// Why the order a context contributes is locked, or that it is not.
+    /// Whether the order of a context is locked, and why.
     [<RequireQualifiedAccess>]
     type Lock =
         /// The order and every order of its group can be calculated on the current patient data.
         | Unlocked
-        /// The order itself could not be calculated on the current patient data, so it stands as it was.
+        /// The order itself could not be calculated on the current patient data, so it stays unchanged.
         | NotCalculated
         /// The order can be calculated, but another order of its group could not: its main order, an order
-        /// linked to it, or an order linked to the same main order. The group stands as it was.
+        /// linked to it, or an order linked to the same main order. The group stays unchanged.
         | Group
 
 
@@ -62,7 +61,7 @@ module PlanContextPolicy =
         Array.append (plan.OrderContexts |> Array.filter (fun c -> c.Id = main)) (linkedTo plan main)
 
 
-    /// Why the order a context contributes is locked over the plan given, or that it is not.
+    /// Returns whether the order of a context is locked in the given plan, and why.
     let lock plan (ctx: OrderContext) =
         if notCalculated ctx then
             Lock.NotCalculated
@@ -72,7 +71,7 @@ module PlanContextPolicy =
             Lock.Unlocked
 
 
-    /// The text of a lock: why an order is locked, by itself or by its group; none for an order not locked.
+    /// Returns the term that says why an order is locked, by itself or by its group; None when not locked.
     let lockTerm lock =
         match lock with
         | Lock.Unlocked -> None
@@ -80,14 +79,14 @@ module PlanContextPolicy =
         | Lock.Group -> Some Terms.``Plan Context Group Locked``
 
 
-    /// Whether the order a context contributes is locked over the plan given: the order or another order
-    /// of its group could not be calculated on the current patient data.
+    /// Whether the order of a context is locked in the given plan: the order or another order of its
+    /// group could not be calculated on the current patient data.
     let locked plan ctx = lock plan ctx <> Lock.Unlocked
 
 
-    /// Whether the intake slider can set the dose of the order of a context: only for a TPN, and not when the
-    /// order is locked, since the plan would not take the change and the slider would show a value the order
-    /// does not hold.
+    /// Whether the intake slider can set the dose of the order of a context: only for a TPN whose dose the
+    /// slider can set, and not when the order is locked, because the plan would refuse the change and the
+    /// slider would show a value the order does not have.
     let canSetDoseShare plan (ctx: OrderContext) =
         ctx.Category = OrderCategory.Nutrition NutritionCategory.TPN
         && not (locked plan ctx)
@@ -106,10 +105,9 @@ module PlanContextPolicy =
         | QuantityModePolicy.Field.Other -> false
 
 
-    /// The values of an order variable as numbers with their unit, leaving out how they are
-    /// rendered. The unit is its JSON, the serialized unit, which is the same in every language
-    /// and tells 5 mg from 5 g where the unit group does not; the unit text stands in when there
-    /// is no JSON.
+    /// Returns the values of an order variable as numbers with their unit, without formatting. The unit is
+    /// the serialized unit JSON, which is the same in every language and tells 5 mg from 5 g where the unit
+    /// group does not. The unit text is used when there is no JSON.
     let values (ovar: OrderVariable) =
         ovar.Variable.Vals
         |> Option.map (fun vu ->
@@ -122,8 +120,8 @@ module PlanContextPolicy =
         )
 
 
-    /// The values of the editable order variables of the order a context contributes; nothing
-    /// when it contributes no order.
+    /// Returns the values of the editable order variables of the order of a context; None when the context
+    /// has no order.
     let editableValues (ctx: OrderContext) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
         |> Option.map (fun sc ->
@@ -135,9 +133,9 @@ module PlanContextPolicy =
         )
 
 
-    /// What new patient data moves in the order a context contributes, since the given amounts stay as
-    /// they are: the doses per kg or per m2 of the orderable, its components and their items. Nothing
-    /// when it contributes no order.
+    /// Returns the doses per kg or per m2 of the orderable, its components and their items, for the order of
+    /// a context. New patient data changes these values while the given amounts stay the same. None when
+    /// the context has no order.
     let adjustedValues (ctx: OrderContext) =
         let adjusted (dose: Dose) =
             [ dose.QuantityAdjust; dose.PerTimeAdjust; dose.RateAdjust; dose.TotalAdjust ]
@@ -159,9 +157,9 @@ module PlanContextPolicy =
         )
 
 
-    /// What tells the prescriber about the order a context contributes: the notification on each
-    /// order variable, whether the rules no longer apply and whether the order could not be
-    /// calculated. Nothing when it contributes no order.
+    /// Returns what informs the prescriber about the order of a context: whether the rules no longer apply,
+    /// whether the order could not be calculated, and the notification level of each order variable. None
+    /// when the context has no order.
     let notifications (ctx: OrderContext) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
         |> Option.map (fun sc ->
@@ -169,17 +167,15 @@ module PlanContextPolicy =
         )
 
 
-    /// The id of the order a context contributes; nothing when it contributes no order. An order
-    /// created anew from the rules, for another medication or rebuilt, gets a new id; a step keeps
-    /// it.
+    /// Returns the order id of a context; None when the context has no order. An order created again from
+    /// the rules, for another medication or rebuilt, gets a new id; a step keeps the id.
     let orderId (ctx: OrderContext) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
         |> Option.map _.Order.Id
 
 
-    /// Whether an order context in the plan changed against its opened or signed version: it holds
-    /// another order, or one of the editable variables, a dose per kg or per m2, a notification or the
-    /// argumentation differs.
+    /// Whether an order context in the plan differs from its opened or signed version: it has another
+    /// order, or an editable variable, a dose per kg or per m2, a notification or the argumentation differs.
     let changed (opened: OrderContext) (ctx: OrderContext) =
         orderId opened <> orderId ctx
         || editableValues opened <> editableValues ctx
@@ -188,8 +184,8 @@ module PlanContextPolicy =
         || opened.Argumentation <> ctx.Argumentation
 
 
-    /// The kind of a field of the order dialog, by the key its changes are tracked under; the keys
-    /// the plan context rule names map to their kind, every other key is Other.
+    /// Returns the kind of an order dialog field from the key its changes are tracked under; an unknown key
+    /// is Other.
     let fieldKind (key: string) =
         match key with
         | "frequency" -> QuantityModePolicy.Field.Frequency
@@ -224,9 +220,9 @@ module PlanContextPolicy =
         | Editing.Locked -> false
 
 
-    /// The editing of the order dialog for the context of the plan with this id: locked when it or another
-    /// order of its group could not be calculated on the current patient data, the plan context rule
-    /// otherwise, with the dose share settable when the intake slider can set the dose.
+    /// Returns the dialog editing for the plan context with this id. Locked when its order or another order
+    /// of its group could not be calculated on the current patient data; otherwise PlanContext, with a
+    /// settable dose share when the intake slider can set the dose.
     let editingOf (plan: OrderPlan) (contextId: string) =
         match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
         | Some ctx when locked plan ctx -> Editing.Locked

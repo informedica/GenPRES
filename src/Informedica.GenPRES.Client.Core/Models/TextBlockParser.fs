@@ -7,7 +7,7 @@ module TextBlockParser =
     open Informedica.GenPRES.Shared.Types
     open System.Text.RegularExpressions
 
-    /// Convert a string to a Valid TextBlock with numbers shown as Bold TextItems
+    /// Converts a text to a Valid text block with the numbers in bold. An empty text gives an empty item.
     let fromString (text: string) : TextBlock =
         if text |> String.isNullOrWhiteSpace then
             Valid [| Normal "" |]

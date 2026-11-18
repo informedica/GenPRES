@@ -41,8 +41,8 @@ module TotalsChangePolicy =
         }
 
 
-    /// The totals after they are shown again, with the names of the changed items; none when the
-    /// source changed.
+    /// Returns the totals after they are shown again, with the names of the changed items; no names when
+    /// the source changed.
     let observe source totals seen =
         let changed =
             if source = seen.Source then

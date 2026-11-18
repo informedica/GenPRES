@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// What is out, and what it disables. The user can switch page, and use the title bar and the
-/// patient panel, only while nothing is out; a page is disabled while a request out can change
-/// anything on it.
+/// Decides what the pending requests disable. The menu, the title bar and the patient panel work only
+/// while no request is pending. A page is disabled while a pending request can change it.
 module BusyPolicy =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -19,17 +18,17 @@ module BusyPolicy =
         | Request.Signature, _
         | Request.Load Load.Settings, _
         | Request.Load Load.Localization, _ -> true
-        // the fields of the Nutrition page are on the page itself, so the field counting would be
-        // disabled with it; there the other fields wait for the count themselves
+        // The counted field is on the Nutrition page, so disabling the page would disable that field.
+        // The other fields on that page wait for the count themselves.
         | Request.Counting, Page.Nutrition -> false
         | Request.Counting, _ -> true
         | Request.Workbench, (Page.Prescribe | Page.LifeSupport | Page.ContinuousMeds)
         | Request.Workbench, (Page.Formulary | Page.Parenteralia)
-        // a plan request leaves the nutrition page open: the slot prescribed waits for it, the others do not
+        // A plan request does not disable the Nutrition page: only the prescribed slot waits for it.
         | Request.Plan, (Page.OrderPlan | Page.Interactions) -> true
         | Request.Slots, Page.Nutrition -> true
-        // the Settings page waits for what a reload starts: the seed over the workbench, or the
-        // formulary and parenteralia loads without a patient
+        // The Settings page waits for the requests a reload starts: the workbench request, or the
+        // formulary and parenteralia loads when there is no patient.
         | Request.Workbench, Page.Settings
         | Request.Load(Load.Formulary | Load.Parenteralia), Page.Settings -> true
         | Request.Load Load.BolusMedication, Page.LifeSupport
@@ -43,8 +42,8 @@ module BusyPolicy =
         | _ -> false
 
 
-    /// Whether anything is out that holds the menu, the title bar and the patient panel: every
-    /// request but the drug names and the totals, which start without a click.
+    /// Whether a pending request disables the menu, the title bar and the patient panel. Every request
+    /// does, except the medication names and the totals loads, which start without a user action.
     let any out =
         out
         |> List.exists (fun request ->
@@ -54,5 +53,5 @@ module BusyPolicy =
         )
 
 
-    /// Whether the page is disabled: a request out can change anything on it.
+    /// Whether the page is disabled because a pending request can change it.
     let page p out = out |> List.exists (fun request -> changes request p)

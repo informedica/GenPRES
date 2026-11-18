@@ -1,14 +1,15 @@
 namespace Informedica.GenPRES.Client.Core.MachinePolicies
 
-/// What is out besides the requests: a plan behind the patient data, which waits as a request does.
+/// Detects pending work besides requests: a plan based on older patient data, which blocks like a pending
+/// request.
 module OutPolicy =
 
     open Informedica.GenPRES.Client.Core.StateMachines
 
 
-    /// Whether the orders stand on other patient data than the panel with no request out for the
-    /// patient or the plan, which a failed update leaves. The orders do not fit the data shown, so nothing goes on
-    /// until the plan has followed.
+    /// Whether the orders are based on other patient data than the panel shows while no patient or plan
+    /// request is pending, as after a failed update. The orders do not fit the shown data, so nothing
+    /// continues until the plan is updated.
     let planBehind patient orderPlan =
         match
             PatientMachine.PatientState.changing patient,
