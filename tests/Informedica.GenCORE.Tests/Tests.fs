@@ -869,7 +869,7 @@ module Tests =
                       (Department.pediatricICU "ICK")
                       [| "sepsis" |]
                       Female
-                      (Some AgeValue.ten)
+                      (Some(AgeValue.fromDays 25<day>))
                       (Weight.create [ weight ] None [] (Some(Measured weight)))
                       (Height.create [ height ] None (Some(Estimated height)))
                       (Some(AgeWeeksDays.create 26<week> 3<day>)) with
@@ -1191,7 +1191,8 @@ module Tests =
                                         }
 
                                         test "the age is in days, a year of 365 days" {
-                                            complete
+                                            PatientData.unknown
+                                            |> withAge AgeValue.ten
                                             |> PatientData.ageInDays
                                             |> Expect.equal "ten years" (Some(single Units.Time.day 3650m))
                                         }
@@ -1366,6 +1367,30 @@ module Tests =
                                             dto.RenalFunction <- Some "egfr:20:40"
 
                                             dto |> PatientData.Dto.fromDto readAt |> Expect.isError "no band"
+                                        }
+
+                                        test "the ages are calculated, not read as stored" {
+                                            let ga = AgeWeeksDays.create 30<week> 0<day>
+
+                                            let read age =
+                                                { PatientData.unknown with
+                                                    Age = age
+                                                    GestationalAge = Some ga
+                                                    PostMenstrualAge = Some(AgeWeeksDays.create 25<week> 0<day>)
+                                                }
+                                                |> PatientData.Dto.toDto
+                                                |> PatientData.Dto.fromDto readAt
+                                                |> Result.map (fun dat -> dat.GestationalAge, dat.PostMenstrualAge)
+
+                                            [ Some(AgeValue.fromDays 70<day>); Some AgeValue.one; None ]
+                                            |> List.map read
+                                            |> Expect.equal
+                                                "at 70 days 30 weeks gestational and 40 weeks post-menstrual age; at 1 year or without an age none"
+                                                [
+                                                    Ok(Some ga, Some(AgeWeeksDays.create 40<week> 0<day>))
+                                                    Ok(None, None)
+                                                    Ok(None, None)
+                                                ]
                                         }
 
                                         test "a Dto whose access a serializer left null reads without an access" {
@@ -2117,20 +2142,6 @@ module Tests =
                                 | Ok _ -> false
                                 | Error _ -> true
                             |> Expect.isTrue "doesn't exceed 6"
-                        }
-
-                        test "a post-menstrual age is read from 20 weeks to 52 weeks plus the maximum age" {
-                            let read weeks =
-                                let dto = AgeWeeksDays.Dto.dto ()
-                                dto.Weeks <- weeks
-                                dto |> AgeWeeksDays.Dto.fromPostMenstrualDto |> Result.isOk
-
-                            let max = AgeWeeksDays.Validation.maxPostMenstrualWeeks
-
-                            (max, [ 20; 53; max ] |> List.map read, [ 19; max + 1 ] |> List.map read)
-                            |> Expect.equal
-                                "52 plus 6257 weeks; within read, outside not"
-                                (52 + 6257, [ true; true; true ], [ false; false ])
                         }
 
                         test "36 weeks 6 days < 40 weeks" {

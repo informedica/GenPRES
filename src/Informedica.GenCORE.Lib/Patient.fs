@@ -277,12 +277,12 @@ type PatientData =
         Weight: Weight
         /// The dated heights.
         Height: Height
-        /// The gestational age at birth; absent when not known, and left out by atDate from 1 year or
-        /// without an age.
+        /// The gestational age at birth; absent when not known, and left out by
+        /// PatientData.determineGestationalAndPostMenstrualAge from 1 year or without an age.
         GestationalAge: AgeWeeksDays option
         /// The post-menstrual age, the age corrected for the gestational age: the age plus the
-        /// gestational age, set by calculatePostMenstrualAge, which atDate calls when the patient is
-        /// created. None without a gestational age or an age, and from 1 year.
+        /// gestational age, set by PatientData.determineGestationalAndPostMenstrualAge. None without a
+        /// gestational age or an age, and from 1 year.
         PostMenstrualAge: AgeWeeksDays option
         /// The accesses of the patient; empty when none is known.
         Access: Access list
@@ -1716,20 +1716,6 @@ module AgeWeeksDays =
         let validateDays = Check.Int.between 0 maxDays *|* Conversions.dayFromInt
 
 
-        /// The maximum post-menstrual age in weeks: the maximum gestational age plus 120 years in weeks.
-        let maxPostMenstrualWeeks =
-            AgeValue.Validation.maxYear
-            |> Conversions.intYearsToDays
-            |> Conversions.daysToWeeks
-            |> fst
-            |> int
-            |> (+) maxWeeks
-
-
-        let validatePostMenstrualWeeks =
-            Check.Int.between minWeeks maxPostMenstrualWeeks *|* Conversions.weekFromInt
-
-
     let toString awd =
         let s = awd |> toGestation |> GestationType.toString
 
@@ -1761,15 +1747,6 @@ module AgeWeeksDays =
         let fromDto (dto: Dto) =
             validate {
                 let! ws = dto.Weeks |> Validation.validateWeeks "Weeks"
-                let! ds = dto.Days |> Validation.validateDays "Days"
-                return create ws ds
-            }
-
-
-        /// Validates a Dto as a post-menstrual age: from 20 weeks up to maxPostMenstrualWeeks, and 0 to 6 days.
-        let fromPostMenstrualDto (dto: Dto) =
-            validate {
-                let! ws = dto.Weeks |> Validation.validatePostMenstrualWeeks "Weeks"
                 let! ds = dto.Days |> Validation.validateDays "Days"
                 return create ws ds
             }
@@ -2059,7 +2036,7 @@ module PatientData =
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
 
     /// Creates patient data without a location, an adult mark, an access or a renal function. The
-    /// post-menstrual age is None until Patient.atDate calculates it.
+    /// post-menstrual age is None until determineGestationalAndPostMenstrualAge sets it.
     let create dep diagn gend age wght hght gest =
         {
             Location = None
@@ -2162,6 +2139,23 @@ module PatientData =
             Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
 
 
+    /// Removes the gestational age from 1 year, or without an age.
+    let ignoreGestationalAge (dat: PatientData) =
+        match dat.Age |> GestationalAgeNeed.ofAge with
+        | GestationalAgeNeed.NoGestationalAge -> { dat with GestationalAge = None }
+        | GestationalAgeNeed.OptionalGestationalAge
+        | GestationalAgeNeed.RequiredGestationalAge -> dat
+
+
+    /// Sets the post-menstrual age to the age in days plus the gestational age; None without either.
+    let calculatePostMenstrualAge (dat: PatientData) =
+        { dat with PostMenstrualAge = Option.map2 AgeWeeksDays.postMenstrualAge dat.Age dat.GestationalAge }
+
+
+    /// Removes the gestational age from 1 year or without an age, then calculates the post-menstrual age.
+    let determineGestationalAndPostMenstrualAge dat = dat |> ignoreGestationalAge |> calculatePostMenstrualAge
+
+
     /// The Dto of the patient data, without the patient identity.
     module Dto =
 
@@ -2179,6 +2173,7 @@ module PatientData =
             member val Weight = Weight.Dto.dto () with get, set
             member val Height = Height.Dto.dto () with get, set
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
+            /// Written by toDto for readers of the Dto; fromDto calculates the post-menstrual age instead.
             member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
             member val Access: string[] = [||] with get, set
             member val RenalFunction: string option = None with get, set
@@ -2195,18 +2190,13 @@ module PatientData =
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// Validates a Dto as patient data. A weight or height dated after today is an error. The
-        /// post-menstrual age is read as stored, not calculated again, within the bounds of a
-        /// post-menstrual age.
+        /// Validates a Dto as patient data and calculates the ages; the post-menstrual age of the Dto is not
+        /// read. A weight or height dated after today is an error.
         let fromDto today (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
                 let! gest = dto.GestationalAge |> Option.traverseResult AgeWeeksDays.Dto.fromDto
-
-                and! pma =
-                    dto.PostMenstrualAge
-                    |> Option.traverseResult AgeWeeksDays.Dto.fromPostMenstrualDto
 
                 let! access =
                     // an access array that is null after JSON deserialization is read as no access
@@ -2227,10 +2217,10 @@ module PatientData =
                     { create dep dto.Diagnoses gend age wght hght gest with
                         Location = dto.Location
                         MarkedAdult = dto.MarkedAdult
-                        PostMenstrualAge = pma
                         Access = access
                         RenalFunction = renal
                     }
+                    |> determineGestationalAndPostMenstrualAge
             }
 
 
@@ -2304,31 +2294,16 @@ module Patient =
             Validator.create msg rule field value
 
 
-    /// Sets the post-menstrual age to the age in days plus the gestational age; None without either.
-    let calculatePostMenstrualAge pat =
-        { pat with
-            Patient.Data.PostMenstrualAge =
-                Option.map2 AgeWeeksDays.postMenstrualAge pat.Data.Age pat.Data.GestationalAge
-        }
-
-
-    /// Removes the gestational age from 1 year, or without an age.
-    let ignoreGestationalAge pat =
-        match pat.Data.Age |> GestationalAgeNeed.ofAge with
-        | GestationalAgeNeed.NoGestationalAge -> { pat with Patient.Data.GestationalAge = None }
-        | GestationalAgeNeed.OptionalGestationalAge
-        | GestationalAgeNeed.RequiredGestationalAge -> pat
-
-
     /// Sets the ages of a patient at a date. An identified patient gets the age from the birth date; an
-    /// anonymous patient keeps the entered age. Then the gestational age is removed from 1 year or
-    /// without an age, and the post-menstrual age is calculated.
+    /// anonymous patient keeps the entered age. Then the gestational age is removed from 1 year or without an
+    /// age, and the post-menstrual age is calculated.
     let atDate dt pat =
-        match pat.Identity with
-        | Some idn -> { pat with Patient.Data.Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
-        | None -> pat
-        |> ignoreGestationalAge
-        |> calculatePostMenstrualAge
+        let dat =
+            match pat.Identity with
+            | Some idn -> { pat.Data with Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
+            | None -> pat.Data
+
+        { pat with Data = dat |> PatientData.determineGestationalAndPostMenstrualAge }
 
 
     /// Creates a patient from an identity and patient data, with the ages set at a date.
