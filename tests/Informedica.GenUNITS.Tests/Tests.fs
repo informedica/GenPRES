@@ -960,6 +960,66 @@ module Tests =
             ]
 
 
+    let decimalOverflowTests =
+        // the minimum that a solve stopped at, far beyond the range of a decimal
+        let hugeText = "1461501637330902918203684832716283019655932542976/5"
+
+        let mlPerHour = Units.Volume.milliLiter |> per Units.Time.hour
+
+        let hugeRate =
+            [|
+                BigRational.FromBigInt 1461501637330902918203684832716283019655932542976I / 5N
+            |]
+            |> create mlPerHour
+
+        testList
+            "A value beyond the range of a decimal"
+            [
+                test "toStringDecimalDutchShortWithPrec prints the fraction" {
+                    hugeRate
+                    |> toStringDecimalDutchShortWithPrec 3
+                    |> Expect.equal "the fraction with the unit" $"%s{hugeText} mL/uur"
+                }
+
+                test "toStringDecimalDutchShortWithPrec prints each value in its own notation" {
+                    hugeRate
+                    |> getValue
+                    |> Array.append [| 1N / 3N |]
+                    |> create mlPerHour
+                    |> toStringDecimalDutchShortWithPrec 2
+                    |> Expect.equal "the decimal and the fraction" $"0,33;%s{hugeText} mL/uur"
+                }
+
+                test "toStringDecimalDutchShortWithPrec of a value within the range is a decimal" {
+                    [| 1N / 3N; 2N / 3N; 3N / 5N |]
+                    |> create Units.Weight.kiloGram
+                    |> toStringDecimalDutchShortWithPrec 2
+                    |> Expect.equal "the decimals with the unit" "0,33;0,67;0,6 kg"
+                }
+
+                for name, print, exp in
+                    [
+                        "toStringDecimalDutchShort", toStringDecimalDutchShort, "mL[Volume]/uur[Time]"
+                        "toStringDecimalDutchLong", toStringDecimalDutchLong, "milliliter[Volume]/uur[Time]"
+                        "toStringDecimalEngShort", toStringDecimalEngShort, "ml[Volume]/hr[Time]"
+                        "toStringDecimalEngShortWithoutGroup", toStringDecimalEngShortWithoutGroup, "ml/hr"
+                        "toStringDecimalEngLong", toStringDecimalEngLong, "milliliter[Volume]/hour[Time]"
+                    ] do
+                    test $"%s{name} prints the fraction" {
+                        hugeRate
+                        |> print
+                        |> Expect.equal "the fraction with the unit" $"%s{hugeText} %s{exp}"
+                    }
+
+                test "toStringDecimalEngShort of a value within the range is a decimal" {
+                    [| 1N / 4N |]
+                    |> create mlPerHour
+                    |> toStringDecimalEngShort
+                    |> Expect.equal "the decimal with the unit" "0.25 ml[Volume]/hr[Time]"
+                }
+            ]
+
+
     [<Tests>]
     let tests =
 
@@ -989,6 +1049,7 @@ module Tests =
                 useCaseTests
                 regressionTests
                 toTokenTests
+                decimalOverflowTests
 
                 test "Unquote tests" {
                     try

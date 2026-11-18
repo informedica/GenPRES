@@ -1331,37 +1331,38 @@ module ValueUnit =
     /// Get the user readable string version in Dutch with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchShort = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Short
+    let toStringDecimalDutchShort = toString true (BigRational.formatDecimal string) Units.Dutch Units.Short
 
     /// <summary>
     /// Get the user readable string version in Dutch with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchLong = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Long
+    let toStringDecimalDutchLong = toString true (BigRational.formatDecimal string) Units.Dutch Units.Long
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngShort = toString true (BigRational.toDecimal >> string) Units.English Units.Short
+    let toStringDecimalEngShort = toString true (BigRational.formatDecimal string) Units.English Units.Short
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
     /// value as decimal, without group annotation
     /// </summary>
     let toStringDecimalEngShortWithoutGroup =
-        toString false (BigRational.toDecimal >> string) Units.English Units.Short
+        toString false (BigRational.formatDecimal string) Units.English Units.Short
 
     /// <summary>
     /// Get the user readable string version in English with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngLong = toString true (BigRational.toDecimal >> string) Units.English Units.Long
+    let toStringDecimalEngLong = toString true (BigRational.formatDecimal string) Units.English Units.Long
 
 
     /// <summary>
     /// Get the user readable string version in Dutch with verbosity short,
-    /// value as decimal with a fixed precision, and without group annotation
+    /// value as decimal with a fixed precision, and without group annotation.
+    /// A value beyond the range of a decimal is printed as its fraction.
     /// </summary>
     /// <param name="prec">The precision</param>
     /// <param name="vu">The ValueUnit</param>
@@ -1376,8 +1377,7 @@ module ValueUnit =
 
         let vs =
             v
-            |> Array.map BigRational.toDecimal
-            |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
+            |> Array.map (BigRational.formatDecimal (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec))
             |> Array.distinct
             |> Array.toReadableString
 
