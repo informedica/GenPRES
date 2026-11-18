@@ -191,10 +191,11 @@ jobs:
       # Same shape as buildDockerImage in Build.fs (the local `DockerBuild` target). The platform is
       # named explicitly even though it matches the runner, so a runner label that resolves to
       # another architecture fails here instead of publishing a mislabelled image.
+      #--pull makes sure that the floating part in aspnet:10.0 base is the newest one.
       env:
         PLATFORM: ${{ matrix.platform }}
         VERSION: ${{ needs.tag-and-release.outputs.version }}
-      run: docker build --platform "$PLATFORM" --build-arg "APP_VERSION=$VERSION" -t "$IMAGE" .
+      run: docker build --pull --platform "$PLATFORM" --build-arg "APP_VERSION=$VERSION" -t "$IMAGE" .
 
     - name: Smoke test the built image
       env:
