@@ -1,14 +1,14 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// A dose type as text: the description a page shows, and the text a url or a list carries.
+/// Converts a dose type to the text a page shows, and to and from the text in a url or a list.
 module DoseTypeText =
 
     open Informedica.GenPRES.Shared
     open Informedica.GenPRES.Shared.Types
 
 
-    /// The text of a dose type, such as avond for the evening dose of ataluren; none for a dose type without
-    /// a text.
+    /// Returns the text of a dose type, such as avond for the evening dose of ataluren, or None when the
+    /// text is empty.
     let text doseType =
         match doseType with
         | OnceTimed s
@@ -24,7 +24,8 @@ module DoseTypeText =
         | NoDoseType -> None
 
 
-    /// The description a page shows: the dose type's text, or the Dutch name of its kind.
+    /// Returns the text of the dose type, or else eenmalig, onderhoud or continu. Returns an empty string
+    /// for NoDoseType.
     let doseTypeToDescription doseType =
         match text doseType with
         | Some s -> s
@@ -38,7 +39,7 @@ module DoseTypeText =
             | NoDoseType -> ""
 
 
-    /// The dose type as a url or a list carries it: its kind, then its text when it has one.
+    /// Returns the name of the dose type, such as once, followed by its text when the text is not empty.
     let doseTypeToString doseType =
         match doseType with
         | OnceTimed s -> "oncetimed", s
@@ -50,7 +51,7 @@ module DoseTypeText =
         |> fun (s1, s2) -> if String.isNullOrWhiteSpace s2 then s1 else $"{s1} {s2}"
 
 
-    /// The dose type from the text doseTypeToString gives; no dose type for an unknown kind.
+    /// Parses the text that doseTypeToString returns. Returns NoDoseType for an unknown name.
     let doseTypeFromString s =
         let matchDoseType (dt: string) dd =
             let dt = dt.ToLower().Trim()

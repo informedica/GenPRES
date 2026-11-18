@@ -1,10 +1,8 @@
 namespace Components
 
 
-/// A value in a pill: a derived or reference quantity shown as one thing, such as a dose per
-/// day, a rate, or the room left in a fluid budget, coloured by its severity so a value outside
-/// the rules is seen before it is read. Nothing but the value and its colour; what it is, and
-/// where it stands, is the caller's.
+/// Shows a derived or reference value in a chip, such as a dose per day, a rate or the volume left
+/// in a fluid budget. The chip is coloured by its severity, so a value outside the rules stands out.
 module ValueChip =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -15,7 +13,7 @@ module ValueChip =
     open Informedica.GenPRES.Shared
 
 
-    /// The chip: the value as text, its severity, and a name before it when it needs one.
+    /// The value as text, its severity, and an optional label before it.
     type Props =
         {|
             value: string
@@ -48,8 +46,7 @@ module ValueChip =
     let View (props: Props) =
         let color = colorOf props.severity
 
-        // a raised severity is told by its icon as well as by its colour, for whoever cannot
-        // tell the colours apart
+        // a raised severity also shows an icon, for users who cannot tell the colours apart
         let icon = SeverityMark.icon props.severity
 
         let label =

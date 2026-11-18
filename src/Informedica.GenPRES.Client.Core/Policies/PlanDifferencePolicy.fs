@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Lists the differences of the order plan against the version last opened or signed, new, changed
-/// and removed, as the sign dialog shows them.
+/// Lists the new, changed and removed order contexts since the version last opened or signed, for the
+/// sign dialog.
 module PlanDifferencePolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -10,18 +10,19 @@ module PlanDifferencePolicy =
     /// How an order context differs from the version last opened or signed.
     [<RequireQualifiedAccess>]
     type Difference =
-        /// The version did not hold it.
+        /// The context is not in that version.
         | New
-        /// Its editable variables or its argumentation changed.
+        /// Its order, an editable variable, a dose per kg or per m2, a notification or the argumentation
+        /// changed.
         | Changed
-        /// The version held it, and the plan no longer does.
+        /// The context is in that version but no longer in the plan.
         | Removed
 
 
-    /// The order contexts new or changed since the version last opened or signed, in plan order,
-    /// followed by the contexts of that version no longer in the plan. Contexts are compared by
-    /// id. A context that contributes no order, a nutrition context not yet narrowed to one
-    /// scenario, has nothing to list and is left out, on either side.
+    /// Returns the order contexts that are new or changed since the version last opened or signed, in plan
+    /// order, followed by the contexts of that version that are no longer in the plan. Contexts are compared
+    /// by id. A context without an order, such as a nutrition context with more than one scenario, is left
+    /// out on both sides.
     let differences (opened: OrderContext[]) (plan: OrderPlan) =
         let contributing (ctxs: OrderContext[]) =
             ctxs

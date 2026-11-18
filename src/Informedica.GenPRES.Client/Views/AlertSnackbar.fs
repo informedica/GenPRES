@@ -1,8 +1,8 @@
 namespace Views
 
 
-/// The snackbar at the bottom of the page: the alert in words, coloured by its severity. A success
-/// or a note hides itself after three seconds; an error or a warning stays until it is closed.
+/// The snackbar at the bottom of the page shows an alert as text, coloured by its severity. A success
+/// alert hides itself after three seconds; an error or a warning stays until it is closed.
 module AlertSnackbar =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -13,8 +13,8 @@ module AlertSnackbar =
     open Informedica.GenPRES.Shared
 
 
-    /// The snackbar of the alert; closed when there is none. The close button and the auto-hide
-    /// call onClose; a click outside the snackbar does not.
+    /// Shows the alert, or nothing when there is none. The close button and the auto-hide call onClose;
+    /// a click outside the snackbar does not.
     [<JSX.Component>]
     let View
         (props:
@@ -39,8 +39,8 @@ module AlertSnackbar =
             | "info" -> 3000 |> box
             | _ -> null
 
-        // MUI calls this with the event and the reason at once; a curried F# function would take
-        // the event only and never run, so it is a Func of two arguments
+        // MUI calls onClose with the event and the reason as two arguments. A curried F# function would
+        // take only the event and never run, so this is a Func of two arguments.
         let closeUnlessClickAway =
             System.Func<obj, string, unit>(fun _ reason ->
                 if reason <> "clickaway" then

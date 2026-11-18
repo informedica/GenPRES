@@ -109,7 +109,7 @@ let tests =
         [
             test "a draft with only a weight is the current patient, so the summary shows it" {
                 let weightOnly =
-                    { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 12000<gram> } }
+                    { PatientData.empty with Weight = { PatientData.empty.Weight with Measured = Some 12000<gram> } }
 
                 let state, _, _ = loaded { Url.none with Patient = Some weightOnly }
 
@@ -381,6 +381,36 @@ let tests =
                         let after, effects, _ = state |> play [ ClientMsg.Shell ShellMsg.LeftForUrl ]
 
                         (after, effects) |> Expect.equal "unchanged" (state, [])
+                    }
+                ]
+
+            testList
+                "a failure the server tells"
+                [
+                    let told effect =
+                        initial Url.none
+                        |> Client.route (LanesTests.counter ()) (ClientEffect.Lanes effect)
+
+                    let alerted alert = [ ClientMsg.Shell(ShellMsg.AlertRaised alert) ]
+
+                    test "a patient change tells the first error the server gave" {
+                        told (LanesEffect.Patient(PatientEffect.TellError [| "a"; "b" |]))
+                        |> Expect.equal "the first" (alerted (Alert.Alert.PatientChangeFailed(Some "a")))
+                    }
+
+                    test "a patient change tells no error text when the server gave none" {
+                        told (LanesEffect.Patient(PatientEffect.TellError [||]))
+                        |> Expect.equal "none" (alerted (Alert.Alert.PatientChangeFailed None))
+                    }
+
+                    test "the workbench tells the first error the server gave" {
+                        told (LanesEffect.Workbench(OrderContextEffect.TellError [| "a"; "b" |]))
+                        |> Expect.equal "the first" (alerted (Alert.Alert.WorkbenchFailed(Some "a")))
+                    }
+
+                    test "the workbench tells no error text when the server gave none" {
+                        told (LanesEffect.Workbench(OrderContextEffect.TellError [||]))
+                        |> Expect.equal "none" (alerted (Alert.Alert.WorkbenchFailed None))
                     }
                 ]
 
@@ -685,7 +715,7 @@ let tests =
                     test "taking the EHR's data with an unsigned order reads the EHR again and removes nothing" {
                         let notice =
                             {
-                                Data = Some patient
+                                PatientData = Some patient
                                 Token = "d-1"
                             }
 

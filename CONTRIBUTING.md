@@ -29,6 +29,9 @@ Fill in information according to the appropriate template:
 
 - [Bug reports](./.github/ISSUE_TEMPLATE/bug_report.md)
 - [Feature requests](./.github/ISSUE_TEMPLATE/feature_request.md)
+- [UX / Design issues](./.github/ISSUE_TEMPLATE/ux_report.md)
+
+Write the title of an issue as the heading of a commit, `type(scope): description`, for example `fix(genorder): the dose quantity of an enteral feeding cannot be set`. The types and scopes are listed in the [commit message instructions](./.github/instructions/commit-message.instructions.md#issue-titles). A check labels an issue whose title is not in that form with `needs title`; an issue filed with the UX / Design template may keep a plain title.
 
 ## Pull Request Process
 

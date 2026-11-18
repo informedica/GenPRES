@@ -1,7 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// The continuous medication list: every infusion protocol of the continuousmeds sheet that
-/// fits the weight, with the dose one mL per hour gives.
+/// Lists the continuous infusion protocols that fit a weight, with the dose that 1 mL per hour gives.
 module ContinuousMedicationList =
 
     open Informedica.GenPRES.Shared
@@ -9,13 +8,13 @@ module ContinuousMedicationList =
     open Informedica.GenPRES.Shared.Models
 
 
-    /// A number as the list writes it: Dutch, without trailing zeros.
+    /// Formats a number in Dutch notation without trailing zeros.
     let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
 
 
-    /// The protocols whose weight range holds the weight, by category and medication, each with
-    /// the dose that one mL per hour gives at the weight; a protocol without a total volume is left
-    /// out.
+    /// Returns the protocols whose weight range contains the weight, sorted by category and medication,
+    /// each with the dose that 1 mL per hour gives. A maximum weight of 0 means no upper limit.
+    /// Leaves out a protocol without a total volume.
     let calculate wght (contMeds: ContinuousMedication list) =
 
         let calcDose qty vol wght unit doseU =

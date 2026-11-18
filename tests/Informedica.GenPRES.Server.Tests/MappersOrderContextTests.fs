@@ -11,6 +11,7 @@ open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
 open Informedica.GenPRES.Shared.Types
 open ServerApi
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 module Domain = Informedica.GenOrder.Lib.OrderContext
@@ -68,7 +69,7 @@ let context: OrderContext =
                 SelectedComponents = Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
-        Patient = StubPatientData.patient
+        PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario |]
         Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
@@ -99,9 +100,9 @@ module LinkFixtures =
 
     let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
         {
-            Patient = context.Patient |> ServerApi.Patient.ofModel
+            PatientData = context.PatientData |> ServerApi.Patient.ofModel readAt
             Filtered = [||]
-            Contexts = contexts |> Array.map OrderContextMapper.ofModel
+            Contexts = contexts |> Array.map (OrderContextMapper.ofModel readAt)
             Totals = Totals.empty |> Totals.Dto.toDto
         }
 
@@ -113,18 +114,18 @@ let tests =
         [
             test "L3: to the Dto and back is the identity, the demo flag the server's" {
                 context
-                |> OrderContextMapper.ofModel
+                |> OrderContextMapper.ofModel readAt
                 |> OrderContextMapper.toModel false
                 |> Expect.equal "the same context" context
 
-                (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel true).DemoVersion
+                (context |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel true).DemoVersion
                 |> Expect.isTrue "demo as the server says"
             }
 
             for link in [ Some "c-0"; None ] do
                 test $"the link %A{link} goes to the Dto and back" {
                     let linked = { context with LinkedTo = link }
-                    let dto = linked |> OrderContextMapper.ofModel
+                    let dto = linked |> OrderContextMapper.ofModel readAt
 
                     dto.LinkedTo |> Expect.equal "the Dto carries the link" link
 
@@ -135,8 +136,8 @@ let tests =
 
             test "the domain reads the link the mapper writes in a context" {
                 LinkFixtures.linked
-                |> OrderContextMapper.ofModel
-                |> PlanContext.Dto.fromDto
+                |> OrderContextMapper.ofModel readAt
+                |> PlanContext.Dto.fromDto readAt
                 |> Result.map _.LinkedTo
                 |> Expect.equal "the main order's id" (Ok(Some "c-1"))
             }
@@ -144,7 +145,7 @@ let tests =
             test "the domain reads the links the mapper writes in a plan" {
                 [| LinkFixtures.main; LinkFixtures.linked |]
                 |> LinkFixtures.planDto
-                |> OrderPlan.Dto.fromDto
+                |> OrderPlan.Dto.fromDto readAt
                 |> Result.map (_.Contexts >> Array.map (fun c -> c.Id, c.LinkedTo))
                 |> Expect.equal "the links" (Ok [| "c-1", None; "c-2", Some "c-1" |])
             }
@@ -152,7 +153,7 @@ let tests =
             test "a plan from the wire with a link to a context not in it is refused" {
                 [| LinkFixtures.main; { LinkFixtures.linked with LinkedTo = Some "c-gone" } |]
                 |> LinkFixtures.planDto
-                |> OrderPlan.Dto.fromDto
+                |> OrderPlan.Dto.fromDto readAt
                 |> Expect.equal
                     "the broken link"
                     (Error [ DtoError.BrokenLink("c-2", LinkError.NoSuchMainOrder "c-gone") ])
@@ -225,19 +226,19 @@ let tests =
                 let text = "Sepsis, hogere dosis in overleg met de apotheek"
                 let argued = { context with Argumentation = Some text }
 
-                (argued |> OrderContextMapper.ofModel).Context.Argumentation
+                (argued |> OrderContextMapper.ofModel readAt).Context.Argumentation
                 |> Expect.equal "on the Dto" (Some text)
 
-                (argued |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
+                (argued |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false).Argumentation
                 |> Expect.equal "and back" (Some text)
 
-                (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
+                (context |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false).Argumentation
                 |> Expect.isNone "none stays none"
             }
 
             test "a plan context JSON from before the field, a version 1 row, reads with none" {
                 let json =
-                    (context |> OrderContextMapper.ofModel |> Canonical.serialize)
+                    (context |> OrderContextMapper.ofModel readAt |> Canonical.serialize)
                         .Replace(",\"Argumentation\":null", "")
 
                 json.Contains "Argumentation" |> Expect.isFalse "no such field in the row"
@@ -265,16 +266,16 @@ let tests =
                 let refused = Error [| "De argumentatie is te lang: 1001 tekens, ten hoogste 1000" |]
 
                 over
-                |> OrderContextService.parse
+                |> OrderContextService.parse readAt
                 |> Result.map ignore
                 |> Expect.equal "the context" refused
 
                 { Informedica.GenPRES.Shared.Models.OrderPlan.empty with OrderContexts = [| context; over |] }
-                |> OrderPlanCommand.parsePlan
+                |> OrderPlanCommand.parsePlan readAt
                 |> Result.map ignore
                 |> Expect.equal "the plan, on any of its contexts" refused
 
-                match { context with Argumentation = Some "kort" } |> OrderContextService.parse with
+                match { context with Argumentation = Some "kort" } |> OrderContextService.parse readAt with
                 | Ok pc -> pc.Context.Argumentation |> Expect.equal "within the cap, parsed" (Some "kort")
                 | Error e -> failtest $"refused: %A{e}"
             }
@@ -290,18 +291,18 @@ let tests =
                             |]
                     }
 
-                let back = blank |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
+                let back = blank |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false
 
                 back.Scenarios[0].Prescription
                 |> Expect.equal "the blank ones gone" [| [| Valid [| Bold "240 mg" |] |] |]
 
-                (context |> OrderContextMapper.ofModel).Context.Scenarios
+                (context |> OrderContextMapper.ofModel readAt).Context.Scenarios
                 |> Array.map _.No
                 |> Expect.equal "numbered by place" [| 0 |]
             }
 
             test "the Dto parses: the domain reads what the mapper writes" {
-                match context |> OrderContextMapper.ofModel |> PlanContext.Dto.fromDto with
+                match context |> OrderContextMapper.ofModel readAt |> PlanContext.Dto.fromDto readAt with
                 | Ok pc ->
                     pc.Id |> Expect.equal "id" "c-1"
 
@@ -368,7 +369,7 @@ let tests =
                             |> OrderContextMapper.filter
                             |> Filter.Dto.fromDto
                             |> Result.defaultWith (fun e -> failtest $"{e}")
-                        Patient = Informedica.GenForm.Lib.Patient.patient
+                        PatientData = PatientData.unknown
                         Scenarios = [||]
                         Argumentation = None
                     }

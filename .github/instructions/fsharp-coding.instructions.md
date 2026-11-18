@@ -46,6 +46,17 @@ In an XML block: escape every literal angle bracket (`70.0&lt;kg&gt;`), document
 - Never `(* … *)`, not for documentation and not for commented-out code; delete the code, git holds the history
 - A comment says the thing in words and does not cite a rule, plan step or issue number, which goes stale. Two exceptions: a comment on code not built yet keeps the rule it will be built to, and a stop-gap keeps the issue number that will remove it
 - Wording, for every comment and document in the repository: plain complete English that stands without the surrounding code or conversation; say a thing in full ("a single value", "the value 1", not "its one value"); state the condition a statement holds under; write a value as a value; repeat the noun when a pronoun could point at two things; no coined terms
+- Brevity: one short sentence that says what the code takes, does and returns, with a subject and a verb; add the error or empty case when the name does not show it. Leave out what the name and the types already say
+
+```fsharp
+// Bad - a chain of clauses without a verb, in private shorthand
+/// A scenario with its order as the domain's Dto, numbered by its place, the text blocks
+/// as marked-up text. Total: an order that cannot be created is fromDto's to report.
+
+// Good
+/// Maps a scenario to the scenario Dto with number no. The order is not checked here;
+/// OrderScenario.Dto.fromDto returns OrderNotCreated for an invalid order.
+```
 
 ## Types
 
@@ -101,6 +112,23 @@ let departments (provider: IResourceProvider) = provider.Get Keys.departments
 - Error types as DUs, not strings; validation errors aggregated in a DU or non-empty collection
 - Chain with `Result.bind`, the `result` computation expression (FsToolkit.ErrorHandling) or the AsyncResult helpers
 - Never `failwith` / `failwithf`, which throw a bare `System.Exception`. Use `invalidArg (nameof x)` for an argument, `invalidOp` for invalid state, `raise` with a specific exception type (`KeyNotFoundException`, `FormatException`, `TimeoutException`, `SolverException`, ...), `reraise ()` to propagate, and Expecto's `failtest` in tests
+
+## Compiler Warnings
+
+New or changed code compiles without warnings. Fix every warning the change adds, also a warning that only the editor shows and the command-line build does not print. Do not leave it for later and do not silence it with `#nowarn`.
+
+A warning usually means the code can be read in two ways. Write it so that it can be read in one way only. A common case is a list with a single tuple, which the compiler suspects of a `,` typed for a `;`:
+
+```fsharp
+// Bad - warns: this list expression contains a single tuple element
+Map.ofList [ "s-1", challenge ]
+
+// Good - no list of one tuple
+Map.empty |> Map.add "s-1" challenge
+
+// Good - the parentheses say that the tuple is meant
+Map.ofList [ ("s-1", challenge) ]
+```
 
 ## Units and Numbers
 

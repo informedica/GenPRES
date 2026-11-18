@@ -15,10 +15,9 @@ let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localizati
     |> Deferred.defaultValue defVal
 
 
-/// The birthdate as the title bar and the panel show it: day, month and year as the EHR that
-/// launched the Session writes them, from the three integers the context carries, so that no
-/// time zone can move it by a day.
-let birthDateText (who: Types.NameAndBirthDate) = $"%02i{who.BirthDay}-%02i{who.BirthMonth}-%04i{who.BirthYear}"
+/// Formats the birth date as dd-mm-yyyy for the title bar and the panel. Uses the three integers of
+/// the patient identity as the EHR wrote them, so no time zone can move the date by a day.
+let birthDateText (who: Types.PatientIdentity) = $"%02i{who.BirthDay}-%02i{who.BirthMonth}-%04i{who.BirthYear}"
 
 
 let pageToString terms locale page =
@@ -51,7 +50,7 @@ let defContext =
 let context = React.createContext (defaultValue = defContext)
 
 
-/// Whether a quantity field is counting step clicks now, and how a field reports that it starts
+/// Whether a quantity field is counting step clicks, and the function a field calls when it starts
 /// counting or has sent its clicks. While one field counts, every other field is disabled.
 type Counting =
     {
@@ -59,14 +58,14 @@ type Counting =
         Report: bool -> unit
     }
 
-/// No field counting, and nothing to report to: the value outside the App.
+/// The default outside the App: no field counting, and reports are ignored.
 let defCounting =
     {
         Counting = false
         Report = ignore
     }
 
-/// The quantity fields' count, provided at the root of the App.
+/// The counting state of the quantity fields, provided at the root of the App.
 let counting = React.createContext (defaultValue = defCounting)
 
 
@@ -87,9 +86,8 @@ type PrintLabels =
     |}
 
 
-/// The print labels, resolved once here and handed to the print components as props. None of
-/// them has a term in the localization sheet yet, so they are the Dutch the print always had;
-/// when a term arrives, this is the one place that changes.
+/// Returns the print labels, which the print components get as props. The labels are Dutch text,
+/// because the localization sheet has no terms for them; this is the one place to change when it does.
 let printLabels () : PrintLabels =
     {|
         date = "D.D."

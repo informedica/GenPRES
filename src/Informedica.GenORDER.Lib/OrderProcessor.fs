@@ -21,8 +21,8 @@ module OrderProcessor =
     module Variable = Informedica.GenSolver.Lib.Variable
 
 
-    /// The order as it is: every property command runs through the order program, and a component
-    /// in stock is not implemented.
+    /// Returns the order unchanged. Logs a warning for ComponentInStock, which is not implemented;
+    /// the order program runs the other property commands.
     let processChangeProperty logger cmd ord =
         match cmd with
         | ComponentInStock _ ->
@@ -50,7 +50,7 @@ module OrderProcessor =
         | DoseSolved -> "DoseSolved"
 
 
-    // New: A lightweight classification and step-driven pipeline
+    /// The schedule kind of an order, used to classify the order for the pipeline steps.
     type PrescriptionKind =
         | PKOnce
         | PKOnceTimed
@@ -59,23 +59,20 @@ module OrderProcessor =
         | PKTimed
 
 
-    /// The state of an Order used for classification
-    /// in the processing pipeline
-    /// IsEmpty: whether the order is empty
-    /// HasValues: whether the order has values
-    /// DoseIsSolved: whether the dose is solved
-    /// PrescriptionKind: the kind of prescription
-    /// (Once, OnceTimed, Discontinuous, Continuous, Timed)
-    /// This is used to determine which steps to run
-    /// in the processing pipeline
-    /// and in which order
+    /// The state of an order that the guards of the pipeline steps read to decide whether a step runs.
     type OrderState =
         {
+            /// True when no order variable has constraints applied.
             IsConstraintsNotApplied: bool
+            /// True when the order variables that are checked for the schedule have values.
             HasValues: bool
+            /// True when the dose quantity, or the dose rate on a continuous schedule, has values.
             CanSetNormDose: bool
+            /// True when the dose variables of the order are solved.
             DoseIsSolved: bool
+            /// True when every order variable with constraints has one value, the order count left out.
             OrderIsSolved: bool
+            /// The schedule kind of the order.
             PrescriptionKind: PrescriptionKind
         }
 
@@ -100,11 +97,8 @@ module OrderProcessor =
         }
 
 
-    /// A processing step in the pipeline
-    /// with a name, a guard function to check
-    /// whether to run the step, and a run function
-    /// that takes an Order and returns a Result
-    /// with the processed Order or a list of error messages
+    /// A pipeline step with a name, a guard that decides from the order state whether the step runs,
+    /// and a run function that returns the processed order, or the order and the solver messages.
     type Step =
         {
             Name: string
@@ -113,14 +107,9 @@ module OrderProcessor =
         }
 
 
-    /// <summary>
-    /// Process an order through a pipeline of steps
-    /// depending on the command given, without the order program
-    /// </summary>
-    /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
-    /// <param name="logger">The logger</param>
-    /// <param name="cmd">The command to process</param>
-    /// <returns>A Result with the processed Order or a list of error messages</returns>
+    /// Runs the pipeline steps of the command, without the order program. The caps give the maximum number of
+    /// values a pruned variable keeps, per schedule. Returns the processed order, or the order and the solver
+    /// messages of the failed step. Throws an ArgumentException for a command that the order program runs.
     let rec processCommandWith caps logger cmd =
 
         let runStep (step: Step) (ord: Order) =
@@ -131,9 +120,7 @@ module OrderProcessor =
 
                 step.Run ord
                 |> function
-                    | Ok ord ->
-                        //ord |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
-                        Ok ord
+                    | Ok ord -> Ok ord
                     | Error(ord, msgs) ->
                         $"Error in {step.Name}" |> Events.OrderScenario |> Logging.logInfo logger
 
@@ -162,8 +149,8 @@ module OrderProcessor =
 
         let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger None
 
-        // the rate of a timed or once timed order gets its values once the dose quantity has one
-        // value, and only while the rate is still a range
+        // On a timed or once timed order, makes the rate values when the dose quantity has one value
+        // and the rate is still a range.
         let rateStage useMax (ord: Order) =
             if
                 ord |> rateWaits
@@ -174,9 +161,9 @@ module OrderProcessor =
             else
                 Ok ord
 
-        // a rate list made when the scenario is selected or after a pick gets its median, as the
-        // norm dose gets the median dose quantity, so the order solves; a rate that already has a
-        // list, as after a reset or a recalculation, keeps it to pick from
+        // When the rate stage turns the rate range into a list, sets the rate to the median of the list
+        // and solves the order, as the norm dose sets the median dose quantity. A rate that already is a
+        // list, as after a reset or a recalculation, is not changed, so a value can be picked from it.
         let rateStageWithMedian useMax (ord: Order) =
             if ord.Orderable.Dose |> Dose.rateIsRange |> not then
                 Ok ord
@@ -209,8 +196,8 @@ module OrderProcessor =
                 Run = solveStep
             }
 
-        // the values ensured, solved, and the component quantity picked, as a solve ends; the rate
-        // list is made once the dose quantity has one value, with its median
+        // Makes values when the order has none, solves the order when it is not solved, picks the
+        // component quantity, and then makes the rate list and sets the rate to its median.
         let solveSteps ord =
             [
                 {
@@ -232,7 +219,7 @@ module OrderProcessor =
             ]
 
         match cmd with
-        // the order program runs the calculations, through processPipelineWith
+        // The order program runs these commands through processPipelineWith.
         | CalcMinMax _
         | CalcValues _
         | ReCalcValues _
@@ -250,7 +237,7 @@ module OrderProcessor =
 
         | SolveOrder ord -> ord |> solveSteps |> runPipeline ord
 
-        | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
+        | ChangeProperty(ord, cmd) ->
             [
                 {
                     Name = $"change-property: {cmd}"
@@ -269,7 +256,7 @@ module OrderProcessor =
     module OrderVariableReference =
 
 
-        /// The variable a reference names in an order; None when the order has no such variable.
+        /// Returns the order variable that the reference names, or None when the order has no such variable.
         let tryGet (ord: Order) ovarRef =
             let tryComponent c = ord.Orderable |> Orderable.tryComponent c
 
@@ -316,10 +303,10 @@ module OrderProcessor =
             | OrderVariableReference.ItemDose(c, i, p) -> tryItem c i |> Option.map (_.Dose >> Dose.toOrdVar p)
 
 
-        /// Whether a variable is basic for the schedule, one the other variables of the order are
-        /// calculated from: the frequency when the schedule has one, the dose quantity unless the
-        /// order runs continuously, the rate when the schedule has a time, the orderable quantity of
-        /// each component, and the order count unless the order is given once.
+        /// Returns true when the variable is basic for the schedule, so the other order variables are calculated
+        /// from it: the frequency when the schedule has one, the dose quantity unless the schedule is continuous,
+        /// the dose rate when the schedule has a time, the orderable quantity of each component, and the order
+        /// count unless the schedule is once or once timed.
         let isBasic sch ovarRef =
             match ovarRef with
             | OrderVariableReference.ScheduleFrequency -> sch |> Schedule.hasFrequency
@@ -330,7 +317,8 @@ module OrderProcessor =
             | _ -> false
 
 
-        /// The per kg or per m2 variables of every dose of the order.
+        /// Returns the references to the adjusted dose variables, per kg or per m2, of the orderable,
+        /// every component and every item.
         let adjusted (ord: Order) =
             let name = WrappedString.Name.toString
 
@@ -352,8 +340,9 @@ module OrderProcessor =
             ]
 
 
-        /// The invariants: the adjustment, the content of each component, the content and
-        /// concentration of each of its items, and on Continuous the dose count.
+        /// Returns the references to the invariant variables: the adjust quantity, the component quantity
+        /// of each component, the component quantity and concentration of each item, and on a continuous
+        /// schedule the dose count.
         let invariants (ord: Order) =
             let name = WrappedString.Name.toString
             let cmps = ord.Orderable.Components
@@ -374,22 +363,22 @@ module OrderProcessor =
             ]
 
 
-    /// Complete orders: every variable holds one value and every equation holds. A search fixes the
-    /// free variables one at a time and solves the order for min and max after each value, so a value
-    /// that no complete order reaches is dropped before the search tries it.
+    /// Searches for complete orders, in which every variable has one value and every equation holds.
+    /// The search fixes the free variables one at a time and solves the order for min and max after
+    /// each value, so a value that no complete order reaches is dropped before the search tries it.
     module CompleteOrder =
 
         open Informedica.GenUnits.Lib
 
 
-        /// The most solves one search may take.
+        /// The maximum number of solves in one search.
         let maxSolves = 1000
 
 
-        /// The names of the basic variables and the invariants that occur in the equations of the
-        /// order, without the order count: the order count has no maximum, so every multiple of a
-        /// total over the order is reached. A variable outside the equations, such as the adjust
-        /// quantity of an order without an adjusted dose, is not searched.
+        /// Returns the names of the basic variables and the invariants that occur in the order equations.
+        /// The order count is left out because it has no maximum, so every multiple of a total over the
+        /// order is reached. A variable outside the equations, such as the adjust quantity of an order
+        /// without an adjusted dose, is not searched.
         let freeNames (ord: Order) =
             let names = (ord |> Determination.ofOrder).Names
 
@@ -406,18 +395,18 @@ module OrderProcessor =
             |> List.filter names.Contains
 
 
-        /// The variable of an order with the name.
+        /// Returns the order variable with the name. Throws when the order has no such variable.
         let byName ord name =
             ord |> toOrdVars |> List.find (OrderVariable.getName >> (=) name)
 
 
-        /// The variable with the values of the value unit as a list.
+        /// Returns the variable with its values replaced by the values of the value unit vu.
         let withValues vu (ovar: OrderVariable) =
             { ovar with Variable = ovar.Variable |> Informedica.GenOrder.Lib.Variable.replaceValuesWithValueUnit vu }
 
 
-        /// The variable set to each of its values, or None when the variable holds a range that cannot
-        /// be listed.
+        /// Returns one copy of the variable for each of its values, with that single value. Returns None
+        /// when the range of the variable cannot be listed in at most 100000 values.
         let singles (ovar: OrderVariable) =
             ovar.Variable.Values
             |> Variable.ValueRange.tryToValueSet 100000
@@ -431,9 +420,9 @@ module OrderProcessor =
             )
 
 
-        /// Whether the messages of a failed solve prove that the order cannot hold the values it was
-        /// solved with. A loop limit, a value set too large to list or an unexpected exception proves
-        /// nothing.
+        /// Returns true when the messages of a failed solve prove that the order cannot hold the values
+        /// it was solved with. A loop limit, a value set too large to list or an unexpected exception
+        /// proves nothing.
         let rec proves msgs =
             msgs
             |> List.forall (
@@ -451,7 +440,7 @@ module OrderProcessor =
             {
                 /// The complete orders found.
                 Complete: Order list
-                /// The solves the search took.
+                /// The number of solves the search took.
                 Solves: int
                 /// False when the search stopped at maxSolves, or on a variable that holds a range
                 /// that cannot be listed.
@@ -459,14 +448,15 @@ module OrderProcessor =
             }
 
 
-        /// The order with the variable fixed to the value, solved for min and max.
+        /// Replaces the order variable with the same name by ovar and solves the order for min and max.
         let setAndSolve logger (ovar: OrderVariable) ord =
             ord
             |> mapOrdVars (fun o -> if o.Variable.Name = ovar.Variable.Name then ovar else o)
             |> solveMinMax "Complete order" false logger
 
 
-        /// Every complete order the order allows, or the first one when firstOnly holds.
+        /// Returns every complete order that the order allows, or only the first one when firstOnly is true.
+        /// The search stops after maxSolves solves.
         let search logger firstOnly ord =
             let names = ord |> freeNames
 
@@ -507,7 +497,7 @@ module OrderProcessor =
                 ord
 
 
-        /// The first complete order that sets the variable to the value.
+        /// Returns the first complete order in which the variable has the value of ovar, or None.
         let tryFindWith logger ovar ord =
             ord
             |> setAndSolve logger ovar
@@ -515,10 +505,10 @@ module OrderProcessor =
             |> Option.bind (search logger true >> _.Complete >> List.tryHead)
 
 
-        /// Whether no complete order sets the variable to the value: the solve with the value fails
-        /// in a way that proves it, or a search that tries every branch finds no complete order. A
-        /// failure that proves nothing, or a search that stops at maxSolves or at a range it cannot
-        /// list, decides nothing, so the value is not impossible.
+        /// Returns true when no complete order has the variable set to the value of ovar: the solve with
+        /// the value fails with messages that prove it, or a finished search finds no complete order.
+        /// Returns false for a failure that proves nothing, or for a search that stops at maxSolves or at
+        /// a range that cannot be listed.
         let isProvenImpossible logger ovar ord =
             match ord |> setAndSolve logger ovar with
             | Error(_, msgs) -> msgs |> proves
@@ -527,10 +517,10 @@ module OrderProcessor =
                 s.Complete |> List.isEmpty && s.Finished
 
 
-        /// The variable with the values a search proves impossible dropped from its list, one search
-        /// per value, run in parallel; a value a search cannot decide stays. The variable as it is when
-        /// it holds no list of more than one value, and None when every value of the list is proven
-        /// impossible.
+        /// Removes from the value list of the variable each value that a search proves impossible, with one
+        /// search per value, run in parallel. A value that a search cannot decide stays in the list. Returns
+        /// the variable unchanged when it has no list of more than one value, and None when every value in
+        /// the list is proven impossible.
         let dropProvenImpossible logger ord (ovar: OrderVariable) =
             match ovar |> singles with
             | Some(_ :: _ :: _ as ss) ->
@@ -556,7 +546,8 @@ module OrderProcessor =
     module Choice =
 
 
-        /// The value a choice selects from the current range of a variable.
+        /// Returns the value that the choice selects from the current range of the variable. Returns
+        /// NotSettable when the shape does not allow the choice, and ValueNotInRange when no value is found.
         let select ovarRef choice (ovar: OrderVariable) =
             let notSettable reason = Error(ActionFailure.NotSettable(ovarRef, reason))
 
@@ -585,15 +576,15 @@ module OrderProcessor =
                 )
 
             match choice, ovar |> OrderVariable.shape with
-            // a field that holds one value keeps it, so the order is solved again unchanged
+            // A variable with one value returns that value, so the order is solved again unchanged.
             | (Choice.Min | Choice.Max | Choice.Median | Choice.Nth 0), _ when ovar |> OrderVariable.hasOneValue ->
                 ovar |> fromList
             | _, Shape.SelectableList -> ovar |> fromList
             // a percentile counts the increments from min to max, not the values of a pruned list
             | Choice.Percentile _, Shape.SelectableRange -> ovar |> fromList
-            // a range with a value count is read from its min, increment and max, without writing out
-            // its values, which can be more than a value set holds; as in a list, no nth value lies
-            // outside the count
+            // A range with a value count is read from its min, increment and max without listing its
+            // values, which can be more than a value set holds. As in a list, an nth value outside the
+            // count is not in the range.
             | Choice.Nth n, Shape.SelectableRange when
                 ovar.Variable |> Variable.valueCount |> Option.exists (fun c -> n < 0 || n >= c)
                 ->
@@ -620,8 +611,8 @@ module OrderProcessor =
     module SetBackTo =
 
 
-        /// The order variable set back to the target; the orderable quantity of the order bounds
-        /// DefinedUpToOrderable.
+        /// Sets the order variable back to the target. For DefinedUpToOrderable, the orderable quantity
+        /// of the order is the maximum.
         let apply target (ord: Order) ovar =
             match target with
             | SetBackTo.Calculated -> ovar |> OrderVariable.applyCalculatedConstraints
@@ -655,14 +646,14 @@ module OrderProcessor =
         open Informedica.GenUnits.Lib
 
 
-        /// A failure of a solve or calculation as the failure of an effect: the order it failed on,
-        /// with the messages of the solver.
+        /// Maps the error of a solve or calculation to SolveFailed with the solver messages, together
+        /// with the order it failed on.
         let ofSolve result =
             result
             |> Result.mapError (fun (ord, msgs) -> ord, ActionFailure.SolveFailed msgs)
 
 
-        /// The order solved for min and max, or with values.
+        /// Solves the order for min and max, or with values, as the mode says.
         let solve logger mode ord =
             match mode with
             | SolveMode.MinMax -> ord |> solveMinMax "Order effect" true logger
@@ -670,23 +661,25 @@ module OrderProcessor =
             |> ofSolve
 
 
-        /// The result of f on the variable a reference names, or NoSuchVariable when the order has no
-        /// such variable.
+        /// Applies f to the variable that the reference names. Returns NoSuchVariable when the order has
+        /// no such variable.
         let withVar ovarRef ord f =
             match ovarRef |> OrderVariableReference.tryGet ord with
             | None -> Error(ord, ActionFailure.NoSuchVariable ovarRef)
             | Some ovar -> ovar |> f
 
 
-        /// The basic variables made lists with the cap, including the values of the original order.
+        /// Turns the basic variables into value lists with the cap; WithoutRate leaves the rate out.
+        /// The lists include the values of the original order.
         let enumerate caps logger cap rate original ord =
             ord
             |> minIncrMaxToValues caps (cap = ValueCap.Larger) (rate = RateList.WithoutRate) logger original
             |> ofSolve
 
 
-        /// The rate list of a timed order once its dose quantity holds one value; with SelectMedianRate
-        /// a rate that became a list gets its median and the order is solved.
+        /// Makes the rate list of a timed or once timed order whose dose quantity has one value and whose
+        /// rate is a range. With SelectMedianRate, a rate that became a list is set to its median and the
+        /// order is solved.
         let rateValues caps logger cap selection original (ord: Order) =
             let rateList ord =
                 if
@@ -705,7 +698,7 @@ module OrderProcessor =
                 ord
                 |> rateList
                 |> Result.bind (fun ord ->
-                    // a rate the list was not made for, or a list of one rate, is kept as it is
+                    // A rate that did not become a list, or a list of one rate, is not changed.
                     if ord.Orderable.Dose |> Dose.rateIsList |> not then
                         Ok ord
                     else
@@ -715,7 +708,8 @@ module OrderProcessor =
                 )
 
 
-        /// The names of the variables the kept variables do not determine, without the ones in stays.
+        /// Returns the names of the variables that the variables in kept do not determine, without the
+        /// variables in stays.
         let undetermined kept stays ord =
             let names refs =
                 refs
@@ -726,8 +720,8 @@ module OrderProcessor =
             (ord |> Determination.undeterminedBy (names kept)) - names stays
 
 
-        /// The names of the variables an effect sets back, with the target; None for an effect that sets
-        /// nothing back, and NoSuchVariable for a reference the order does not have.
+        /// Returns the names of the variables that the effect sets back, with the target. Returns None for
+        /// an effect that sets nothing back, and NoSuchVariable for a reference the order does not have.
         let setsBack ord effect =
             match effect with
             | OrderEffect.SetAllOrderVariableRangesBack target ->
@@ -738,7 +732,7 @@ module OrderProcessor =
             | _ -> Ok None
 
 
-        /// The names of the variables the effects set back.
+        /// Returns the names of the variables that the effects set back.
         let setBackNames ord effects =
             effects
             |> List.choose (setsBack ord >> Result.toOption >> Option.flatten)
@@ -746,7 +740,7 @@ module OrderProcessor =
             |> Set.unionMany
 
 
-        /// Whether the effects change the calculated constraints.
+        /// Returns true when an effect records or recalculates the calculated constraints.
         let recordsConstraints effects =
             effects
             |> List.exists (
@@ -757,8 +751,8 @@ module OrderProcessor =
             )
 
 
-        /// Runs one effect; a failure keeps the order the effect was run on, as a failed solve returns the
-        /// order it partly solved.
+        /// Runs one effect. A failure returns the order as it was before the effect, not the partly
+        /// solved order of a failed solve.
         let rec apply caps logger effect ord =
             ord |> applyEffect caps logger effect |> Result.mapError (fun (_, f) -> ord, f)
 
@@ -809,7 +803,8 @@ module OrderProcessor =
             | OrderEffect.SetNormDose -> ord |> solveNormDose logger |> ofSolve
             | OrderEffect.SelectNearestComponentQuantity ->
                 ord |> pickNearestHigherElseLowerComponentQuantity logger |> ofSolve
-            // with one dose count every value a solve keeps is reached, so there is nothing to drop
+            // With one dose count, a complete order reaches every value that a solve leaves, so no value
+            // is dropped.
             | OrderEffect.DropImpossibleValues _ when
                 ord.Orderable.DoseCount |> Count.toOrdVar |> OrderVariable.hasOneValue
                 ->
@@ -832,7 +827,7 @@ module OrderProcessor =
                 match ord |> withoutCalculatedConstraints |> run caps logger effects with
                 | Ok calculated -> ord |> withCalculatedConstraintsOf calculated |> Ok
                 | Error(_, f) ->
-                    // the order is kept, so the failure is logged instead of returned
+                    // The effect returns the order unchanged, so the failure is logged, not returned.
                     $"The calculated constraints stay as they are, the effects failed: %A{f}"
                     |> Events.OrderScenario
                     |> Logging.logWarning logger
@@ -842,7 +837,7 @@ module OrderProcessor =
                 match ord |> run caps logger effects with
                 | Ok o -> Ok o
                 | Error(_, f) ->
-                    // the order is kept, so the failure is logged instead of returned
+                    // The effect returns the order unchanged, so the failure is logged, not returned.
                     $"Try kept the order, the effects failed: %A{f}"
                     |> Events.OrderScenario
                     |> Logging.logWarning logger
@@ -856,9 +851,9 @@ module OrderProcessor =
             ||> List.fold (fun acc eff -> acc |> Result.bind (apply caps logger eff))
 
 
-        /// The effects for the order of one combination of concentrations: a list includes the
-        /// values of the original order only when they belong to that combination, so a value of one
-        /// concentration is not included in another.
+        /// Adapts the effects to the order of one combination of concentrations. An enumerate effect
+        /// includes the values of the original order only when they belong to that combination, so a
+        /// value of one concentration is not included in another.
         let forConcentration (ord: Order) effs =
             let invariants =
                 ord
@@ -866,7 +861,7 @@ module OrderProcessor =
                 |> List.choose (OrderVariableReference.tryGet ord)
                 |> OrderVariable.byName
 
-            // a held value belongs when the invariant of this combination allows it
+            // A value of the original order belongs when the invariant of this combination allows it.
             let belongs (held: OrderVariable) =
                 match invariants |> Map.tryFind held.Variable.Name with
                 | None -> true
@@ -902,25 +897,23 @@ module OrderProcessor =
     module SetCommand =
 
 
-        /// How the variable a reference names can be set: a list is selectable; a min, increment and
-        /// max is a range that ofSet takes a value from only on a basic variable, since the range of a
-        /// derived variable can hold values no complete order reaches; one value with a defined
-        /// increment is steppable, on a basic variable only.
+        /// Returns the shape of the variable, but NotSettable for a steppable variable that is not basic
+        /// for the schedule. A list is selectable. A range gives a value through ofSet only on a basic
+        /// variable, because the range of a derived variable can hold values that no complete order reaches.
         let settable sch ovarRef ovar =
             match ovar |> OrderVariable.shape with
             | Shape.Steppable when ovarRef |> OrderVariableReference.isBasic sch |> not -> Shape.NotSettable
             | shape -> shape
 
 
-        /// What a set does with its choice, given the shape of the variable. A step on the frequency,
-        /// the dose quantity, the dose rate or a component orderable quantity, and a percentile of the
-        /// dose quantity, run a recipe that first sets back the variables that depend on the set
-        /// variable, so they can follow the new value. A min, max, median or nth sets only the value:
-        /// from a list on any variable, from a min, increment and max only on a basic variable. On a
-        /// variable that is steppable or not settable a min, max, median or nth still sets only the
-        /// value: Choice.select then refuses it with the reason the shape gives no value. On Continuous
-        /// a min, max or median of the dose quantity gives no command: there the dose quantity is not a
-        /// basic variable, and the rate has its own min, max and median.
+        /// Returns the set command for a choice on a variable with the given shape. A step on a variable
+        /// that is not steppable gives no command. A step on the frequency, the dose quantity, the dose
+        /// rate or a component orderable quantity, and a percentile of the dose quantity, run a recipe that
+        /// first sets back the variables that depend on the set variable, so they follow the new value.
+        /// A min, max, median or nth sets only the value: from a list on any variable, from a range only on
+        /// a basic variable. On a steppable or not settable variable it also sets only the value, and
+        /// Choice.select then refuses it. On a continuous schedule a min, max or median of the dose quantity
+        /// gives no command, because the dose quantity is not basic there and the rate has its own choices.
         let ofSet ovarRef sch shape choice =
             match ovarRef, choice with
             | _, Choice.Step _ when shape <> Shape.Steppable -> SetCommand.NoCommand
@@ -955,22 +948,24 @@ module OrderProcessor =
     module Recipe =
 
 
-        /// The preparation a recipe keeps: the orderable quantity of each component.
+        /// Returns the references to the orderable quantity of each component, the preparation that a
+        /// recipe does not change.
         let keptPreparation ord =
             ord |> components |> List.map OrderVariableReference.ComponentOrderableQuantity
 
 
-        /// Every variable the kept variables do not determine freed to any positive value, but the
-        /// variables in stays, such as the target of a step, which the step gives its value.
+        /// Sets every variable that the variables in kept do not determine back to any positive value,
+        /// except the variables in stays, such as the target of a step, which gets the value of the step.
         let freeUndetermined kept stays =
             OrderEffect.SetBackUndetermined(kept, stays, SetBackTo.AnyPositive)
 
 
-        /// The variable set back to the target.
+        /// Returns the effect that sets the variable back to the target.
         let setFloor ovarRef target = OrderEffect.SetOrderVariableRangeBack(ovarRef, target)
 
 
-        /// The rate a step keeps, on a schedule with an administration time.
+        /// Returns the dose rate reference when the schedule has an administration time, so a step keeps
+        /// the rate.
         let keptRate (ord: Order) =
             [
                 if ord.Schedule |> Schedule.hasTime then
@@ -1024,8 +1019,8 @@ module OrderProcessor =
 
         /// The percentile of the dose quantity: keeps the frequency, the preparation, the order count
         /// and the invariants. The dose quantity goes to its defined constraints up to the orderable
-        /// quantity, its adjust and the rate to their defined constraints, the dose count to at least
-        /// 1, and on a schedule with a time the time to its calculated constraints.
+        /// quantity, the adjusted dose quantity and the dose rate to their defined constraints, the dose
+        /// count to at least 1, and on a schedule with a time the time to its calculated constraints.
         let orderableDoseQuantityPercentile (ord: Order) =
             let dose = OrderVariableReference.OrderableDose
 
@@ -1068,9 +1063,9 @@ module OrderProcessor =
 
         /// The step of the orderable quantity of the component name: keeps the frequency, the
         /// orderable quantities of the other components, the rate, the order count, the invariants
-        /// and, with one component, the dose quantity. The orderable quantity goes to its min and
-        /// increment; with more than one component the dose quantity to its min and increment and
-        /// the dose count to 1.
+        /// and, with one component, the dose quantity. The orderable quantity of the orderable goes to
+        /// its min and increment; with more than one component the dose quantity goes to its min and
+        /// increment and the dose count to 1.
         let componentOrderableQuantityStep name ord =
             let isSingle = ord |> components |> List.length = 1
 
@@ -1101,8 +1096,8 @@ module OrderProcessor =
             ]
 
 
-        /// The variables of refs a recalculation keeps: only the ones that lie within their calculated
-        /// constraints, so a variable a step moved outside its constraints is set back.
+        /// Returns the references in refs whose variables lie within their constraints, so a variable
+        /// that a step moved outside its constraints is set back by the recalculation.
         let keptWithinConstraints ord refs =
             refs
             |> List.filter (
@@ -1111,14 +1106,15 @@ module OrderProcessor =
             )
 
 
-        /// Every variable the kept variables do not determine set back to its calculated constraints.
+        /// Sets every variable that the variables in kept, within their constraints, do not determine back
+        /// to its calculated constraints.
         let setBackUndetermined ord kept =
             OrderEffect.SetBackUndetermined(kept |> keptWithinConstraints ord, [], SetBackTo.Calculated)
 
 
-        /// The recalculation of the kind Dose: keeps the frequency, the order count and the
-        /// invariants. The preparation is never kept: a kept preparation limits the dose to the
-        /// preparation divided by the dose count, a single value when the dose count holds one value.
+        /// The recalculation of the kind Dose: keeps the frequency, the order count and the invariants.
+        /// The preparation is not kept, because a fixed preparation limits the dose to the preparation
+        /// divided by the dose count, a single value when the dose count has one value.
         let reCalcDose ord =
             [
                 [
@@ -1130,11 +1126,11 @@ module OrderProcessor =
             ]
 
 
-        /// The recalculation of the kind Per time: keeps what the kind Dose keeps, without the
-        /// frequency, since a per time is the dose quantity times the frequency. With one component
-        /// whose dose quantity the definition fixes, its calculated constraints holding one value, only
-        /// the product can change the per time, so the product invariants of that component are not
-        /// kept either.
+        /// The recalculation of the kind Per time: keeps the order count and the invariants, but not the
+        /// frequency, because the dose per time is the dose quantity times the frequency. When the order has
+        /// one component and the calculated constraints of the dose quantity hold one value, only the product
+        /// can change the dose per time, so the component quantity and the item quantities and
+        /// concentrations of that component are not kept either.
         let reCalcPerTime (ord: Order) =
             let name = WrappedString.Name.toString
 
@@ -1164,11 +1160,10 @@ module OrderProcessor =
             ]
 
 
-        /// The recalculation of the kind Time: keeps the frequency, the order count and the invariants;
-        /// the dose quantity unless the preparation is out of its constraints or the time is fixed; the
-        /// preparation unless it is free: out of its constraints, or a fixed time, since a fixed time
-        /// ties the dose to the rate and a dose count that holds one value ties the preparation to the
-        /// dose.
+        /// The recalculation of the kind Time: keeps the frequency, the order count and the invariants.
+        /// It also keeps the preparation and the dose quantity, except when the preparation is outside its
+        /// constraints or the time is fixed. A fixed time ties the dose to the rate, and a dose count with
+        /// one value ties the preparation to the dose.
         let reCalcTime ord =
             let isTimeFixed = ord.Schedule |> Schedule.isTimeFixed
             let isPrepFree = ord |> isPrepWithinConstraints |> not || isTimeFixed
@@ -1178,7 +1173,8 @@ module OrderProcessor =
                     OrderVariableReference.ScheduleFrequency
                     OrderVariableReference.OrderableOrderCount
 
-                    // on Continuous the dose quantity is the preparation, which this recipe keeps or frees
+                    // On a continuous schedule the dose quantity is the preparation, which the recipe
+                    // keeps or frees together with the preparation.
                     if ord.Schedule |> Schedule.isContinuous |> not && not isPrepFree then
                         OrderVariableReference.OrderableDose DoseProperty.Quantity
 
@@ -1204,9 +1200,9 @@ module OrderProcessor =
             | Recipe.ReCalcTime -> ord |> reCalcTime
 
 
-        /// The recipe a recalculation of the variable runs, per dose type: the kind Dose, Per time or
-        /// Time that recalculates the variable; None for a variable no kind recalculates, which includes
-        /// the dose of an item of a component the rules do not constrain.
+        /// Returns the recalculation recipe for the variable on the schedule of the order: Dose, Per time
+        /// or Time. Returns None for a variable that no recipe recalculates on that schedule, and for an
+        /// item dose of a component without dose constraints.
         let forReCalcCommand ovarRef (ord: Order) =
             let isUnconstrained =
                 match ovarRef with
@@ -1217,8 +1213,8 @@ module OrderProcessor =
                     |> not
                 | _ -> false
 
-            // the orderable dose quantity and rate have no command on the wire; the program
-            // recalculates them for its own actions
+            // No recalculation command names the orderable dose quantity or rate; the order program
+            // recalculates them for its own actions.
             let kind =
                 match ovarRef with
                 | OrderVariableReference.OrderableDose DoseProperty.Quantity
@@ -1242,7 +1238,7 @@ module OrderProcessor =
 
     module ActionFailure =
 
-        /// The messages of the solver of a failure; none for a refusal.
+        /// Returns the solver messages of a SolveFailed failure, and an empty list for any other failure.
         let toMessages =
             function
             | ActionFailure.SolveFailed msgs -> msgs
@@ -1251,7 +1247,8 @@ module OrderProcessor =
 
     module OrderAction =
 
-        /// The effects of an action on an order, decided by the server.
+        /// Returns the effects of an action on the order. Returns NoSuchVariable for a reference the order
+        /// does not have, and NoRecipe for an action without a recipe.
         let effects action (ord: Order) =
             let cap =
                 if ord |> hasAtMostTwoComponents then
@@ -1265,8 +1262,8 @@ module OrderProcessor =
                 else
                     RateList.WithRate
 
-            // the value lists of an order made from its constraints: an order with more than two components
-            // keeps its ranges, and a solved order is left as it is
+            // Makes the value lists from the constraints, unless the dose or the order is solved.
+            // An order with more than two components keeps its ranges.
             let calcValues =
                 let unsolved eff =
                     OrderEffect.Unless([ OrderCondition.DoseSolved; OrderCondition.OrderSolved ], eff)
@@ -1281,8 +1278,8 @@ module OrderProcessor =
                             )
                 ]
 
-            // the lists made where missing, solved with values, the component quantity picked and
-            // the rate list made, as a solve with values ends
+            // Makes the value lists when the order has none, solves with values when the order is not
+            // solved, picks the nearest component quantity and makes the rate list.
             let values selection original =
                 [
                     OrderEffect.Unless(
@@ -1294,8 +1291,8 @@ module OrderProcessor =
                     OrderEffect.EnumerateRateValues(cap, selection, original)
                 ]
 
-            // the defined constraints solved for min and max, the increments coarsened and the result
-            // recorded as the calculated constraints
+            // Solves the constraints for min and max, coarsens the increments and records the result
+            // as the calculated constraints.
             let calculateConstraints =
                 [
                     OrderEffect.SetAllOrderVariableRangesBack SetBackTo.CalculatedElseDefined
@@ -1306,12 +1303,12 @@ module OrderProcessor =
 
             match action with
             | OrderAction.Set(ovarRef, choice) ->
-                // an nth is solved with values, as a selection from a list is; on an order without lists a
+                // An nth is solved with values, as a selection from a list is. On an order without lists, a
                 // solve for min and max first carries the value through, because the lists are made with a cap
-                // that thins them, and a list thinned before the narrowing can miss the values the set value
-                // needs; a min, max or median on an order with lists is solved with values, because a solve
-                // for min and max keeps every listed value within the new bounds, also the values the set
-                // value no longer reaches; the other choices are solved for min and max
+                // that thins them, and a list thinned before the narrowing can miss the values that the set
+                // value needs. A min, max or median on an order with lists is solved with values, because a
+                // solve for min and max leaves every listed value within the new bounds, also the values that
+                // the set value no longer reaches. The other choices are solved for min and max.
                 let solve =
                     match choice with
                     | Choice.Nth _ when ord |> hasValues -> values RateSelection.SelectMedianRate None
@@ -1324,8 +1321,9 @@ module OrderProcessor =
                     | _ -> [ OrderEffect.SolveOrder SolveMode.MinMax ]
 
                 let setValue recipe ovar =
-                    // the value is selected from the range as it is before the recipe; a stepped
-                    // value replaces the one held, any other value narrows the range
+                    // The value is selected from the range before the recipe runs. A step sets the
+                    // variable back to any positive value before the new value; any other choice
+                    // narrows the range.
                     let replace =
                         match choice with
                         | Choice.Step _ -> [ OrderEffect.SetOrderVariableRangeBack(ovarRef, SetBackTo.AnyPositive) ]
@@ -1347,7 +1345,7 @@ module OrderProcessor =
                         SetCommand.ofSet ovarRef ord.Schedule (ovar |> SetCommand.settable ord.Schedule ovarRef) choice
                     with
                     | SetCommand.NoCommand -> Error(ActionFailure.NoRecipe action)
-                    // a percentile of a dose that is not part of a composition the user set changes nothing
+                    // A percentile changes nothing until every component orderable quantity has one value.
                     | SetCommand.WithRecipe Recipe.OrderableDoseQuantityPercentile when ord |> isComposed |> not ->
                         Ok []
                     // a percentile is selected from the range its recipe gives
@@ -1365,9 +1363,9 @@ module OrderProcessor =
                 | None, _ -> Error(ActionFailure.NoSuchVariable ovarRef)
                 | _, None -> Error(ActionFailure.NoRecipe action)
                 | Some _, Some recipe ->
-                    // after a dose the increments are coarsened before the lists are made; the lists include
-                    // the values the order held when the action received it, so the order the user had
-                    // stays on offer; the rate list is left to select from
+                    // After a Dose or Per time recalculation the increments are coarsened before the lists
+                    // are made. The lists include the values of the order as the action received it, so those
+                    // values stay selectable. The rate list is offered without a selected rate.
                     Ok
                         [
                             yield! ord |> Recipe.effects recipe
@@ -1381,8 +1379,8 @@ module OrderProcessor =
                         ]
             | OrderAction.Readjust when ord |> EquationMapping.usesAdjust |> not -> Ok []
             | OrderAction.Readjust ->
-                // the values of the doses are given, so a per kg or per m2 value follows from them, also
-                // outside its constraints and off its increment
+                // The dose values are given, so each per kg or per m2 value is calculated from them, also
+                // when it falls outside its constraints or off its increment.
                 Ok
                     [
                         OrderEffect.RecalculateConstraints calculateConstraints
@@ -1396,7 +1394,7 @@ module OrderProcessor =
                 Ok
                     [
                         yield! calculateConstraints
-                        // the norm dose needs dose values; a failure to make them keeps the order
+                        // The norm dose needs dose values. When making them fails, the order is not changed.
                         if ord |> hasNormDose && ord |> hasAtMostTwoComponents then
                             OrderEffect.Unless(
                                 [ OrderCondition.CanSetNormDose ],
@@ -1407,7 +1405,8 @@ module OrderProcessor =
                             OrderEffect.SetNormDose
                     ]
             | OrderAction.Reset ->
-                // the creation wrote calculated constraints for every variable, inside its defined ones
+                // Creating the order set calculated constraints within the defined constraints of every
+                // variable, so the reset goes back to them.
                 Ok
                     [
                         OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated
@@ -1417,9 +1416,9 @@ module OrderProcessor =
                         OrderEffect.Unless([ OrderCondition.OrderSolved ], OrderEffect.SolveOrder SolveMode.Values)
                     ]
             | OrderAction.SetComponentQuantities qtys ->
-                // the order holds the increments of its own components, which a quantity need not lie
-                // on, so every variable goes back to its defined constraints first; a quantity the order
-                // does not allow leaves its component open
+                // A given quantity need not lie on the increments of the order components, so every
+                // variable goes back to its defined constraints first. A quantity that the order does not
+                // allow leaves the range of its component unchanged.
                 Ok
                     [
                         OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Defined
@@ -1433,27 +1432,27 @@ module OrderProcessor =
                                     )
                                     OrderEffect.SolveOrder SolveMode.MinMax
                                 ]
-                        // the value lists an order gets when it is made again
+                        // The same value lists as a newly created order gets.
                         yield! calcValues
                     ]
             | OrderAction.CalcValues -> Ok calcValues
 
 
-        /// The most combinations of concentrations an order is solved for one by one; past it the
-        /// order is solved once, with every concentration.
+        /// The maximum number of concentration combinations for which an order is solved one by one.
+        /// Above it the order is solved once, with every concentration.
         let maxConcentrations = 16
 
 
-        /// The most values the union of the orders per concentration makes a list of; past it a
-        /// range.
+        /// The maximum number of values that the union of the orders per concentration lists.
+        /// Above it the union is a range.
         let maxUnionValues = 200
 
 
-        /// Runs an action; a failure keeps the order before the action. When a component has more
-        /// than one concentration, the action runs once per combination of concentrations, in
-        /// parallel, with the effects decided on the order as it is, and the order offers the union
-        /// of those that succeed, so no value of one concentration is combined with a value of
-        /// another. When that union cannot be listed, the action runs on the whole order.
+        /// Runs an action. A failure returns the order as it was before the action. When a component has
+        /// more than one concentration, the action runs once per combination of concentrations, in parallel,
+        /// with the effects decided on the original order. The result is the union of the runs that succeed,
+        /// so no value of one concentration is combined with a value of another. When every run fails, the
+        /// first failure is returned. When the union cannot be listed, the action runs on the whole order.
         let run caps logger action ord =
             match ord |> effects action with
             | Error f -> Error(ord, f)
@@ -1475,8 +1474,8 @@ module OrderProcessor =
 
                     match results |> List.choose Result.toOption with
                     | [] -> results |> List.head |> Result.mapError (fun (_, f) -> ord, f)
-                    // a union that becomes a range would offer values no concentration allows, so the
-                    // order runs whole
+                    // A union that becomes a range would offer values that no concentration allows, so
+                    // the action runs on the whole order.
                     | oks when oks |> isListedUnion maxUnionValues |> not -> runWhole ()
                     | oks ->
                         Ok(
@@ -1485,12 +1484,11 @@ module OrderProcessor =
                         )
 
 
-    /// The property commands as actions of the order program, while the order context still sends
-    /// them.
+    /// Maps the property commands that the order context sends to actions of the order program.
     module CommandBridge =
 
-        /// The action of the program a property command is; None for the component in stock, which
-        /// the pipeline of the command still processes.
+        /// Returns the order program action for a property command, or None for ComponentInStock,
+        /// which the pipeline of the command processes.
         let ofChangeProperty cmd =
             let step n useCalc =
                 Choice.Step(
@@ -1568,14 +1566,14 @@ module OrderProcessor =
             | ComponentInStock _ -> None
 
 
-        /// The order and the action of the program a command is; None for a command the pipeline
-        /// of the command still processes.
+        /// Returns the order and the order program action for a command, or None for a command that
+        /// the pipeline processes.
         let ofOrderCommand =
             function
             | CalcMinMax ord -> Some(ord, OrderAction.CalcConstraints)
             | CalcValues ord -> Some(ord, OrderAction.CalcValues)
             | ReCalcValues ord -> Some(ord, OrderAction.Reset)
-            // the value is in place before the action, so the order it starts from holds it
+            // The adjust value is set before the action, so the action starts from an order with that value.
             | Readjust(ord, adjust) -> Some(ord |> withAdjustValue adjust, OrderAction.Readjust)
             | SetComponentQuantities(ord, qtys) -> Some(ord, OrderAction.SetComponentQuantities qtys)
             | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
@@ -1583,8 +1581,8 @@ module OrderProcessor =
             | SolveOrder _ -> None
 
 
-    /// Process an order by the command given: a command the order program has an action for runs as
-    /// that action, any other command through its pipeline. A refusal of the program has no messages.
+    /// Processes an order by the command. A command with an order program action runs as that action,
+    /// any other command through its pipeline. A refusal by the order program returns no solver messages.
     let processPipelineWith caps logger cmd =
         match cmd |> CommandBridge.ofOrderCommand with
         | Some(ord, action) ->
@@ -1594,5 +1592,5 @@ module OrderProcessor =
         | None -> cmd |> processCommandWith caps logger
 
 
-    /// Process an order by the command given, pruned with the default caps.
+    /// Processes an order by the command, with the default caps for pruned variables.
     let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd

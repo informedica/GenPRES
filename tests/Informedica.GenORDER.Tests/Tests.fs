@@ -9,6 +9,11 @@ open Informedica.GenSolver.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
+type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+
 // --- New tests for fluent pipeline guard/order behavior ---
 
 // No GENPRES_URL_ID: these tests are hermetic and never download from Google
@@ -1143,7 +1148,7 @@ module TypeTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = Patient.patient
+                PatientData = PatientData.unknown
                 Scenarios = [||]
                 Argumentation = None
             }
@@ -1161,7 +1166,7 @@ module TypeTests =
 
         let plan contexts =
             {
-                Patient = Patient.patient
+                PatientData = PatientData.unknown
                 Filtered = [||]
                 Contexts = contexts
                 Totals = totals
@@ -1208,43 +1213,7 @@ module TypeTests =
                     |> Expect.equal "both contexts" [| "ctx-1"; "ctx-2" |]
 
                     plan.Filtered |> Expect.equal "the filter keeps one" [| "ctx-2" |]
-                    plan.Patient |> Expect.equal "the patient as shown" Patient.patient
-                }
-
-                test "an order plan version stores the whole plan and its identity" {
-                    let plan =
-                        OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication |]
-
-                    let version =
-                        {
-                            Id = "v-1"
-                            No = 1
-                            PatientId = "stub-patient"
-                            Base = None
-                            SignedBy =
-                                {
-                                    UserId = "u-1"
-                                    DisplayName = "Stub Prescriber"
-                                }
-                            SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
-                            Plan = plan
-                            Verified = true
-                            EhrData = None
-                        }
-
-                    version.Plan |> Expect.equal "the plan as signed" plan
-                    version.Base |> Expect.isNone "the first version has no base"
-                    version.SignedBy.DisplayName |> Expect.equal "the signer" "Stub Prescriber"
-
-                    let second =
-                        { version with
-                            Id = "v-2"
-                            No = 2
-                            Base = Some version.Id
-                        }
-
-                    second.Base |> Expect.equal "the second is built on the first" (Some "v-1")
-                    second.Plan |> Expect.equal "the plan is copied, not recomputed" version.Plan
+                    plan.PatientData |> Expect.equal "the patient as shown" PatientData.unknown
                 }
 
                 test "a nutrition rule set names what its category draws from" {
@@ -1290,33 +1259,39 @@ module PatientConstructorTests =
             [
 
                 test "premature has gestational age set" {
-                    Patient.premature.GestAge
+                    SamplePatients.premature.GestationalAge
                     |> Expect.isSome "premature should have gestational age"
                 }
 
                 test "premature has the post-menstrual age of 1 week plus 32 weeks" {
-                    Patient.premature.PMAge
+                    SamplePatients.premature
+                    |> CorePatientData.postMenstrualAgeInDays
                     |> Expect.equal "231 days" (Some(ValueUnit.singleWithUnit Units.Time.day 231N))
                 }
 
                 test "the post-menstrual age does not depend on the order the ages are set in" {
                     let gestFirst =
-                        Patient.patient
-                        |> Patient.setGestAge [ Patient.Optics.Weeks 32 ]
-                        |> Patient.setAge [ Patient.Optics.Weeks 1 ]
+                        PatientData.unknown
+                        |> Patient.setGestAge [ Patient.AgeParts.Weeks 32 ]
+                        |> Patient.setAge [ Patient.AgeParts.Weeks 1 ]
 
                     let reset =
-                        Patient.patient
-                        |> Patient.setAge [ Patient.Optics.Weeks 3 ]
-                        |> Patient.setGestAge [ Patient.Optics.Weeks 32 ]
-                        |> Patient.setAge [ Patient.Optics.Weeks 1 ]
+                        PatientData.unknown
+                        |> Patient.setAge [ Patient.AgeParts.Weeks 3 ]
+                        |> Patient.setGestAge [ Patient.AgeParts.Weeks 32 ]
+                        |> Patient.setAge [ Patient.AgeParts.Weeks 1 ]
 
-                    [ gestFirst.PMAge; reset.PMAge ]
-                    |> Expect.equal "231 days both" [ Patient.premature.PMAge; Patient.premature.PMAge ]
+                    [ gestFirst.PostMenstrualAge; reset.PostMenstrualAge ]
+                    |> Expect.equal
+                        "231 days both"
+                        [
+                            SamplePatients.premature.PostMenstrualAge
+                            SamplePatients.premature.PostMenstrualAge
+                        ]
                 }
 
                 test "a patient without a gestational age has no post-menstrual age" {
-                    Patient.newBorn.PMAge |> Expect.isNone "none"
+                    SamplePatients.newBorn.PostMenstrualAge |> Expect.isNone "none"
                 }
 
                 test "the post-menstrual age is the gestational age plus the age in days" {
@@ -1327,40 +1302,54 @@ module PatientConstructorTests =
                     ]
                     |> List.filter (fun (d, w) ->
                         let p =
-                            Patient.patient
-                            |> Patient.setAge [ Patient.Optics.Days d ]
-                            |> Patient.setGestAge [ Patient.Optics.Weeks w ]
+                            PatientData.unknown
+                            |> Patient.setAge [ Patient.AgeParts.Days d ]
+                            |> Patient.setGestAge [ Patient.AgeParts.Weeks w ]
 
-                        p.PMAge
+                        p |> CorePatientData.postMenstrualAgeInDays
                         <> Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt (d + w * 7)))
                     )
                     |> Expect.isEmpty "no difference"
                 }
 
                 test "premature has department NEO" {
-                    Patient.premature.Department |> Expect.equal "should be NEO" (Some "NEO")
+                    SamplePatients.premature
+                    |> Patient.getDepartment
+                    |> Expect.equal "should be NEO" (Some "NEO")
                 }
 
-                test "newBorn has age set" { Patient.newBorn.Age |> Expect.isSome "newBorn should have age" }
+                test "newBorn has age set" { SamplePatients.newBorn.Age |> Expect.isSome "newBorn should have age" }
 
-                test "infant has weight set" { Patient.infant.Weight |> Expect.isSome "infant should have weight" }
+                test "infant has weight set" {
+                    SamplePatients.infant
+                    |> Patient.getWeight
+                    |> Expect.isSome "infant should have weight"
+                }
 
-                test "child has height set" { Patient.child.Height |> Expect.isSome "child should have height" }
+                test "child has height set" {
+                    SamplePatients.child
+                    |> Patient.getHeight
+                    |> Expect.isSome "child should have height"
+                }
 
-                test "teenager has age set" { Patient.teenager.Age |> Expect.isSome "teenager should have age" }
+                test "teenager has age set" { SamplePatients.teenager.Age |> Expect.isSome "teenager should have age" }
 
-                test "adult has weight set" { Patient.adult.Weight |> Expect.isSome "adult should have weight" }
+                test "adult has weight set" {
+                    SamplePatients.adult
+                    |> Patient.getWeight
+                    |> Expect.isSome "adult should have weight"
+                }
 
                 test "all patient constructors have distinct departments or ages" {
                     let patients =
                         [
-                            Patient.premature
-                            Patient.newBorn
-                            Patient.infant
-                            Patient.toddler
-                            Patient.child
-                            Patient.teenager
-                            Patient.adult
+                            SamplePatients.premature
+                            SamplePatients.newBorn
+                            SamplePatients.infant
+                            SamplePatients.toddler
+                            SamplePatients.child
+                            SamplePatients.teenager
+                            SamplePatients.adult
                         ]
 
                     patients |> List.length |> Expect.equal "should have 7 distinct patients" 7
@@ -1370,15 +1359,16 @@ module PatientConstructorTests =
 
 module PatientAgeTests =
 
-    open Informedica.GenOrder.Lib.Patient.Optics
+    open Informedica.GenOrder.Lib.Patient.AgeParts
 
 
     let orderPatient ags marked =
-        { Patient.patient with MarkedAdult = marked } |> Patient.setAge ags
+        { PatientData.unknown with MarkedAdult = marked } |> Patient.setAge ags
 
 
     let orderDays ags =
-        (orderPatient ags false).Age
+        orderPatient ags false
+        |> CorePatientData.ageInDays
         |> Option.map (ValueUnit.getValue >> Array.head)
         |> Option.defaultValue 0N
 
@@ -1390,20 +1380,24 @@ module PatientAgeTests =
                 test "216 months is 6,570 days" { orderDays [ Months 216 ] |> Expect.equal "6,570 days" 6570N }
 
                 test "216 months is an adult" {
-                    orderPatient [ Months 216 ] false |> Adult.isAdult |> Expect.isTrue "adult"
+                    orderPatient [ Months 216 ] false
+                    |> PatientData.isAdult
+                    |> Expect.isTrue "adult"
                 }
 
                 test "215 months is a child" {
-                    orderPatient [ Months 215 ] false |> Adult.isAdult |> Expect.isFalse "child"
+                    orderPatient [ Months 215 ] false
+                    |> PatientData.isAdult
+                    |> Expect.isFalse "child"
                 }
 
                 test "192 months marked is an adult" {
-                    orderPatient [ Months 192 ] true |> Adult.isAdult |> Expect.isTrue "adult"
+                    orderPatient [ Months 192 ] true |> PatientData.isAdult |> Expect.isTrue "adult"
                 }
 
                 test "191 months marked is refused" {
-                    (orderPatient [ Months 191 ] true).Age
-                    |> Adult.markRefused true
+                    orderPatient [ Months 191 ] true
+                    |> CorePatientData.markRefused
                     |> Expect.isTrue "refused"
                 }
 
@@ -1717,6 +1711,25 @@ module ConstraintsTests =
             (two |> Maximum.create true |> Some)
             (one |> ValueSet.create |> Some)
 
+    let private noConstraints = Constraints.create None None None None
+
+    /// The value 10 to the power 30, which is above the largest decimal.
+    let private beyondDecimal = List.replicate 30 10N |> List.reduce (*)
+
+    /// The constraints of a dose limit with the minimum lo and the maximum hi in milligram.
+    /// Equal bounds are stored as a norm dose when calcNormDose is true.
+    let private limitedWith calcNormDose lo hi =
+        let minMax =
+            { MinMax.empty with
+                Min = lo |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+                Max = hi |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+            }
+
+        noConstraints |> Constraints.setMinMax calcNormDose minMax
+
+    /// The constraints of a dose limit in milligram, with equal bounds stored as a norm dose.
+    let private limited = limitedWith true
+
     let tests =
         testList
             "OrderVariable.Constraints setters"
@@ -1799,6 +1812,70 @@ module ConstraintsTests =
                     |> _.Max
                     |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
                     |> Expect.equal "a range is not a norm dose" (Some 2N)
+                }
+
+                for norm in [ 1N; 5N; 1N / 3N; 250N ] do
+                    test $"getNorm reads back a norm dose of %A{norm} mg" {
+                        limited norm norm
+                        |> Constraints.getNorm
+                        |> Expect.equal "the norm dose itself" (norm |> ValueUnit.singleWithUnit mg |> Some)
+                    }
+
+                test "getNorm of a range is no norm dose" {
+                    limited 1N 2N |> Constraints.getNorm |> Expect.isNone "a range has no norm dose"
+                }
+
+                test "getNorm of constraints without a minimum and a maximum is no norm dose" {
+                    noConstraints |> Constraints.getNorm |> Expect.isNone "no bounds, no norm dose"
+                }
+
+                test "getNorm of constraints with only a minimum is no norm dose" {
+                    noConstraints
+                    |> Constraints.setMin true (Some one)
+                    |> Constraints.getNorm
+                    |> Expect.isNone "a single bound is not a norm dose"
+                }
+
+                test "toMinMaxString of a norm dose is the norm dose" {
+                    limited 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose" "5 mg"
+                }
+
+                test "toMinMaxString of a norm dose of a third is rounded to the precision" {
+                    limited (1N / 3N) (1N / 3N)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "three significant digits" "0,333 mg"
+                }
+
+                test "toMinMaxString of equal bounds is the single value" {
+                    limitedWith false 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the single value" "5 mg"
+                }
+
+                test "toMinMaxString of a range is the minimum and the maximum" {
+                    limited 1N 2N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the range" "1 - 2 mg"
+                }
+
+                test "toMinMaxString of a norm dose beyond a decimal is the norm dose" {
+                    limited beyondDecimal beyondDecimal
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose in full" "1000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString of a range beyond a decimal is the minimum and the maximum" {
+                    limited beyondDecimal (2N * beyondDecimal)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal
+                        "the range in full"
+                        "1000000000000000000000000000000 - 2000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString without bounds is an empty text" {
+                    noConstraints |> Constraints.toMinMaxString 3 |> Expect.equal "no text" ""
                 }
             ]
 
@@ -4281,19 +4358,13 @@ module OrderPlanDtoTests =
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"
 
-        let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
-        let day = Units.Time.day
-
         let child =
-            { Patient.patient with
-                Department = Some "ICK"
-                Gender = Male
-                Age = Some(ValueUnit.singleWithUnit day 3650N)
-                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                Height = Some(ValueUnit.singleWithUnit cm 140N)
-                Access = [ PVL ]
-            }
+            { PatientData.unknown with Access = [ CoreAccess.PVL ] }
+            |> Patient.setDepartment (Some "ICK")
+            |> Patient.setGender CoreGender.Male
+            |> Patient.setAge [ Patient.AgeParts.Days 3650 ]
+            |> SamplePatients.withWeightInKg 32m
+            |> SamplePatients.withHeightInCm 140m
 
         let filter: Filter =
             {
@@ -4346,7 +4417,7 @@ module OrderPlanDtoTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = child
+                PatientData = child
                 Scenarios = [| scenario |]
                 Argumentation = None
             }
@@ -4389,27 +4460,10 @@ module OrderPlanDtoTests =
 
         let plan: OrderPlan =
             {
-                Patient = child
+                PatientData = child
                 Filtered = [| "ctx-1" |]
                 Contexts = [| planContext; feeding |]
                 Totals = totals
-            }
-
-        let version: OrderPlanVersion =
-            {
-                Id = "v-1"
-                No = 1
-                PatientId = "stub-patient"
-                Base = None
-                SignedBy =
-                    {
-                        UserId = "u-1"
-                        DisplayName = "Stub Prescriber"
-                    }
-                SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
-                Plan = plan
-                Verified = true
-                EhrData = None
             }
 
 
@@ -4437,22 +4491,36 @@ module OrderPlanDtoTests =
                     [
                         l1 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
                         l2 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
-                        l1 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
-                        l2 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
-                        l1 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
-                        l2 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
-                        l1 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
-                        l2 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
                         l1
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
+                            "an order context"
+                            Fixtures.context
+                            OrderContext.Dto.toDto
+                            (OrderContext.Dto.fromDto SamplePatients.measuredOn)
                         l2
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
+                            "an order context"
+                            Fixtures.context
+                            OrderContext.Dto.toDto
+                            (OrderContext.Dto.fromDto SamplePatients.measuredOn)
+                        l1
+                            "a plan context"
+                            Fixtures.feeding
+                            PlanContext.Dto.toDto
+                            (PlanContext.Dto.fromDto SamplePatients.measuredOn)
+                        l2
+                            "a plan context"
+                            Fixtures.feeding
+                            PlanContext.Dto.toDto
+                            (PlanContext.Dto.fromDto SamplePatients.measuredOn)
+                        l1
+                            "an order plan"
+                            Fixtures.plan
+                            OrderPlan.Dto.toDto
+                            (OrderPlan.Dto.fromDto SamplePatients.measuredOn)
+                        l2
+                            "an order plan"
+                            Fixtures.plan
+                            OrderPlan.Dto.toDto
+                            (OrderPlan.Dto.fromDto SamplePatients.measuredOn)
                     ]
 
                 testList
@@ -4474,7 +4542,7 @@ module OrderPlanDtoTests =
 
                         test "an unknown category is an error" {
                             { (Fixtures.feeding |> PlanContext.Dto.toDto) with Category = "nutrition:soup" }
-                            |> PlanContext.Dto.fromDto
+                            |> PlanContext.Dto.fromDto SamplePatients.measuredOn
                             |> Expect.equal "named" (Error [ DtoError.UnknownCategory "nutrition:soup" ])
                         }
                     ]
@@ -4483,24 +4551,23 @@ module OrderPlanDtoTests =
                     "fromDto refuses"
                     [
                         test "an order plan whose patient is below the minimum data, with every context's errors" {
-                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
+                            let estimated =
+                                { Fixtures.plan.PatientData with Age = None }
+                                |> Patient.setEstimatedWeight
+                                    SamplePatients.measuredOn
+                                    (Fixtures.plan.PatientData |> Patient.getWeight)
+
+                            let dto = { Fixtures.plan with PatientData = estimated } |> OrderPlan.Dto.toDto
 
                             let brokenContext = { dto.Contexts[0] with Category = "x" }
 
-                            { dto with
-                                Patient =
-                                    { dto.Patient with
-                                        AgeDays = None
-                                        WeightMeasured = false
-                                    }
-                                Contexts = [| brokenContext; dto.Contexts[1] |]
-                            }
-                            |> OrderPlan.Dto.fromDto
+                            { dto with Contexts = [| brokenContext; dto.Contexts[1] |] }
+                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                             |> Expect.equal
                                 "both reported"
                                 (Error
                                     [
-                                        DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                                        DtoError.PatientDataNotEnough PatientDataError.NoAgeOrMeasuredWeightAndHeight
                                         DtoError.UnknownCategory "x"
                                     ])
                         }
@@ -4512,97 +4579,56 @@ module OrderPlanDtoTests =
 
                             match
                                 { dto with Scenarios = [| { dto.Scenarios[0] with Order = broken } |] }
-                                |> OrderContext.Dto.fromDto
+                                |> OrderContext.Dto.fromDto SamplePatients.measuredOn
                             with
                             | Error [ DtoError.OrderNotCreated _ ] -> ()
                             | other -> failtest $"expected one OrderNotCreated, got {other}"
                         }
 
-                        test "null nested Dtos are missing, null arrays empty, never a crash" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+                        test "a null nested Dto is missing, null arrays empty, never a crash" {
+                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
 
                             { dto with
-                                SignedBy = Unchecked.defaultof<_>
-                                Plan =
-                                    { dto.Plan with
-                                        Totals = Unchecked.defaultof<_>
-                                        Filtered = null
-                                    }
+                                Totals = Unchecked.defaultof<_>
+                                Filtered = null
                             }
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal
-                                "both named"
-                                (Error [ DtoError.Missing "SignedBy"; DtoError.Missing "Totals" ])
+                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
+                            |> Expect.equal "named" (Error [ DtoError.Missing "Totals" ])
 
                             match
                                 { dto with
-                                    Plan =
-                                        { dto.Plan with
-                                            Filtered = null
-                                            Contexts = null
-                                        }
+                                    Filtered = null
+                                    Contexts = null
                                 }
-                                |> OrderPlanVersion.Dto.fromDto
+                                |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                             with
-                            | Ok v ->
-                                v.Plan.Filtered |> Expect.isEmpty "no filter"
-                                v.Plan.Contexts |> Expect.isEmpty "no contexts"
-                            | Error e -> failtest $"expected a version, got {e}"
+                            | Ok plan ->
+                                plan.Filtered |> Expect.isEmpty "no filter"
+                                plan.Contexts |> Expect.isEmpty "no contexts"
+                            | Error e -> failtest $"expected an order plan, got {e}"
                         }
                     ]
 
                 testList
                     "the stored root"
                     [
-                        test "an order plan version reads back from its canonical form, in canonical form" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
-                            let s = dto |> Canonical.serialize
-
-                            s
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> Canonical.serialize
-                            |> Expect.equal "the same form" s
-                        }
-
-                        test "a version read back parses to the version that was written" {
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            // in canonical form: a local DateTime reads back as the same instant in UTC
-                            |> Result.map (OrderPlanVersion.Dto.toDto >> Canonical.serialize)
-                            |> Expect.equal
-                                "the same version"
-                                (Ok(Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize))
-                        }
-
                         test "a null root is missing by its name, never a crash" {
                             let missing name = Error [ DtoError.Missing name ]
 
-                            "null"
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
-
                             Unchecked.defaultof<OrderPlan.Dto.Dto>
-                            |> OrderPlan.Dto.fromDto
+                            |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                             |> Expect.equal "order plan" (missing "OrderPlan")
 
                             Unchecked.defaultof<PlanContext.Dto.Dto>
-                            |> PlanContext.Dto.fromDto
+                            |> PlanContext.Dto.fromDto SamplePatients.measuredOn
                             |> Expect.equal "plan context" (missing "PlanContext")
-
-                            Unchecked.defaultof<Signer.Dto.Dto>
-                            |> Signer.Dto.fromDto
-                            |> Expect.equal "signer" (missing "Signer")
 
                             Unchecked.defaultof<Totals.Dto.Dto>
                             |> Totals.Dto.fromDto
                             |> Expect.equal "totals" (missing "Totals")
 
                             Unchecked.defaultof<OrderContext.Dto.Dto>
-                            |> OrderContext.Dto.fromDto
+                            |> OrderContext.Dto.fromDto SamplePatients.measuredOn
                             |> Expect.equal "order context" (missing "OrderContext")
 
                             Unchecked.defaultof<OrderScenario.Dto.Dto>
@@ -4612,25 +4638,6 @@ module OrderPlanDtoTests =
                             Unchecked.defaultof<Filter.Dto.Dto>
                             |> Filter.Dto.fromDto
                             |> Expect.equal "filter" (missing "Filter")
-                        }
-
-                        test "two versions equal as values digest equal, a re-ordered plan does not" {
-                            let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
-
-                            let b =
-                                { Fixtures.version with
-                                    Plan =
-                                        { Fixtures.plan with Contexts = [| Fixtures.feeding; Fixtures.planContext |] }
-                                }
-                                |> OrderPlanVersion.Dto.toDto
-                                |> Canonical.serialize
-
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Expect.equal "equal" a
-
-                            a |> Expect.notEqual "a different order plan" b
                         }
                     ]
             ]
@@ -5284,7 +5291,7 @@ module DoseTotalTests =
 
 
 /// The fraction of the preparation that makes up one dose, from the MinPerc and MaxPerc columns of a
-/// dilution rule, turned into the dose count of the order.
+/// solution rule, turned into the dose count of the order.
 module SolutionDoseCountTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -5296,9 +5303,6 @@ module SolutionDoseCountTests =
     let incl n = n |> times |> Limit.inclusive |> Some
 
 
-    let excl n = n |> times |> Limit.exclusive |> Some
-
-
     let fraction min max =
         { MinMax.empty with
             Min = min
@@ -5306,7 +5310,7 @@ module SolutionDoseCountTests =
         }
 
 
-    let dilutionRule doseFraction : DilutionRule =
+    let solutionRule doseFraction : SolutionRule =
         {
             Generic = "amfotericine b liposomaal"
             Form = None
@@ -5316,19 +5320,14 @@ module SolutionDoseCountTests =
             PatientCategory = PatientCategory.empty
             Dose = MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = MinMax.empty
-            VolumeAdjust = MinMax.empty
-            DripRate = MinMax.empty
-            DoseFraction = doseFraction
+            SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
             DilutionLimits = [||]
         }
 
 
     let withRule doseFraction =
         Scenarios.amfo
-        |> Medication.addDilutionRule OrderLogging.noOp Patient.patient (doseFraction |> dilutionRule |> Some)
+        |> Medication.addSolutionRule OrderLogging.noOp PatientData.unknown (doseFraction |> solutionRule |> Some)
 
 
     let solved doseFraction =
@@ -5357,107 +5356,10 @@ module SolutionDoseCountTests =
 
     let tests =
         testList
-            "the dose fraction of a dilution rule as the dose count"
+            "the dose fraction of a solution rule as the dose count"
             [
                 testList
-                    "doseFractionToDoseCount"
-                    [
-                        test "0.5 to 0.5, half the preparation, is a dose count of exactly 2" {
-                            fraction (incl (1N / 2N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 2" (fraction (incl 2N) (incl 2N))
-                        }
-
-                        test "2 to 2, twice the preparation, is a dose count of exactly 1/2" {
-                            fraction (incl 2N) (incl 2N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1/2" (fraction (incl (1N / 2N)) (incl (1N / 2N)))
-                        }
-
-                        test "1 to 1 is a dose count of exactly 1" {
-                            fraction (incl 1N) (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
-                        }
-
-                        test "an empty minimum and a maximum of 1 is a dose count of at least 1 without a maximum" {
-                            fraction None (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
-                        }
-
-                        test "0.25 to 0.5 is a dose count of 2 to 4" {
-                            fraction (incl (1N / 4N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "2 to 4" (fraction (incl 2N) (incl 4N))
-                        }
-
-                        test "an exclusive limit stays exclusive on the other side" {
-                            fraction (excl (1N / 4N)) (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "2 to below 4" (fraction (incl 2N) (excl 4N))
-                        }
-
-                        test "empty columns are an empty dose count" {
-                            MinMax.empty
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "empty" MinMax.empty
-                        }
-
-                        test "a minimum of 0.5 and an empty maximum is a dose count of 1 to 2" {
-                            fraction (incl (1N / 2N)) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
-                        }
-
-                        test "an empty minimum and a maximum of 0.5 is a dose count of at least 2" {
-                            fraction None (incl (1N / 2N))
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 2" (fraction (incl 2N) None)
-                        }
-
-                        test "a minimum of 0 gives no maximum" {
-                            fraction (incl 0N) (incl 1N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
-                        }
-
-                        test "a maximum of 0 counts as empty, so the dose count is at least 1" {
-                            fraction (incl (1N / 2N)) (incl 0N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
-                        }
-
-                        test "both 0 are an empty dose count" {
-                            fraction (incl 0N) (incl 0N)
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "empty" MinMax.empty
-                        }
-
-                        test "a minimum of 2 and an empty maximum is a dose count of at most 1/2 without a minimum" {
-                            fraction (incl 2N) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "at most 1/2" (fraction None (incl (1N / 2N)))
-                        }
-
-                        test "a minimum of 1 and an empty maximum is a dose count of exactly 1" {
-                            fraction (incl 1N) None
-                            |> Medication.doseFractionToDoseCount
-                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
-                        }
-
-                        // the minimum comes from the default of 1 and the maximum from 1 / 0.5
-                        test "both limits of the dose count have the unit times" {
-                            let count = fraction (incl (1N / 2N)) None |> Medication.doseFractionToDoseCount
-                            let unitOf = Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
-
-                            (count.Min |> unitOf, count.Max |> unitOf)
-                            |> Expect.equal "times" (Some Units.Count.times, Some Units.Count.times)
-                        }
-                    ]
-
-                testList
-                    "addDilutionRule"
+                    "addSolutionRule"
                     [
                         test "a rule with 0.5 gives the medication a dose count of exactly 2" {
                             fraction (incl (1N / 2N)) (incl (1N / 2N))
@@ -5584,8 +5486,8 @@ module UndilutedSolutionTests =
                     { Medication.SubstanceItem.item with
                         Name = "vancomycine"
                         Concentrations = [| 9N; 10N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
-                        DilutionLimit =
-                            { DilutionLimit.limit with
+                        Dilution =
+                            { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
                                 Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
                             }
                             |> Some
@@ -5598,7 +5500,7 @@ module UndilutedSolutionTests =
 
                 test "the orderable concentration of a limit with an equal minimum and maximum is that value" {
                     let exactly10 =
-                        { DilutionLimit.limit with
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "amfotericine b liposomaal") with
                             Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
                         }
 
@@ -5611,7 +5513,7 @@ module UndilutedSolutionTests =
                             |> List.head
                             |> _.Items
                             |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
-                            |> Medication.OrderBuilder.withItemDilutionLimit exactly10
+                            |> Medication.OrderBuilder.withItemDilution exactly10
                             |> _.OrderableConcentration
                             |> OrderVariable.Concentration.toOrdVar
                             |> _.DefinedConstraints
@@ -5628,8 +5530,8 @@ module UndilutedSolutionTests =
                         { Medication.SubstanceItem.item with
                             Name = "vancomycine"
                             Concentrations = [| 1N; 50N |] |> ValueUnit.withUnit mmolPerMl |> Some
-                            DilutionLimit =
-                                { DilutionLimit.limit with
+                            Dilution =
+                                { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
                                     Concentration =
                                         { MinMax.empty with
                                             Min = 9N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
@@ -5664,6 +5566,20 @@ module UndilutedSolutionTests =
                     |> Medication.toOrder Scenarios.testStart
                     |> Result.isError
                     |> Expect.isTrue "a 4 mg/mL vial with no diluent cannot meet 0.2 to 2 mg/mL"
+                }
+
+                test "the undiluted amphotericin refusal says the medication is given undiluted" {
+                    match Scenarios.amfoUndiluted |> Medication.toOrder Scenarios.testStart with
+                    | Error(Exceptions.OrderCouldNotBeCreated exn) ->
+                        exn.Message
+                        |> Expect.stringContains
+                            "names the limit"
+                            "is given undiluted, and its dilution limit allows no concentration of amfotericine b liposomaal"
+
+                        exn.Message
+                        |> String.contains "no diluent"
+                        |> Expect.isFalse "does not say a diluent is missing"
+                    | result -> failtest $"the undiluted order is not refused as uncreatable: %A{result}"
                 }
 
                 test "an undiluted order offers only the vial concentrations within the limit" {
@@ -5724,7 +5640,7 @@ module UndilutedSolutionTests =
             ]
 
 
-/// The minimum and maximum volume of a dilution rule, which limit the orderable quantity.
+/// The minimum and maximum volume of a solution rule, which limit the orderable quantity.
 module SolutionVolumeTests =
 
     open Informedica.GenCore.Lib.Ranges

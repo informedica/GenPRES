@@ -180,7 +180,7 @@ module Fixtures =
                 None
 
         { Ctx.empty with
-            Patient = ServerApi.StubPatientData.patient
+            PatientData = ServerApi.StubEhrPatient.contractPatient
             Filter = filter
             Scenarios = [| sc |]
         }
@@ -504,7 +504,9 @@ let tests =
                     test "the whole filter emptied, the patient kept" {
                         ctx
                         |> Ctx.clearAll
-                        |> Expect.equal "the empty context of the patient" { Ctx.empty with Patient = ctx.Patient }
+                        |> Expect.equal
+                            "the empty context of the patient"
+                            { Ctx.empty with PatientData = ctx.PatientData }
                     }
 
                     test "the scenario selected with its form" {
@@ -723,7 +725,7 @@ let tests =
                 "the plan evaluates a context with a new case"
                 [
                     let ctx = { (Fixtures.all.Value[0] |> snd) with Id = "c-1" }
-                    let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create ctx.Patient [| ctx |]
+                    let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create ctx.PatientData [| ctx |]
 
                     let target =
                         targets ctx.Scenarios[0].Order
@@ -848,7 +850,7 @@ let tests =
 
                     testAsync "a reset clears the argumentation on the context and on the plan's copy of it" {
                         let argued = ctx |> Ctx.Argumentation.write "bewust"
-                        let argued' = Informedica.GenPRES.Shared.Models.OrderPlan.create ctx.Patient [| argued |]
+                        let argued' = Informedica.GenPRES.Shared.Models.OrderPlan.create ctx.PatientData [| argued |]
 
                         let! answer, _ =
                             run (

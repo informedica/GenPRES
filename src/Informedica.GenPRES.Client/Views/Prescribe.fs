@@ -20,6 +20,27 @@ module Prescribe =
         {|
             paddingTop = 1
             paddingRight = 2
+            whiteSpace = "normal"
+        |}
+
+
+    // A block in a line of several blocks stays on one line; otherwise the empty last column would
+    // squeeze it to its narrowest width.
+    let private blockCellSx =
+        {|
+            paddingTop = 1
+            paddingRight = 2
+            whiteSpace = "nowrap"
+        |}
+
+
+    // The empty last column takes the extra width that a notice adds, so the text columns stay as wide as
+    // their blocks. An automatic table layout would otherwise spread the extra width of a spanning cell
+    // over the columns it spans.
+    let private fillerCellSx =
+        {|
+            width = "100%"
+            borderBottom = 0
         |}
 
 
@@ -33,28 +54,59 @@ module Prescribe =
         |}
 
 
-    /// The rows of an order text, such as the prescription of a scenario, one table row per line and one
-    /// cell per block; on a phone the blocks of a line run on as one. A line of a single block, such as
-    /// a notice below the prescription, spans all columns, so that its width does not set the width of
-    /// the first column of the other lines.
+    /// Renders an order text, such as the prescription of a scenario, as table rows: one row per line and
+    /// one cell per block. On a phone the blocks of a line run together. A line of a single block, such as
+    /// a notice, spans all columns and the empty last column, so its width does not widen the other
+    /// columns. A line of more than one block is padded with empty cells and ends with the empty last column.
     let textRows isMobile (text: TextBlock[][]) =
         let text = if isMobile then text |> TextBlockDisplay.flatten else text
 
         let columns = text |> Array.map Array.length |> Array.fold max 1
 
-        let cells row =
-            let span = if row |> Array.length = 1 then columns else 1
+        let filler =
+            JSX.jsx
+                $"""
+            import TableCell from '@mui/material/TableCell';
+            <TableCell key="filler" sx={fillerCellSx} />
+            """
 
-            row
-            |> Array.mapi (fun i cell ->
-                JSX.jsx
-                    $"""
+        let cells row =
+            let span, cellSx =
+                match row |> Array.length, columns with
+                | 1, 1 -> 1, textCellSx
+                | 1, _ -> columns + 1, textCellSx
+                | _ -> 1, blockCellSx
+
+            let blocks =
+                row
+                |> Array.mapi (fun i cell ->
+                    JSX.jsx
+                        $"""
                     import TableCell from '@mui/material/TableCell';
-                    <TableCell key={i} colSpan={span} sx={textCellSx}>
+                    <TableCell key={i} colSpan={span} sx={cellSx}>
                         {cell |> Mui.TypoGraphy.fromTextBlock}
                     </TableCell>
                     """
-            )
+                )
+
+            // A shorter line is padded to all columns, so its empty last column is the last column of the table.
+            let padding =
+                Array.init
+                    (columns - (row |> Array.length))
+                    (fun i ->
+                        let key = $"pad-%i{i}"
+
+                        JSX.jsx
+                            $"""
+                    import TableCell from '@mui/material/TableCell';
+                    <TableCell key={key} sx={blockCellSx} />
+                    """
+                    )
+
+            if row |> Array.length > 1 then
+                Array.concat [ blocks; padding; [| filler |] ]
+            else
+                blocks
 
         text
         |> Array.mapi (fun i row ->
@@ -87,9 +139,9 @@ module Prescribe =
         """
 
 
-    /// One order the link rules offer with the order of the workbench: its name and dose type with the switch
-    /// that turns it on, and while it is on the form, the one filter open on an offer, and its prescription
-    /// once it is narrowed to one scenario. A dose changes after the prescribe, in the order dialog of the plan.
+    /// An order that the link rules offer with the order of the workbench: its name and dose type with a
+    /// switch to turn it on. While it is on, it shows the form filter and, when it is narrowed to one
+    /// scenario, its prescription. The dose is changed after prescribing, in the order dialog of the plan.
     [<JSX.Component>]
     let private OfferView
         (props:
@@ -161,11 +213,11 @@ module Prescribe =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        // a request out that changes the page: the dialog and the offers wait for it
+        // True while a request that changes the page is out; the dialog and the offers wait for it.
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Prescribe
 
-        // a pick goes as its position in the options the field offers, an emptied field as a
-        // clear; a value the field does not offer is a bug, written to the console and not sent
+        // Sends a pick as its position in the options of the field, and an emptied field as a clear. A value
+        // the field does not offer is a bug: it is logged and not sent.
         let pick buildCommand (options: OrderContext -> 'a[]) (picked: 'a option) =
             match orderContext with
             | OrderContextView.Settled pr
@@ -207,12 +259,12 @@ module Prescribe =
             | OrderContextView.Refused _ -> orderContextMsg Api.OrderViewCommand.ClearAllFilterProperty
             | _ -> ()
 
-        // the dialog is open while a scenario is selected: the selection is the state
+        // The dialog is open while a scenario is selected.
         let dialog = envOrderContext.Dialog
         let handleModalClose = fun () -> envOrderContext.SelectScenario None
 
-        // the filter is put back as it was: bounded and to the left, since it discards what the
-        // user built and must not be where you click by default
+        // The reset button clears all filters. It is an outlined secondary button, because it discards what
+        // the user built and must not be where the user clicks by default.
         let resetBar =
             Components.ActionBar.View
                 {|
@@ -229,7 +281,7 @@ module Prescribe =
                 |}
 
 
-        // the page is disabled as a whole while the workbench changes, so no field greys itself
+        // The whole page is disabled while the workbench changes, so the selects do not disable themselves.
         let select = ViewHelpers.filterSelect
 
         let multiSelect lbl selected dispatch xs =
@@ -245,9 +297,8 @@ module Prescribe =
 
         let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
-        // what the patient data misses for the dose rules, said above the selects while it
-        // holds: no patient yet, or one without a weight or a height, measured or estimated, or
-        // without an age, which loses every dose rule with an age bound
+        // Says above the selects what the patient data lacks for the dose rules: no patient yet, no measured
+        // or estimated weight or height, or no age, without which no dose rule with an age bound applies.
         let notice =
             Components.PatientNotice.View
                 {|
@@ -257,9 +308,9 @@ module Prescribe =
 
         let noticeSx = {| margin = 1 |}
 
-        // the server refused the picks: no dose can be shown, and the page says why, with the
-        // picks kept above it for the user to change. A patient without a weight or a height
-        // gets no second notice: the one above already says what to enter
+        // The server refused the picks, so no dose can be shown. The notice says why, and the picks stay
+        // above it for the user to change. A patient without a weight or a height gets no second notice,
+        // because the notice above already says what to enter.
         let refusalNotice =
             match orderContext with
             | OrderContextView.Refused(ctx, refusal) ->
@@ -289,10 +340,12 @@ module Prescribe =
                 null
             else
                 let caption =
-                    // the access the preparation is for, labelled as the patient panel labels it
+                    // the access of the preparation, with the same label as in the patient panel
                     let access =
                         sc.Access
-                        |> Option.map (PatientText.accessText (Terms.``Patient Enteral Tube`` |> getTerm "Sonde"))
+                        |> Option.map (
+                            PatientText.accessText (Terms.``Patient Enteral Tube`` |> getTerm "Enteral tube")
+                        )
                         |> Option.map (fun s -> $" (%s{s})")
                         |> Option.defaultValue ""
 
@@ -308,9 +361,8 @@ module Prescribe =
                     | Some n -> orderContextMsg (Api.OrderViewCommand.SelectNthOrderScenario n)
                     | None -> ()
 
-                // the order into the plan, from the workbench narrowed to its scenario; the page
-                // switches to the plan at the click, and the workbench is emptied once the order
-                // has landed
+                // Adds the order of the scenario to the plan; does nothing while the plan is not settled. The
+                // page switches to the plan at the click, and the workbench is emptied when the order is added.
                 let prescribe () =
                     match orderPlan with
                     | OrderPlanView.Settled _ -> envOrderPlan.Add sc.Order.Id
@@ -319,17 +371,18 @@ module Prescribe =
                 // the plan holds this order already: the server would refuse it
                 let inPlan = orderPlan |> OrderPlanView.hasOrder sc.Order.Id
 
-                // one change to the plan at a time: while it is busy a click would be dropped
+                // One change to the plan at a time: while the plan is busy a click would be lost.
                 let planBusy =
                     match orderPlan with
                     | OrderPlanView.Settled _ -> false
                     | OrderPlanView.NoPatientData
                     | OrderPlanView.Changing _ -> true
 
-                // an offer turned on and not narrowed to one scenario keeps the order from the plan
+                // Disabled while the plan is busy, when the plan has the order already, or when the order
+                // context is not prescribable, such as with an offer turned on that is not narrowed to one scenario.
                 let prescribeDisabled = planBusy || inPlan || not envOrderContext.Prescribable
 
-                // the scenario selected, and the workbench narrowed to it and calculated
+                // Selects the scenario and narrows the workbench to it, which calculates it.
                 let handleEditClick () =
                     envOrderContext.SelectScenario(Some sc.Order.Id)
                     onClick sc
@@ -393,13 +446,13 @@ module Prescribe =
                         </Typography>
                         <List sx={listSx}>
                             {[|
-                                 item "prescription" Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
+                                 item "prescription" Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Prescription") sc.Prescription
                                  if sc.Preparation |> Array.length > 0 then
-                                     item "preparation" Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Bereiding") sc.Preparation
+                                     item "preparation" Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Preparation") sc.Preparation
                                  item
                                      "administration"
                                      Mui.Icons.MedicationLiquid
-                                     (Terms.``Prescribe Administration`` |> getTerm "Toediening")
+                                     (Terms.``Prescribe Administration`` |> getTerm "Administration")
                                      sc.Administration
                              |]
                              |> unbox<seq<ReactElement>>
@@ -408,13 +461,34 @@ module Prescribe =
                     </React.Fragment>
                     """
 
+                let actions =
+                    Components.ActionBar.View
+                        {|
+                            actions =
+                                [|
+                                    {|
+                                        label = Edit |> getTerm "Edit"
+                                        kind = Components.ActionBar.Kind.Secondary
+                                        onClick = handleEditClick
+                                        disabled = false
+                                        icon = Some Mui.Icons.CalculateIcon
+                                    |}
+                                    {|
+                                        label = Terms.``Prescribe`` |> getTerm "Prescribe"
+                                        kind = Components.ActionBar.Kind.Primary
+                                        onClick = prescribe
+                                        disabled = prescribeDisabled
+                                        icon = Some Mui.Icons.Add
+                                    |}
+                                |]
+                        |}
+
                 JSX.jsx
                     $"""
                 import React from 'react';
                 import Card from '@mui/material/Card';
                 import CardActions from '@mui/material/CardActions';
                 import CardContent from '@mui/material/CardContent';
-                import Button from '@mui/material/Button';
                 import Typography from '@mui/material/Typography';
                 import Box from '@mui/material/Box';
                 import List from '@mui/material/List';
@@ -431,17 +505,7 @@ module Prescribe =
                             {content}
                         </CardContent>
                         <CardActions>
-                            <Button
-                                size="small"
-                                onClick={handleEditClick}
-                                startIcon={Mui.Icons.CalculateIcon}
-                            >{Edit |> getTerm "bewerken"}</Button>
-                            <Button
-                                size="small"
-                                disabled={prescribeDisabled}
-                                onClick={prescribe}
-                                startIcon={Mui.Icons.Add}
-                            >Voorschrijven</Button>
+                            {actions}
                         </CardActions>
                     </Card>
                 </Box>
@@ -449,9 +513,9 @@ module Prescribe =
 
         let stackDirection = if isMobile then "column" else "row"
 
-        // the orders the link rules offer with the order the workbench is narrowed to, each with its switch
+        // The orders the link rules offer with the order of the workbench, each with its switch.
         let offers =
-            let formLabel = Terms.Form |> getTerm "Vorm"
+            let formLabel = Terms.Form |> getTerm "Form"
 
             envOrderContext.Offers
             |> Array.mapi (fun i offer ->
@@ -496,7 +560,7 @@ module Prescribe =
             <React.Fragment>
                 <Stack direction="column" spacing={if isMobile then 1 else 3}>
                     <Typography sx={ {| fontSize = 14 |} } color="text.secondary" >
-                        {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
+                        {Terms.``Prescribe Scenarios`` |> getTerm "Medication scenarios"}
                     </Typography>
                     {match orderContext with
                      | OrderContextView.Settled pr
@@ -504,7 +568,7 @@ module Prescribe =
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
                      | OrderContextView.NoPatientData -> None, [||]
                      |> fun (sel, items) ->
-                         let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
+                         let lbl = Terms.``Prescribe Indications`` |> getTerm "Indications"
 
                          items |> responsiveFilter lbl sel indicationChange}
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
@@ -514,7 +578,7 @@ module Prescribe =
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
                          | OrderContextView.NoPatientData -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
+                             let lbl = Terms.``Prescribe Medications`` |> getTerm "Medications"
 
                              items |> responsiveFilter lbl sel medicationChange
 
@@ -540,7 +604,7 @@ module Prescribe =
                              ctx.Filter.Form, ctx.Filter.Forms
                          | _ -> None, [||]
                          |> fun (sel, items) ->
-                             let lbl = Terms.Form |> getTerm "Vorm"
+                             let lbl = Terms.Form |> getTerm "Form"
 
                              if items |> Array.isEmpty then
                                  null
@@ -561,7 +625,7 @@ module Prescribe =
 
                              let sel = pr.Filter.Diluent
                              let items = pr.Filter.Diluents
-                             let lbl = Terms.Diluent |> getTerm "Verdunningsvorm"
+                             let lbl = Terms.Diluent |> getTerm "Diluent"
 
                              items |> Array.map (fun s -> s, s) |> select lbl sel diluentChange
 
@@ -578,7 +642,7 @@ module Prescribe =
                              ->
 
                              let items = pr.Filter.Components
-                             let lbl = Terms.Components |> getTerm "Componenten"
+                             let lbl = Terms.Components |> getTerm "Components"
 
                              // every option is checked only when no selection is made
                              let sel =
@@ -599,7 +663,7 @@ module Prescribe =
                              ->
                              let sel = pr.Filter.DoseType |> Option.map DoseTypeText.doseTypeToString
                              let items = pr.Filter.DoseTypes
-                             let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
+                             let lbl = Terms.``Dose Types`` |> getTerm "Dose types"
 
                              items
                              |> Array.map (fun s -> s |> DoseTypeText.doseTypeToString, s |> DoseTypeText.doseTypeToDescription)

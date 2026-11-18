@@ -1,17 +1,15 @@
 namespace Components
 
 
-/// A section that folds to a summary carrying its result, and unfolds to its content. It opens
-/// and closes when the user says so, and never by itself: a section that closed on a timer
-/// took the controls away from under the hand. What the summary says is the caller's; a
-/// finished step reads its outcome in it, so the section can stay folded.
+/// A section that folds to a summary and unfolds to its content. It opens and closes only when
+/// the user toggles it, never on a timer, so controls do not disappear while the user works in them.
 module Disclosure =
 
     open Fable.Core
 
 
-    /// The section: open or folded, what toggling it does, the summary shown either way, the
-    /// content shown when open, and the spacing and ids its caller gives it.
+    /// Whether the section is open, the toggle handler, the summary shown always, the content
+    /// shown when open, and the layout options and ids.
     type Props =
         {|
             isOpen: bool

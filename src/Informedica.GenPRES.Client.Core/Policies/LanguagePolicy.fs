@@ -27,7 +27,7 @@ module LanguagePolicy =
         let fallback = Dutch
 
 
-        /// The language at start: the url's, chosen, or else the fallback, not chosen.
+        /// The start language: the url language, marked as chosen, or else the fallback, not chosen.
         let initial (url: Locales option) =
             {
                 Current = url |> Option.defaultValue fallback
@@ -54,9 +54,8 @@ module LanguagePolicy =
             }
 
 
-        /// The language once the server default arrives: the default, unless the url already chose.
-        /// The user cannot choose before, since the start-up holds the application until the
-        /// settings have landed.
+        /// The language after the server default arrives: the default, unless the url chose one. The user
+        /// cannot choose earlier, because start-up waits for the settings.
         let onServerDefault (l: Locales) (language: Language) =
             if language.Chosen then
                 language

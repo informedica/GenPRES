@@ -11,6 +11,6 @@ module Context =
     let Context (context: Global.Context) el = Global.context.Provider(context, React.Fragment [ el ])
 
 
-    /// The quantity fields' count around the element: whether one counts, and how it reports.
+    /// Provides the step click counting state of the quantity fields to the element.
     [<ReactComponent>]
     let Counting (counting: Global.Counting) el = Global.counting.Provider(counting, React.Fragment [ el ])

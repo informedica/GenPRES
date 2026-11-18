@@ -64,7 +64,7 @@ This pipeline ensures **safety** and **efficiency** in medication order manageme
 The transformation is implemented by three core systems:
 
 - **GenFORM**: Extracts and structures free-text knowledge into Operational Knowledge Rules (OKRs). Rules are defined in terms of *Patient Categories* (types/ranges) that describe which kinds of patients the rule applies to. → *See [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) for detailed specifications.*
-- **GenORDER**: Transforms OKRs into Order Scenarios for a specific *Patient* (instance). At runtime, the Patient's actual attributes (age, weight, etc.) are matched against Patient Category ranges to select applicable rules. → *See [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) for detailed specifications.*
+- **GenORDER**: Transforms OKRs into Order Scenarios for the *Patient Data* of one patient. At runtime, the values of the Patient Data (age, weight, etc.) are matched against Patient Category ranges to select applicable rules. → *See [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) for detailed specifications.*
 - **GenSOLVER**: Solves the equation systems to produce quantitative order options. Performs exact arithmetic with full unit awareness and guarantees soundness, completeness, and monotonic convergence. → *See [GenSOLVER: Order Scenarios to Quantitative Solutions](gensolver-from-orders-to-quantitative-solutions.md) for detailed specifications.*
 
 ## Core Definitions
@@ -74,7 +74,7 @@ The transformation is implemented by three core systems:
 | *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable, constraint-based representation of expert medication (and other clinical) knowledge produced by GenFORM. |
 | *Selection Constraint* | A categorical constraint used to determine which OKRs apply to a given Order Context (e.g., indication, generic, route, form, setting). |
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
-| *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. In the plan, every order is an Order Context, drug or nutrition: the context carries its own id and its Order Category, and the order is the one Order Scenario the context is narrowed to. An Order Context not yet in the plan holds the Order Scenarios to choose from, and enters the plan narrowed to one. |
+| *Order Context* | The bounded clinical context; composed of Patient Data, indication(s), and selection constraints from which Order Scenarios are generated. The Patient Data is matched against Patient Categories in OKRs. In the plan, every order is an Order Context, drug or nutrition: the context carries its own id and its Order Category, and the order is the one Order Scenario the context is narrowed to. An Order Context not yet in the plan holds the Order Scenarios to choose from, and enters the plan narrowed to one. |
 | *Order Category* | What kind of order an Order Context holds: a drug, or a nutrition order of one of the nutrition categories (enteral feeding, enteral supplement, TPN, lipid, electrolyte or glucose line). Recorded on the context, never derived from the generic, since electrolytes and glucose are prescribable as drugs too. |
 | *Order Plan* | The one plan for a Patient: the patient data as shown, the plan's Order Contexts, the contexts the row filter keeps, and the totals over their orders. Its orders are derived, the scenario of every narrowed context; nothing beside the contexts is stored. An order plan version stores the contexts as they were at the signature, so a reopened order plan is the order plan as it was. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
@@ -84,11 +84,13 @@ The transformation is implemented by three core systems:
 | *Component* | A physical product unit used to realize an Orderable (e.g., vial, ampoule, bag). |
 | *Item* | The actual substance delivered to the patient (e.g., a medication substance such as amoxicillin). |
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
-| *Dilution Rule* | An OKR that defines requirements for the amount and/or concentration of liquid medication. |
+| *Solution Rule* | An OKR that defines requirements for the amount and/or concentration of liquid medication. |
 | *Reconstitution Rule* | An OKR that defines how medication must be reconstituted to enable administration (e.g., converting powder to liquid). |
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
-| *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
-| *Patient* | A specific individual patient instance with concrete (or calculated values, i.e. BSA) values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. A Patient exists only with a minimum of data: an age, from which weight and height are estimated, or a measured weight and a measured height. Below that there is no Patient, and no Order Context, Order Plan or evaluation: the patient is part of the filter, and a value that is missing never matches a bounded range. |
+| *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. A Patient Category is a value of a rule; Patient Data is what is known about one patient. |
+| *Patient* | An individual who is treated: a Patient Identity and Patient Data. An anonymous patient has no Patient Identity. GenCORE defines the Patient; only the server and the EHR boundary work with a whole Patient. |
+| *Patient Identity* | Who a patient is: the id the EHR knows the patient by, the name and the birth date. The age of an identified patient is counted from the birth date. GenFORM and GenORDER never see a Patient Identity. |
+| *Patient Data* | Everything known about a patient apart from the Patient Identity: the location, the department, the diagnoses, the gender, the age, the mark as an adult, the weight and the height (each measured or estimated, with a date), the gestational age, the post-menstrual age, the access devices and the renal function. GenCORE defines Patient Data, and derives values such as the BSA from it. GenFORM and GenORDER work with Patient Data only: GenFORM matches it against Patient Categories, and GenORDER calculates Order Scenarios with it. Patient Data selects rules only with a minimum of data: an age, a mark as an adult, or a measured weight with a measured height. Below that minimum there is no Order Context, no Order Plan and no evaluation. A value that is missing never matches a bounded range. |
 | *Age in days* | The age a Patient Category is matched on: a year 365 days, a month 30 days, a week 7 days. The age of a birth date is the days lived, the days from the birth date to the date. So a patient reaches a limit of n years one day early for each 29 February lived: one year on the birthday or a day before it, 16 years 4 days and 18 years 4 or 5 days before the birthday. A month limit is reached on day 30. |
 | *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognized parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognized value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Dose Quantity* | The amount delivered per single administration. |
@@ -103,7 +105,7 @@ The transformation is implemented by three core systems:
 | *Exposure* | The real-world administration of an executable Order to a patient. |
 | *Outcome* | The observed clinical effect resulting from Exposure, used for evaluation and feedback. |
 | *GenFORM* | The system that transforms free-text medication knowledge into fully computable Operational Knowledge Rules (OKRs). Rules are defined in terms of Patient Categories (types) rather than specific patients. |
-| *GenORDER* | The execution-layer system that transforms OKRs into patient-specific, fully computable and executable Order Scenarios. Matches a specific Patient's (instance) attributes against Patient Category ranges to select applicable rules. |
+| *GenORDER* | The execution-layer system that transforms OKRs into patient-specific, fully computable and executable Order Scenarios. Matches Patient Data against Patient Category ranges to select applicable rules. |
 | *GenSOLVER* | The domain-independent quantitative constraint solving engine that computes numerically valid, unit-consistent solutions from the equation systems generated by GenORDER. Guarantees soundness, completeness, and monotonic convergence. |
 | *Variable* | A symbolic placeholder representing a numeric value with an associated unit and domain range (used by GenSOLVER). |
 | *Domain* | The bounded numerical range or discrete set of values a variable may assume. Domains form a lattice with ⊤ (unrestricted) and ⊥ (empty/infeasible). |
@@ -116,7 +118,7 @@ The transformation is implemented by three core systems:
 
 This section states the model of [plan 1430](../implementation-plans/1430-patient-data-changes.md).
 
-A *Patient* and the data of a *Patient* are two different things.
+A *Patient* and the *Patient Data* of a patient are two different things.
 
 **Another patient** means that all orders belong to someone else, so nothing carries over. In
 anonymous mode every change of patient data is another patient, and everything clears after a
@@ -176,7 +178,7 @@ evaluates an order-context command over the context named, in that context's own
 
 **OrderPlan contract model**
 
-- `Patient: Patient` — the patient data as shown, the data a version is signed on.
+- `PatientData: PatientData` — the patient data as shown, the data a version is signed on.
 - `Filtered: string []` — the ids of the contexts the row filter keeps; empty for all of them.
 - `OrderContexts: OrderContext []` — every order context of the plan, drug and nutrition alike.
 - `Totals: Totals` — the totals over the orders of the filtered contexts.
@@ -191,7 +193,7 @@ were.
 - `Id: string` — the context's id in the plan; empty for an Order Context that is not in the plan yet.
 - `Category: OrderCategory` — a drug, or the nutrition category the context holds.
 - `DemoVersion: bool` — whether the server is running in demo mode (used for UI/runtime behavior).
-- `Patient: Patient` — the patient the context was evaluated for; an order is always calculated within its context.
+- `PatientData: PatientData` — the patient data the context was evaluated for; an order is always calculated within its context.
 - `Filter: Filter` — selection constraints *and* the server-provided pick lists required for UI selection.
 - `Scenarios: OrderScenario []` — computed, valid alternatives for the current selection.
 - `Intake: Totals` — aggregated totals computed from (a subset of) scenarios.
@@ -300,7 +302,7 @@ The key insight is that **safety and efficiency are not trade-offs**—they are 
 Operational Knowledge Rules (OKRs) are implemented as four rule types in `Informedica.GenFORM.Lib`. For complete rule specifications including all fields, data types, and validation requirements, see [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md).
 
 1. **Dose Rule**: Defines dosing limits per indication, generic, route, patient, and dose type
-2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and administration access
+2. **Solution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and administration access
 3. **Reconstitution Rule**: Defines reconstitution steps (diluent volumes, expansion volumes) per generic product (GPK) and route
 4. **Renal Rule**: Defines dose adjustments based on renal function (GFR)
 
@@ -319,14 +321,14 @@ For detailed constraint definitions by rule type, see [GenFORM Section 6: Select
 
 - **Dose Rule**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Component, Substance
 - **Reconstitution Rule**: Generic, GPK, Form, Route, Setting
-- **Dilution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Administration Access, Patient, Dose, Substance
+- **Solution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Administration Access, Patient, Dose, Substance
 - **Renal Rule**: Source, Generic, Indication, Patient, Renal Function
 
 #### Calculation Constraints by Rule Type
 
 - **Dose Rule**: Schedule, Duration, Dose Limits
 - **Reconstitution Rule**: Diluent Volume, Expansion Volume
-- **Dilution Rule**: Volume, Drip Rate, Administration Fraction, Dose, Concentration
+- **Solution Rule**: Volume, Drip Rate, Administration Fraction, Dose, Concentration
 - **Renal Rule**: Schedule, Dose Adjustment (relative or absolute)
 
 **Example**:
@@ -350,7 +352,7 @@ At this stage, categorical selection constraints originating from GenFORM are ap
 - Route
 - Pharmaceutical Form
 - Setting
-- Patient Category (the specific Patient's attributes are matched against Patient Category ranges in rules)
+- Patient Category (the Patient Data is matched against Patient Category ranges in rules)
 - Dose Type
 - Administration Access
 
@@ -403,7 +405,7 @@ The system uses a two-stage hybrid architecture that transforms Operational Know
 │  ─────────────────────────────────────                                              │
 │  Input:  All Operational Knowledge Rules                                            │
 │  Process:                                                                           │
-│    └─ Order Context creation → Patient (instance) + Indication(s) + Selection       │
+│    └─ Order Context creation → Patient Data + Indication(s) + Selection             │
 │       Constraints                                                                   │
 │    └─ Patient attributes → match against Patient Category ranges in Dose Rules      │
 │    └─ Product selection → filter by Generic, Pharmaceutical Form, Route, Indication,│
@@ -431,7 +433,7 @@ The system uses a two-stage hybrid architecture that transforms Operational Know
 
 **Selection constraint variables** (defined at rule level): Generic, Pharmaceutical Form, Route, Indication, Dose Type, Setting, Patient Category, Administration Access
 
-**Note**: Patient Category is a rule-level constraint defining ranges (e.g., age 2-12 years, weight 10-40 kg). At runtime, a specific Patient (instance) is matched against these Patient Category ranges to determine which rules apply.
+**Note**: Patient Category is a rule-level constraint defining ranges (e.g., age 2-12 years, weight 10-40 kg). At runtime, the Patient Data of one patient is matched against these Patient Category ranges to determine which rules apply.
 
 **Calculation constraint variables**: Schedule, Duration, Dose Limits (Quantity, PerTime, Rate with optional Adjustment); Volumes, Concentrations, Drip Rate, Administration Fraction
 

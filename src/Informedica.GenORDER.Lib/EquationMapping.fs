@@ -47,16 +47,16 @@ module EquationMapping =
         let tme = OrderVariable.Time.name
 
         [<Literal>]
-        let itm = "itm" //Orderable.Literals.item
+        let itm = "itm"
 
         [<Literal>]
-        let cmp = "cmp" //Orderable.Literals.comp
+        let cmp = "cmp"
 
         [<Literal>]
-        let orb = "orb" //Orderable.Literals.orderable
+        let orb = "orb"
 
         [<Literal>]
-        let dos = "dos" //Orderable.Literals.dose
+        let dos = "dos"
 
         [<Literal>]
         let sch = "sch" // Schedule
@@ -83,9 +83,7 @@ module EquationMapping =
         let onceTimed = 7
 
 
-    // Order equations are an invariant of GenORDER and are embedded here instead
-    // of being fetched from the "Equations" Google sheet. Each equation is paired
-    // with the dose types it applies to (Literals: discontinuous=3 .. onceTimed=7).
+    /// The five dose types: discontinuous (3), continuous (4), timed (5), once (6) and once timed (7).
     let allDoseTypes =
         [
             Literals.discontinuous
@@ -95,8 +93,7 @@ module EquationMapping =
             Literals.onceTimed
         ]
 
-    // Recurring dose-type membership sets, named so equal sets read equal
-    // (and Fantomas keeps them on one line at every use site).
+    // Sets of dose types that several equations share.
     let discTimed = [ Literals.discontinuous; Literals.timed ]
 
     let discContTimed = [ Literals.discontinuous; Literals.continuous; Literals.timed ]
@@ -106,9 +103,9 @@ module EquationMapping =
     let contOnly = [ Literals.continuous ]
 
 
-    /// An item's concentration in the orderable is its concentration in the component times the
-    /// component's share, and the shares add up to one. Only mapped for an order with more than one
-    /// component: with one, the share is 1 x and the other equations already tie the items.
+    /// The item concentration in the orderable equals the item concentration in the component times the component
+    /// concentration in the orderable, and the component concentrations in the orderable add up to one. Used only
+    /// for an order with more than one component; with one component the other equations already relate the items.
     let tieEquations =
         [
             "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc"
@@ -116,11 +113,12 @@ module EquationMapping =
         ]
 
 
-    /// A component's rate is its share of the orderable rate. Mapped for a continuous order, and for
-    /// a timed or once timed order that leaves out its item concentration products.
+    /// The component dose rate equals the component concentration in the orderable times the orderable dose rate.
+    /// Used for a continuous order, and for a timed or once timed order without the item concentration products.
     let componentRateEquation = "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
 
 
+    /// The order equations, each with the dose types it applies to. The equations are fixed in code.
     let equations: (string * int list) list =
         [
             "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", allDoseTypes
@@ -167,8 +165,9 @@ module EquationMapping =
             "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", contOnly
             "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", allDoseTypes
             "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", allDoseTypes
-            // the total by per time needs a frequency and the total by rate a continuous order:
-            // with both on a timed order, the administration time times the frequency has to be 1
+            // The total from the dose per time applies to discontinuous and timed orders, the total from the dose
+            // rate only to continuous orders. Both on a timed order would force the administration time times the
+            // frequency to be 1.
             "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discTimed
             "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", contOnly
             "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", contTimedOnceTimed
@@ -189,42 +188,33 @@ module EquationMapping =
         |> List.map fst
 
 
-    // Memoised once at module init. Kept private and wrapped below so the
-    // public binding stays an argument-taking function: a function value compiles to a
-    // property returning FSharpFunc, a different .NET shape.
+    // Wrapped by getEquations so that the public function compiles to a .NET method,
+    // not to a property that returns an FSharpFunc.
     let private memoizedGetEquations = Memoization.memoize getEquations_
 
 
-    /// <summary>
-    /// Get a string list of Equations and
-    /// use an index to filter out the relevant equations
-    /// </summary>
-    /// <param name="indx">The index to filter the equations</param>
-    /// <remarks>
-    /// The indx can be 3 for discontinuous equations, 4 for continuous
-    /// and 5 for timed equations.
-    /// </remarks>
+    /// Returns the equations for the dose type indx: 3 discontinuous, 4 continuous, 5 timed, 6 once or 7 once timed.
+    /// The result is memoized.
     let getEquations indx = memoizedGetEquations indx
 
 
-    /// Whether an item comes in exactly one strength: its defined component concentration holds
-    /// one value. An item without a concentration does not count as one.
+    /// Returns true when the defined values of the item component concentration hold exactly one value.
+    /// Returns false for an item without defined values.
     let hasOneStrength (itm: Item) =
         (itm.ComponentConcentration |> OrderVariable.Concentration.toOrdVar).DefinedConstraints.Values
         |> Option.exists (ValueSet.count >> (=) 1)
 
 
-    /// Whether an order can solve its item orderable concentrations through the component share
-    /// alone: more than two components and every item in exactly one strength. With several
-    /// strengths the share alone loses the exact item concentration.
+    /// Returns true when the order has more than two components and every item has one component concentration.
+    /// The item concentrations in the orderable then follow from the tie equations alone; with more concentrations
+    /// per item they would not be exact.
     let leavesOutItemConcentrationProducts (ord: Order) =
         ord.Orderable.Components |> List.length > 2
         && ord.Orderable.Components |> List.collect _.Items |> List.forall hasOneStrength
 
 
-    /// Whether an order uses its adjusted doses: an adjusted dose of the orderable, of a component or
-    /// of an item has constraints. An order without one gets the same values for every variable that
-    /// is not adjusted, with or without the equations of the adjusted doses.
+    /// Returns true when an adjusted dose quantity, per time, rate or total of the orderable, a component or an item
+    /// has constraints. Without such constraints the adjusted dose equations do not change the other variables.
     let usesAdjust (ord: Order) =
         let adjusted (dos: Dose) =
             [
@@ -246,16 +236,10 @@ module EquationMapping =
         |> List.exists OrderVariable.hasConstraints
 
 
-    /// <summary>
-    /// Create an Equations mapping for an <c>Order</c>
-    /// </summary>
-    /// <param name="ord">The Order to Map</param>
-    /// <param name="eqs">The equations as a string list</param>
-    /// <returns>
-    /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
-    /// </returns>
+    /// Returns the sum mapping and the product mapping of the order, with the placeholders in the equations eqs
+    /// replaced by the order, orderable, component and item names.
     let getEqsMapping (ord: Order) (eqs: string list) =
-        // an order that does not use its adjusted doses solves without the equations that name one
+        // An order without adjusted dose constraints leaves out every equation with an adjusted variable.
         let eqs =
             if ord |> usesAdjust then
                 eqs
@@ -268,9 +252,9 @@ module EquationMapping =
             else
                 eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
 
-        // The products of an item orderable concentration with an orderable total only list cross
-        // products; the tie to the component share gives the same values. A timed order then needs
-        // the component rate, so an item rate limit still bounds the orderable rate.
+        // The equations with the item concentration in the orderable only add cross products, because the tie
+        // equations give the same values. A timed or once timed order then gets the component rate equation,
+        // so that an item rate limit still bounds the orderable rate.
         let eqs =
             if ord |> leavesOutItemConcentrationProducts |> not then
                 eqs

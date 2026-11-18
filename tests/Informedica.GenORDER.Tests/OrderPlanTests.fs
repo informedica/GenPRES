@@ -10,6 +10,11 @@ open Informedica.GenOrder.Lib
 open Expecto
 open Expecto.Flip
 
+module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+
+type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+
 
 module Fixtures =
 
@@ -77,7 +82,7 @@ module Fixtures =
     let context (scenarios: OrderScenario[]) : OrderContext =
         {
             Filter = filter
-            Patient = Patient.patient
+            PatientData = PatientData.unknown
             Scenarios = scenarios
             Argumentation = None
         }
@@ -91,7 +96,7 @@ module Fixtures =
         PlanContext.create id (OrderCategory.Nutrition category) (context (orderIds |> Array.map scenario))
 
 
-    let plan contexts = OrderPlan.create Patient.patient contexts
+    let plan contexts = OrderPlan.create PatientData.unknown contexts
 
 
     let ids (p: OrderPlan) =
@@ -184,7 +189,7 @@ let tests =
                         MaxPerTimeAdj = None
                     }
 
-                let child = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
+                let child = PatientData.unknown |> SamplePatients.withWeightInKg 32m
 
                 let p =
                     { OrderPlan.create child [| drug "c-supp" "o-supp" |] with
@@ -213,7 +218,7 @@ let tests =
                 |> _.Totals
                 |> Expect.equal "the suppository alone has no volume" Totals.empty
 
-                { p with Patient = Patient.patient }
+                { p with PatientData = PatientData.unknown }
                 |> OrderPlan.recalculate [| volume |]
                 |> _.Totals
                 |> Expect.equal "no weight, no totals" Totals.empty
@@ -460,13 +465,12 @@ module EvaluateFixtures =
         }
 
     let child =
-        { Patient.patient with
-            Department = Some "ICK"
-            Gender = Male
-            Age = Some(ValueUnit.singleWithUnit Units.Time.day 3650N)
-            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N)
-            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 140N)
-        }
+        PatientData.unknown
+        |> Patient.setDepartment (Some "ICK")
+        |> Patient.setGender CoreGender.Male
+        |> Patient.setAge [ Patient.AgeParts.Days 3650 ]
+        |> SamplePatients.withWeightInKg 32m
+        |> SamplePatients.withHeightInCm 140m
 
     let pcmScenario: OrderScenario =
         {
@@ -499,7 +503,7 @@ module EvaluateFixtures =
     let pcmContext: OrderContext =
         {
             Filter = held
-            Patient = child
+            PatientData = child
             Scenarios = [| pcmScenario |]
             Argumentation = None
         }
@@ -827,7 +831,7 @@ type NoRules() =
         member _.GetProducts() = raise (System.NotImplementedException())
 
         member _.GetDoseRules() = [||]
-        member _.GetDilutionRules() = [||]
+        member _.GetSolutionRules() = [||]
         member _.GetRenalRules() = [||]
 
         member _.GetTotals() = raise (System.NotImplementedException())
@@ -1079,15 +1083,20 @@ module RuleFixtures =
     /// A patient of the default department with the age in years, the adult mark, the weight in kg
     /// and the height in cm.
     let patient years marked weight height =
-        { Patient.patient with
-            Age =
-                years
-                |> Option.map (fun y -> ValueUnit.singleWithUnit Units.Time.day (y * 365N))
-            MarkedAdult = marked
-            Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-            Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            Department = Some Resources.Departments.defaultDepartment
-        }
+        let withAge pat =
+            match years with
+            | Some y -> pat |> Patient.setAge [ Patient.AgeParts.Days(y * 365N |> BigRational.ToInt32) ]
+            | None -> pat
+
+        { PatientData.unknown with MarkedAdult = marked }
+        |> withAge
+        |> Patient.setWeight
+            SamplePatients.measuredOn
+            (weight |> Option.map (BigRational.toDecimal >> CoreWeightValue.weightInKg))
+        |> Patient.setHeight
+            SamplePatients.measuredOn
+            (height |> Option.map (BigRational.toDecimal >> CoreHeightValue.heightInCm))
+        |> Patient.setDepartment (Some Resources.Departments.defaultDepartment)
 
 
 /// A provider holding the dose rules given and the route mapping they are built with, naming
@@ -1145,7 +1154,7 @@ type UndilutedVancomycin() =
                 }
         }
 
-    let dilutionRule: DilutionRule =
+    let solutionRule: SolutionRule =
         {
             Generic = "vancomycine"
             Form = None
@@ -1155,16 +1164,10 @@ type UndilutedVancomycin() =
             PatientCategory = PatientCategory.empty
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            SolutionLimit = SolutionRule.SolutionLimit.empty
             DilutionLimits =
                 [|
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
                         Concentration =
                             Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
                                 (9N |> ValueUnit.singleWithUnit mgPerMl)
@@ -1176,12 +1179,12 @@ type UndilutedVancomycin() =
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
             DoseRuleLoader.fromData routeMapping [||] [| vial |] [||] [| row |] |> fst
-        member _.GetDilutionRules() = [| dilutionRule |]
+        member _.GetSolutionRules() = [| solutionRule |]
         member _.GetRouteMappings() = routeMapping
 
 
 /// The electrolyte and glucose mixture as the production sheet holds it: a dose rule without dose values
-/// for no department, 3 to 16 kg, and a dilution rule for ICK from a weight in grams that limits both
+/// for no department, 3 to 16 kg, and a solution rule for ICK from a weight in grams that limits both
 /// components per kg.
 module Electrolytes =
 
@@ -1246,8 +1249,8 @@ module Electrolytes =
             (max |> ValueUnit.singleWithUnit (mL |> ValueUnit.per kg))
 
 
-    /// The dilution rule for ICK, from minWeight to 16 kg, in grams: at most 6 and 2 mL per kg.
-    let dilutionRule minWeight : DilutionRule =
+    /// The solution rule for ICK, from minWeight to 16 kg, in grams: at most 6 and 2 mL per kg.
+    let solutionRule minWeight : SolutionRule =
         let limit u = ValueUnit.singleWithUnit u >> Limit.inclusive >> Some
 
         {
@@ -1266,21 +1269,17 @@ module Electrolytes =
                 }
             Dose = MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = MinMax.empty
-            VolumeAdjust = MinMax.empty
-            DripRate = MinMax.empty
-            DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
+            SolutionLimit =
+                { SolutionRule.SolutionLimit.empty with
+                    DoseFraction = { MinMax.empty with Max = 1N |> limit Units.Count.times }
+                }
             DilutionLimits =
                 [|
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = ComponentLimitTarget "NaCl 3%"
-                        QuantityAdj = perKg 6N
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Component "NaCl 3%") with
+                        QuantityAdjust = perKg 6N
                     }
-                    { DilutionLimit.limit with
-                        DilutionLimitTarget = ComponentLimitTarget "KCl 7,4%"
-                        QuantityAdj = perKg 2N
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Component "KCl 7,4%") with
+                        QuantityAdjust = perKg 2N
                     }
                 |]
         }
@@ -1288,27 +1287,26 @@ module Electrolytes =
 
     /// A patient of a year old in the department, with a weight in kg.
     let patient department weightKg =
-        { Patient.patient with
-            Department = Some department
-            Age = 365N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-            Weight = weightKg * 1000N |> ValueUnit.singleWithUnit gram |> Some
-        }
+        PatientData.unknown
+        |> Patient.setDepartment (Some department)
+        |> Patient.setAge [ Patient.AgeParts.Days 365 ]
+        |> SamplePatients.withWeightInGram (weightKg * 1000N |> BigRational.toDecimal)
 
 
-/// The electrolyte and glucose mixture with a dilution rule for ICK from minWeight grams, and the products
+/// The electrolyte and glucose mixture with a solution rule for ICK from minWeight grams, and the products
 /// given.
 type ElectrolyteRules(minWeight, products) =
     inherit NoRules()
 
-    let dilutionRules = [| Electrolytes.dilutionRule minWeight |]
+    let solutionRules = [| Electrolytes.solutionRule minWeight |]
 
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
             [| Electrolytes.row "NaCl 3%"; Electrolytes.row "KCl 7,4%" |]
-            |> DoseRuleLoader.fromData Electrolytes.routeMapping [||] products dilutionRules
+            |> DoseRuleLoader.fromData Electrolytes.routeMapping [||] products solutionRules
             |> fst
 
-        member _.GetDilutionRules() = dilutionRules
+        member _.GetSolutionRules() = solutionRules
         member _.GetRouteMappings() = Electrolytes.routeMapping
         member _.GetDepartments() = Resources.Departments.ofNamed [ Some "ICK"; Some "NEO" ]
 
@@ -1378,7 +1376,7 @@ let ruleSetDiscoveryTests =
                                 Indications = set.Indications
                                 Generics = set.Generics
                             }
-                        Patient = RuleFixtures.patient (Some 5N) false (Some 20N) None
+                        PatientData = RuleFixtures.patient (Some 5N) false (Some 20N) None
                         Scenarios = [||]
                         Argumentation = None
                     }
@@ -1399,7 +1397,9 @@ let rulesTests =
         [
             test "a patient without a department keeps its context: the selection, the components and the scenarios" {
                 let held =
-                    { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Department = None } }
+                    { EvaluateFixtures.pcmContext with
+                        PatientData = EvaluateFixtures.child |> Patient.setDepartment None
+                    }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
 
@@ -1410,13 +1410,15 @@ let rulesTests =
                 |> Expect.equal "the selection as held" held.Filter.SelectedComponents
 
                 ctx.Filter.Diluents |> Expect.equal "the diluents as held" held.Filter.Diluents
-                ctx.Patient.Department |> Expect.equal "still no department" None
+                ctx.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "still no department" None
             }
 
             test "a patient with a department is treated the same" {
                 let held =
                     { EvaluateFixtures.pcmContext with
-                        Patient = { EvaluateFixtures.child with Department = Some "ICK" }
+                        PatientData = EvaluateFixtures.child |> Patient.setDepartment (Some "ICK")
                     }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
@@ -1426,7 +1428,10 @@ let rulesTests =
             }
 
             test "without a weight and a height the context is made afresh" {
-                let held = { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Weight = None } }
+                let held =
+                    { EvaluateFixtures.pcmContext with
+                        PatientData = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
+                    }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
 
@@ -1437,31 +1442,39 @@ let rulesTests =
             test "the rules match a patient without a department with the default, one with a department with its own" {
                 let provider = NoRules()
 
-                { EvaluateFixtures.child with Department = None }
+                EvaluateFixtures.child
+                |> Patient.setDepartment None
                 |> Api.withDefaultDepartment provider
-                |> _.Department
+                |> Patient.getDepartment
                 |> Expect.equal "the default" (Some Resources.Departments.defaultDepartment)
 
-                { EvaluateFixtures.child with Department = Some "NEO" }
+                EvaluateFixtures.child
+                |> Patient.setDepartment (Some "NEO")
                 |> Api.withDefaultDepartment provider
-                |> _.Department
+                |> Patient.getDepartment
                 |> Expect.equal "its own" (Some "NEO")
             }
 
             test "the context afresh keeps the patient's department: none stays none, and the lists are the rules'" {
                 let fresh =
-                    { EvaluateFixtures.child with Department = None }
+                    EvaluateFixtures.child
+                    |> Patient.setDepartment None
                     |> OrderContext.create OrderLogging.noOp (NoRules())
 
-                fresh.Patient.Department |> Expect.equal "still no department" None
+                fresh.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "still no department" None
                 fresh.Filter.Forms |> Expect.isEmpty "no rules, no forms"
                 fresh.Scenarios |> Expect.isEmpty "no scenarios"
 
                 let own =
-                    { EvaluateFixtures.child with Department = Some "NEO" }
+                    EvaluateFixtures.child
+                    |> Patient.setDepartment (Some "NEO")
                     |> OrderContext.create OrderLogging.noOp (NoRules())
 
-                own.Patient.Department |> Expect.equal "its own department" (Some "NEO")
+                own.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "its own department" (Some "NEO")
             }
 
             test
@@ -1470,13 +1483,15 @@ let rulesTests =
                 rules |> Expect.isNonEmpty "the fixture builds a rule"
 
                 let provider = RulesOf rules
-                let patient = { EvaluateFixtures.child with Department = None }
+                let patient = EvaluateFixtures.child |> Patient.setDepartment None
                 let fresh = patient |> OrderContext.create OrderLogging.noOp provider
 
                 fresh.Filter.Forms |> Expect.equal "the rule's form is offered" [| "zetpil" |]
                 fresh.Filter.Generics
                 |> Expect.equal "the rule's generic is offered" [| "paracetamol" |]
-                fresh.Patient.Department |> Expect.equal "the patient keeps no department" None
+                fresh.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "the patient keeps no department" None
 
                 let held =
                     { fresh with
@@ -1497,7 +1512,8 @@ let rulesTests =
             test "a rule for another department is not offered to a patient without one" {
                 let rules = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
                 let fresh =
-                    { EvaluateFixtures.child with Department = None }
+                    EvaluateFixtures.child
+                    |> Patient.setDepartment None
                     |> OrderContext.create OrderLogging.noOp (RulesOf rules)
 
                 fresh.Filter.Forms |> Expect.isEmpty "not for the default department"
@@ -1505,15 +1521,19 @@ let rulesTests =
 
             test "a provider whose load failed answers an empty context and keeps the patient's department" {
                 let fresh =
-                    { EvaluateFixtures.child with Department = None }
+                    EvaluateFixtures.child
+                    |> Patient.setDepartment None
                     |> OrderContext.create OrderLogging.noOp (NotLoaded())
 
                 fresh.Filter.Forms |> Expect.isEmpty "no forms"
-                fresh.Patient.Department |> Expect.equal "still no department" None
+                fresh.PatientData
+                |> Patient.getDepartment
+                |> Expect.equal "still no department" None
 
-                { EvaluateFixtures.child with Department = Some "NEO" }
+                EvaluateFixtures.child
+                |> Patient.setDepartment (Some "NEO")
                 |> Api.withDefaultDepartment (NotLoaded())
-                |> _.Department
+                |> Patient.getDepartment
                 |> Expect.equal "its own department stands" (Some "NEO")
             }
 
@@ -1522,7 +1542,8 @@ let rulesTests =
                     RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
 
                 let rulesFor department =
-                    { EvaluateFixtures.child with Department = department }
+                    EvaluateFixtures.child
+                    |> Patient.setDepartment department
                     |> Api.getPrescriptionRules provider
                     |> Result.map (Array.map _.DoseRule.Generic)
 
@@ -1547,7 +1568,7 @@ let rulesTests =
                     |> Api.filterDoseRules
                         (RulesOf rules)
                         { Informedica.GenForm.Lib.Filter.doseFilter with
-                            Patient = { Patient.patient with Department = department }
+                            PatientData = PatientData.unknown |> Patient.setDepartment department
                         }
                     |> Array.map _.PatientCategory.Department
 
@@ -1571,7 +1592,8 @@ let rulesTests =
 
                 for department in [ None; Some Resources.Departments.defaultDepartment ] do
                     let fresh =
-                        { EvaluateFixtures.child with Department = department }
+                        EvaluateFixtures.child
+                        |> Patient.setDepartment department
                         |> OrderContext.create OrderLogging.noOp provider
 
                     fresh.Filter.Forms |> Expect.isNonEmpty "the rule's form afresh"
@@ -1589,7 +1611,7 @@ let rulesTests =
             test "made afresh, the context keeps its argumentation" {
                 let held =
                     { EvaluateFixtures.pcmContext with
-                        Patient = { EvaluateFixtures.child with Weight = None }
+                        PatientData = EvaluateFixtures.child |> Patient.setWeight SamplePatients.measuredOn None
                         Argumentation = Some "Sepsis, hogere dosis in overleg met de apotheek"
                     }
 
@@ -1628,13 +1650,13 @@ let prescribableTests =
 
     // the options of the pick lists of a context whose rules for the patient all fail the check
     let unprescribableOptions provider (ctx: OrderContext) =
-        let pat = ctx.Patient
+        let pat = ctx.PatientData
 
         let failing field options setPick =
             options
             |> Array.filter (fun o ->
                 // the lookup matches the patient as create does, through the default department
-                { Filter.doseFilter with Patient = pat }
+                { Filter.doseFilter with PatientData = pat }
                 |> setPick o
                 |> Api.filterPrescriptionRules provider
                 |> Result.defaultValue [||]
@@ -1704,7 +1726,7 @@ let prescribableTests =
 
                     let rules =
                         { Filter.doseFilter with
-                            Patient = pat
+                            PatientData = pat
                             Indication = Some "pijn"
                         }
                         |> FilterHelpers.getPrescribableRules logger (provider ())
@@ -1722,18 +1744,17 @@ let prescribableTests =
 /// dose per kg when an adjusted dose of its order has a limit, also beside an absolute limit.
 let useAdjustTests =
     let child =
-        { Patient.patient with
-            Age = Some(ValueUnit.singleWithUnit Units.Time.day 365N)
-            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 10N)
-            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 75N)
-            Department = Some Resources.Departments.defaultDepartment
-        }
+        PatientData.unknown
+        |> Patient.setAge [ Patient.AgeParts.Days 365 ]
+        |> SamplePatients.withWeightInKg 10m
+        |> SamplePatients.withHeightInCm 75m
+        |> Patient.setDepartment (Some Resources.Departments.defaultDepartment)
 
     // the one scenario the row gives the child of 10 kg
     let scenarioOf row =
         let provider = RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
 
-        { Filter.doseFilter with Patient = child }
+        { Filter.doseFilter with PatientData = child }
         |> Api.filterPrescriptionRules provider
         |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
@@ -1781,12 +1802,11 @@ let useAdjustTests =
 /// of the order context.
 let componentOptionTests =
     let child =
-        { Patient.patient with
-            Age = Some(ValueUnit.singleWithUnit Units.Time.day 365N)
-            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 10N)
-            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 75N)
-            Department = Some Resources.Departments.defaultDepartment
-        }
+        PatientData.unknown
+        |> Patient.setAge [ Patient.AgeParts.Days 365 ]
+        |> SamplePatients.withWeightInKg 10m
+        |> SamplePatients.withHeightInCm 75m
+        |> Patient.setDepartment (Some Resources.Departments.defaultDepartment)
 
     // the order and the rule of the one scenario the row gives the child of 10 kg
     let evaluated () =
@@ -1794,7 +1814,7 @@ let componentOptionTests =
             RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
             :> Resources.IResourceProvider
 
-        { Filter.doseFilter with Patient = child }
+        { Filter.doseFilter with PatientData = child }
         |> Api.filterPrescriptionRules provider
         |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
@@ -1932,7 +1952,8 @@ let selectsRulesTests =
 
             test "an adult whose weight is cleared gets the absolute rules and the fever rule" {
                 let ctx = patient (Some 40N) false (Some 70N) None |> contextOf
-                let cleared = { ctx with Patient = { ctx.Patient with Weight = None } }
+                let cleared =
+                    { ctx with PatientData = ctx.PatientData |> Patient.setWeight SamplePatients.measuredOn None }
 
                 let ctx, _ = cleared |> OrderContext.getRules logger (provider ())
 
@@ -1950,7 +1971,8 @@ let selectsRulesTests =
             }
 
             test "the empty patient gets no rules from the order context" {
-                { Patient.patient with Department = Some Resources.Departments.defaultDepartment }
+                PatientData.unknown
+                |> Patient.setDepartment (Some Resources.Departments.defaultDepartment)
                 |> contextOf
                 |> OrderContext.getRules logger (provider ())
                 |> snd
@@ -1963,7 +1985,7 @@ let selectsRulesTests =
                     |> contextOf
                     |> fun ctx -> { ctx with Filter = { ctx.Filter with Indication = Some "pijn" } }
 
-                { picked with Patient = { picked.Patient with Weight = None } }
+                { picked with PatientData = picked.PatientData |> Patient.setWeight SamplePatients.measuredOn None }
                 |> OrderContext.refusal (provider ())
                 |> Expect.equal "the weight is missing" Refusal.MeasurementMissing
             }
@@ -1998,10 +2020,10 @@ let selectsRulesTests =
         ]
 
 
-/// The access device a scenario is labelled with: that of the dilution rule its order was made
+/// The access device a scenario is labelled with: that of the solution rule its order was made
 /// from, paired by place with the medications of the rule.
 let scenarioAccessTests =
-    let dilutionRule access : DilutionRule =
+    let solutionRule access : SolutionRule =
         {
             Generic = "paracetamol"
             Form = None
@@ -2011,12 +2033,7 @@ let scenarioAccessTests =
             PatientCategory = { PatientCategory.empty with Access = access }
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
             Diluents = [||]
-            Div = None
-            Volumes = None
-            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            SolutionLimit = SolutionRule.SolutionLimit.empty
             DilutionLimits = [||]
         }
 
@@ -2029,25 +2046,25 @@ let scenarioAccessTests =
         |> Api.getPrescriptionRules provider
         |> Result.defaultValue [||]
         |> Array.head
-        |> fun pr -> { pr with DilutionRules = accesses |> Array.map dilutionRule }
+        |> fun pr -> { pr with SolutionRules = accesses |> Array.map solutionRule }
 
     testList
         "the access of a scenario"
         [
-            test "a rule without dilution rules gives a single any access" {
+            test "a rule without solution rules gives a single any access" {
                 rule [||]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "any access, once" [| AnyAccess |]
             }
 
-            test "each dilution rule gives its access device, in the order of the rules" {
+            test "each solution rule gives its access device, in the order of the rules" {
                 rule [| CVL; PVL; AnyAccess |]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "the devices of the rules" [| CVL; PVL; AnyAccess |]
             }
 
             for accesses in [ [||]; [| CVL |]; [| CVL; PVL; AnyAccess |] ] do
-                test $"%i{accesses.Length} dilution rules give as many devices as medications" {
+                test $"%i{accesses.Length} solution rules give as many devices as medications" {
                     let pr = rule accesses
 
                     pr
@@ -2059,7 +2076,7 @@ let scenarioAccessTests =
                 }
 
             for accesses in [ [||]; [| CVL; PVL |]; [| PVL; AnyAccess; CVL |] ] do
-                test $"evaluated, the scenarios of %i{accesses.Length} dilution rules hold the access of their rule" {
+                test $"evaluated, the scenarios of %i{accesses.Length} solution rules hold the access of their rule" {
                     let expected =
                         if accesses |> Array.isEmpty then
                             [| AnyAccess |]
@@ -2094,7 +2111,7 @@ let refusalTests =
 
                         picks.Generic |> Expect.equal "chosen" (Some "Paracetamol")
                         picks.Indication |> Expect.equal "chosen" (Some "koorts")
-                        picks.Patient |> Expect.equal "no patient" Patient.patient
+                        picks.PatientData |> Expect.equal "no patient" PatientData.unknown
                     }
 
                     test "one option offered is the pick, more are none" {
@@ -2240,14 +2257,13 @@ let refusalTests =
                     test "a measurement is missing only when every prescription rule needs one the patient lacks" {
                         let provider = RulesOf(RuleFixtures.feverAndPain ()) :> Resources.IResourceProvider
 
-                        let noWeight =
-                            { Patient.patient with Age = Some(ValueUnit.singleWithUnit Units.Time.day (40N * 365N)) }
+                        let noWeight = PatientData.unknown |> Patient.setAge [ Patient.AgeParts.Days(40 * 365) ]
 
                         // the fever rule needs no measurement, the pain rule a weight
                         let rulesFor indication =
                             { Filter.doseFilter with
                                 Indication = Some indication
-                                Patient = noWeight
+                                PatientData = noWeight
                             }
                             |> Api.filterPrescriptionRules provider
                             |> Result.defaultValue [||]
@@ -2279,7 +2295,7 @@ let refusalTests =
                         rules |> Expect.isNonEmpty "the fixture builds a rule"
 
                         { EvaluateFixtures.pcmContext with
-                            Patient = { EvaluateFixtures.child with Department = Some "NEO" }
+                            PatientData = EvaluateFixtures.child |> Patient.setDepartment (Some "NEO")
                             Filter =
                                 { EvaluateFixtures.fresh with
                                     Generic = Some "paracetamol"
@@ -2603,7 +2619,7 @@ let listsOfOtherPicksTests =
             test "a child without a weight keeps the lists, since no rule is looked up" {
                 let provider = RefusedFixtures.provider ()
                 let fresh = RefusedFixtures.fresh provider
-                let noWeight = { fresh with Patient = RuleFixtures.patient (Some 5N) false None None }
+                let noWeight = { fresh with PatientData = RuleFixtures.patient (Some 5N) false None None }
 
                 noWeight
                 |> OrderContext.withListsOfOtherPicks OrderLogging.noOp provider
@@ -2620,7 +2636,10 @@ let argumentationTests =
 
     let argued = { EvaluateFixtures.pcmContext with Argumentation = Some text }
 
-    let roundTrip (ctx: OrderContext) = ctx |> OrderContext.Dto.toDto |> OrderContext.Dto.fromDto
+    let roundTrip (ctx: OrderContext) =
+        ctx
+        |> OrderContext.Dto.toDto
+        |> OrderContext.Dto.fromDto SamplePatients.measuredOn
 
     testList
         "the argumentation"
@@ -2660,7 +2679,11 @@ let argumentationTests =
 
                 json.Contains "Argumentation" |> Expect.isFalse "no such field in the row"
 
-                match json |> Canonical.deserialize<OrderContext.Dto.Dto> |> OrderContext.Dto.fromDto with
+                match
+                    json
+                    |> Canonical.deserialize<OrderContext.Dto.Dto>
+                    |> OrderContext.Dto.fromDto SamplePatients.measuredOn
+                with
                 | Ok ctx -> ctx |> Expect.equal "the context, the field none" EvaluateFixtures.pcmContext
                 | Error e -> failtest $"a version 1 context does not parse: %A{e}"
             }
@@ -2702,7 +2725,7 @@ module LinkFixtures =
     let child = EvaluateFixtures.child
 
 
-    let ofOrder orderId = { context [| scenario orderId |] with Patient = child }
+    let ofOrder orderId = { context [| scenario orderId |] with PatientData = child }
 
 
     // a context of two orders, not narrowed to one
@@ -2955,7 +2978,7 @@ let linkTests =
                     test "the round trip keeps every link and every none" {
                         p
                         |> OrderPlan.Dto.toDto
-                        |> OrderPlan.Dto.fromDto
+                        |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                         |> Result.map (_.Contexts >> Array.map (fun c -> c.Id, c.LinkedTo))
                         |> Expect.equal
                             "the links"
@@ -2968,7 +2991,7 @@ let linkTests =
 
                         plan [| withTotals |]
                         |> OrderPlan.Dto.toDto
-                        |> OrderPlan.Dto.fromDto
+                        |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                         |> Result.map (fun p -> p.Contexts[0].Totals.Volume)
                         |> Expect.equal "the volume" (Ok(Some "5 ml"))
                     }
@@ -2981,7 +3004,7 @@ let linkTests =
 
                         json
                         |> Canonical.deserialize<OrderPlan.Dto.Dto>
-                        |> OrderPlan.Dto.fromDto
+                        |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                         |> Result.map (_.Contexts >> Array.map _.LinkedTo)
                         |> Expect.equal "read back" (Ok [| None; Some "c-m"; None; Some "c-f" |])
                     }
@@ -2997,7 +3020,7 @@ let linkTests =
                                     |]
                         }
                         |> OrderPlan.Dto.toDto
-                        |> OrderPlan.Dto.fromDto
+                        |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                         |> Expect.equal
                             "each broken link"
                             (Error
@@ -3010,7 +3033,7 @@ let linkTests =
                     test "a link checked over the whole plan: a linked order before its main order holds" {
                         plan [| medication "c-a" "o-a" |> linked "c-m"; medication "c-m" "o-m" |]
                         |> OrderPlan.Dto.toDto
-                        |> OrderPlan.Dto.fromDto
+                        |> OrderPlan.Dto.fromDto SamplePatients.measuredOn
                         |> Result.map ids
                         |> Expect.equal "read" (Ok [| "c-a"; "c-m" |])
                     }
@@ -3392,18 +3415,18 @@ let linkOfferTests =
         "the linked offers"
         [
             test "the context a side offers picks the indication, generic and route the side names" {
-                (OrderContext.ofLinkSide evening Patient.patient).Filter
+                (OrderContext.ofLinkSide evening PatientData.unknown).Filter
                 |> fun f -> f.Indication, f.Generic, f.Route, f.DoseType
                 |> Expect.equal "the evening dose" (Some "Duchenne", Some "ataluren", Some "ORAAL", None)
             }
 
             test "the context a side offers leaves out what the side leaves empty" {
-                (OrderContext.ofLinkSide supplement Patient.patient).Filter.Route
+                (OrderContext.ofLinkSide supplement PatientData.unknown).Filter.Route
                 |> Expect.isNone "any route"
             }
 
             test "the dose types are narrowed to the ones the side matches" {
-                OrderContext.ofLinkSide evening Patient.patient
+                OrderContext.ofLinkSide evening PatientData.unknown
                 |> fun ctx -> { ctx with Filter = { ctx.Filter with DoseTypes = doseTypes } }
                 |> OrderContext.narrowToLinkSide evening
                 |> _.Filter.DoseTypes
@@ -3661,7 +3684,7 @@ module TotalsOverFixtures =
         }
 
 
-    let child = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
+    let child = PatientData.unknown |> SamplePatients.withWeightInKg 32m
 
     let suppository = PlanContext.create "c-supp" OrderCategory.Medication (context [| scenario "o-supp" |])
 
@@ -3713,9 +3736,9 @@ let totalsOverTests =
         ]
 
 
-/// The refusal of a context whose dose rule has no limits and gets them from a dilution rule.
+/// The refusal of a context whose dose rule has no limits and gets them from a solution rule.
 let refusalWithoutLimitsTests =
-    let picked provider (pat: Patient) : OrderContext =
+    let picked provider (pat: PatientData) : OrderContext =
         let ctx = OrderContext.create OrderLogging.noOp provider pat
 
         { ctx with
@@ -3741,7 +3764,7 @@ let refusalWithoutLimitsTests =
                 (provider :> Resources.IResourceProvider).GetDoseRules()
                 |> Expect.hasLength "the kept rule" 1
 
-                { Filter.doseFilter with Patient = Electrolytes.patient "ICK" 5N }
+                { Filter.doseFilter with PatientData = Electrolytes.patient "ICK" 5N }
                 |> Api.filterPrescriptionRules provider
                 |> Result.map Array.length
                 |> Expect.equal "one prescription rule" (Ok 1)
@@ -3753,7 +3776,7 @@ let refusalWithoutLimitsTests =
                 |> Expect.equal "no dose rules" Refusal.NoDoseRules
             }
 
-            test "in ICK, below the weight of the dilution rule, no dose rule is there for the patient" {
+            test "in ICK, below the weight of the solution rule, no dose rule is there for the patient" {
                 Electrolytes.patient "ICK" 5N
                 |> refusal 7000N
                 |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient

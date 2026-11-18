@@ -4,6 +4,7 @@ module RecalculationTests
 
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 open Expecto
@@ -124,7 +125,7 @@ module Fixture =
     let context scenarios : OrderContext =
         {
             Filter = OrderContext.emptyFilter
-            Patient = Patient.patient
+            PatientData = PatientData.unknown
             Scenarios = scenarios
             Argumentation = None
         }
@@ -148,7 +149,17 @@ module Fixture =
                 )
         }
 
-    let cm = DataUpdateFixtures.cm
+    /// Converts a value to a unit and returns the number as a decimal.
+    let decimalIn unit vu =
+        vu
+        |> ValueUnit.convertTo unit
+        |> ValueUnit.getValue
+        |> Array.head
+        |> BigRational.toDecimal
+
+    /// Sets a measured weight from a value with a weight unit.
+    let withWeightOf vu pat =
+        pat |> SamplePatients.withWeightInKg (vu |> decimalIn Units.Weight.kiloGram)
 
     let provider = OrderPlanTests.RulesOf [||] :> Informedica.GenForm.Lib.Resources.IResourceProvider
 
@@ -348,13 +359,13 @@ let tests =
 
             test "the context keeps its patient and its order follows the weight" {
                 let ord = Scenarios.cotrim |> Fixture.processed
-                let pat = { Patient.patient with Weight = ord |> Fixture.times 2N |> Some }
+                let pat = PatientData.unknown |> Fixture.withWeightOf (ord |> Fixture.times 2N)
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
                 let after = ctx |> DataUpdateFixtures.onData Fixture.provider pat
 
-                after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
+                after.PatientData |> Expect.equal "the patient of the rules" ctx.PatientData
 
                 after.Scenarios[0].Order
                 |> Fixture.adjustOf
@@ -366,14 +377,14 @@ let tests =
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
-                (ctx |> DataUpdateFixtures.onData Fixture.provider Patient.patient).Scenarios[0].Order
+                (ctx |> DataUpdateFixtures.onData Fixture.provider PatientData.unknown).Scenarios[0].Order
                 |> Fixture.adjustOf
                 |> Expect.equal "the weight" (ord |> Fixture.adjustOf)
             }
 
             test "the same weight does not calculate the order again" {
                 let ord = Scenarios.cotrim |> Fixture.processed |> Order.withoutCalculatedConstraints
-                let pat = { Patient.patient with Weight = ord |> Fixture.times 1N |> Some }
+                let pat = PatientData.unknown |> Fixture.withWeightOf (ord |> Fixture.times 1N)
 
                 ([| Fixture.scenario ord |]
                  |> Fixture.context
@@ -387,9 +398,9 @@ let tests =
             test "a weight in gram reaches the order in the unit of the order" {
                 let ord = Scenarios.cotrim |> Fixture.processed
 
-                let grams = ord |> Fixture.times 2N |> ValueUnit.convertTo Units.Weight.gram
+                let grams = ord |> Fixture.times 2N |> Fixture.decimalIn Units.Weight.gram
 
-                let pat = { Patient.patient with Weight = Some grams }
+                let pat = PatientData.unknown |> SamplePatients.withWeightInGram grams
 
                 OrderContext.adjustOfPatient pat ord
                 |> Expect.equal "in kg" (ord |> Fixture.times 2N |> Some)
@@ -411,16 +422,15 @@ let tests =
             test "a change of height moves the per m2 dose and the amount stays" {
                 let ord = Fixture.perM2 |> Fixture.processed
                 let patient h =
-                    { Patient.patient with
-                        Weight = Some(30N |> Fixture.kg)
-                        Height = Some(h |> Fixture.cm)
-                    }
+                    PatientData.unknown
+                    |> SamplePatients.withWeightInKg 30m
+                    |> SamplePatients.withHeightInCm h
                 let update pat ctx = ctx |> DataUpdateFixtures.onData Fixture.provider pat
                 let order (ctx: OrderContext) = ctx.Scenarios[0].Order
 
                 let context = [| Fixture.scenario ord |] |> Fixture.context
-                let short = context |> update (patient 130N) |> order
-                let tall = context |> update (patient 150N) |> order
+                let short = context |> update (patient 130m) |> order
+                let tall = context |> update (patient 150m) |> order
 
                 short |> Fixture.unitOf |> Expect.equal "per m2" Units.BSA.m2
 

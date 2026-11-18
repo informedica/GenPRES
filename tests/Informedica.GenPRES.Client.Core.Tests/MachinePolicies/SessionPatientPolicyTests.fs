@@ -17,7 +17,11 @@ module SessionPatientPolicyTests =
 
     /// A Session for a patient the EHR identified.
     let identified =
-        { full with PatientContext = full.PatientContext |> Option.map (fun c -> { c with Identity = Some who }) }
+        { full with
+            PatientContext =
+                full.PatientContext
+                |> Option.map (fun c -> { c with PatientIdentity = Some who })
+        }
 
     /// The same Session after a signature: the version signed is its head.
     let signedOnce = { identified with Head = Some signedVersion }

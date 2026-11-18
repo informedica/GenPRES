@@ -75,13 +75,13 @@ let planOf (shape: Shape) : OrderPlan =
             { Informedica.GenPRES.Shared.Models.OrderContext.empty with
                 Id = $"c-{i}"
                 Category = category
-                Patient = StubPatientData.patient
+                PatientData = StubEhrPatient.contractPatient
                 Scenarios = Array.init scenarios (fun k -> SessionStubTests.scenarioWithOrder $"o-{i}-{k}")
             }
         )
         |> List.toArray
 
-    { Informedica.GenPRES.Shared.Models.OrderPlan.create StubPatientData.patient contexts with
+    { Informedica.GenPRES.Shared.Models.OrderPlan.create StubEhrPatient.contractPatient contexts with
         Filtered =
             shape.Contexts
             |> List.mapi (fun i (_, _, kept) -> if kept then Some $"c-{i}" else None)

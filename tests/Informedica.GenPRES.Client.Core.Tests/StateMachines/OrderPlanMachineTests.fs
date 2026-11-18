@@ -53,7 +53,9 @@ let tests =
                         |> snd
                         |> Expect.equal
                             "sent again"
-                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(other, one), "r-3") ]
+                            [
+                                OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatientData(other, one), "r-3")
+                            ]
                     }
 
                     test "new patient data with a request out is dropped, since the panel is disabled then" {
@@ -118,7 +120,7 @@ let tests =
                         let state, effects =
                             transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one (Some "c-1"))
 
-                        let update = OrderPlanCommand.UpdatePatient(otherDraft, one)
+                        let update = OrderPlanCommand.UpdatePatientData(otherDraft, one)
 
                         state
                         |> Expect.equal
@@ -131,7 +133,7 @@ let tests =
                         OrderPlanState.view state
                         |> Expect.equal
                             "the plan shown for the new patient meanwhile"
-                            (OrderPlanView.Changing({ one with Patient = otherDraft }, None))
+                            (OrderPlanView.Changing({ one with PatientData = otherDraft }, None))
                     }
 
                     test "no patient: no plan, whatever was in flight answers to nothing" {
@@ -183,7 +185,7 @@ let tests =
                         (stored, effects)
                         |> Expect.equal
                             "stored, nothing asked yet"
-                            (OrderPlanState.withSignedVersion head.Patient two.OrderContexts, [])
+                            (OrderPlanState.withSignedVersion head.PatientData two.OrderContexts, [])
 
                         transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) stored
                         |> Expect.equal
@@ -335,7 +337,7 @@ let tests =
                         [
                             "a removal", OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
                             "a row filter", OrderPlanCommand.FilterRows([| "c-1" |], one)
-                            "a patient update", OrderPlanCommand.UpdatePatient(patient, one)
+                            "a patient update", OrderPlanCommand.UpdatePatientData(patient, one)
                             "a command from the order dialog",
                             OrderPlanCommand.EvaluateContext(
                                 one,
@@ -520,8 +522,8 @@ let workTests =
             PatientId = "p"
             Base = None
             OrderContexts = one.OrderContexts
-            Patient = draft
-            Identity = None
+            PatientData = draft
+            PatientIdentity = None
             Verified = true
         }
 
@@ -592,7 +594,7 @@ let changedIds (state: OrderPlanState) =
 /// A version opens as signed, on the patient it was signed on, and then follows the current patient.
 [<Tests>]
 let versionFollowTests =
-    let version = { head with Patient = otherDraft }
+    let version = { head with PatientData = otherDraft }
 
     let openedOver current =
         settled one None
@@ -623,7 +625,7 @@ let versionFollowTests =
                 let state, effects = openedOver patient |> landed two
 
                 effects
-                |> List.contains (OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(patient, two), "r-1"))
+                |> List.contains (OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatientData(patient, two), "r-1"))
                 |> Expect.isTrue "the follow"
 
                 OrderPlanState.differences two state
@@ -702,7 +704,7 @@ let versionFollowTests =
                 |> Expect.equal
                     "sent again"
                     [
-                        OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(patient, two), "r-2")
+                        OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatientData(patient, two), "r-2")
                     ]
             }
 

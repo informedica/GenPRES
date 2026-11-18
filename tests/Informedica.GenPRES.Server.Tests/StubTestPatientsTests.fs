@@ -13,15 +13,15 @@ open ServerApi
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
 module CorePatient = Informedica.GenCore.Lib.Patients.Patient
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+module FormPatientData = Informedica.GenForm.Lib.PatientData
 
 
 let now = DateTime(2026, 11, 3, 14, 30, 0)
 
 
-/// The GenFORM patient of a PatientId, read and projected at a moment.
-let projectedAt at pid =
-    StubPatientData.read (fun () -> at) pid
-    |> Option.map Informedica.GenForm.Lib.Patient.ofEhr
+/// The patient data of a PatientId, read at a moment.
+let projectedAt at pid = StubEhrPatient.read (fun () -> at) pid |> Option.map _.Data
 
 
 let value (vu: ValueUnit option) = vu |> Option.map (ValueUnit.getValue >> Array.head)
@@ -53,8 +53,8 @@ let ick =
 
 /// The age in days of a test patient read on a day, as GenPRES counts it.
 let coreAgeInDays (day: DateTime) pid =
-    StubPatientData.read (fun () -> day) pid
-    |> Option.bind (fun ehr -> (ehr.Patient |> CorePatient.atDate day).Data.Age)
+    StubEhrPatient.read (fun () -> day) pid
+    |> Option.bind (fun ehr -> (ehr |> CorePatient.atDate day).Data.Age)
     |> Option.map (CoreAgeValue.getAgeInDays >> int)
     |> Option.get
 
@@ -81,7 +81,7 @@ let tests =
         "StubTestPatients"
         [
             test "there are six NEO and six ICK test patients with distinct ids" {
-                StubPatientData.testPatients
+                StubEhrPatient.testPatients
                 |> List.map _.Id
                 |> List.distinct
                 |> List.length
@@ -97,13 +97,23 @@ let tests =
                             let pat = projectedAt now pid |> Option.get
 
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
-                            pat.Department |> Expect.equal "department" (Some "NEO")
-                            pat.Age |> value |> Expect.equal "age in days" (Some 2N)
-                            pat.GestAge
+                            pat |> FormPatientData.department |> Expect.equal "department" (Some "NEO")
+                            pat
+                            |> CorePatientData.ageInDays
+                            |> value
+                            |> Expect.equal "age in days" (Some 2N)
+                            pat
+                            |> CorePatientData.gestationalAgeInDays
                             |> value
                             |> Expect.equal "gestational age in days" (Some(weeks * 7N))
-                            pat.Weight |> value |> Expect.equal "weight in kg" (Some(gram / 1000N))
-                            pat.Height |> value |> Expect.equal "height in cm" (Some cm)
+                            pat
+                            |> CorePatientData.weightInKg
+                            |> value
+                            |> Expect.equal "weight in kg" (Some(gram / 1000N))
+                            pat
+                            |> CorePatientData.heightInCm
+                            |> value
+                            |> Expect.equal "height in cm" (Some cm)
                         }
                 ]
 
@@ -115,34 +125,42 @@ let tests =
                             let pat = projectedAt now pid |> Option.get
 
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
-                            StubPatientData.read (fun () -> now) pid
+                            StubEhrPatient.read (fun () -> now) pid
                             |> Option.bind (fun ehr ->
-                                (ehr.Patient |> CorePatient.atDate now).Data.Age
-                                |> Option.map CoreAgeValue.toAgeType
+                                (ehr |> CorePatient.atDate now).Data.Age |> Option.map CoreAgeValue.toAgeType
                             )
                             |> Expect.equal "the age category" (Some ageType)
 
-                            pat.Department |> Expect.equal "department" (Some "ICK")
-                            pat.Age |> value |> Expect.equal "age in days" (Some days)
-                            pat.GestAge |> Expect.isNone "no gestational age"
-                            pat.Weight |> value |> Expect.equal "weight in kg" (Some kg)
-                            pat.Height |> value |> Expect.equal "height in cm" (Some cm)
+                            pat |> FormPatientData.department |> Expect.equal "department" (Some "ICK")
+                            pat
+                            |> CorePatientData.ageInDays
+                            |> value
+                            |> Expect.equal "age in days" (Some days)
+                            pat.GestationalAge |> Expect.isNone "no gestational age"
+                            pat
+                            |> CorePatientData.weightInKg
+                            |> value
+                            |> Expect.equal "weight in kg" (Some kg)
+                            pat
+                            |> CorePatientData.heightInCm
+                            |> value
+                            |> Expect.equal "height in cm" (Some cm)
                         }
                 ]
 
             test "a NEO patient is 2 days old on any day the data is read" {
                 projectedAt (DateTime(2030, 1, 1)) "neo-26wk"
-                |> Option.bind _.Age
+                |> Option.bind CorePatientData.ageInDays
                 |> Option.map (ValueUnit.getValue >> Array.head)
                 |> Expect.equal "2 days" (Some 2N)
             }
 
             test "another PatientId gives the fixed patient" {
-                StubPatientData.read (fun () -> now) "p1"
-                |> Expect.equal "the fixed patient, read now" (Some(StubPatientData.data now "p1"))
+                StubEhrPatient.read (fun () -> now) "p1"
+                |> Expect.equal "the fixed patient, read now" (Some(StubEhrPatient.patient now "p1"))
             }
 
-            test "no-data gives no data" { StubPatientData.read (fun () -> now) "no-data" |> Expect.isNone "no data" }
+            test "no-data gives no data" { StubEhrPatient.read (fun () -> now) "no-data" |> Expect.isNone "no data" }
 
             test "the launch page has a radio for every test patient and other, the ICK adolescent checked" {
                 let page = StubLaunch.page
@@ -150,7 +168,7 @@ let tests =
 
                 [
                     StubLaunch.otherPatient
-                    yield! StubPatientData.testPatients |> List.map _.Id |> List.filter ((<>) pid)
+                    yield! StubEhrPatient.testPatients |> List.map _.Id |> List.filter ((<>) pid)
                 ]
                 |> List.filter (fun id -> page.Contains $"""name="patient" id="p-%s{id}" value="%s{id}">""" |> not)
                 |> Expect.isEmpty "an unchecked radio for every other patient"
@@ -224,7 +242,7 @@ let tests =
             }
 
             test "the columns of a test patient are its gender, age, GA, weight and height" {
-                StubPatientData.testPatients
+                StubEhrPatient.testPatients
                 |> List.head
                 |> StubLaunch.columns
                 |> Expect.equal "NEO 26 weeks" [ "male"; "2 days"; "26 weeks"; "600 g"; "35 cm" ]

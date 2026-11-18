@@ -7,6 +7,8 @@ module Api =
 
     open Resources
 
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+
 
     let private logGenFormMessages (logger: Logger) (provider: IResourceProvider) =
         provider.GetResourceInfo().Messages
@@ -33,7 +35,7 @@ module Api =
         | _ -> invalidArg (nameof provider) "Provider is not a CachedResourceProvider instance"
 
 
-    /// Generic accessor: resolve any registered resource by its typed key.
+    /// Returns the registered resource for a typed key.
     let get (key: ResourceKey<'T>) (provider: IResourceProvider) : 'T = provider.Get key
 
 
@@ -44,16 +46,12 @@ module Api =
 
 
     /// <summary>
-    /// The Nederlands Kinder Formularium link lookup, for <c>DoseRule.Print.toMarkdown</c>.
+    /// Returns the link lookup for the Nederlands Kinderformularium, used by DoseRule.Print.toMarkdown.
     /// </summary>
     /// <remarks>
-    /// When only the NKF fetch failed the registry already serves <c>Source.getLink []</c>
-    /// (FK links intact, NKF links gone); see <c>Keys.nkfLinkProvider</c>. When the whole
-    /// resource load failed nothing is registered at all and <c>Get</c> raises
-    /// <c>KeyNotFoundException</c>, so serve that same degraded provider here: a decorative
-    /// link must never fail a request. One provider call, not an <c>IsLoaded</c> check followed
-    /// by <c>Get</c>: a <c>CachedResourceProvider</c> takes its lock per call, so a reload failing
-    /// between the two would still throw.
+    /// When the resource load failed, Get raises KeyNotFoundException and this returns Source.getLink [] instead,
+    /// so a missing link never fails a request. A single Get call avoids the race of an IsLoaded check
+    /// followed by Get while a reload fails.
     /// </remarks>
     let getNKFLinkProvider (provider: IResourceProvider) : Source.LinkProvider =
         try
@@ -65,7 +63,7 @@ module Api =
     let getDoseRules (provider: IResourceProvider) = provider.GetDoseRules()
 
 
-    let getDilutionRules (provider: IResourceProvider) = provider.GetDilutionRules()
+    let getSolutionRules (provider: IResourceProvider) = provider.GetSolutionRules()
 
 
     let getRenalRules (provider: IResourceProvider) = provider.GetRenalRules()
@@ -76,31 +74,33 @@ module Api =
     // Filtering functions using cached mappings
 
 
-    /// The patient with its own department, else the provider's default. The rule lookups match
-    /// with it; the patient a caller holds keeps the department it has.
-    let withDefaultDepartment (provider: IResourceProvider) (pat: Patient) =
-        { pat with Department = pat.Department |> Departments.forPatient (provider.GetDepartments()) }
+    /// Sets the default department of the provider when the patient data has no department.
+    let withDefaultDepartment (provider: IResourceProvider) (patientData: PatientData) =
+        match patientData |> PatientData.department with
+        | Some _ -> patientData
+        | None ->
+            { patientData with Department = (provider.GetDepartments()).Default |> CoreDepartment.otherDepartment }
 
 
     let filterDoseRules (provider: IResourceProvider) (filter: DoseFilter) doseRules =
         let routeMappings = getRouteMapping provider
-        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
+        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         DoseRule.filter routeMappings filter doseRules
 
 
-    /// The lookup whether the Formulary marks the product with a GPK as IsAdditive.
+    /// Returns a lookup that tells whether the Formulary marks the product with a GPK as an additive.
     let isAdditive (provider: IResourceProvider) = provider.Get Keys.isAdditive
 
 
     let getPrescriptionRules (provider: IResourceProvider) =
         let doseRules = getDoseRules provider
-        let dilutionRules = getDilutionRules provider
+        let solutionRules = getSolutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
 
         withDefaultDepartment provider
-        >> PrescriptionRule.getForPatient (isAdditive provider) doseRules dilutionRules renalRules routeMappings
+        >> PrescriptionRule.getForPatient (isAdditive provider) doseRules solutionRules renalRules routeMappings
 
 
     let filterPrescriptionRules
@@ -109,11 +109,11 @@ module Api =
         : Result<PrescriptionRule array, Message list>
         =
         let doseRules = getDoseRules provider
-        let dilutionRules = getDilutionRules provider
+        let solutionRules = getSolutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
         let isAdditive = isAdditive provider
-        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
+        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         let chunkSize =
             let c = (doseRules |> Array.length) / 12
@@ -122,14 +122,14 @@ module Api =
         doseRules
         |> Array.chunkBySize chunkSize
         |> Array.map (fun rules ->
-            async { return PrescriptionRule.filter isAdditive rules dilutionRules renalRules routeMappings filter }
+            async { return PrescriptionRule.filter isAdditive rules solutionRules renalRules routeMappings filter }
         )
         |> Async.Parallel
         |> Async.RunSynchronously
         |> Utils.Result.foldResults
 
 
-    /// Warning that no prescription rule matches the filter, naming its generic, route and form.
+    /// Creates a warning that no prescription rule matches the filter, with its generic, route and form.
     let noRulesWarning (filter: DoseFilter) =
         let show = Option.defaultValue "-"
 

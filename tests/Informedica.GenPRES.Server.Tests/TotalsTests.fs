@@ -7,6 +7,9 @@ open Expecto
 open Informedica.GenForm.Lib
 open Swensen.Unquote
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 type TotalsSpy() =
     let mutable callCount = 0
     member this.CallCount = callCount
@@ -41,7 +44,7 @@ type TotalsSpy() =
         member _.GetRenalRules() = raise (NotImplementedException())
         member _.GetResourceInfo() = raise (NotImplementedException())
         member _.GetRouteMappings() = raise (NotImplementedException())
-        member _.GetDilutionRules() = raise (NotImplementedException())
+        member _.GetSolutionRules() = raise (NotImplementedException())
 
         member _.GetTotals() =
             callCount <- callCount + 1
@@ -69,7 +72,7 @@ type EvaluatingTotalsSpy() =
 
 /// The stub platform's patient in the domain: the port is typed on domain values.
 let patient () =
-    ServerApi.Patient.parse ServerApi.StubPatientData.patient
+    ServerApi.Patient.parse readAt ServerApi.StubEhrPatient.contractPatient
     |> Result.defaultWith (fun e -> invalidOp $"no patient: %A{e}")
 
 
@@ -77,7 +80,9 @@ let emptyPlan () = Informedica.GenOrder.Lib.OrderPlan.create (patient ()) [||]
 
 
 let emptyContext () =
-    ServerApi.OrderContextService.parse { Models.OrderContext.empty with Patient = ServerApi.StubPatientData.patient }
+    ServerApi.OrderContextService.parse
+        readAt
+        { Models.OrderContext.empty with PatientData = ServerApi.StubEhrPatient.contractPatient }
     |> Result.defaultWith (fun e -> invalidOp $"no plan context: %A{e}")
 
 [<Tests>]

@@ -10,16 +10,17 @@ open Informedica.GenOrder.Lib
 open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
-let patient = StubPatientData.patient
+let patient = StubEhrPatient.contractPatient
 
 let ctx: OrderContext =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = "c-1"
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
-        Patient = patient
+        PatientData = patient
     }
 
 let plan: OrderPlan =
@@ -48,7 +49,7 @@ type NoRules() =
         member _.GetEnteralFeeding() = raise (System.NotImplementedException())
         member _.GetProducts() = raise (System.NotImplementedException())
         member _.GetDoseRules() = [||]
-        member _.GetDilutionRules() = [||]
+        member _.GetSolutionRules() = [||]
         member _.GetRenalRules() = [||]
         member _.GetTotals() = [||]
         member _.GetGStandProvider() = raise (System.NotImplementedException())
@@ -148,12 +149,12 @@ let tests =
                 let! answer =
                     OrderPlanCommand.processCmd
                         (envOver true (echoPort seen))
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatientData(updated, plan))
 
                 seen.Value |> Expect.equal "every order on the patient" [ "followPatientData" ]
 
                 answer
-                |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)
+                |> Result.map (fun p -> p.PatientData.Department, p.OrderContexts |> Array.map _.PatientData.Department)
                 |> Expect.equal
                     "the plan's patient updated, the context's kept"
                     (Ok(Some "NEO", [| patient.Department |]))
@@ -192,7 +193,9 @@ let tests =
                         (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
                             plan,
                             ctx,
-                            [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                            [|
+                                { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                            |]
                         ))
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
@@ -223,7 +226,7 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = patient
+                            PatientData = patient
                             OrderContexts = [| ctx; { ctx with Id = "l-1" } |]
                         }
 
@@ -240,7 +243,7 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = Informedica.GenPRES.Shared.Models.Patient.empty
+                            PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty
                             OrderContexts = [| ctx |]
                         }
 
@@ -255,8 +258,11 @@ let tests =
                     OrderPlanCommand.processTotals
                         (envOver true (echoPort seen))
                         {
-                            Patient = patient
-                            OrderContexts = [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                            PatientData = patient
+                            OrderContexts =
+                                [|
+                                    { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                                |]
                         }
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
@@ -386,8 +392,8 @@ let tests =
                     }
 
                 match
-                    OrderContextService.parse picked,
-                    OrderPlanCommand.parsePlan { plan with OrderContexts = [| picked |] }
+                    OrderContextService.parse readAt picked,
+                    OrderPlanCommand.parsePlan readAt { plan with OrderContexts = [| picked |] }
                 with
                 | Ok pc, Ok p ->
                     let sut = Adapters.makeAppEnv (NoRules())

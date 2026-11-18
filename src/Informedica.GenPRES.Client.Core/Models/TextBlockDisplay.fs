@@ -7,12 +7,12 @@ module TextBlockDisplay =
     open Informedica.GenPRES.Shared.Types
 
 
-    /// The text block constructor of the highest severity among rows of text blocks.
+    /// Returns the function that wraps text items in a text block of the highest severity in the rows.
     let maxTb (xs: TextBlock[][]) = xs |> Severity.ofTextBlockRows |> Severity.withItems
 
 
-    /// Flatten TextBlock[][] to a single-row TextBlock[][] for compact display.
-    /// Joins rows with " + " separators and uses the max severity level.
+    /// Joins all text blocks into one text block with the highest severity, with a plus sign between the
+    /// rows, for a compact display. Returns an empty array unchanged.
     let flatten (blocks: TextBlock[][]) : TextBlock[][] =
         if blocks |> Array.isEmpty then
             blocks

@@ -14,14 +14,13 @@ module OrderLogging =
     open Types.Logging
 
     module Units = ValueUnit.Units
-    module Quantity = OrderVariable.Quantity
     module Name = Variable.Name
     module Mapping = EquationMapping
 
     module FormLogging = Informedica.GenForm.Lib.FormLogging
 
 
-    /// Convenience functions for logging order events
+    /// Logs an order event at the informative level.
     let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
 
 
@@ -119,7 +118,8 @@ module OrderLogging =
         | Exceptions.OrderCouldNotBeCreated exn -> $"Order could not be created:\n%A{exn}"
 
 
-    /// Format order messages using the IMessage interface
+    /// Formats an order message or a GenFORM message as text.
+    /// Returns a notice with the type name for any other message.
     let formatOrderMessage (msg: IMessage) : string =
         match msg with
         | :? OrderMessage as orderMsg ->
@@ -131,7 +131,9 @@ module OrderLogging =
         | _ -> $"Unknown message type: {msg.GetType().Name}"
 
 
-    /// Enhanced print function that can handle messages with context
+    /// Formats an order message as text. For an order that could not be solved, adds the order equations of the
+    /// first solver error found in msgs and logs the text. Logs an error and returns an empty string
+    /// for a message that is not an order message.
     let printOrderMsgWithContext logger (msgs: ResizeArray<float * Event> option) (msg: Event) =
         match msg.Message with
         | :? OrderMessage as m ->
@@ -185,7 +187,8 @@ messages: {msgs.Value.Count}
             ""
 
 
-    /// Backward compatibility - create a logger that matches the old interface
+    /// Creates a logger that formats order and solver messages and passes each non-empty text to f.
+    /// The logger is enabled for every level.
     let create (f: string -> unit) =
         let formatter =
             MessageFormatter.create
@@ -206,43 +209,5 @@ messages: {msgs.Value.Count}
         }
 
 
-    /// A logger that does nothing
+    /// A logger that does nothing.
     let noOp = Logging.noOp
-
-
-    /// <summary>
-    /// Prints the scenarios for a given list of orders
-    /// </summary>
-    /// <param name="logger">The logger</param>
-    /// <param name="verbose">Also print the Order</param>
-    /// <param name="ns">The items to print</param>
-    /// <param name="orders">The list of Orders</param>
-    let printScenarios logger verbose ns (orders: Order list) =
-        let w =
-            match orders with
-            | h :: _ -> h.Adjust |> Quantity.toValueUnitStringList |> Option.defaultValue ""
-            | _ -> ""
-
-        $"\n\n=== SCENARIOS for Weight: %s{w} ==="
-        |> Events.OrderScenario
-        |> logOrderEvent logger
-
-        orders
-        |> List.iteri (fun i o ->
-            o
-            |> Order.Print.printOrderToString true ns
-            |> fun (p, a, d) ->
-                $"%i{i + 1}\tprescription:\t%s{p}"
-                |> Events.OrderScenario
-                |> logOrderEvent logger
-
-                $"  \tdispensing:\t%s{a}" |> Events.OrderScenario |> logOrderEvent logger
-                $"  \tpreparation:\t%s{d}" |> Events.OrderScenario |> logOrderEvent logger
-
-            if verbose then
-                o
-                |> Order.toString
-                |> List.iteri (fun i s -> $"%i{i + 1}\t%s{s}" |> Events.OrderScenario |> logOrderEvent logger)
-
-                "\n" |> Events.OrderScenario |> logOrderEvent logger
-        )

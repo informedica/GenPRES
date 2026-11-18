@@ -6,18 +6,18 @@ module Models =
     open Types
 
 
-    /// Why a draft is not a patient.
+    /// The reason patient data are not valid.
     [<RequireQualifiedAccess>]
     type PatientError =
-        /// Neither an age, nor a measured weight and a measured height, nor the mark as an adult.
+        /// Patient data without an age, a measured weight and height, or a mark as an adult.
         | NoAgeOrMeasuredWeightAndHeight
 
 
-    /// The gestational age entered and the need for it, as the server set them.
+    /// Reads and changes a gestational age with the need for it that the server set.
     [<RequireQualifiedAccess>]
     module GestationalAge =
 
-        /// The gestational age given, if any.
+        /// Returns the gestational age, or None when none is given.
         let value ga =
             match ga with
             | GestationalAge.NoGestationalAge -> None
@@ -25,8 +25,7 @@ module Models =
             | GestationalAge.RequiredGestationalAge v -> v
 
 
-        /// The gestational age given changed by a function, when it may be given; otherwise no
-        /// gestational age, unchanged.
+        /// Applies f to the gestational age when it may be given; NoGestationalAge stays unchanged.
         let map f ga =
             match ga with
             | GestationalAge.NoGestationalAge -> GestationalAge.NoGestationalAge
@@ -42,31 +41,18 @@ module Models =
         let isMissing ga = ga = GestationalAge.RequiredGestationalAge None
 
 
-    /// Canonical patient business logic shared between Client (Fable/JS) and Server (.NET).
-    ///
-    /// The patient record in Types is the shape the wire carries and the panel edits: every
-    /// field optional, so a value is a draft or a reading until `validate` says it meets the
-    /// minimum. This is the one module for that record: the blank draft, the editors, the
-    /// readers and the minimum check. It holds no age rule: the ages, the adult mark, the
-    /// gestational age and the estimates are the server's, set with GenCORE and carried on the
-    /// record.
-    ///
-    /// Architecture:
-    /// - This module holds the patient logic the client runs, and the server runs too for
-    ///   validate
-    /// - The Client UI uses these functions directly for the patient input form
-    /// - The Server reads this record in ServerApi.Patient.ofModel, which maps it to the domain
-    ///   patient with the ages counted by GenCORE
-    /// - Server-only logic (dose rules, eGFR formulas) lives in GenFORM/GenCORE
-    /// - Any new patient logic must decide: needed on client? → put here.
-    ///   Server-only? → put in GenFORM.Patient or GenCORE.Calculations
-    module Patient =
+    /// The patient data logic shared by the client and the server: the empty value, the constructors, the readers
+    /// and validate. The patient data can be incomplete, so validate checks the minimum. The module
+    /// calculates no age: the server sets the ages, the adult mark, the gestational age and the estimates with
+    /// GenCORE. ServerApi.Patient.toCore maps the patient data to the GenCORE patient. Patient logic that only the
+    /// server needs belongs in GenFORM or GenCORE.
+    module PatientData =
 
         open System
 
 
-        /// The blank draft: the one value with every field empty.
-        let empty: Patient =
+        /// Patient data with every field empty and the patient not marked as an adult.
+        let empty: PatientData =
             {
                 Age = None
                 GestationalAge = GestationalAge.NoGestationalAge
@@ -96,7 +82,7 @@ module Models =
 
         module Age =
 
-            open Patient
+            open PatientData
 
             let (>>=) r f = Result.bind f r
 
@@ -131,7 +117,7 @@ module Models =
             let getDays { Age.Days = ds } = ds
 
 
-        let apply f (p: Patient) = f p
+        let apply f (p: PatientData) = f p
 
 
         let get = apply id
@@ -158,9 +144,9 @@ module Models =
             | true, v -> v |> Some
 
 
-        /// Whether the patient is an adult by the mark the server set: from 18 years, or marked as an
-        /// adult by the user.
-        let isAdult (pat: Patient) =
+        /// Returns true when the patient is 18 years or older by the server mark, or the user marked the patient as
+        /// an adult.
+        let isAdult (pat: PatientData) =
             match pat.AdultMark with
             | AdultMark.Adult
             | AdultMark.MarkableAdult true -> true
@@ -168,10 +154,9 @@ module Models =
             | AdultMark.MarkableAdult false -> false
 
 
-        /// Whether a draft is a patient. With an age or the mark as an adult the rest can be
-        /// estimated or left out; without either, a measured weight and a measured height are
-        /// needed. Below that there is no patient.
-        let validate (pat: Patient) =
+        /// Returns the patient data when the patient is an adult, has an age, or has a measured weight and a
+        /// measured height. Otherwise returns NoAgeOrMeasuredWeightAndHeight.
+        let validate (pat: PatientData) =
             if
                 pat |> isAdult
                 || pat.Age.IsSome
@@ -182,30 +167,28 @@ module Models =
                 Error PatientError.NoAgeOrMeasuredWeightAndHeight
 
 
-        /// Get either the measured weight or the
-        /// estimated weight if measured weight = 0
-        let getWeight (pat: Patient) =
+        /// Returns the measured weight, or the estimated weight when there is no measured weight.
+        let getWeight (pat: PatientData) =
             if pat.Weight.Measured.IsSome then
                 pat.Weight.Measured
             else
                 pat.Weight.Estimated
 
 
-        /// Get either the measured height or the
-        /// estimated height if measured weight = 0
-        let getHeight (pat: Patient) =
+        /// Returns the measured height, or the estimated height when there is no measured height.
+        let getHeight (pat: PatientData) =
             if pat.Height.Measured.IsSome then
                 pat.Height.Measured
             else
                 pat.Height.Estimated
 
 
-        /// Whether the rules are looked up for the patient: an adult always, a child only with a
-        /// weight, measured or estimated. The same test as the server's gate and GenORDER's.
-        let selectsRules (pat: Patient) = pat |> isAdult || pat |> getWeight |> Option.isSome
+        /// Returns true when the rules can be selected for the patient: always for an adult, and for a child only
+        /// with a measured or estimated weight. GenORDER and the server apply the same test.
+        let selectsRules (pat: PatientData) = pat |> isAdult || pat |> getWeight |> Option.isSome
 
 
-        let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
+        let create years months weeks days weight height gw gd gend cvl gfr dep : PatientData option =
             let a =
                 if
                     Option.isNone years
@@ -223,14 +206,14 @@ module Models =
                     }
                     |> Some
 
-            // a gestational age given is held as optional until the server answers with the need
+            // A gestational age is sent as optional; the server sets whether it is required.
             let ga =
                 if Option.isNone gw && Option.isNone gd then
                     GestationalAge.NoGestationalAge
                 else
                     {
-                        Patient.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
-                        Patient.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
+                        PatientData.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
+                        PatientData.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
                     }
                     |> Some
                     |> GestationalAge.OptionalGestationalAge
@@ -263,11 +246,12 @@ module Models =
             |> Some
 
 
-        /// The estimates written, the measured values left as they are.
+        /// Sets the estimated weight and height as P3, median and P97; None clears them. The measured values do not
+        /// change.
         let withEstimates
             (ew: (int<gram> * int<gram> * int<gram>) option)
             (eh: (int<cm> * int<cm> * int<cm>) option)
-            (pat: Patient)
+            (pat: PatientData)
             =
             { pat with
                 Weight =
@@ -317,19 +301,11 @@ module Models =
             }
 
 
-    /// <summary>
-    /// Bolus medication for resuscitation scenarios: <c>parse</c> reads the
-    /// "emergencylist" sheet of the emergency-list spreadsheet (see
-    /// <c>dataEMLUrlId</c> in the client's Utils - a different workbook from the
-    /// GENPRES_URL_ID one, loaded by the client rather than by GenFORM.Lib).
-    /// </summary>
-    /// <remarks>
-    /// Columns: hospital, indication, medication, minWeight, maxWeight, dose, min,
-    /// max, conc, unit, remark. The four "template-generic" / "template-route" /
-    /// "template-dose-type" / "template-indication" columns are OPTIONAL - they are
-    /// read only when present in the header row - and preselect a prescription when
-    /// the user picks the entry.
-    /// </remarks>
+    /// Calculates the bolus medication and the interventions for resuscitation. parse reads the emergencylist sheet
+    /// of the emergency list workbook, which the client loads; it is not the GENPRES_URL_ID workbook. The columns
+    /// are hospital, indication, medication, minWeight, maxWeight, dose, min, max, conc, unit and remark. The
+    /// optional columns template-generic, template-route, template-dose-type and template-indication preselect a
+    /// prescription for the entry.
     module EmergencyTreatment =
 
 
@@ -653,7 +629,7 @@ module Models =
                     if weight |> Option.isSome then
                         calcCardioVersion weight.Value
                 ]
-            // add rest of bolus medication
+            // Adds the other bolus medication for the weight; none without a weight.
             |> fun xs ->
                 if weight.IsNone then
                     []
@@ -668,13 +644,9 @@ module Models =
                 |> List.distinct
 
 
-    /// <summary>
-    /// Continuous infusion protocols: <c>parse</c> reads the "continuousmeds" sheet
-    /// of the emergency-list spreadsheet (see <c>EmergencyTreatment</c> above for
-    /// where that workbook lives). Columns: hospital, catagory [sic], indication,
-    /// dosetype, medication, generic, unit, doseunit, minweight, maxweight,
-    /// quantity, total, mindose, maxdose, absmax, minconc, maxconc, solution.
-    /// </summary>
+    /// Continuous infusion protocols. parse reads the continuousmeds sheet of the emergency list workbook, with the
+    /// columns hospital, catagory (spelled so in the sheet), indication, dosetype, medication, generic, unit,
+    /// doseunit, minweight, maxweight, quantity, total, mindose, maxdose, absmax, minconc, maxconc and solution.
     module ContinuousMedication =
 
         open Informedica.GenPRES.Shared
@@ -758,11 +730,8 @@ module Models =
             | _ -> []
 
 
-    /// <summary>
-    /// Available medication products and their concentrations: <c>parse</c> reads
-    /// the "products" sheet of the emergency-list spreadsheet. Columns: indication,
-    /// medication, conc, unit.
-    /// </summary>
+    /// Medication products with their concentrations. parse reads the products sheet of the emergency list
+    /// workbook, with the columns indication, medication, conc and unit.
     module Products =
 
         open Informedica.GenPRES.Shared
@@ -800,7 +769,7 @@ module Models =
 
         module ValueUnit =
 
-            // create Informedica.GenPRES.Shared.Types.ValueUnit
+            /// Creates a ValueUnit record of the shared types.
             let create v u g s l j =
                 {
                     Value = v
@@ -1035,7 +1004,7 @@ module Models =
 
     module NutritionCategory =
 
-        /// The category's name, as the nutrition page shows it.
+        /// Returns the Dutch display name of the category.
         let label category =
             match category with
             | NutritionCategory.EnteralFeeding -> "Enterale Voeding"
@@ -1075,33 +1044,30 @@ module Models =
                 Category = OrderCategory.Medication
                 DemoVersion = true
                 Filter = filter
-                Patient = Patient.empty
+                PatientData = PatientData.empty
                 Scenarios = [||]
                 Totals = Totals.empty
                 Argumentation = None
                 LinkedTo = None
             }
 
-        let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
+        let setPatientData pat ctx : OrderContext = { ctx with PatientData = pat }
 
 
-        /// The nutrition category of a context, none for a medication. A display copy of the
-        /// domain's `PlanContext.nutritionCategory`; the agreement test in the server tests keeps
-        /// them equal.
+        /// Returns the nutrition category of a context, None for a medication. It copies
+        /// PlanContext.nutritionCategory in GenORDER; an agreement test in the server tests keeps both equal.
         let nutritionCategory (ctx: OrderContext) =
             match ctx.Category with
             | OrderCategory.Nutrition category -> Some category
             | OrderCategory.Medication -> None
 
 
-        /// The order a context contributes to the plan: its scenario, once the context is
-        /// narrowed to exactly one; nothing while it holds several candidates or none. A
-        /// display copy of the domain's `PlanContext.contribution`; the agreement test in the
-        /// server tests keeps them equal.
+        /// Returns the scenario a context contributes to the plan when it has exactly one scenario; None otherwise.
+        /// It copies PlanContext.contribution in GenORDER; an agreement test in the server tests keeps both equal.
         let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
 
-        /// A choice a page offers in the filter it builds.
+        /// A field of the order context filter.
         type FilterField =
             | Indication
             | Generic
@@ -1110,31 +1076,22 @@ module Models =
             | DoseType
 
 
-        /// Every choice there is, for emptying the filter outright.
+        /// All filter fields, used to clear the whole filter.
         let filterFields = [ Indication; Generic; Route; Form; DoseType ]
 
 
-        /// The order a page offers its choices in, as steps, and what decides how far a change
-        /// to one of them reaches: a change lets go of the choices in the steps after its own,
-        /// and leaves the ones beside it in its own step alone.
-        ///
-        /// A medication order is found by its indication and by the generic that treats it, in either
-        /// order and neither before the other, so the two stand in one step: each narrows what
-        /// the other offers, so a pick from the list on the screen agrees with the one already
-        /// made, and taking the medication away because the indication was named is a loss with
-        /// nothing gained. A route, a form and a dose type are another matter: they belong to
-        /// the medication, and the one chosen for the medication before may not exist for this
-        /// one.
-        ///
-        /// A nutrition composition is picked first and the indication follows from it, so there
-        /// the two are steps of their own. A choice a page does not offer stands below nothing.
+        /// Returns the filter fields as steps in the order they are chosen. Emptying a field clears the choices in
+        /// the later steps, not the choices in its own step. For a medication, the indication and the generic share
+        /// the first step, because either can be chosen first and each narrows the options of the other; the route,
+        /// form and dose type depend on the medication. For nutrition, the composition (the generic) comes first and
+        /// the indication follows from it. A field that is not in the steps clears no other choices.
         let chain (ctx: OrderContext) =
             match ctx.Category with
             | OrderCategory.Medication -> [ [ Indication; Generic ]; [ Route ]; [ Form ]; [ DoseType ] ]
             | OrderCategory.Nutrition _ -> [ [ Generic ]; [ Indication ]; [ DoseType ] ]
 
 
-        /// One field's choice let go, the options it was picked from left standing.
+        /// Clears the choice of a field and keeps its options.
         let clearChoice field (f: Filter) =
             match field with
             | Indication -> { f with Indication = None }
@@ -1144,7 +1101,7 @@ module Models =
             | DoseType -> { f with DoseType = None }
 
 
-        /// One field emptied: the choice it holds and the options it was picked from.
+        /// Clears the choice and the options of a field.
         let clearField field (f: Filter) =
             match field with
             | Indication ->
@@ -1174,8 +1131,8 @@ module Models =
                 }
 
 
-        /// The filter without the components of a dose rule: the additive options, the dose rule components
-        /// and the selection.
+        /// Clears the components of a dose rule: the additive options, the dose rule components and the component
+        /// selection.
         let withoutComponents (f: Filter) =
             { f with
                 Components = [||]
@@ -1184,7 +1141,7 @@ module Models =
             }
 
 
-        /// Whether any choice at all is still held.
+        /// Returns true when any filter field has a choice.
         let anyChosen (f: Filter) =
             f.Indication.IsSome
             || f.Generic.IsSome
@@ -1193,29 +1150,12 @@ module Models =
             || f.DoseType.IsSome
 
 
-        /// A change to one of the choices: the change is written, the scenarios go, since they
-        /// stand on the whole filter, and nothing at all happens when the field already holds
-        /// what it is given.
-        ///
-        /// A value picked is picked from the list the answer offered, and every list the answer
-        /// offers is narrowed by every choice already made, so a pick agrees with all of them
-        /// and none of them has to be let go. Letting them go took away work the user had done
-        /// and had asked for: naming a medication after a route threw the route away.
-        ///
-        /// A field emptied is another matter: the filter widens, so the choices in the steps
-        /// below it go with it, and the field keeps neither its choice nor what it was picked
-        /// from.
-        ///
-        /// What the fields below were picked from is left standing until the answer replaces
-        /// it. Taking it away as well leaves them empty, and a field with nothing to offer is a
-        /// field that cannot be used, so the page goes dead for as long as the request runs.
-        ///
-        /// When nothing is chosen anywhere afterwards, no options are kept either: a list
-        /// narrowed by choices that are gone would offer a smaller world than there is, without
-        /// saying so.
-        ///
-        /// Every choice here decides the dose rule, so a change also lets go of the components of the
-        /// dose rule: the additive options, the dose rule components and the selection.
+        /// Writes a change to one filter field and clears the scenarios, the picked products and the dose rule
+        /// components, because these depend on the whole filter. A picked value keeps the other choices: the server
+        /// narrows every option list by all choices, so the value agrees with them. When clearOwn is true, the field
+        /// is emptied: its own options and the choices in the later steps of chain are cleared too. The options of
+        /// those later fields stay until the server sends new ones, so the fields remain usable meanwhile. When no
+        /// choice is left, all options are cleared, because they were narrowed by choices that are gone.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
                 if not clearOwn then
@@ -1276,7 +1216,7 @@ module Models =
         let diluentChange s (ctx: OrderContext) : OrderContext = { ctx with OrderContext.Filter.Diluent = s }
 
 
-        /// The components picked; no component picked selects no optional component.
+        /// Selects the named components; an empty array selects no optional component.
         let componentsChange (cs: string[]) (ctx: OrderContext) : OrderContext =
             { ctx with OrderContext.Filter.SelectedComponents = cs |> Array.toList |> ComponentSelection.Selected }
 
@@ -1298,10 +1238,10 @@ module Models =
             | Item of cmp: string * itm: string * ItemProperty
 
 
-        /// The order variables a command addresses, read and changed per level.
+        /// Reads and changes the order variables a target addresses.
         module Target =
 
-            /// The variable of an item's property.
+            /// Returns the variable of an item property.
             let itemVar prop (itm: Item) =
                 match prop with
                 | ItemProperty.DoseQuantity -> itm.Dose.Quantity
@@ -1315,7 +1255,7 @@ module Models =
                 | ItemProperty.OrderableQuantity -> itm.OrderableQuantity
 
 
-            /// An item with the variable of its property changed.
+            /// Applies f to the variable of an item property.
             let mapItemVar prop f (itm: Item) =
                 let dose (d: Dose) = { itm with Dose = d }
 
@@ -1333,14 +1273,14 @@ module Models =
                 | ItemProperty.OrderableQuantity -> { itm with OrderableQuantity = f itm.OrderableQuantity }
 
 
-            /// The variable of a component's property.
+            /// Returns the variable of a component property.
             let componentVar prop (cmp: Component) =
                 match prop with
                 | ComponentProperty.OrderableQuantity -> cmp.OrderableQuantity
                 | ComponentProperty.DoseQuantityAdjust -> cmp.Dose.QuantityAdjust
 
 
-            /// A component with the variable of its property changed.
+            /// Applies f to the variable of a component property.
             let mapComponentVar prop f (cmp: Component) =
                 match prop with
                 | ComponentProperty.OrderableQuantity -> { cmp with OrderableQuantity = f cmp.OrderableQuantity }
@@ -1348,8 +1288,8 @@ module Models =
                     { cmp with Dose = { cmp.Dose with QuantityAdjust = f cmp.Dose.QuantityAdjust } }
 
 
-            /// The variable the target addresses in the order; None when the order holds no such
-            /// component or item.
+            /// Returns the variable the target addresses in the order; None when the order has no such component or
+            /// item.
             let tryGet target (ord: Order) =
                 let tryComponent cmp =
                     ord.Orderable.Components |> Array.tryFind (fun c -> c.Name = cmp)
@@ -1361,8 +1301,8 @@ module Models =
                 | Target.Orderable OrderableProperty.DoseQuantity -> Some ord.Orderable.Dose.Quantity
                 | Target.Orderable OrderableProperty.DoseRate -> Some ord.Orderable.Dose.Rate
                 | Target.Component(cmp, prop) -> tryComponent cmp |> Option.map (componentVar prop)
-                // an item in any component of the name, since a diluent can carry the name of a
-                // medication component, and map changes them all
+                // Searches every component with the name, because a diluent can have the name of a medication
+                // component; map changes the item in all of them.
                 | Target.Item(cmp, itm, prop) ->
                     ord.Orderable.Components
                     |> Array.filter (fun c -> c.Name = cmp)
@@ -1370,9 +1310,8 @@ module Models =
                     |> Option.map (itemVar prop)
 
 
-            /// The order with the variable the target addresses changed; the order as it is when it
-            /// holds no such variable. A component concentration is changed in the first component
-            /// as well as the one named, as the dose dialog changes it.
+            /// Applies f to the variable the target addresses; returns the order unchanged when it has no such
+            /// variable. A component concentration is also changed in the first component, as the dose dialog does.
             let map target f (ord: Order) =
                 let orderable (o: Orderable) = { ord with Orderable = o }
 
@@ -1423,7 +1362,7 @@ module Models =
             | Variable of Target
 
 
-        /// The keys of the values a variable offers to pick from.
+        /// Returns the keys of the values of a variable; empty when it has no values.
         let values (ovar: OrderVariable) =
             ovar.Variable.Vals
             |> Option.map _.Value
@@ -1431,7 +1370,8 @@ module Models =
             |> Array.map fst
 
 
-        /// How many options a user picks from; 0 for a variable that offers no list.
+        /// Returns the number of options. For a variable it is 0 when the variable has no values or the context does
+        /// not have exactly one scenario.
         let count options (ctx: OrderContext) =
             match options with
             | Options.Filter Indication -> ctx.Filter.Indications.Length
@@ -1452,16 +1392,14 @@ module Models =
                 | _ -> 0
 
 
-        /// Variable names without the order id, so that a command plays the same in every run,
-        /// and with it put back for the server.
-        /// The one scenario of the context, or why there is none.
+        /// Returns the single scenario of the context, or an error with the number of scenarios.
         let scenario (ctx: OrderContext) =
             match ctx.Scenarios with
             | [| sc |] -> Ok sc
             | scs -> Error $"one scenario expected, the context has %i{scs.Length}"
 
 
-        /// The nth of the options, counted from 0, or why there is none.
+        /// Returns the option at index n, counted from 0, or an error when n is out of range.
         let nth what n (xs: 'a[]) =
             xs
             |> Array.tryItem n
@@ -1469,7 +1407,7 @@ module Models =
             |> Option.defaultValue (Error $"%s{what}: index %i{n} out of %i{xs.Length}")
 
 
-        /// The context with the scenario of the order's id holding the order.
+        /// Replaces the order in the scenario with the same order id.
         let withOrder (ord: Order) (ctx: OrderContext) =
             { ctx with
                 Scenarios =
@@ -1478,7 +1416,7 @@ module Models =
             }
 
 
-        /// A filter field set to its nth option, or emptied with None, as the page changes it.
+        /// Sets a filter field to its nth option, or empties it with None. Returns an error when n is out of range.
         let changeFilter field (n: int option) (ctx: OrderContext) =
             let pick what xs change =
                 match n with
@@ -1493,7 +1431,7 @@ module Models =
             | DoseType -> pick "dose type" ctx.Filter.DoseTypes doseTypeChange
 
 
-        /// The diluent set to its nth option, or emptied with None.
+        /// Sets the diluent to its nth option, or empties it with None. Returns an error when n is out of range.
         let changeDiluent (n: int option) (ctx: OrderContext) =
             match n with
             | None -> Ok(ctx |> diluentChange None)
@@ -1503,7 +1441,7 @@ module Models =
                 |> Result.map (fun d -> ctx |> diluentChange (Some d))
 
 
-        /// The components at these positions of the options.
+        /// Selects the components at these positions of the component options. Returns the first index error.
         let setNthComponents (ns: int[]) (ctx: OrderContext) =
             let picked = ns |> Array.map (fun n -> ctx.Filter.Components |> nth "component" n)
 
@@ -1530,20 +1468,20 @@ module Models =
             | errs -> Error errs[0]
 
 
-        /// The whole filter emptied, the patient kept.
-        let clearAll (ctx: OrderContext) = empty |> setPatient ctx.Patient
+        /// Returns an empty context with the patient data of ctx.
+        let clearAll (ctx: OrderContext) = empty |> setPatientData ctx.PatientData
 
 
-        /// The filter's choices set from outside its own fields, with the rule of their source. A
-        /// page's choices keep the diluent and the selected components only when the choices above
-        /// them are unchanged, and the scenarios go; the url's medication is written over the
-        /// filter as it is, a list item's over an empty one; a reload changes nothing. The
-        /// domain's seed applies the same rules; the agreement test in the server tests keeps them
-        /// equal.
+        /// Sets the indication, generic, route, form and dose type from a source outside the filter fields.
+        /// Formulary and Parenteralia keep the diluent only when the generic, route and form are the same (for
+        /// Formulary also the indication), and clear the scenarios. Url writes over the current filter and keeps
+        /// the diluent, MedicationList writes over an empty context, and Reload changes nothing. The selected
+        /// components and picked products stay only when all five choices are the same. OrderContext.seedFilter in
+        /// GenORDER applies the same rules; an agreement test in the server tests keeps both equal.
         let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
             let f = ctx.Filter
             let same = gen = f.Generic && rte = f.Route && frm = f.Form
-            // the seed names the picks the filter holds, so the same dose rule
+            // The same five choices select the same dose rule.
             let samePicks = same && ind = f.Indication && dt = f.DoseType
 
             let write keep (ctx: OrderContext) =
@@ -1558,7 +1496,7 @@ module Models =
                         PickedProducts = if samePicks then f.PickedProducts else [||]
                     }
 
-                // another pick can name another dose rule, which has other components, whatever the seed keeps
+                // Other choices can select another dose rule with other components, so the components are cleared.
                 { ctx with Filter = if samePicks then filter else filter |> withoutComponents }
 
             match source with
@@ -1569,7 +1507,8 @@ module Models =
             | SeedSource.Reload -> ctx
 
 
-        /// The context narrowed to its nth scenario and that scenario's form, as the page selects it.
+        /// Narrows the context to its nth scenario and sets the filter form to the form of that scenario. Returns an
+        /// error when n is out of range.
         let selectNthScenario n (ctx: OrderContext) =
             ctx.Scenarios
             |> nth "scenario" n
@@ -1581,8 +1520,8 @@ module Models =
             )
 
 
-        /// The variable set to its nth value, as the dose dialog sets it; None when it offers no
-        /// list to pick from.
+        /// Sets the variable to its nth value, as the dose dialog does. Returns None when the variable has no values,
+        /// and an error without a single scenario, without the variable or for an index out of range.
         let setNth target n (ctx: OrderContext) =
             scenario ctx
             |> Result.bind (fun sc ->
@@ -1604,12 +1543,12 @@ module Models =
         /// The argumentation the user writes for a deviation from the rules.
         module Argumentation =
 
-            /// The maximum length of a text, the same as the server's, so the server never refuses
-            /// a text the client holds.
+            /// The maximum length of a text. It equals the server maximum, so the server accepts every text the
+            /// client sends.
             let maxLength = 1000
 
 
-            /// The text trimmed and cut to the maximum length; None when empty.
+            /// Trims the text and cuts it to the maximum length; None for null or an empty text.
             let normalise (text: string) =
                 match text with
                 | null -> None
@@ -1624,7 +1563,7 @@ module Models =
                         Some text
 
 
-            /// The context with the text written.
+            /// Writes the normalised text to the context.
             let write (text: string) (ctx: OrderContext) = { ctx with Argumentation = normalise text }
 
 
@@ -1632,25 +1571,23 @@ module Models =
 
         let create pat contexts : OrderPlan =
             {
-                Patient = pat
+                PatientData = pat
                 Filtered = [||]
                 OrderContexts = contexts
                 Totals = Totals.empty
             }
 
 
-        let empty = create Patient.empty [||]
+        let empty = create PatientData.empty [||]
 
 
-        /// The orders the plan's contexts contribute: the one scenario of every context narrowed
-        /// to one, in context order. A display copy of the domain's `OrderPlan.orders`; the
-        /// agreement test in the server tests keeps them equal.
+        /// Returns the scenario of every context with exactly one scenario, in context order. It copies
+        /// OrderPlan.orders in GenORDER; an agreement test in the server tests keeps both equal.
         let orders (plan: OrderPlan) = plan.OrderContexts |> Array.choose OrderContext.contribution
 
 
-        /// The contexts the filter keeps: those named by id, all of them when it is empty. A
-        /// display copy of the domain's `OrderPlan.filtered`; the agreement test in the server
-        /// tests keeps them equal.
+        /// Returns the contexts whose id is in the plan filter, or all contexts when the filter is empty. It copies
+        /// OrderPlan.filtered in GenORDER; an agreement test in the server tests keeps both equal.
         let filtered (plan: OrderPlan) =
             if plan.Filtered |> Array.isEmpty then
                 plan.OrderContexts
@@ -1676,7 +1613,7 @@ module Models =
                 Form = None
                 DoseType = None
                 PatientCategory = None
-                Patient = None
+                PatientData = None
                 Markdown = ""
                 DoseCheck = [||]
             }

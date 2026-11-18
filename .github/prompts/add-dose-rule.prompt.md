@@ -2,7 +2,7 @@
 description: "Add a new dose rule or medication configuration to GenPRES"
 ---
 
-Add or modify a medication rule (dose rule, dilution rule, product, etc.) in GenPRES.
+Add or modify a medication rule (dose rule, solution rule, product, etc.) in GenPRES.
 
 **Important:** GenPRES stores all medication rules in Google Spreadsheets. Do not hardcode values in source files.
 
@@ -12,7 +12,7 @@ Add or modify a medication rule (dose rule, dilution rule, product, etc.) in Gen
 
 2. **Locate the parser** — find the corresponding module:
    - Dose rules → `src/Informedica.GenFORM.Lib/DoseRuleData.fs` (row parsing), `DoseRule.fs` (mapping), `DoseRuleLoader.fs` (loading)
-   - Dilution rules → `src/Informedica.GenFORM.Lib/DilutionRule.fs`
+   - Solution rules → `src/Informedica.GenFORM.Lib/SolutionRule.fs`
    - Products → `src/Informedica.GenFORM.Lib/Product.fs`
    - Mappings → `src/Informedica.GenFORM.Lib/Mapping.fs`
 

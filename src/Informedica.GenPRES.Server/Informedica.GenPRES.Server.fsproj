@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="Logging.fs" />
     <Compile Include="LogAnalyzer.fs" />
+    <Compile Include="ServerApi.OrderPlanVersion.fs" />
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.Mappers.Patient.fs" />
     <Compile Include="ServerApi.Mappers.Order.fs" />
@@ -27,7 +28,7 @@
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
     <Compile Include="ServerApi.FormularyCommand.fs" />
-    <Compile Include="ServerApi.PatientCommand.fs" />
+    <Compile Include="ServerApi.PatientDataCommand.fs" />
     <Compile Include="ServerApi.InteractionCommand.fs" />
     <Compile Include="ServerApi.OrderPlanCommand.fs" />
     <Compile Include="ServerApi.AdminCommand.fs" />

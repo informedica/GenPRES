@@ -1,9 +1,9 @@
 namespace Components
 
 
-/// The mark on a value that stands outside what the rules allow: an icon in the severity's
-/// colour, and on hover the reason, the bound the value crosses. Nothing for a normal value.
-/// The reason shows on hover and nowhere else: no popup, nothing to dismiss.
+/// The mark on a value outside the bounds of the rules: an icon in the colour of the severity, with
+/// the reason, such as the bound the value crosses, in a tooltip on hover or focus. Shows nothing
+/// for a normal value.
 module SeverityMark =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -14,7 +14,7 @@ module SeverityMark =
     open Informedica.GenPRES.Shared
 
 
-    /// The severity, and the reason as the caller words it; none when the caller cannot say.
+    /// The severity, and the reason for the mark; None when there is no reason to show.
     type Props =
         {|
             severity: Severity
@@ -61,8 +61,8 @@ module SeverityMark =
                     paddingBottom = "4px"
                 |}
 
-            // the reason reads at the body text size: the tooltip's own is too small under
-            // this theme's base size
+            // the reason uses the body text size, because the tooltip text size is too small with
+            // the base size of this theme
             let tooltipSlotProps =
                 {|
                     tooltip =
@@ -75,8 +75,8 @@ module SeverityMark =
                         |}
                 |}
 
-            // the mark can be reached with the keyboard as well as the pointer, and names its
-            // reason for a reader, so the tooltip opens on focus as it does on hover
+            // With a reason the mark takes the keyboard focus and names the reason for a screen
+            // reader, so the tooltip opens on focus as well as on hover.
             match props.reason with
             | None ->
                 JSX.jsx

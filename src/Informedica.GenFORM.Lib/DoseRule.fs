@@ -52,7 +52,7 @@ module DoseRule =
             let formDls = dr.ComponentLimits |> Array.choose _.Limit
 
             let useSubstDl = substDls |> Array.length > 0
-            // only use form dose limits if there are no substance dose limits
+            // Uses the component limits only when there are no substance limits.
             if useSubstDl then substDls else formDls
             |> Array.map (fun dl ->
                 let perDose = "/dosis"
@@ -76,26 +76,17 @@ module DoseRule =
 
 
         /// <summary>
-        /// Render the dose rules of <b>one</b> generic as markdown: a generic heading, then
-        /// per route the products and synonyms, per patient category and indication the
-        /// dose type, schedule, formulary link and dose limits.
+        /// Writes the dose rules of one generic as markdown: per indication, route and patient category the
+        /// products, synonyms, dose types, schedules, formulary links and dose limits.
         /// </summary>
         /// <remarks>
-        /// Per-generic by contract: the outer fold keeps the last generic it sees, so a
-        /// multi-generic array yields only the last one. Use <c>printGenerics</c> for
-        /// several. On the anonymous record in the fold, see
-        /// https://github.com/dotnet/fsharp/issues/6699.
+        /// With rules of several generics, only the last generic is written; use <c>printGenerics</c> for those.
+        /// For the anonymous record in the fold, see https://github.com/dotnet/fsharp/issues/6699.
         /// </remarks>
         /// <param name="getLink">
-        /// Resolves the external formulary link per dose rule. Passed in rather than
-        /// looked up here: the Nederlands Kinder Formularium index it needs is a registered
-        /// resource (<c>Resources.Keys.nkfLinkProvider</c>), so a failed fetch degrades to
-        /// an empty index — rendered below as the existing "*Lokaal*" fallback — is
-        /// reported as a resource <c>Warning</c>, and is refreshed by an admin
-        /// ReloadResources. Keeping the fetch here made this module impure and its cache
-        /// unreachable by that reload.
+        /// Returns the formulary link of a dose rule source and generic; without a link the text is "*Lokaal*".
         /// </param>
-        /// <param name="rules">The dose rules to render.</param>
+        /// <param name="rules">The dose rules to write.</param>
         let toMarkdown (getLink: Source.LinkProvider) (rules: DoseRule array) =
             let generic_md generic = $"\n\n# %s{generic}\n\n---\n"
 
@@ -184,7 +175,7 @@ module DoseRule =
                             let md = dose_md dt dose freqs intv time dur
 
                             if acc |> String.containsCapsInsens md then
-                                acc // prevent duplicate doserule per form print
+                                acc // a rule repeats per product form, so a dose already written is skipped
                             else
                                 $"%s{acc}\n%s{md}%s{pedForm}"
 
@@ -296,12 +287,13 @@ module DoseRule =
 
 
     /// <summary>
-    /// Reconstitute the products in a DoseRule that require reconstitution.
+    /// Replaces each product of a dose rule that needs reconstitution by its reconstituted products.
+    /// Returns the dose rule and the distinct reconstitution warnings.
     /// </summary>
-    /// <param name="mapping"></param>
-    /// <param name="dep">The Department to select the reconstitution</param>
-    /// <param name="loc">The VenousAccess location to select the reconstitution</param>
-    /// <param name="dr">The DoseRule</param>
+    /// <param name="mapping">The route mapping.</param>
+    /// <param name="loc">The venous access location that selects the reconstitution.</param>
+    /// <param name="dep">The department that selects the reconstitution.</param>
+    /// <param name="dr">The dose rule.</param>
     let reconstitute mapping loc dep (dr: DoseRule) =
         let warns = ResizeArray<string>()
         let reconstitute = Product.reconstitute mapping loc dep
@@ -593,7 +585,7 @@ module DoseRule =
                     SourceText = r.SourceText
                     Indication = r.Indication
                     Generic =
-                        // Label reflects the ORIGINAL source restriction (form/brand/none).
+                        // The label uses the form or brand of the sheet row, not the expanded product form.
                         let lbl = r.Generic |> GenericLabel.ofGenericData
 
                         let frm = frm |> toForm
@@ -669,37 +661,29 @@ module DoseRule =
         |> Array.map (fun (unitGroup, dr) -> { dr with Id = dr |> setDoseRuleHashId unitGroup })
 
 
-    /// Whether the component limit has no limit and no substance limit with a value.
+    /// Checks whether a component limit has no limit value and no substance limit with a value.
     let componentHasNoLimits (cl: ComponentLimit) =
         cl.Limit |> Option.forall DoseLimit.hasNoLimits
         && cl.SubstanceLimits |> Array.forall DoseLimit.hasNoLimits
 
 
-    /// Whether no component of the dose rule has a limit.
+    /// Checks whether no component of a dose rule has a limit value.
     let hasNoLimits (dr: DoseRule) = dr.ComponentLimits |> Array.forall componentHasNoLimits
 
 
     /// <summary>
-    /// Drop empty (meaningless) limits and dose rules from the forward output.
+    /// Removes substance limits without values, then component limits without any limit, then dose rules without
+    /// component limits. A row without dose values passes <c>validateData</c>, so its dose rule has only empty limits.
     /// </summary>
     /// <remarks>
-    /// The forward map keeps a row as long as it passes <c>validateData</c> (dose
-    /// type / schedule completeness), which does NOT check for the presence of any
-    /// dose limit. As a result a row with no dose values yields a dose rule whose
-    /// limits are all empty — no dosing meaning. This pass removes them:
-    /// <para>- substance limits carrying no values (mirrors the component branch in
-    /// <c>mapToComponentLimits</c>, which already filters with <c>hasNoLimits</c>);</para>
-    /// <para>- component limits left with no component limit AND no substance limits;</para>
-    /// <para>- dose rules left with no component limits.</para>
-    /// <para>A dose rule without any limit for which <c>keepWithoutLimits</c> holds is kept as it is,
-    /// with its components, since an order makes its components from them: its limits are in a
-    /// dilution rule.</para>
+    /// A dose rule without limits for which <c>hasLimitingSolutionRule</c> is true is returned unchanged: its limits
+    /// are in a solution rule, and an order needs its components.
     /// </remarks>
-    let removeEmptyLimits keepWithoutLimits (drs: DoseRule[]) =
+    let removeEmptyLimits hasLimitingSolutionRule (drs: DoseRule[]) =
         drs
         |> Array.map (fun dr ->
-            // a kept rule stays as it is, in its place, so the rules keep the order of the sheet
-            if dr |> hasNoLimits && dr |> keepWithoutLimits then
+            // The rule stays in its place, so the rules keep the order of the sheet.
+            if dr |> hasNoLimits && dr |> hasLimitingSolutionRule then
                 dr
             else
                 { dr with
@@ -724,22 +708,20 @@ module DoseRule =
 
 
     // -----------------------------------------------------------------------
-    // Reverse mapping  DoseRule -> DoseRuleData[]
+    // Reverse mapping from a dose rule to dose rule rows.
     //
-    // Inverse of `mapToDoseRule`: pure and resource-free. It drops the form /
-    // form-unit-group expansion and the resource-derived FormLimit (both are
-    // re-derived by the forward path), but recovers form/brand/gpks/hpks
-    // narrowing from the Generic label and products. Reversing every rule
-    // yields duplicates; a caller-chosen `Array.distinct` collapses them back
-    // to (roughly) the original DoseRuleData, modulo generated Id/GrpId/SortNo.
+    // The rows leave out the expansion per product form and the form limit, which mapToDoseRule derives again.
+    // The form, brand, GPKs and HPKs come from the generic label and products. A sheet row gives a dose rule per
+    // product form, so the rows of all rules contain duplicates; Array.distinct removes them. The ids and the
+    // sort number are not restored.
     // -----------------------------------------------------------------------
 
 
-    /// Bare, group-less unit string; idempotent through UnitsParse.fromString.
+    /// Returns a unit as short text without the unit group, which UnitsParse.fromString reads back as the same unit.
     let unitStr (u: Unit) = u |> Units.toStringEngShortWithoutGroup
 
 
-    /// "kg" / "m2" / "" from an adjust Unit option (inverse of Utils.Units.adjustUnit).
+    /// Returns "kg" or "m2" for an adjust unit, or an empty string for any other or no unit.
     let adjStr (u: Unit option) =
         match u with
         | Some uu when uu |> Units.eqsUnit Units.Weight.kiloGram -> "kg"
@@ -747,7 +729,7 @@ module DoseRule =
         | _ -> ""
 
 
-    /// Time-token of a frequency ValueUnit (the denominator of times/<time>).
+    /// Returns the time unit of a frequency unit, such as the day of times per day, or an empty string.
     let freqUnitStr (vuOpt: ValueUnit option) =
         match vuOpt with
         | Some vu ->
@@ -757,14 +739,14 @@ module DoseRule =
         | None -> ""
 
 
-    /// Denominator time-token of a per-rate / per-time unit (du/<x>).
+    /// Returns the unit after the last "per" of a range unit, such as the time unit of a rate, or an empty string.
     let perUnitStr (mm: MinMax) =
         match mm |> MinMax.getUnit with
         | Some(CombiUnit(_, OpPer, d)) -> d |> unitStr
         | _ -> ""
 
 
-    /// Time-token of a plain time MinMax (administration/interval/duration).
+    /// Returns the unit of a time range, such as an administration time, or an empty string.
     let timeUnitStr (mm: MinMax) =
         match mm |> MinMax.getUnit with
         | Some u -> u |> unitStr
@@ -792,9 +774,8 @@ module DoseRule =
         }
 
 
-    /// Inverse of getDoseLimits for one DoseLimit, parented by component name.
-    /// cmpBased = true marks a component-only limit (no substance limits), per the
-    /// source convention CmpBased &lt;=&gt; blank Substance.
+    /// Maps a dose limit back to the dose limit columns of a row for the component cmpName.
+    /// cmpBased is true for a component limit, a row without a substance.
     let reverseDoseLimit (cmpBased: bool) (cmpName: string) (dl: DoseLimit) : DoseLimitData =
         let substance =
             match dl.DoseLimitTarget with
@@ -830,8 +811,8 @@ module DoseRule =
         }
 
 
-    /// Inverse of the Generic part of mapToDoseRule. Narrowing is read from
-    /// (Label, Products); the expansion form (Generic.Form) is ignored.
+    /// Maps a generic back to the generic columns of a row. The form and brand come from the label and the
+    /// GPKs and HPKs from the products; the expanded form of the generic is not used.
     let reverseGeneric (g: Generic) : GenericData =
         let name = g.Label |> GenericLabel.genericName
 
@@ -872,7 +853,7 @@ module DoseRule =
         }
 
 
-    /// Inverse of the PatientCategory part of mapToDoseRule.
+    /// Maps a patient category back to the patient columns of a row.
     let reversePatient (pc: PatientCategory) : PatientCategoryData =
         let isAdult = (pc.Age = IsAdult)
 
@@ -906,7 +887,7 @@ module DoseRule =
         }
 
 
-    /// Inverse of the ScheduleData part of mapToDoseRule.
+    /// Maps the schedule of a dose rule and a dose limit back to the schedule columns of a row.
     let reverseSchedule (dr: DoseRule) (dl: DoseLimit) (dld: DoseLimitData) : ScheduleData =
         let doseType = dr.DoseType |> DoseType.toCategory
         let doseText = dr.DoseType |> DoseType.getText
@@ -938,11 +919,9 @@ module DoseRule =
         }
 
 
-    /// Explode a DoseRule into its source data rows (inverse of mapToDoseRule).
-    /// FormLimit is NOT emitted (it is derived from the external formRoutes table).
-    /// A component limit with no substance limits emits one CmpBased row; a
-    /// component with substance limits emits one row per substance. A component
-    /// without any limit emits one row without values.
+    /// Maps a dose rule back to its sheet rows: one CmpBased row for a component without substance limits, or one
+    /// row per substance limit. A component without any limit gives a row without values. The form limit is left
+    /// out, because it comes from the form routes.
     let toData (dr: DoseRule) : DoseRuleData[] =
         let gen = reverseGeneric dr.Generic
         let pat = reversePatient dr.PatientCategory
@@ -971,8 +950,7 @@ module DoseRule =
 
         dr.ComponentLimits
         |> Array.collect (fun cl ->
-            // no substance limits -> use the component limit (CmpBased = true)
-            // has substance limits -> use only the substance limits (CmpBased = false)
+            // A component with substance limits gives only the substance rows, without the component limit.
             if cl.SubstanceLimits |> Array.isEmpty then
                 let l =
                     cl.Limit
@@ -984,14 +962,11 @@ module DoseRule =
         )
 
 
-    /// <summary>
-    /// Filter the DoseRules according to the Filter.
-    /// </summary>
-    /// <param name="routeMapping"></param>
-    /// <param name="filter">The Filter</param>
-    /// <param name="drs">The DoseRule array</param>
+    /// <summary>Returns the dose rules that match the filter; an empty filter returns all of them.</summary>
+    /// <param name="routeMapping">The route mapping that matches the route names.</param>
+    /// <param name="filter">The filter.</param>
+    /// <param name="drs">The dose rules.</param>
     let filter routeMapping (filter: DoseFilter) (drs: DoseRule array) =
-        // if the filter is 'empty' just return all
         if filter = Filter.doseFilter then
             drs
         else
@@ -1006,13 +981,14 @@ module DoseRule =
                     filter.Route |> Option.isNone
                     || dr.Route |> Mapping.eqsRoute routeMapping filter.Route
                 // a rule that names a department is for the patients of that department only
-                if filter.Patient.Department |> Option.isSome then
+                if filter.PatientData |> PatientData.department |> Option.isSome then
                     fun (dr: DoseRule) ->
-                        filter.Patient.Department
+                        filter.PatientData
+                        |> PatientData.department
                         |> PatientCategory.departmentMatches dr.PatientCategory.Department
-                // don't filter on the rest of the patient if it is not set; a department alone does not set it
-                if filter.Patient |> Patient.hasDataBesidesDepartment then
-                    fun (dr: DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
+                // Filters on the patient only when the filter has patient data other than the department.
+                if filter.PatientData |> PatientData.hasDataBesidesDepartment then
+                    fun (dr: DoseRule) -> dr.PatientCategory |> PatientData.matchesCategory filter.PatientData
                 fun (dr: DoseRule) -> filter.DoseType |> Option.map ((=) dr.DoseType) |> Option.defaultValue true
             |]
             |> Array.fold (fun (acc: DoseRule[]) pred -> acc |> Array.filter pred) drs
@@ -1026,34 +1002,34 @@ module DoseRule =
         |> Array.sortBy String.toLower
 
 
-    /// Extract all indications from the DoseRules.
+    /// Returns the distinct indications of the dose rules, sorted, ignoring case.
     let indications = getMember _.Indication
 
 
-    /// Extract all the generics from the DoseRules.
+    /// Returns the distinct generic labels of the dose rules, sorted, ignoring case.
     let generics = getMember (_.Generic.Label >> GenericLabel.toString)
 
 
-    /// Extract all the pharmaceutical forms from the DoseRules.
+    /// Returns the distinct pharmaceutical forms of the dose rules, sorted, ignoring case.
     let forms = getMember (_.Generic.Form >> PharmaceuticalForm.toString)
 
 
-    /// Extract all the routes from the DoseRules.
+    /// Returns the distinct routes of the dose rules, sorted, ignoring case.
     let routes = getMember _.Route
 
 
     let doseTypes (dsrs: DoseRule[]) = dsrs |> Array.map _.DoseType |> Array.distinct
 
 
-    /// Extract all the departments from the DoseRules.
+    /// Returns the distinct departments of the dose rules, sorted, ignoring case.
     let departments = getMember (_.PatientCategory.Department >> Option.defaultValue "")
 
 
-    /// Extract all genders from the DoseRules.
+    /// Returns the distinct genders of the dose rules, sorted, ignoring case.
     let genders = getMember (_.PatientCategory.Gender >> Gender.toString)
 
 
-    /// Extract all patient categories from the DoseRules as strings.
+    /// Returns the distinct patient categories of the dose rules as text, in patient category order.
     let patientCategories (drs: DoseRule array) =
         drs
         |> Array.map _.PatientCategory
@@ -1062,12 +1038,11 @@ module DoseRule =
         |> Array.distinct
 
 
-    /// Extract all frequencies from the DoseRules as strings.
+    /// Returns the distinct frequencies of the dose rules as text.
     let frequencies (drs: DoseRule array) = drs |> Array.map Print.printFreqs |> Array.distinct
 
 
-    /// Every dose limit of a dose rule: the limit of each component and its substance limits, then the
-    /// form limit.
+    /// Returns all dose limits of a dose rule: each component limit with its substance limits, then the form limit.
     let allLimits (dr: DoseRule) =
         Array.append
             (dr.ComponentLimits
@@ -1093,8 +1068,8 @@ module DoseRule =
         |> Array.tryHead
 
 
-    /// The rule as an admin finds it in the sheet: generic, route, indication, patient and
-    /// dose type.
+    /// Describes a dose rule by generic, route, indication, patient category and dose type,
+    /// so a sheet author can find it.
     let label (dr: DoseRule) =
         [
             dr.Generic |> Generic.toString
@@ -1108,7 +1083,7 @@ module DoseRule =
         |> sprintf "dose rule %s"
 
 
-    /// Every range a dose rule carries, each with its name.
+    /// Returns all ranges of a dose rule with their names: patient, schedule, form limit and component limits.
     let ranges (dr: DoseRule) =
         [
             yield! dr.PatientCategory |> PatientCategory.ranges
@@ -1128,8 +1103,8 @@ module DoseRule =
         ]
 
 
-    /// One warning per inverted range in the dose rules. A sheet row expands to a dose rule
-    /// per product form, so the same warning is given once.
+    /// Returns a warning for each range with a minimum above its maximum. A sheet row gives a dose rule per
+    /// product form, so duplicate warnings are removed.
     let invertedRanges (rules: DoseRule[]) =
         rules
         |> Array.toList
@@ -1143,10 +1118,8 @@ module DoseRule =
         |> List.map Warning
 
 
-    /// One warning per product in the dose rules without a Divisible. A product is in many dose
-    /// rules, so the warning names the product and is given once. A dose rule of a generic
-    /// without a product in the formulary has a product without a GPK: there is no row to give a
-    /// Divisible, so it is left out.
+    /// Returns one warning per product without a Divisible, by GPK. A product without a GPK is skipped:
+    /// it stands for a generic without a product in the formulary and has no row to give a Divisible.
     let missingDivisibles (rules: DoseRule[]) =
         rules
         |> Array.collect (_.ComponentLimits >> Array.collect _.Products)
@@ -1157,9 +1130,8 @@ module DoseRule =
         |> List.map Warning
 
 
-    /// One warning per component limit the check reports, labelled with the dose rule and the
-    /// component. A sheet row expands to a dose rule per product form, so the same warning is
-    /// given once.
+    /// Returns a warning for each component limit for which the check returns a message, with the dose rule and
+    /// the component. Duplicate warnings, from the dose rules per product form, are removed.
     let componentWarnings check (rules: DoseRule[]) =
         rules
         |> Array.toList
@@ -1176,7 +1148,7 @@ module DoseRule =
         |> List.map Warning
 
 
-    /// One warning per component limit with products with and without a Divisible.
+    /// Returns a warning for each component limit with products both with and without a Divisible.
     let mixedDivisibles rules =
         rules
         |> componentWarnings (fun cl ->
@@ -1189,8 +1161,7 @@ module DoseRule =
         )
 
 
-    /// One warning per component limit whose products in a volume unit have different values for
-    /// Divisible, for the rule owner to judge.
+    /// Returns a warning for each component limit whose products in a volume unit have different Divisible values.
     let disagreeingDivisibles rules =
         rules
         |> componentWarnings (fun cl ->
@@ -1212,7 +1183,7 @@ module DoseRule =
         )
 
 
-    /// The warnings for the Divisible of the products in the dose rules.
+    /// Returns all warnings for the Divisible of the products in the dose rules.
     let divisibleWarnings rules =
         (rules |> missingDivisibles)
         @ (rules |> mixedDivisibles)

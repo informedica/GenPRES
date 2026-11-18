@@ -1,44 +1,36 @@
 namespace ServerApi
 
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Api
 
 
-/// The signing member: the plan of a challenge and of a submission parsed at the inbound
-/// boundary, the session port asked on domain values, its outcome mapped out.
+/// Handles the signing of an order plan.
 module SigningCommand =
 
-    /// The outcome as the wire carries it, the version and the notice's data mapped out, the
-    /// version with the environment's demo flag.
+    /// Maps a signing outcome to the response.
     let toResponse (demo: bool) (outcome: SigningOutcome) =
         match outcome with
         | SigningOutcome.ChallengeIssued(nonce, moved) -> SigningResponse.ChallengeIssued(nonce, moved)
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {
-                    Data =
-                        data
-                        |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
+                    PatientData = data |> Option.map ServerApi.Patient.ofPatientData
                     Token = token
                 }
         | SigningOutcome.Submitted(version, whom, token, patient) ->
             SigningResponse.Submitted(
-                version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned demo whom,
+                version |> SessionMapper.toSigned demo whom,
                 token,
-                patient
-                |> Informedica.GenForm.Lib.Patient.Dto.toDto
-                |> ServerApi.Patient.toModel
+                patient |> ServerApi.Patient.ofPatientData
             )
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 
-    /// A signing command for the Session the cookie names. No cookie, no Session: refused
-    /// before the port is asked. The plan is signed as sent: the challenge is a digest of it, so
-    /// no patient in it is changed. Its patient and that of every context in it made at the
-    /// inbound boundary, then the plan parsed into the domain; a plan the domain does not read
-    /// is refused before the port is asked. Writes no cookie.
+    /// Runs a signing command for the session in the cookie. Refuses it without a session,
+    /// with invalid patient data or with an invalid plan. The plan is not changed, because the
+    /// challenge is a digest of it.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
             match cookie.read () with
@@ -55,7 +47,18 @@ module SigningCommand =
                 then
                     return SigningResponse.Refused SigningRefusal.NoPatient
                 else
-                    match plan |> OrderPlanCommand.parsePlan with
+                    // A submission is read on the date of its challenge. Otherwise a challenge made
+                    // before midnight and submitted after it would not match.
+                    let! today =
+                        match cmd with
+                        | SigningCommand.RequestSignChallenge _ -> async { return env.today () }
+                        | SigningCommand.Submit _ ->
+                            async {
+                                let! date = env.session.challengeDate id
+                                return date |> Option.defaultWith env.today
+                            }
+
+                    match plan |> OrderPlanCommand.parsePlan today with
                     | Error _ -> return SigningResponse.Refused SigningRefusal.PlanUnreadable
                     | Ok parsed ->
                         match cmd with

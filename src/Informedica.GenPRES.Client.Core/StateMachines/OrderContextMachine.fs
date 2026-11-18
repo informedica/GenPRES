@@ -1,12 +1,12 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// Tracks the prescribing workbench, or a nutrition slot: an order context not yet in the plan, of the
-/// category of the state, from no patient data to an evaluated context, through changes and resets. The App
-/// carries out the effects.
+/// Tracks the order context of the prescribing workbench or of a nutrition slot before it goes into the
+/// plan: from no patient data to an evaluated context, through changes and resets. The App carries out
+/// the effects.
 ///
 /// Four invariants:
-/// - one request is in flight at a time: the pages are disabled while it is, so nothing but the
-///   response and the patient cleared reaches the machine meanwhile;
+/// - one request is in flight at a time: the pages are disabled while it is, so only the response, a
+///   selection, a restore, an offer switch and clearing the patient data take effect meanwhile;
 /// - a response lands only on the request it names;
 /// - the workbench is always evaluated for the patient of the state, and again after a patient data update;
 /// - a filter needs patient data; the url seed, which can come before the workbench has the patient
@@ -30,12 +30,12 @@ module OrderContextMachine =
         /// No patient data, so no workbench; the url seed, which can come before the patient data, is
         /// stored here and sent with the first patient data.
         | NoPatientData of urlSeed: FilterSeed option
-        /// The patient and the context last evaluated for it, which a failed change goes back to: the
-        /// empty context during the first evaluation and after a reset.
-        | Evaluated of Patient * OrderContext
-        /// The patient and the context the server refused, as sent, with its picks and without its
+        /// The patient data and the context last evaluated for them; a failed change returns to this
+        /// context. It is the empty context during the first evaluation and after a reset.
+        | Evaluated of PatientData * OrderContext
+        /// The patient data, the context the server refused as it was sent, with its picks but without
         /// scenarios, and the reason.
-        | Refused of Patient * OrderContext * OrderContextRefusal
+        | Refused of PatientData * OrderContext * OrderContextRefusal
 
 
     /// Functions over OrderContextWorkbench.
@@ -43,7 +43,7 @@ module OrderContextMachine =
 
         /// An empty context of the category for the patient.
         let emptyOf category pat =
-            { (OrderContext.empty |> OrderContext.setPatient pat) with Category = category }
+            { (OrderContext.empty |> OrderContext.setPatientData pat) with Category = category }
 
 
         /// The context narrowed to the scenario and its form, as it goes into the plan.
@@ -81,11 +81,11 @@ module OrderContextMachine =
             | OfferSwitch.Off -> OfferSwitch.On
 
 
-    /// An order the link rules offer to link to the order of the context, composed like any order context
-    /// and turned on or off.
+    /// An order that the link rules offer to link to the main order, built like any order context and
+    /// turned on or off.
     type LinkedOffer =
         {
-            /// The context the server offered, evaluated for the same patient, as its last response left it.
+            /// The offered context, evaluated for the same patient, as the last response returned it.
             Context: OrderContext
             /// Whether the offer goes into the plan with the main order.
             Switch: OfferSwitch
@@ -95,7 +95,7 @@ module OrderContextMachine =
     /// Functions over LinkedOffer.
     module LinkedOffer =
 
-        /// The offer of the context, turned off.
+        /// Makes an offer of the context, turned off.
         let off ctx =
             {
                 Context = ctx
@@ -140,7 +140,7 @@ module OrderContextMachine =
     /// Functions over RequestUnderWay.
     module RequestUnderWay =
 
-        /// The command sent under the request id for what it was sent for.
+        /// Creates a request under way from the command, the request id and what it was sent for.
         let create sent request target =
             {
                 Sent = sent
@@ -156,8 +156,7 @@ module OrderContextMachine =
             CommandPreview.shown cmd ctx
 
 
-    /// Everything the order context machine holds, hidden from the page, which reads an
-    /// OrderContextView of it instead.
+    /// The private state of the order context machine; the page reads it through OrderContextState.view.
     type OrderContextState =
         private
             {
@@ -167,7 +166,8 @@ module OrderContextMachine =
                 Category: OrderCategory
                 /// The workbench itself.
                 Workbench: OrderContextWorkbench
-                /// The request under way. The context and its offers share it, so one request is out at a time.
+                /// The request under way. The context and its linked offers share this field, so one
+                /// request is under way at a time.
                 InFlight: RequestUnderWay option
                 /// The scenario the order dialog shows, by its order's id; None while the dialog is
                 /// closed.
@@ -175,8 +175,8 @@ module OrderContextMachine =
                 /// The state before a recalculation from the dialog, put back when its list closes
                 /// without a pick; None while the recalculation list is closed.
                 BeforeRecalculation: OrderContextState option
-                /// The orders the link rules offer to link to the order of the context: the offers that came
-                /// with the last response to a change of the choices or the scenario.
+                /// The orders the link rules offer to link to the main order, from the last response to a
+                /// change of the choices or the scenario.
                 LinkedOffers: LinkedOffer[]
             }
 
@@ -186,9 +186,9 @@ module OrderContextMachine =
     [<RequireQualifiedAccess>]
     type OrderContextMsg =
         /// The patient data set, changed or cleared; the workbench is evaluated for it.
-        | PatientDataChanged of Patient option * request: string
-        /// A seed of the filter, sent as a command over the context shown; without patient data the seed
-        /// is stored and sent with the first patient data.
+        | PatientDataChanged of PatientData option * request: string
+        /// A seed of the filter, sent as a command over the context in the workbench; without patient
+        /// data the seed is stored and sent with the first patient data.
         | SeedFilter of FilterSeed * request: string
         /// A command from the page, sent over the context in the workbench.
         | Command of OrderViewCommand * request: string
@@ -251,8 +251,8 @@ module OrderContextMachine =
             | OrderContextView.Changing ctx -> Some ctx
 
 
-        /// The context the order dialog shows for the plan page: the selected context, settled or
-        /// changing as the plan is; None without a selection the plan still holds.
+        /// Returns the view of the selected context for the order dialog on the plan page, settled or
+        /// changing as the plan is; None without a selection or when the plan no longer holds it.
         let dialog plan =
             let pick (tp: OrderPlan) id = tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id)
 
@@ -299,7 +299,7 @@ module OrderContextMachine =
             { evaluated pat before with
                 InFlight =
                     RequestUnderWay.create
-                        (OrderContextCommand.Command(cmd, { sent with Patient = pat }))
+                        (OrderContextCommand.Command(cmd, { sent with PatientData = pat }))
                         request
                         RequestFor.Context
                     |> Some
@@ -339,7 +339,7 @@ module OrderContextMachine =
             | OrderContextWorkbench.Refused(_, ctx, refusal), _ -> OrderContextView.Refused(ctx, refusal)
 
 
-        /// The context shown, the one the view holds.
+        /// The context the view shows; None without patient data.
         let context state = state |> view |> OrderContextView.context
 
 
@@ -351,7 +351,7 @@ module OrderContextMachine =
         let scenarioWith orderId (ctx: OrderContext) = ctx.Scenarios |> Array.tryFind (fun sc -> sc.Order.Id = orderId)
 
 
-        /// The selection of the dialog, only while the context holds the scenario selected.
+        /// Returns the selection of the dialog when the context holds that scenario, else None.
         let selectionIn ctx selected =
             selected |> Option.filter (fun id -> ctx |> scenarioWith id |> Option.isSome)
 
@@ -369,8 +369,8 @@ module OrderContextMachine =
             | OrderContextView.Changing _ -> None
 
 
-        /// The orders the link rules offer to link to the order of the context, each turned on or off; while a
-        /// request for an offer is under way, that offer with the context sent, as its command changes it.
+        /// The linked offers, each turned on or off. While a request for an offer is under way, that offer
+        /// shows the context sent, as its command changes it.
         let linkedOffers state =
             match state.InFlight with
             | Some({ For = RequestFor.Offer index } as r) ->
@@ -391,8 +391,8 @@ module OrderContextMachine =
 
 
         /// The linked offers turned on, each narrowed to a single scenario, as they go into the plan with
-        /// the main order; None while an offer turned on holds several scenarios or none, which refuses
-        /// the prescribe.
+        /// the main order; None while an offer turned on holds several scenarios or none, which blocks
+        /// the prescription.
         let linkedToPrescribe state =
             let narrowed = state |> linkedTurnedOn
 
@@ -420,10 +420,9 @@ module OrderContextMachine =
         let dialog state = state.Selected |> Option.map (fun _ -> view state)
 
 
-        /// The filter the formulary and parenteralia pages take from a response: the filter of the
-        /// context of the response, evaluated or refused, when the command sent changed the filter; None for
-        /// any other command, so a dose step fetches neither page, and for a failure, which leaves the
-        /// pages as they were.
+        /// Returns the filter of the response context, evaluated or refused, for the formulary and
+        /// parenteralia pages when the command changed the filter. Returns None for any other command, so
+        /// a dose step reloads neither page, and for a failure, which leaves the pages as they were.
         let synced cmd result =
             // a pick or a clear of the filter, the diluent or the components, or a seed changes the filter
             let follows =
@@ -443,20 +442,20 @@ module OrderContextMachine =
             | _ -> None
 
 
-        /// The next state and effects for a message.
+        /// Returns the next state and effects for a message.
         ///
-        /// While a request is under way only a response, a selection, a restore and the patient cleared
-        /// reach the workbench. Every other message comes only with nothing under way, since the pages
-        /// that send it are disabled; with a request out it falls to the closing arm, which leaves the
-        /// state as it is.
+        /// While a request is under way only a response, a selection, a restore, an offer switch and
+        /// clearing the patient data take effect. Every other message comes only with no request under
+        /// way, because the pages that send it are disabled; with a request under way it falls to the
+        /// last case, which leaves the state as it is.
         ///
         /// The dialog closes on a patient data update, a seed and a reset. After a response the dialog
-        /// keeps its selection only while the context of the response holds the scenario selected.
+        /// keeps its selection only while the response context holds the selected scenario.
         ///
-        /// A recalculation stores the state before it, which the response carries along and a restore puts
-        /// back; any other message closes the recalculation list. The state before the recalculation has
-        /// nothing under way, so after a restore the response to the recalculation finds no request to land
-        /// on.
+        /// A recalculation stores the state before it; the response leaves that state in place and a
+        /// restore puts it back. Any other command, a selection, a seed, a reset or a patient data update
+        /// closes the recalculation list. The stored state has no request under way, so after a restore
+        /// the response to the recalculation is ignored.
         let transition msg state =
             // the one place a request goes out
             let send sent request target state =
@@ -475,17 +474,17 @@ module OrderContextMachine =
                     None
 
             // the server clears the argumentation before it evaluates a reset of the order scenario, so a
-            // refused reset comes back without it; the context of the response takes the argumentation the
-            // context had before the request
+            // refused reset comes back without it; the response context gets the argumentation from the
+            // context before the request
             let withArgumentationOf (before: OrderContext) response =
                 { response with Argumentation = before.Argumentation }
 
-            // the offer with the index changed
+            // changes the offer at the index
             let withOffer index change state =
                 { state with LinkedOffers = state.LinkedOffers |> LinkedOffer.changedAt index change }
 
-            // a new workbench, the dialog and the recalculation list closed, and the linked offers gone with the
-            // order
+            // sets a new workbench, closes the dialog and the recalculation list, and clears the linked
+            // offers
             let renewed workbench =
                 { state with
                     Workbench = workbench
@@ -500,9 +499,9 @@ module OrderContextMachine =
                 call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
 
             match msg, OrderContextWorkbench.patientAndContext state.Workbench, state.InFlight with
-            // only a response to the request under way lands. A response for an offer changes that offer only: a
-            // refusal keeps the offer as the server sent it back, a failure leaves it as it was. The formulary and
-            // parenteralia pages do not follow a response for an offer
+            // only a response to the request under way applies. A response for an offer changes only that
+            // offer: a refusal sets the offer to the context the server sent back, and a failure leaves it as
+            // it was. The formulary and parenteralia pages do not follow a response for an offer
             | OrderContextMsg.Answered(request, result), Some _, Some({ For = RequestFor.Offer index } as r) when
                 r.Request = request
                 ->
@@ -576,10 +575,11 @@ module OrderContextMachine =
             | OrderContextMsg.TurnOfferOff index, _, _ ->
                 state |> withOffer index (fun o -> { o with Switch = OfferSwitch.Off }), []
 
-            // the patient cleared reaches every state: no workbench, and the request out is dropped
+            // clearing the patient data applies in every state: no workbench, and the request under way
+            // is dropped
             | OrderContextMsg.PatientDataChanged(None, _), _, _ -> noPatientData, []
-            // the first patient data: the empty workbench is shown while it is evaluated, with the url
-            // seed stored, if any
+            // the first patient data: the empty workbench is shown while it is evaluated with the stored
+            // url seed, if any
             | OrderContextMsg.PatientDataChanged(Some pat, request), None, None ->
                 let cmd =
                     match state.Workbench with
@@ -589,7 +589,8 @@ module OrderContextMachine =
                 fromEmpty cmd pat request
             // the same data given again is no change, so the selection stays
             | OrderContextMsg.PatientDataChanged(Some pat, _), Some(before, _), None when before = pat -> state, []
-            // the selection was made under the old data: nothing of it stays, also after a failure
+            // new patient data start from an empty workbench, also after a failure, because the old
+            // selection was made for the old data
             | OrderContextMsg.PatientDataChanged(Some pat, request), Some _, None ->
                 fromEmpty OrderViewCommand.ClearAllFilterProperty pat request
 
@@ -605,7 +606,7 @@ module OrderContextMachine =
             | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None ->
                 call
                     cmd
-                    { ctx with Patient = pat }
+                    { ctx with PatientData = pat }
                     request
                     { state with
                         Workbench = OrderContextWorkbench.Evaluated(pat, ctx)
@@ -619,7 +620,7 @@ module OrderContextMachine =
                 | Some offer ->
                     { state with BeforeRecalculation = beforeRecalculation cmd }
                     |> send
-                        (OrderContextCommand.Command(cmd, { offer.Context with Patient = pat }))
+                        (OrderContextCommand.Command(cmd, { offer.Context with PatientData = pat }))
                         request
                         (RequestFor.Offer index)
                 | None -> state, []
@@ -633,6 +634,6 @@ module OrderContextMachine =
                     request
                     (renewed (OrderContextWorkbench.Evaluated(pat, OrderContextWorkbench.emptyOf state.Category pat)))
 
-            // the closing arm: nothing else comes, since the pages that send it are disabled, and
-            // there is nothing to command or reset without patient data
+            // nothing else comes, because the pages that send it are disabled, and there is nothing to
+            // command or reset without patient data
             | _ -> state, []

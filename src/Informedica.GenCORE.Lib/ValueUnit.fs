@@ -25,33 +25,42 @@ module ValueUnit =
         let toDecimalCm =
             toMeasure Group.HeightGroup BigRational.toDecimal Conversions.cmFromDecimal Units.Height.centiMeter "cm"
 
+
         let toIntCm =
             toMeasure Group.HeightGroup BigRational.ToInt32 Conversions.cmFromInt Units.Height.centiMeter "cm"
+
 
         let toDecimalMeter =
             toMeasure Group.HeightGroup BigRational.toDecimal Conversions.meterFromDecimal Units.Height.meter "m"
 
+
         let toIntGram =
             toMeasure Group.WeightGroup BigRational.ToInt32 Conversions.gramFromInt Units.Weight.gram "gram"
+
 
         let toDecimalKg =
             toMeasure Group.WeightGroup BigRational.toDecimal Conversions.kgFromDecimal Units.Weight.kiloGram "kg"
 
+
         let toIntDay = toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.dayFromInt Units.Time.day "day"
 
-        /// The single value of a time value in whole days, rounded down. Raises an
-        /// ArgumentException for a value that is not a time.
+
+        /// Converts a time value to whole days, rounded toward zero, and returns the first value.
+        /// Raises an ArgumentException for a value that is not a time.
         let toSingleIntDay vu =
             vu
             |> toIntDay
             |> Result.map Array.head
             |> Result.defaultWith (invalidArg (nameof vu))
 
+
         let toIntWeek =
             toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.weekFromInt Units.Time.week "week"
 
+
         let toIntMonth =
             toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.monthFromInt Units.Time.month "month"
+
 
         let toIntYear =
             toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.yearFromInt Units.Time.year "year"
@@ -62,13 +71,24 @@ module ValueUnit =
 
         let fromIntGram (v: int<gram>) = v |> fromMeasure Units.Weight.gram (int >> decimal)
 
+
+        let fromDecimalKg (v: decimal<kg>) = v |> fromMeasure Units.Weight.kiloGram decimal
+
+
+        let fromDecimalCm (v: decimal<cm>) = v |> fromMeasure Units.Height.centiMeter decimal
+
+
         let fromDecimalM2 (v: decimal<bsa>) = v |> fromMeasure Units.BSA.m2 decimal
+
 
         let fromIntDay (v: int<day>) = v |> fromMeasure Units.Time.day (int >> decimal)
 
+
         let fromIntWeek (v: int<week>) = v |> fromMeasure Units.Time.week (int >> decimal)
 
+
         let fromIntMonth (v: int<month>) = v |> fromMeasure Units.Time.month (int >> decimal)
+
 
         let fromIntYear (v: int<year>) = v |> fromMeasure Units.Time.year (int >> decimal)
 
@@ -96,10 +116,14 @@ module ValueUnit =
 
             let calcDuBois = calcBSA Calculations.BSA.calcDuBois
 
+
             let calcMosteller = calcBSA Calculations.BSA.calcMosteller
+
 
             let calcDuFujimoto = calcBSA Calculations.BSA.calcFujimoto
 
+
             let calcHaycock = calcBSA Calculations.BSA.calcHaycock
+
 
             let calcGehanAndGeorge = calcBSA Calculations.BSA.calcGehanAndGeorge

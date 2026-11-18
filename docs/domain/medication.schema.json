@@ -120,7 +120,7 @@
     },
     "DoseLimitDto": {
       "type": "object",
-      "description": "A dose limit; its target is where it sits.",
+      "description": "A dose limit. Its target follows from where it is placed: the medication, a component or a substance.",
       "additionalProperties": false,
       "properties": {
         "DoseUnit": {
@@ -173,7 +173,7 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "DilutionLimit": {
+        "Dilution": {
           "$ref": "#/definitions/DilutionLimitDto"
         },
         "Products": {
@@ -192,13 +192,13 @@
     },
     "DilutionLimitDto": {
       "type": "object",
-      "description": "A dilution limit; its target is where it sits, its products are the dilution rule's.",
+      "description": "A dilution limit. Its target follows from where it is placed; it reads back without products.",
       "additionalProperties": false,
       "properties": {
         "Quantity": {
           "$ref": "#/definitions/MinMaxDto"
         },
-        "QuantityAdj": {
+        "QuantityAdjust": {
           "$ref": "#/definitions/MinMaxDto"
         },
         "Quantities": {
@@ -258,7 +258,7 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "DilutionLimit": {
+        "Dilution": {
           "$ref": "#/definitions/DilutionLimitDto"
         }
       }

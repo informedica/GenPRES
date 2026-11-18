@@ -10,7 +10,7 @@ module AddButton =
     open Feliz
 
 
-    /// The button: its name, what a click does, and whether it rests.
+    /// The label, the click handler and whether the button is disabled.
     type Props =
         {|
             label: string

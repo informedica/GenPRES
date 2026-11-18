@@ -1,22 +1,22 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// What the client reads from a patient: the age in years and the weight in kg the lists are
-/// calculated for, and the values the panel's fields show.
+/// Reads values from patient data: the gestational age parts, the renal function option, the age in
+/// years and the weight in kg.
 module PatientRead =
 
     open Informedica.GenPRES.Shared
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
-    open Informedica.GenPRES.Shared.Models.Patient
+    open Informedica.GenPRES.Shared.Models.PatientData
 
 
-    let getGAWeeks (p: Patient) = p.GestationalAge |> GestationalAge.value |> Option.map _.Weeks
+    let getGAWeeks (p: PatientData) = p.GestationalAge |> GestationalAge.value |> Option.map _.Weeks
 
 
-    let getGADays (p: Patient) = p.GestationalAge |> GestationalAge.value |> Option.map _.Days
+    let getGADays (p: PatientData) = p.GestationalAge |> GestationalAge.value |> Option.map _.Days
 
 
-    let getRenalFunction (p: Patient) = p.RenalFunction |> Option.map RenalFunctionText.renalToOption
+    let getRenalFunction (p: PatientData) = p.RenalFunction |> Option.map RenalFunctionText.renalToOption
 
 
     let getAgeInYears p =
@@ -32,4 +32,4 @@ module PatientRead =
             | xs -> xs |> List.sum |> Some
 
 
-    let getWeightInKg (pat: Patient) = pat |> getWeight |> Option.map (fun x -> float x / 1000.)
+    let getWeightInKg (pat: PatientData) = pat |> getWeight |> Option.map (fun x -> float x / 1000.)

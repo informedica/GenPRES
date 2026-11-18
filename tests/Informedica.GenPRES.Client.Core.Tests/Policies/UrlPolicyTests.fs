@@ -36,7 +36,7 @@ let tests =
             }
 
             test "a url seeds with a patient, a medication or a launch, and not with a page alone or a refusal" {
-                { Url.none with Patient = Some Models.Patient.empty }
+                { Url.none with Patient = Some Models.PatientData.empty }
                 |> seeds
                 |> Expect.isTrue "a patient"
 

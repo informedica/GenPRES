@@ -38,7 +38,7 @@ module OrderContextRefusalPolicy =
         | Terms.``Prescribe Refusal Measurement`` ->
             "The dose rules for {0} need a weight, or a weight and a height, that this patient does not have. Enter them to see a dose"
         | Terms.``Prescribe Refusal No diluent`` ->
-            "The dose rules for {0} need a diluent, and the formulary has none that brings the drug within its dilution rule"
+            "For {0}, each medication is given undiluted, and its concentration limit allows none of its product concentrations"
         | Terms.``Prescribe Refusal Not solved`` ->
             "This change cannot be applied: the order cannot be calculated with it. The order stays as it was"
         | Terms.``Prescribe Refusal No adjusted dose`` ->
@@ -48,8 +48,7 @@ module OrderContextRefusalPolicy =
         | term -> $"{term}"
 
 
-    /// The picks the notice names, in the page's order: indication, medication, route, form and
-    /// dose type, as far as chosen.
+    /// Joins the chosen filter values in page order: indication, medication, route, form and dose type.
     let picks (filter: Filter) =
         [
             filter.Indication
@@ -62,8 +61,8 @@ module OrderContextRefusalPolicy =
         |> String.concat ", "
 
 
-    /// The term of the body for each refusal. The products term also covers a rule dropped for
-    /// having no dose type, so its text names both.
+    /// The body term for each refusal. The products term also covers a rule without a dose type, so its
+    /// text names both.
     let bodyTerm (refusal: OrderContextRefusal) =
         match refusal with
         | OrderContextRefusal.NoDoseRules -> Terms.``Prescribe Refusal No dose rules``
@@ -84,14 +83,13 @@ module OrderContextRefusalPolicy =
         | _ -> false
 
 
-    /// The notice for a refused context. None for a child without a weight, for whom the rules are
-    /// not looked up: the page already says what to enter, and a notice blaming the rules would
-    /// mislead. None for a change that cannot be applied, which the snackbar tells while the order
-    /// stays. A missing measurement names no one to tell: the rules are right, the patient needs the
-    /// measurement.
+    /// Returns the notice for a refused context. None when the patient data cannot select rules, such as a
+    /// child without a weight: the page already asks for it, and a notice blaming the rules would mislead.
+    /// None for a refused change, which the snackbar reports. A missing measurement has no contact line,
+    /// because the rules are right and the patient needs the measurement.
     let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
         match refusal with
-        | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> Patient.selectsRules |> not -> None
+        | OrderContextRefusal.NoDoseRulesForPatient when ctx.PatientData |> PatientData.selectsRules |> not -> None
         | _ when refusal |> refusesChange -> None
         | _ ->
             Some

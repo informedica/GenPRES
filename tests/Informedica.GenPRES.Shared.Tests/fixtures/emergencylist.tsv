@@ -8,12 +8,12 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	0.5		reanimatie	vaatvulling	10	mL	20	mL/kg	10	ml	1	mL	10 mL (20 mL/kg)	10 ml van 1 mL/ml	20 mL/kg
 	0.5		reanimatie	NaBic 8.4	0.5	mmol	1	mmol/kg	0.5	ml	1	mmol	0,5 mmol (1 mmol/kg)	0,5 ml van 1 mmol/ml	1 mmol/kg geef evt. eerst helft
 	0.5		bradycardie	atropine	0.1	mg	0.2	mg/kg	0.2	ml	0.5	mg	0,1 mg (0,2 mg/kg)	0,2 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	0.5		intoxicatie	flumazenil (Anexate)	0.005	mg	0.01	mg/kg	0.5	ml	0.01	mg	0,01 mg (0,01 mg/kg)	0,5 ml van 0,01 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
-	0.5		intoxicatie	naloxon	0.004	mg	0.008	mg/kg	0.2	ml	0.02	mg	0 mg (0,01 mg/kg)	0,2 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
+	0.5		intoxicatie	flumazenil (Anexate)	0.005	mg	0.01	mg/kg	0.5	ml	0.01	mg	0,005 mg (0,01 mg/kg)	0,5 ml van 0,01 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	0.5		intoxicatie	naloxon	0.004	mg	0.008	mg/kg	0.2	ml	0.02	mg	0,004 mg (0,008 mg/kg)	0,2 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
 	0.5		intoxicatie	naloxon hoge dosering	0.05	mg	0.1	mg/kg	2.5	ml	0.02	mg	0,05 mg (0,1 mg/kg)	2,5 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	0.5		hypoglycemie	glucose 10%	0.1	gram	0.2	gram/kg	1	ml	0.1	gram	0,1 gram (0,2 gram/kg)	1 ml van 0,1 gram/ml	0,2 gram/kg
-	0.5		hyperkaliemie	insuline in glucose 20%	0.025	E	0.05	E/kg	0.5	ml	0.05	E	0,03 E (0,05 E/kg)	0,5 ml van 0,05 E/ml	0.2 mL insuline 100 E/mL + 400 mL gluc 20%
-	0.5		hyperkaliemie	insuline in glucose 10%	0.025	E	0.05	E/kg	2.5	ml	0.01	E	0,03 E (0,05 E/kg)	2,5 ml van 0,01 E/ml	0,1 mL insuline 100 E/mL + 1000 mL gluc 10%
+	0.5		hyperkaliemie	insuline in glucose 20%	0.025	E	0.05	E/kg	0.5	ml	0.05	E	0,025 E (0,05 E/kg)	0,5 ml van 0,05 E/ml	0.2 mL insuline 100 E/mL + 400 mL gluc 20%
+	0.5		hyperkaliemie	insuline in glucose 10%	0.025	E	0.05	E/kg	2.5	ml	0.01	E	0,025 E (0,05 E/kg)	2,5 ml van 0,01 E/ml	0,1 mL insuline 100 E/mL + 1000 mL gluc 10%
 	0.5		anti-arrythmica	magnesiumsulfaat 20%	20	mg	40	mg/kg	0.1	ml	200	mg	20 mg (40 mg/kg)	0,1 ml van 200 mg/ml	50 mg/kg (max 2000 g) bolus
 	0.5		anti-arrythmica	magnesiumsulfaat 20%	20	mg	40	mg/kg	0.1	ml	200	mg	20 mg (40 mg/kg)	0,1 ml van 200 mg/ml	50 mg/kg (max 2000 g) in 10-20 min
 	0.5		intoxicatie	calciumgluconaat 10%	30	mg	60	mg/kg	0.3	ml	100	mg	30 mg (60 mg/kg)	0,3 ml van 100 mg/ml	60 mg/kg (max 3000.0 mg)
@@ -39,8 +39,8 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	0.5	UMCU	pijnstilling	morfine	0.05	mg	0.1	mg/kg	0.5	ml	0.1	mg	0,05 mg (0,1 mg/kg)	0,5 ml van 0,1 mg/ml	0,1 mg/kg
 	0.5	UMCU	elektrolyten	kaliumchloride 7.4% centraal	0.25	mmol	0.5	mmol/kg	0.5	ml	0.5	mmol	0,25 mmol (0,5 mmol/kg)	0,5 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	0.5	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	0.25	mmol	0.5	mmol/kg	3.1	ml	0.08	mmol	0,25 mmol (0,5 mmol/kg)	3,1 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	0.5	UMCU	elektrolyten	calciumgluconaat 10%	0.11	mmol	0.2	mmol/kg	0.5	ml	0.225	mmol	0,11 mmol (0,2 mmol/kg)	0,5 ml van 0,23 mmol/ml	0,23 mmol/kg (max 4.5 mmol)
-	0.5	UMCU	elektrolyten	calciumgluconaat 10%	0.068	mmol	0.1	mmol/kg	0.3	ml	0.225	mmol	0,07 mmol (0,1 mmol/kg)	0,3 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	0.5	UMCU	elektrolyten	calciumgluconaat 10%	0.11	mmol	0.2	mmol/kg	0.5	ml	0.225	mmol	0,11 mmol (0,2 mmol/kg)	0,5 ml van 0,225 mmol/ml	0,225 mmol/kg (max 4.5 mmol)
+	0.5	UMCU	elektrolyten	calciumgluconaat 10%	0.068	mmol	0.1	mmol/kg	0.3	ml	0.225	mmol	0,068 mmol (0,1 mmol/kg)	0,3 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	0.5	UMCU	elektrolyten	magnesiumchloride 10%	0.05	mmol	0.1	mmol/kg	0.5	ml	0.1	mmol	0,05 mmol (0,1 mmol/kg)	0,5 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	0.5	UMCU	elektrolyten	magnesiumsulfaat 10%	0.04	mmol	0.08	mmol/kg	0.4	ml	0.1	mmol	0,04 mmol (0,08 mmol/kg)	0,4 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	0.5	UMCU	apneu	coffeine	5	mg	10	mg/kg	0.5	ml	10	mg	5 mg (10 mg/kg)	0,5 ml van 10 mg/ml	10 mg/kg
@@ -119,8 +119,8 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	1	UMCU	pijnstilling	morfine	0.1	mg	0.1	mg/kg	0.1	ml	1	mg	0,1 mg (0,1 mg/kg)	0,1 ml van 1 mg/ml	0,1 mg/kg
 	1	UMCU	elektrolyten	kaliumchloride 7.4% centraal	0.5	mmol	0.5	mmol/kg	1	ml	0.5	mmol	0,5 mmol (0,5 mmol/kg)	1 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	1	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	0.5	mmol	0.5	mmol/kg	6.2	ml	0.08	mmol	0,5 mmol (0,5 mmol/kg)	6,2 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	1	UMCU	elektrolyten	calciumgluconaat 10%	0.22	mmol	0.2	mmol/kg	1	ml	0.225	mmol	0,22 mmol (0,2 mmol/kg)	1 ml van 0,23 mmol/ml	0,23 mmol/kg (max 4.5 mmol)
-	1	UMCU	elektrolyten	calciumgluconaat 10%	0.14	mmol	0.1	mmol/kg	0.6	ml	0.225	mmol	0,14 mmol (0,1 mmol/kg)	0,6 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	1	UMCU	elektrolyten	calciumgluconaat 10%	0.22	mmol	0.2	mmol/kg	1	ml	0.225	mmol	0,22 mmol (0,2 mmol/kg)	1 ml van 0,225 mmol/ml	0,225 mmol/kg (max 4.5 mmol)
+	1	UMCU	elektrolyten	calciumgluconaat 10%	0.14	mmol	0.1	mmol/kg	0.6	ml	0.225	mmol	0,14 mmol (0,1 mmol/kg)	0,6 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	1	UMCU	elektrolyten	magnesiumchloride 10%	0.1	mmol	0.1	mmol/kg	1	ml	0.1	mmol	0,1 mmol (0,1 mmol/kg)	1 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	1	UMCU	elektrolyten	magnesiumsulfaat 10%	0.08	mmol	0.08	mmol/kg	0.8	ml	0.1	mmol	0,08 mmol (0,08 mmol/kg)	0,8 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	1	UMCU	apneu	coffeine	10	mg	10	mg/kg	1	ml	10	mg	10 mg (10 mg/kg)	1 ml van 10 mg/ml	10 mg/kg
@@ -199,8 +199,8 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	2	UMCU	pijnstilling	morfine	0.2	mg	0.1	mg/kg	0.2	ml	1	mg	0,2 mg (0,1 mg/kg)	0,2 ml van 1 mg/ml	0,1 mg/kg
 	2	UMCU	elektrolyten	kaliumchloride 7.4% centraal	1	mmol	0.5	mmol/kg	2	ml	0.5	mmol	1 mmol (0,5 mmol/kg)	2 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	2	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	0.96	mmol	0.5	mmol/kg	12	ml	0.08	mmol	0,96 mmol (0,5 mmol/kg)	12 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	2	UMCU	elektrolyten	calciumgluconaat 10%	0.45	mmol	0.2	mmol/kg	2	ml	0.225	mmol	0,45 mmol (0,2 mmol/kg)	2 ml van 0,23 mmol/ml	0,23 mmol/kg (max 4.5 mmol)
-	2	UMCU	elektrolyten	calciumgluconaat 10%	0.27	mmol	0.1	mmol/kg	1.2	ml	0.225	mmol	0,27 mmol (0,1 mmol/kg)	1,2 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	2	UMCU	elektrolyten	calciumgluconaat 10%	0.45	mmol	0.2	mmol/kg	2	ml	0.225	mmol	0,45 mmol (0,2 mmol/kg)	2 ml van 0,225 mmol/ml	0,225 mmol/kg (max 4.5 mmol)
+	2	UMCU	elektrolyten	calciumgluconaat 10%	0.27	mmol	0.1	mmol/kg	1.2	ml	0.225	mmol	0,27 mmol (0,1 mmol/kg)	1,2 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	2	UMCU	elektrolyten	magnesiumchloride 10%	0.2	mmol	0.1	mmol/kg	2	ml	0.1	mmol	0,2 mmol (0,1 mmol/kg)	2 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	2	UMCU	elektrolyten	magnesiumsulfaat 10%	0.16	mmol	0.08	mmol/kg	1.6	ml	0.1	mmol	0,16 mmol (0,08 mmol/kg)	1,6 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	2	UMCU	apneu	coffeine	20	mg	10	mg/kg	2	ml	10	mg	20 mg (10 mg/kg)	2 ml van 10 mg/ml	10 mg/kg
@@ -305,7 +305,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	3	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	3	gram	1	gram/kg	20	ml	0.15	gram	3 gram (1 gram/kg)	20 ml van 0,15 gram/ml	1 gram/kg
 	3	UMCU	hyperkaliemie	furosemide	3	mg	1	mg/kg	0.3	ml	10	mg	3 mg (1 mg/kg)	0,3 ml van 10 mg/ml	1 mg/kg
 	3	UMCU	hyperkaliemie	NaBic 8.4%	7.5	mmol	2	mmol/kg	7.5	ml	1	mmol	7,5 mmol (2 mmol/kg)	7,5 ml van 1 mmol/ml	2,5 mmol/kg
-	3	UMCU	hyperkaliemie	calciumgluconaat	0.38	mg	0.1	mg/kg	1.7	ml	0.225	mg	0,38 mg (0,1 mg/kg)	1,7 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	3	UMCU	hyperkaliemie	calciumgluconaat	0.38	mg	0.1	mg/kg	1.7	ml	0.225	mg	0,38 mg (0,1 mg/kg)	1,7 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	3	UMCU	anticonvulsiva	diazepam rect	1.6	mg	0.5	mg/kg	0.4	ml	4	mg	1,6 mg (0,5 mg/kg)	0,4 ml van 4 mg/ml	0,5 mg/kg
 	3	UMCU	anticonvulsiva	diazepam iv	0.5	mg	0.2	mg/kg	0.1	ml	5	mg	0,5 mg (0,2 mg/kg)	0,1 ml van 5 mg/ml	0,25 mg/kg
 	3	UMCU	anticonvulsiva	levetiracetam	120	mg	40	mg/kg	8	ml	15	mg	120 mg (40 mg/kg)	8 ml van 15 mg/ml	in 8 minuten
@@ -324,7 +324,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	3	UMCU	anti-emetica	metoclopramide	0.5	mg	0.2	mg/kg	0.1	ml	5	mg	0,5 mg (0,2 mg/kg)	0,1 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	3	UMCU	elektrolyten	kaliumchloride 7.4% centraal	1.5	mmol	0.5	mmol/kg	3	ml	0.5	mmol	1,5 mmol (0,5 mmol/kg)	3 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	3	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	1.5	mmol	0.5	mmol/kg	19	ml	0.08	mmol	1,5 mmol (0,5 mmol/kg)	19 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	3	UMCU	elektrolyten	calciumgluconaat 10%	0.38	mmol	0.1	mmol/kg	1.7	ml	0.225	mmol	0,38 mmol (0,1 mmol/kg)	1,7 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	3	UMCU	elektrolyten	calciumgluconaat 10%	0.38	mmol	0.1	mmol/kg	1.7	ml	0.225	mmol	0,38 mmol (0,1 mmol/kg)	1,7 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	3	UMCU	elektrolyten	magnesiumchloride 10%	0.3	mmol	0.1	mmol/kg	3	ml	0.1	mmol	0,3 mmol (0,1 mmol/kg)	3 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	3	UMCU	elektrolyten	magnesiumsulfaat 10%	0.24	mmol	0.08	mmol/kg	2.4	ml	0.1	mmol	0,24 mmol (0,08 mmol/kg)	2,4 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	3	UMCU	lokaal anesthesie	lidocaine 1%	15	mg	5	mg/kg	1.5	ml	10	mg	15 mg (5 mg/kg)	1,5 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -424,7 +424,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	5	UMCU	stridor	dexamethason	2.4	mg	0.5	mg/kg	0.6	ml	4	mg	2,4 mg (0,5 mg/kg)	0,6 ml van 4 mg/ml	0,5 mg/kg/dosis, zo nodig herhalen tot max 40 mg/dag
 	5	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	5	UMCU	astma	salbutamol vernevelen	2.5	mg			2.5	ml	1	mg	2,5 mg	2,5 ml van 1 mg/ml	2,5 mg
-	5	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,13 mg/ml	0,25 mg
+	5	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,125 mg/ml	0,25 mg
 	5	UMCU	astma	prednisolon	5	mg	1	mg/kg	0.4	ml	12.5	mg	5 mg (1 mg/kg)	0,4 ml van 12,5 mg/ml	1 mg/kg (max 25.0 mg)
 	5	UMCU	astma	magnesiumsulfaat 10%	200	mg	40	mg/kg	2	ml	100	mg	200 mg (40 mg/kg)	2 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	5	UMCU	astma	salbutamol oplaad	50	microg	10	microg/kg	0.1	ml	500	microg	50 microg (10 microg/kg)	0,1 ml van 500 microg/ml	15 microg/kg
@@ -445,7 +445,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	5	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	5	gram	1	gram/kg	33	ml	0.15	gram	5 gram (1 gram/kg)	33 ml van 0,15 gram/ml	1 gram/kg
 	5	UMCU	hyperkaliemie	furosemide	5	mg	1	mg/kg	0.5	ml	10	mg	5 mg (1 mg/kg)	0,5 ml van 10 mg/ml	1 mg/kg
 	5	UMCU	hyperkaliemie	NaBic 8.4%	12	mmol	2	mmol/kg	12	ml	1	mmol	12 mmol (2 mmol/kg)	12 ml van 1 mmol/ml	2,5 mmol/kg
-	5	UMCU	hyperkaliemie	calciumgluconaat	0.65	mg	0.1	mg/kg	2.9	ml	0.225	mg	0,65 mg (0,1 mg/kg)	2,9 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	5	UMCU	hyperkaliemie	calciumgluconaat	0.65	mg	0.1	mg/kg	2.9	ml	0.225	mg	0,65 mg (0,1 mg/kg)	2,9 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	5	UMCU	anticonvulsiva	diazepam rect	2.4	mg	0.5	mg/kg	0.6	ml	4	mg	2,4 mg (0,5 mg/kg)	0,6 ml van 4 mg/ml	0,5 mg/kg
 	5	UMCU	anticonvulsiva	diazepam iv	1	mg	0.2	mg/kg	0.2	ml	5	mg	1 mg (0,2 mg/kg)	0,2 ml van 5 mg/ml	0,25 mg/kg
 	5	UMCU	anticonvulsiva	levetiracetam	195	mg	39	mg/kg	13	ml	15	mg	195 mg (39 mg/kg)	13 ml van 15 mg/ml	in 8 minuten
@@ -464,7 +464,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	5	UMCU	anti-emetica	metoclopramide	0.5	mg	0.1	mg/kg	0.1	ml	5	mg	0,5 mg (0,1 mg/kg)	0,1 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	5	UMCU	elektrolyten	kaliumchloride 7.4% centraal	2.5	mmol	0.5	mmol/kg	5	ml	0.5	mmol	2,5 mmol (0,5 mmol/kg)	5 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	5	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	2.5	mmol	0.5	mmol/kg	31	ml	0.08	mmol	2,5 mmol (0,5 mmol/kg)	31 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	5	UMCU	elektrolyten	calciumgluconaat 10%	0.65	mmol	0.1	mmol/kg	2.9	ml	0.225	mmol	0,65 mmol (0,1 mmol/kg)	2,9 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	5	UMCU	elektrolyten	calciumgluconaat 10%	0.65	mmol	0.1	mmol/kg	2.9	ml	0.225	mmol	0,65 mmol (0,1 mmol/kg)	2,9 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	5	UMCU	elektrolyten	magnesiumchloride 10%	0.5	mmol	0.1	mmol/kg	5	ml	0.1	mmol	0,5 mmol (0,1 mmol/kg)	5 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	5	UMCU	elektrolyten	magnesiumsulfaat 10%	0.4	mmol	0.08	mmol/kg	4	ml	0.1	mmol	0,4 mmol (0,08 mmol/kg)	4 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	5	UMCU	lokaal anesthesie	lidocaine 1%	25	mg	5	mg/kg	2.5	ml	10	mg	25 mg (5 mg/kg)	2,5 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -518,7 +518,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	5	UZA	convulsies	midazolam bucc	1.5	mg	0.3	mg/kg	0.3	ml	5	mg	1,5 mg (0,3 mg/kg)	0,3 ml van 5 mg/ml	0,3 mg/kg
 	5	UZA	convulsies	midazolam iv	0.5	mg	0.1	mg/kg	0.1	ml	5	mg	0,5 mg (0,1 mg/kg)	0,1 ml van 5 mg/ml	0,1 mg/kg
 	5	UZA	convulsies	valproaat	200	mg	40	mg/kg	2	ml	100	mg	200 mg (40 mg/kg)	2 ml van 100 mg/ml	40 mg/kg
-	7.5		reanimatie	adrenaline	0.07	mg	0.009	mg/kg	0.7	ml	0.1	mg	0,07 mg (0,01 mg/kg)	0,7 ml van 0,1 mg/ml	0,01 mg/kg (max 1.0 mg)
+	7.5		reanimatie	adrenaline	0.07	mg	0.009	mg/kg	0.7	ml	0.1	mg	0,07 mg (0,009 mg/kg)	0,7 ml van 0,1 mg/ml	0,01 mg/kg (max 1.0 mg)
 	7.5		reanimatie	adrenaline	0.1	mg	0.01	mg/kg	0.1	ml	1	mg	0,1 mg (0,01 mg/kg)	0,1 ml van 1 mg/ml	0,01 mg/kg (max 1.0 mg)
 	7.5		reanimatie	defibrillatie					30				30 joule		4 joule/kg
 	7.5		reanimatie	cardioversie					20				20 joule		2 joule/kg
@@ -527,8 +527,8 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	7.5		anti-arrythmica	amiodaron 1e keer	40	mg	5	mg/kg	0.8	ml	50	mg	40 mg (5 mg/kg)	0,8 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	7.5		anti-arrythmica	amiodaron 2e keer	40	mg	5	mg/kg	0.8	ml	50	mg	40 mg (5 mg/kg)	0,8 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	7.5		bradycardie	atropine	0.15	mg	0.02	mg/kg	0.3	ml	0.5	mg	0,15 mg (0,02 mg/kg)	0,3 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	7.5		intoxicatie	flumazenil (Anexate)	0.07	mg	0.009	mg/kg	0.7	ml	0.1	mg	0,07 mg (0,01 mg/kg)	0,7 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
-	7.5		intoxicatie	naloxon	0.076	mg	0.01	mg/kg	3.8	ml	0.02	mg	0,08 mg (0,01 mg/kg)	3,8 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
+	7.5		intoxicatie	flumazenil (Anexate)	0.07	mg	0.009	mg/kg	0.7	ml	0.1	mg	0,07 mg (0,009 mg/kg)	0,7 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	7.5		intoxicatie	naloxon	0.076	mg	0.01	mg/kg	3.8	ml	0.02	mg	0,076 mg (0,01 mg/kg)	3,8 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
 	7.5		intoxicatie	naloxon hoge dosering	0.4	mg	0.05	mg/kg	20	ml	0.02	mg	0,4 mg (0,05 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	7.5		intoxicatie	sugammadex	30	mg	4	mg/kg	0.3	ml	100	mg	30 mg (4 mg/kg)	0,3 ml van 100 mg/ml	tot 16 mg/kg
 	7.5		hypoglycemie	glucose 10%	2.2	gram	0.3	gram/kg	22	ml	0.1	gram	2,2 gram (0,3 gram/kg)	22 ml van 0,1 gram/ml	0,3 gram/kg (max 25.0 gram)
@@ -566,7 +566,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	7.5	UMCU	stridor	dexamethason	3.6	mg	0.5	mg/kg	0.9	ml	4	mg	3,6 mg (0,5 mg/kg)	0,9 ml van 4 mg/ml	0,5 mg/kg/dosis, zo nodig herhalen tot max 40 mg/dag
 	7.5	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	7.5	UMCU	astma	salbutamol vernevelen	2.5	mg			2.5	ml	1	mg	2,5 mg	2,5 ml van 1 mg/ml	2,5 mg
-	7.5	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,13 mg/ml	0,25 mg
+	7.5	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,125 mg/ml	0,25 mg
 	7.5	UMCU	astma	prednisolon	7.5	mg	1	mg/kg	0.6	ml	12.5	mg	7,5 mg (1 mg/kg)	0,6 ml van 12,5 mg/ml	1 mg/kg (max 25.0 mg)
 	7.5	UMCU	astma	magnesiumsulfaat 10%	300	mg	40	mg/kg	3	ml	100	mg	300 mg (40 mg/kg)	3 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	7.5	UMCU	astma	salbutamol oplaad	100	microg	13	microg/kg	0.2	ml	500	microg	100 microg (13 microg/kg)	0,2 ml van 500 microg/ml	15 microg/kg
@@ -587,7 +587,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	7.5	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	7.5	gram	1	gram/kg	50	ml	0.15	gram	7,5 gram (1 gram/kg)	50 ml van 0,15 gram/ml	1 gram/kg
 	7.5	UMCU	hyperkaliemie	furosemide	8	mg	1	mg/kg	0.8	ml	10	mg	8 mg (1 mg/kg)	0,8 ml van 10 mg/ml	1 mg/kg
 	7.5	UMCU	hyperkaliemie	NaBic 8.4%	19	mmol	3	mmol/kg	19	ml	1	mmol	19 mmol (3 mmol/kg)	19 ml van 1 mmol/ml	2,5 mmol/kg
-	7.5	UMCU	hyperkaliemie	calciumgluconaat	0.97	mg	0.1	mg/kg	4.3	ml	0.225	mg	0,97 mg (0,1 mg/kg)	4,3 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	7.5	UMCU	hyperkaliemie	calciumgluconaat	0.97	mg	0.1	mg/kg	4.3	ml	0.225	mg	0,97 mg (0,1 mg/kg)	4,3 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	7.5	UMCU	anticonvulsiva	diazepam rect	3.6	mg	0.5	mg/kg	0.9	ml	4	mg	3,6 mg (0,5 mg/kg)	0,9 ml van 4 mg/ml	0,5 mg/kg
 	7.5	UMCU	anticonvulsiva	diazepam iv	2	mg	0.3	mg/kg	0.4	ml	5	mg	2 mg (0,3 mg/kg)	0,4 ml van 5 mg/ml	0,25 mg/kg
 	7.5	UMCU	anticonvulsiva	levetiracetam	300	mg	40	mg/kg	20	ml	15	mg	300 mg (40 mg/kg)	20 ml van 15 mg/ml	in 8 minuten
@@ -606,7 +606,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	7.5	UMCU	anti-emetica	metoclopramide	0.5	mg	0.07	mg/kg	0.1	ml	5	mg	0,5 mg (0,07 mg/kg)	0,1 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	7.5	UMCU	elektrolyten	kaliumchloride 7.4% centraal	3.8	mmol	0.5	mmol/kg	7.5	ml	0.5	mmol	3,8 mmol (0,5 mmol/kg)	7,5 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	7.5	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	3.8	mmol	0.5	mmol/kg	47	ml	0.08	mmol	3,8 mmol (0,5 mmol/kg)	47 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	7.5	UMCU	elektrolyten	calciumgluconaat 10%	0.97	mmol	0.1	mmol/kg	4.3	ml	0.225	mmol	0,97 mmol (0,1 mmol/kg)	4,3 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	7.5	UMCU	elektrolyten	calciumgluconaat 10%	0.97	mmol	0.1	mmol/kg	4.3	ml	0.225	mmol	0,97 mmol (0,1 mmol/kg)	4,3 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	7.5	UMCU	elektrolyten	magnesiumchloride 10%	0.75	mmol	0.1	mmol/kg	7.5	ml	0.1	mmol	0,75 mmol (0,1 mmol/kg)	7,5 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	7.5	UMCU	elektrolyten	magnesiumsulfaat 10%	0.6	mmol	0.08	mmol/kg	6	ml	0.1	mmol	0,6 mmol (0,08 mmol/kg)	6 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	7.5	UMCU	lokaal anesthesie	lidocaine 1%	38	mg	5	mg/kg	3.8	ml	10	mg	38 mg (5 mg/kg)	3,8 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -706,7 +706,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	10	UMCU	stridor	dexamethason	4.8	mg	0.5	mg/kg	1.2	ml	4	mg	4,8 mg (0,5 mg/kg)	1,2 ml van 4 mg/ml	0,5 mg/kg/dosis, zo nodig herhalen tot max 40 mg/dag
 	10	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	10	UMCU	astma	salbutamol vernevelen	2.5	mg			2.5	ml	1	mg	2,5 mg	2,5 ml van 1 mg/ml	2,5 mg
-	10	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,13 mg/ml	0,25 mg
+	10	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,125 mg/ml	0,25 mg
 	10	UMCU	astma	prednisolon	10	mg	1	mg/kg	0.8	ml	12.5	mg	10 mg (1 mg/kg)	0,8 ml van 12,5 mg/ml	1 mg/kg (max 25.0 mg)
 	10	UMCU	astma	magnesiumsulfaat 10%	400	mg	40	mg/kg	4	ml	100	mg	400 mg (40 mg/kg)	4 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	10	UMCU	astma	salbutamol oplaad	150	microg	15	microg/kg	0.3	ml	500	microg	150 microg (15 microg/kg)	0,3 ml van 500 microg/ml	15 microg/kg
@@ -727,7 +727,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	10	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	10	gram	1	gram/kg	67	ml	0.15	gram	10 gram (1 gram/kg)	67 ml van 0,15 gram/ml	1 gram/kg
 	10	UMCU	hyperkaliemie	furosemide	10	mg	1	mg/kg	1	ml	10	mg	10 mg (1 mg/kg)	1 ml van 10 mg/ml	1 mg/kg
 	10	UMCU	hyperkaliemie	NaBic 8.4%	25	mmol	2	mmol/kg	25	ml	1	mmol	25 mmol (2 mmol/kg)	25 ml van 1 mmol/ml	2,5 mmol/kg
-	10	UMCU	hyperkaliemie	calciumgluconaat	1.3	mg	0.1	mg/kg	5.8	ml	0.225	mg	1,3 mg (0,1 mg/kg)	5,8 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	10	UMCU	hyperkaliemie	calciumgluconaat	1.3	mg	0.1	mg/kg	5.8	ml	0.225	mg	1,3 mg (0,1 mg/kg)	5,8 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	10	UMCU	anticonvulsiva	diazepam rect	4.8	mg	0.5	mg/kg	1.2	ml	4	mg	4,8 mg (0,5 mg/kg)	1,2 ml van 4 mg/ml	0,5 mg/kg
 	10	UMCU	anticonvulsiva	diazepam iv	2.5	mg	0.2	mg/kg	0.5	ml	5	mg	2,5 mg (0,2 mg/kg)	0,5 ml van 5 mg/ml	0,25 mg/kg
 	10	UMCU	anticonvulsiva	levetiracetam	405	mg	40	mg/kg	27	ml	15	mg	405 mg (40 mg/kg)	27 ml van 15 mg/ml	in 8 minuten
@@ -746,7 +746,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	10	UMCU	anti-emetica	metoclopramide	1	mg	0.1	mg/kg	0.2	ml	5	mg	1 mg (0,1 mg/kg)	0,2 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	10	UMCU	elektrolyten	kaliumchloride 7.4% centraal	5	mmol	0.5	mmol/kg	10	ml	0.5	mmol	5 mmol (0,5 mmol/kg)	10 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	10	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	5	mmol	0.5	mmol/kg	62	ml	0.08	mmol	5 mmol (0,5 mmol/kg)	62 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	10	UMCU	elektrolyten	calciumgluconaat 10%	1.3	mmol	0.1	mmol/kg	5.8	ml	0.225	mmol	1,3 mmol (0,1 mmol/kg)	5,8 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	10	UMCU	elektrolyten	calciumgluconaat 10%	1.3	mmol	0.1	mmol/kg	5.8	ml	0.225	mmol	1,3 mmol (0,1 mmol/kg)	5,8 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	10	UMCU	elektrolyten	magnesiumchloride 10%	1	mmol	0.1	mmol/kg	10	ml	0.1	mmol	1 mmol (0,1 mmol/kg)	10 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	10	UMCU	elektrolyten	magnesiumsulfaat 10%	0.8	mmol	0.08	mmol/kg	8	ml	0.1	mmol	0,8 mmol (0,08 mmol/kg)	8 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	10	UMCU	lokaal anesthesie	lidocaine 1%	50	mg	5	mg/kg	5	ml	10	mg	50 mg (5 mg/kg)	5 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -798,7 +798,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	10	UZA	convulsies	midazolam iv	1	mg	0.1	mg/kg	0.2	ml	5	mg	1 mg (0,1 mg/kg)	0,2 ml van 5 mg/ml	0,1 mg/kg
 	10	UZA	convulsies	valproaat	400	mg	40	mg/kg	4	ml	100	mg	400 mg (40 mg/kg)	4 ml van 100 mg/ml	40 mg/kg
 	15		reanimatie	adrenaline	0.15	mg	0.01	mg/kg	1.5	ml	0.1	mg	0,15 mg (0,01 mg/kg)	1,5 ml van 0,1 mg/ml	0,01 mg/kg (max 1.0 mg)
-	15		reanimatie	adrenaline	0.1	mg	0.007	mg/kg	0.1	ml	1	mg	0,1 mg (0,01 mg/kg)	0,1 ml van 1 mg/ml	0,01 mg/kg (max 1.0 mg)
+	15		reanimatie	adrenaline	0.1	mg	0.007	mg/kg	0.1	ml	1	mg	0,1 mg (0,007 mg/kg)	0,1 ml van 1 mg/ml	0,01 mg/kg (max 1.0 mg)
 	15		reanimatie	defibrillatie					70				70 joule		4 joule/kg
 	15		reanimatie	cardioversie					30				30 joule		2 joule/kg
 	15		reanimatie	vaatvulling	150	mL	10	mL/kg	150	ml	1	mL	150 mL (10 mL/kg)	150 ml van 1 mL/ml	10 mL/kg (max 500.0 mL)
@@ -845,12 +845,12 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	15	UMCU	stridor	dexamethason	7.6	mg	0.5	mg/kg	1.9	ml	4	mg	7,6 mg (0,5 mg/kg)	1,9 ml van 4 mg/ml	0,5 mg/kg/dosis, zo nodig herhalen tot max 40 mg/dag
 	15	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	15	UMCU	astma	salbutamol vernevelen	2.5	mg			2.5	ml	1	mg	2,5 mg	2,5 ml van 1 mg/ml	2,5 mg
-	15	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,13 mg/ml	0,25 mg
+	15	UMCU	astma	ipratropium vernevelen	0.25	mg			2	ml	0.125	mg	0,25 mg	2 ml van 0,125 mg/ml	0,25 mg
 	15	UMCU	astma	prednisolon	15	mg	1	mg/kg	1.2	ml	12.5	mg	15 mg (1 mg/kg)	1,2 ml van 12,5 mg/ml	1 mg/kg (max 25.0 mg)
 	15	UMCU	astma	magnesiumsulfaat 10%	600	mg	40	mg/kg	6	ml	100	mg	600 mg (40 mg/kg)	6 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	15	UMCU	astma	salbutamol oplaad	200	microg	13	microg/kg	0.4	ml	500	microg	200 microg (13 microg/kg)	0,4 ml van 500 microg/ml	15 microg/kg
 	15	UMCU	astma	theofylline oplaad	80	mg	5	mg/kg	0.4	ml	200	mg	80 mg (5 mg/kg)	0,4 ml van 200 mg/ml	5 mg/kg
-	15	UMCU	anafylaxie	adrenaline im	0.1	mg	0.007	mg/kg	0.1	ml	1	mg	0,1 mg (0,01 mg/kg)	0,1 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
+	15	UMCU	anafylaxie	adrenaline im	0.1	mg	0.007	mg/kg	0.1	ml	1	mg	0,1 mg (0,007 mg/kg)	0,1 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
 	15	UMCU	anafylaxie	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	15	UMCU	anafylaxie	clemastine	0.8	mg	0.05	mg/kg	0.8	ml	1	mg	0,8 mg (0,05 mg/kg)	0,8 ml van 1 mg/ml	0,05 mg/kg (max 2.0 mg)
 	15	UMCU	anafylaxie	hydrocortison	60	mg	4	mg/kg	6	ml	10	mg	60 mg (4 mg/kg)	6 ml van 10 mg/ml	4 mg/kg (max 100.0 mg)
@@ -866,7 +866,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	15	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	15	gram	1	gram/kg	100	ml	0.15	gram	15 gram (1 gram/kg)	100 ml van 0,15 gram/ml	1 gram/kg
 	15	UMCU	hyperkaliemie	furosemide	15	mg	1	mg/kg	1.5	ml	10	mg	15 mg (1 mg/kg)	1,5 ml van 10 mg/ml	1 mg/kg
 	15	UMCU	hyperkaliemie	NaBic 8.4%	38	mmol	3	mmol/kg	38	ml	1	mmol	38 mmol (3 mmol/kg)	38 ml van 1 mmol/ml	2,5 mmol/kg
-	15	UMCU	hyperkaliemie	calciumgluconaat	2	mg	0.1	mg/kg	8.7	ml	0.225	mg	2 mg (0,1 mg/kg)	8,7 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	15	UMCU	hyperkaliemie	calciumgluconaat	2	mg	0.1	mg/kg	8.7	ml	0.225	mg	2 mg (0,1 mg/kg)	8,7 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	15	UMCU	anticonvulsiva	diazepam rect	7.6	mg	0.5	mg/kg	1.9	ml	4	mg	7,6 mg (0,5 mg/kg)	1,9 ml van 4 mg/ml	0,5 mg/kg
 	15	UMCU	anticonvulsiva	diazepam iv	4	mg	0.3	mg/kg	0.8	ml	5	mg	4 mg (0,3 mg/kg)	0,8 ml van 5 mg/ml	0,25 mg/kg
 	15	UMCU	anticonvulsiva	levetiracetam	600	mg	40	mg/kg	40	ml	15	mg	600 mg (40 mg/kg)	40 ml van 15 mg/ml	in 8 minuten
@@ -885,7 +885,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	15	UMCU	anti-emetica	metoclopramide	1.5	mg	0.1	mg/kg	0.3	ml	5	mg	1,5 mg (0,1 mg/kg)	0,3 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	15	UMCU	elektrolyten	kaliumchloride 7.4% centraal	7.5	mmol	0.5	mmol/kg	15	ml	0.5	mmol	7,5 mmol (0,5 mmol/kg)	15 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	15	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	7.5	mmol	0.5	mmol/kg	94	ml	0.08	mmol	7,5 mmol (0,5 mmol/kg)	94 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	15	UMCU	elektrolyten	calciumgluconaat 10%	2	mmol	0.1	mmol/kg	8.7	ml	0.225	mmol	2 mmol (0,1 mmol/kg)	8,7 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	15	UMCU	elektrolyten	calciumgluconaat 10%	2	mmol	0.1	mmol/kg	8.7	ml	0.225	mmol	2 mmol (0,1 mmol/kg)	8,7 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	15	UMCU	elektrolyten	magnesiumchloride 10%	1.5	mmol	0.1	mmol/kg	15	ml	0.1	mmol	1,5 mmol (0,1 mmol/kg)	15 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	15	UMCU	elektrolyten	magnesiumsulfaat 10%	1.2	mmol	0.08	mmol/kg	12	ml	0.1	mmol	1,2 mmol (0,08 mmol/kg)	12 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	15	UMCU	lokaal anesthesie	lidocaine 1%	75	mg	5	mg/kg	7.5	ml	10	mg	75 mg (5 mg/kg)	7,5 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1005,7 +1005,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	20	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	20	gram	1	gram/kg	133	ml	0.15	gram	20 gram (1 gram/kg)	133 ml van 0,15 gram/ml	1 gram/kg
 	20	UMCU	hyperkaliemie	furosemide	20	mg	1	mg/kg	2	ml	10	mg	20 mg (1 mg/kg)	2 ml van 10 mg/ml	1 mg/kg
 	20	UMCU	hyperkaliemie	NaBic 8.4%	50	mmol	2	mmol/kg	50	ml	1	mmol	50 mmol (2 mmol/kg)	50 ml van 1 mmol/ml	2,5 mmol/kg
-	20	UMCU	hyperkaliemie	calciumgluconaat	2.7	mg	0.1	mg/kg	12	ml	0.225	mg	2,7 mg (0,1 mg/kg)	12 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	20	UMCU	hyperkaliemie	calciumgluconaat	2.7	mg	0.1	mg/kg	12	ml	0.225	mg	2,7 mg (0,1 mg/kg)	12 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	20	UMCU	anticonvulsiva	diazepam rect	10	mg	0.5	mg/kg	2.5	ml	4	mg	10 mg (0,5 mg/kg)	2,5 ml van 4 mg/ml	0,5 mg/kg
 	20	UMCU	anticonvulsiva	diazepam iv	5	mg	0.2	mg/kg	1	ml	5	mg	5 mg (0,2 mg/kg)	1 ml van 5 mg/ml	0,25 mg/kg
 	20	UMCU	anticonvulsiva	levetiracetam	795	mg	40	mg/kg	53	ml	15	mg	795 mg (40 mg/kg)	53 ml van 15 mg/ml	in 8 minuten
@@ -1024,7 +1024,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	20	UMCU	anti-emetica	metoclopramide	2	mg	0.1	mg/kg	0.4	ml	5	mg	2 mg (0,1 mg/kg)	0,4 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	20	UMCU	elektrolyten	kaliumchloride 7.4% centraal	10	mmol	0.5	mmol/kg	20	ml	0.5	mmol	10 mmol (0,5 mmol/kg)	20 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	20	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	10	mmol	0.5	mmol/kg	125	ml	0.08	mmol	10 mmol (0,5 mmol/kg)	125 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	20	UMCU	elektrolyten	calciumgluconaat 10%	2.7	mmol	0.1	mmol/kg	12	ml	0.225	mmol	2,7 mmol (0,1 mmol/kg)	12 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	20	UMCU	elektrolyten	calciumgluconaat 10%	2.7	mmol	0.1	mmol/kg	12	ml	0.225	mmol	2,7 mmol (0,1 mmol/kg)	12 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	20	UMCU	elektrolyten	magnesiumchloride 10%	2	mmol	0.1	mmol/kg	20	ml	0.1	mmol	2 mmol (0,1 mmol/kg)	20 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	20	UMCU	elektrolyten	magnesiumsulfaat 10%	1.6	mmol	0.08	mmol/kg	16	ml	0.1	mmol	1,6 mmol (0,08 mmol/kg)	16 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	20	UMCU	lokaal anesthesie	lidocaine 1%	100	mg	5	mg/kg	10	ml	10	mg	100 mg (5 mg/kg)	10 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1084,7 +1084,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	30		anti-arrythmica	amiodaron 1e keer	150	mg	5	mg/kg	3	ml	50	mg	150 mg (5 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	30		anti-arrythmica	amiodaron 2e keer	150	mg	5	mg/kg	3	ml	50	mg	150 mg (5 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	30		bradycardie	atropine	0.6	mg	0.02	mg/kg	1.2	ml	0.5	mg	0,6 mg (0,02 mg/kg)	1,2 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	30		intoxicatie	flumazenil (Anexate)	0.2	mg	0.007	mg/kg	2	ml	0.1	mg	0,2 mg (0,01 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	30		intoxicatie	flumazenil (Anexate)	0.2	mg	0.007	mg/kg	2	ml	0.1	mg	0,2 mg (0,007 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
 	30		intoxicatie	naloxon	0.3	mg	0.01	mg/kg	15	ml	0.02	mg	0,3 mg (0,01 mg/kg)	15 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
 	30		intoxicatie	naloxon hoge dosering	0.4	mg	0.01	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	30		intoxicatie	sugammadex	120	mg	4	mg/kg	1.2	ml	100	mg	120 mg (4 mg/kg)	1,2 ml van 100 mg/ml	tot 16 mg/kg
@@ -1144,7 +1144,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	30	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	30	gram	1	gram/kg	200	ml	0.15	gram	30 gram (1 gram/kg)	200 ml van 0,15 gram/ml	1 gram/kg
 	30	UMCU	hyperkaliemie	furosemide	30	mg	1	mg/kg	3	ml	10	mg	30 mg (1 mg/kg)	3 ml van 10 mg/ml	1 mg/kg
 	30	UMCU	hyperkaliemie	NaBic 8.4%	75	mmol	2	mmol/kg	75	ml	1	mmol	75 mmol (2 mmol/kg)	75 ml van 1 mmol/ml	2,5 mmol/kg
-	30	UMCU	hyperkaliemie	calciumgluconaat	3.8	mg	0.1	mg/kg	17	ml	0.225	mg	3,8 mg (0,1 mg/kg)	17 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	30	UMCU	hyperkaliemie	calciumgluconaat	3.8	mg	0.1	mg/kg	17	ml	0.225	mg	3,8 mg (0,1 mg/kg)	17 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	30	UMCU	anticonvulsiva	diazepam rect	15	mg	0.5	mg/kg	3.8	ml	4	mg	15 mg (0,5 mg/kg)	3,8 ml van 4 mg/ml	0,5 mg/kg
 	30	UMCU	anticonvulsiva	diazepam iv	7.5	mg	0.2	mg/kg	1.5	ml	5	mg	7,5 mg (0,2 mg/kg)	1,5 ml van 5 mg/ml	0,25 mg/kg
 	30	UMCU	anticonvulsiva	levetiracetam	1200	mg	40	mg/kg	80	ml	15	mg	1 200 mg (40 mg/kg)	80 ml van 15 mg/ml	in 8 minuten
@@ -1163,7 +1163,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	30	UMCU	anti-emetica	metoclopramide	3	mg	0.1	mg/kg	0.6	ml	5	mg	3 mg (0,1 mg/kg)	0,6 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	30	UMCU	elektrolyten	kaliumchloride 7.4% centraal	15	mmol	0.5	mmol/kg	30	ml	0.5	mmol	15 mmol (0,5 mmol/kg)	30 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	30	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	15	mmol	0.5	mmol/kg	188	ml	0.08	mmol	15 mmol (0,5 mmol/kg)	188 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	30	UMCU	elektrolyten	calciumgluconaat 10%	3.8	mmol	0.1	mmol/kg	17	ml	0.225	mmol	3,8 mmol (0,1 mmol/kg)	17 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	30	UMCU	elektrolyten	calciumgluconaat 10%	3.8	mmol	0.1	mmol/kg	17	ml	0.225	mmol	3,8 mmol (0,1 mmol/kg)	17 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	30	UMCU	elektrolyten	magnesiumchloride 10%	3	mmol	0.1	mmol/kg	30	ml	0.1	mmol	3 mmol (0,1 mmol/kg)	30 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	30	UMCU	elektrolyten	magnesiumsulfaat 10%	2.4	mmol	0.08	mmol/kg	24	ml	0.1	mmol	2,4 mmol (0,08 mmol/kg)	24 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	30	UMCU	lokaal anesthesie	lidocaine 1%	150	mg	5	mg/kg	15	ml	10	mg	150 mg (5 mg/kg)	15 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1223,7 +1223,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	40		anti-arrythmica	amiodaron 1e keer	200	mg	5	mg/kg	4	ml	50	mg	200 mg (5 mg/kg)	4 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	40		anti-arrythmica	amiodaron 2e keer	150	mg	4	mg/kg	3	ml	50	mg	150 mg (4 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	40		bradycardie	atropine	0.8	mg	0.02	mg/kg	1.6	ml	0.5	mg	0,8 mg (0,02 mg/kg)	1,6 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	40		intoxicatie	flumazenil (Anexate)	0.2	mg	0.005	mg/kg	2	ml	0.1	mg	0,2 mg (0,01 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	40		intoxicatie	flumazenil (Anexate)	0.2	mg	0.005	mg/kg	2	ml	0.1	mg	0,2 mg (0,005 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
 	40		intoxicatie	naloxon	0.4	mg	0.01	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
 	40		intoxicatie	naloxon hoge dosering	0.4	mg	0.01	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	40		intoxicatie	sugammadex	160	mg	4	mg/kg	1.6	ml	100	mg	160 mg (4 mg/kg)	1,6 ml van 100 mg/ml	tot 16 mg/kg
@@ -1283,7 +1283,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	40	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	40	gram	1	gram/kg	267	ml	0.15	gram	40 gram (1 gram/kg)	267 ml van 0,15 gram/ml	1 gram/kg
 	40	UMCU	hyperkaliemie	furosemide	40	mg	1	mg/kg	4	ml	10	mg	40 mg (1 mg/kg)	4 ml van 10 mg/ml	1 mg/kg
 	40	UMCU	hyperkaliemie	NaBic 8.4%	100	mmol	2	mmol/kg	100	ml	1	mmol	100 mmol (2 mmol/kg)	100 ml van 1 mmol/ml	2,5 mmol/kg
-	40	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.1	mg/kg	20	ml	0.225	mg	4,5 mg (0,1 mg/kg)	20 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	40	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.1	mg/kg	20	ml	0.225	mg	4,5 mg (0,1 mg/kg)	20 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	40	UMCU	anticonvulsiva	diazepam rect	20	mg	0.5	mg/kg	5	ml	4	mg	20 mg (0,5 mg/kg)	5 ml van 4 mg/ml	0,5 mg/kg
 	40	UMCU	anticonvulsiva	diazepam iv	10	mg	0.2	mg/kg	2	ml	5	mg	10 mg (0,2 mg/kg)	2 ml van 5 mg/ml	0,25 mg/kg
 	40	UMCU	anticonvulsiva	levetiracetam	1605	mg	40	mg/kg	107	ml	15	mg	1 605 mg (40 mg/kg)	107 ml van 15 mg/ml	in 8 minuten
@@ -1302,7 +1302,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	40	UMCU	anti-emetica	metoclopramide	4	mg	0.1	mg/kg	0.8	ml	5	mg	4 mg (0,1 mg/kg)	0,8 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	40	UMCU	elektrolyten	kaliumchloride 7.4% centraal	20	mmol	0.5	mmol/kg	40	ml	0.5	mmol	20 mmol (0,5 mmol/kg)	40 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	40	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	20	mmol	0.5	mmol/kg	250	ml	0.08	mmol	20 mmol (0,5 mmol/kg)	250 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	40	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.1	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,1 mmol/kg)	20 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	40	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.1	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,1 mmol/kg)	20 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	40	UMCU	elektrolyten	magnesiumchloride 10%	4	mmol	0.1	mmol/kg	40	ml	0.1	mmol	4 mmol (0,1 mmol/kg)	40 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	40	UMCU	elektrolyten	magnesiumsulfaat 10%	3.2	mmol	0.08	mmol/kg	32	ml	0.1	mmol	3,2 mmol (0,08 mmol/kg)	32 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	40	UMCU	lokaal anesthesie	lidocaine 1%	200	mg	5	mg/kg	20	ml	10	mg	200 mg (5 mg/kg)	20 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1362,9 +1362,9 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	50		anti-arrythmica	amiodaron 1e keer	250	mg	5	mg/kg	5	ml	50	mg	250 mg (5 mg/kg)	5 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	50		anti-arrythmica	amiodaron 2e keer	150	mg	3	mg/kg	3	ml	50	mg	150 mg (3 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	50		bradycardie	atropine	1	mg	0.02	mg/kg	2	ml	0.5	mg	1 mg (0,02 mg/kg)	2 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	50		intoxicatie	flumazenil (Anexate)	0.2	mg	0.004	mg/kg	2	ml	0.1	mg	0,2 mg (0 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
-	50		intoxicatie	naloxon	0.4	mg	0.008	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
-	50		intoxicatie	naloxon hoge dosering	0.4	mg	0.008	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
+	50		intoxicatie	flumazenil (Anexate)	0.2	mg	0.004	mg/kg	2	ml	0.1	mg	0,2 mg (0,004 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	50		intoxicatie	naloxon	0.4	mg	0.008	mg/kg	20	ml	0.02	mg	0,4 mg (0,008 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
+	50		intoxicatie	naloxon hoge dosering	0.4	mg	0.008	mg/kg	20	ml	0.02	mg	0,4 mg (0,008 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	50		intoxicatie	sugammadex	200	mg	4	mg/kg	2	ml	100	mg	200 mg (4 mg/kg)	2 ml van 100 mg/ml	tot 16 mg/kg
 	50		hypoglycemie	glucose 10%	15	gram	0.3	gram/kg	150	ml	0.1	gram	15 gram (0,3 gram/kg)	150 ml van 0,1 gram/ml	0,3 gram/kg (max 25.0 gram)
 	50		hyperkaliemie	insuline in glucose 20%	2.5	E	0.05	E/kg	50	ml	0.05	E	2,5 E (0,05 E/kg)	50 ml van 0,05 E/ml	0.2 mL insuline 100 E/mL + 400 mL gluc 20%
@@ -1422,7 +1422,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	50	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	50	gram	1	gram/kg	333	ml	0.15	gram	50 gram (1 gram/kg)	333 ml van 0,15 gram/ml	1 gram/kg
 	50	UMCU	hyperkaliemie	furosemide	50	mg	1	mg/kg	5	ml	10	mg	50 mg (1 mg/kg)	5 ml van 10 mg/ml	1 mg/kg
 	50	UMCU	hyperkaliemie	NaBic 8.4%	125	mmol	2	mmol/kg	125	ml	1	mmol	125 mmol (2 mmol/kg)	125 ml van 1 mmol/ml	2,5 mmol/kg
-	50	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.09	mg/kg	20	ml	0.225	mg	4,5 mg (0,09 mg/kg)	20 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	50	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.09	mg/kg	20	ml	0.225	mg	4,5 mg (0,09 mg/kg)	20 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	50	UMCU	anticonvulsiva	diazepam rect	25	mg	0.5	mg/kg	6.2	ml	4	mg	25 mg (0,5 mg/kg)	6,2 ml van 4 mg/ml	0,5 mg/kg
 	50	UMCU	anticonvulsiva	diazepam iv	12	mg	0.2	mg/kg	2.5	ml	5	mg	12 mg (0,2 mg/kg)	2,5 ml van 5 mg/ml	0,25 mg/kg
 	50	UMCU	anticonvulsiva	levetiracetam	1995	mg	40	mg/kg	133	ml	15	mg	1 995 mg (40 mg/kg)	133 ml van 15 mg/ml	in 8 minuten
@@ -1441,7 +1441,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	50	UMCU	anti-emetica	metoclopramide	5	mg	0.1	mg/kg	1	ml	5	mg	5 mg (0,1 mg/kg)	1 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	50	UMCU	elektrolyten	kaliumchloride 7.4% centraal	25	mmol	0.5	mmol/kg	50	ml	0.5	mmol	25 mmol (0,5 mmol/kg)	50 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	50	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	25	mmol	0.5	mmol/kg	312	ml	0.08	mmol	25 mmol (0,5 mmol/kg)	312 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	50	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.09	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,09 mmol/kg)	20 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	50	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.09	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,09 mmol/kg)	20 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	50	UMCU	elektrolyten	magnesiumchloride 10%	5	mmol	0.1	mmol/kg	50	ml	0.1	mmol	5 mmol (0,1 mmol/kg)	50 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	50	UMCU	elektrolyten	magnesiumsulfaat 10%	4	mmol	0.08	mmol/kg	40	ml	0.1	mmol	4 mmol (0,08 mmol/kg)	40 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	50	UMCU	lokaal anesthesie	lidocaine 1%	200	mg	4	mg/kg	20	ml	10	mg	200 mg (4 mg/kg)	20 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1501,9 +1501,9 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	70		anti-arrythmica	amiodaron 1e keer	300	mg	4	mg/kg	6	ml	50	mg	300 mg (4 mg/kg)	6 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	70		anti-arrythmica	amiodaron 2e keer	150	mg	2	mg/kg	3	ml	50	mg	150 mg (2 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	70		bradycardie	atropine	1	mg	0.01	mg/kg	2	ml	0.5	mg	1 mg (0,01 mg/kg)	2 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	70		intoxicatie	flumazenil (Anexate)	0.2	mg	0.003	mg/kg	2	ml	0.1	mg	0,2 mg (0 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
-	70		intoxicatie	naloxon	0.4	mg	0.006	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
-	70		intoxicatie	naloxon hoge dosering	0.4	mg	0.006	mg/kg	20	ml	0.02	mg	0,4 mg (0,01 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
+	70		intoxicatie	flumazenil (Anexate)	0.2	mg	0.003	mg/kg	2	ml	0.1	mg	0,2 mg (0,003 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	70		intoxicatie	naloxon	0.4	mg	0.006	mg/kg	20	ml	0.02	mg	0,4 mg (0,006 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
+	70		intoxicatie	naloxon hoge dosering	0.4	mg	0.006	mg/kg	20	ml	0.02	mg	0,4 mg (0,006 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	70		intoxicatie	sugammadex	280	mg	4	mg/kg	2.8	ml	100	mg	280 mg (4 mg/kg)	2,8 ml van 100 mg/ml	tot 16 mg/kg
 	70		hypoglycemie	glucose 10%	21	gram	0.3	gram/kg	210	ml	0.1	gram	21 gram (0,3 gram/kg)	210 ml van 0,1 gram/ml	0,3 gram/kg (max 25.0 gram)
 	70		hyperkaliemie	insuline in glucose 20%	3.5	E	0.05	E/kg	70	ml	0.05	E	3,5 E (0,05 E/kg)	70 ml van 0,05 E/ml	0.2 mL insuline 100 E/mL + 400 mL gluc 20%
@@ -1536,7 +1536,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	70	UMCU	intubatie	fentanyl	50	microg	0.7	microg/kg	1	ml	50	microg	50 microg (0,7 microg/kg)	1 ml van 50 microg/ml	1 microg/kg (max 50.0 microg)
 	70	UMCU	intubatie	morfine	7	mg	0.1	mg/kg	7	ml	1	mg	7 mg (0,1 mg/kg)	7 ml van 1 mg/ml	0,1 mg/kg (max 10.0 mg)
 	70	UMCU	intubatie	rocuronium	10	mg	0.1	mg/kg	1	ml	10	mg	10 mg (0,1 mg/kg)	1 ml van 10 mg/ml	1 mg/kg (max 10.0 mg)
-	70	UMCU	intubatie	atropine	0.5	mg	0.007	mg/kg	1	ml	0.5	mg	0,5 mg (0,01 mg/kg)	1 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 0.5 mg)
+	70	UMCU	intubatie	atropine	0.5	mg	0.007	mg/kg	1	ml	0.5	mg	0,5 mg (0,007 mg/kg)	1 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 0.5 mg)
 	70	UMCU	stridor	dexamethason	20	mg	0.3	mg/kg	5	ml	4	mg	20 mg (0,3 mg/kg)	5 ml van 4 mg/ml	20 mg/dosis, zo nodig 1 x herhalen
 	70	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	70	UMCU	astma	salbutamol vernevelen	5	mg			1	ml	5	mg	5 mg	1 ml van 5 mg/ml	5 mg
@@ -1545,7 +1545,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	70	UMCU	astma	magnesiumsulfaat 10%	2000	mg	29	mg/kg	20	ml	100	mg	2 000 mg (29 mg/kg)	20 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	70	UMCU	astma	salbutamol oplaad	1050	microg	15	microg/kg	2.1	ml	500	microg	1 050 microg (15 microg/kg)	2,1 ml van 500 microg/ml	15 microg/kg
 	70	UMCU	astma	theofylline oplaad	360	mg	5	mg/kg	1.8	ml	200	mg	360 mg (5 mg/kg)	1,8 ml van 200 mg/ml	5 mg/kg
-	70	UMCU	anafylaxie	adrenaline im	0.5	mg	0.007	mg/kg	0.5	ml	1	mg	0,5 mg (0,01 mg/kg)	0,5 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
+	70	UMCU	anafylaxie	adrenaline im	0.5	mg	0.007	mg/kg	0.5	ml	1	mg	0,5 mg (0,007 mg/kg)	0,5 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
 	70	UMCU	anafylaxie	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	70	UMCU	anafylaxie	clemastine	2	mg	0.03	mg/kg	2	ml	1	mg	2 mg (0,03 mg/kg)	2 ml van 1 mg/ml	0,05 mg/kg (max 2.0 mg)
 	70	UMCU	anafylaxie	hydrocortison	100	mg	1	mg/kg	10	ml	10	mg	100 mg (1 mg/kg)	10 ml van 10 mg/ml	4 mg/kg (max 100.0 mg)
@@ -1561,7 +1561,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	70	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	70	gram	1	gram/kg	467	ml	0.15	gram	70 gram (1 gram/kg)	467 ml van 0,15 gram/ml	1 gram/kg
 	70	UMCU	hyperkaliemie	furosemide	70	mg	1	mg/kg	7	ml	10	mg	70 mg (1 mg/kg)	7 ml van 10 mg/ml	1 mg/kg
 	70	UMCU	hyperkaliemie	NaBic 8.4%	175	mmol	2	mmol/kg	175	ml	1	mmol	175 mmol (2 mmol/kg)	175 ml van 1 mmol/ml	2,5 mmol/kg
-	70	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.06	mg/kg	20	ml	0.225	mg	4,5 mg (0,06 mg/kg)	20 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	70	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.06	mg/kg	20	ml	0.225	mg	4,5 mg (0,06 mg/kg)	20 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	70	UMCU	anticonvulsiva	diazepam rect	35	mg	0.5	mg/kg	8.8	ml	4	mg	35 mg (0,5 mg/kg)	8,8 ml van 4 mg/ml	0,5 mg/kg
 	70	UMCU	anticonvulsiva	diazepam iv	18	mg	0.3	mg/kg	3.5	ml	5	mg	18 mg (0,3 mg/kg)	3,5 ml van 5 mg/ml	0,25 mg/kg
 	70	UMCU	anticonvulsiva	levetiracetam	2805	mg	40	mg/kg	187	ml	15	mg	2 805 mg (40 mg/kg)	187 ml van 15 mg/ml	in 8 minuten
@@ -1580,7 +1580,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	70	UMCU	anti-emetica	metoclopramide	7	mg	0.1	mg/kg	1.4	ml	5	mg	7 mg (0,1 mg/kg)	1,4 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	70	UMCU	elektrolyten	kaliumchloride 7.4% centraal	35	mmol	0.5	mmol/kg	70	ml	0.5	mmol	35 mmol (0,5 mmol/kg)	70 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	70	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	35	mmol	0.5	mmol/kg	438	ml	0.08	mmol	35 mmol (0,5 mmol/kg)	438 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	70	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.06	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,06 mmol/kg)	20 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	70	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.06	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,06 mmol/kg)	20 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	70	UMCU	elektrolyten	magnesiumchloride 10%	7	mmol	0.1	mmol/kg	70	ml	0.1	mmol	7 mmol (0,1 mmol/kg)	70 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	70	UMCU	elektrolyten	magnesiumsulfaat 10%	5.6	mmol	0.08	mmol/kg	56	ml	0.1	mmol	5,6 mmol (0,08 mmol/kg)	56 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	70	UMCU	lokaal anesthesie	lidocaine 1%	200	mg	3	mg/kg	20	ml	10	mg	200 mg (3 mg/kg)	20 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)
@@ -1640,9 +1640,9 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	100		anti-arrythmica	amiodaron 1e keer	300	mg	3	mg/kg	6	ml	50	mg	300 mg (3 mg/kg)	6 ml van 50 mg/ml	5 mg/kg (max 300.0 mg)
 	100		anti-arrythmica	amiodaron 2e keer	150	mg	2	mg/kg	3	ml	50	mg	150 mg (2 mg/kg)	3 ml van 50 mg/ml	5 mg/kg (max 150.0 mg)
 	100		bradycardie	atropine	1	mg	0.01	mg/kg	2	ml	0.5	mg	1 mg (0,01 mg/kg)	2 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 1.0 mg)
-	100		intoxicatie	flumazenil (Anexate)	0.2	mg	0.002	mg/kg	2	ml	0.1	mg	0,2 mg (0 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
-	100		intoxicatie	naloxon	0.4	mg	0.004	mg/kg	20	ml	0.02	mg	0,4 mg (0 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
-	100		intoxicatie	naloxon hoge dosering	0.4	mg	0.004	mg/kg	20	ml	0.02	mg	0,4 mg (0 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
+	100		intoxicatie	flumazenil (Anexate)	0.2	mg	0.002	mg/kg	2	ml	0.1	mg	0,2 mg (0,002 mg/kg)	2 ml van 0,1 mg/ml	0,01 mg/kg (max 0,2 mg) herhaal tot maximale totaaldosering van 1 mg.
+	100		intoxicatie	naloxon	0.4	mg	0.004	mg/kg	20	ml	0.02	mg	0,4 mg (0,004 mg/kg)	20 ml van 0,02 mg/ml	0,01 mg/kg (max 0.4 mg)
+	100		intoxicatie	naloxon hoge dosering	0.4	mg	0.004	mg/kg	20	ml	0.02	mg	0,4 mg (0,004 mg/kg)	20 ml van 0,02 mg/ml	0,1 mg/kg (max 0.4 mg)
 	100		intoxicatie	sugammadex	400	mg	4	mg/kg	4	ml	100	mg	400 mg (4 mg/kg)	4 ml van 100 mg/ml	tot 16 mg/kg
 	100		hypoglycemie	glucose 10%	25	gram	0.2	gram/kg	250	ml	0.1	gram	25 gram (0,2 gram/kg)	250 ml van 0,1 gram/ml	0,3 gram/kg (max 25.0 gram)
 	100		hyperkaliemie	insuline in glucose 20%	5	E	0.05	E/kg	100	ml	0.05	E	5 E (0,05 E/kg)	100 ml van 0,05 E/ml	0.2 mL insuline 100 E/mL + 400 mL gluc 20%
@@ -1675,7 +1675,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	100	UMCU	intubatie	fentanyl	50	microg	0.5	microg/kg	1	ml	50	microg	50 microg (0,5 microg/kg)	1 ml van 50 microg/ml	1 microg/kg (max 50.0 microg)
 	100	UMCU	intubatie	morfine	10	mg	0.1	mg/kg	10	ml	1	mg	10 mg (0,1 mg/kg)	10 ml van 1 mg/ml	0,1 mg/kg (max 10.0 mg)
 	100	UMCU	intubatie	rocuronium	10	mg	0.1	mg/kg	1	ml	10	mg	10 mg (0,1 mg/kg)	1 ml van 10 mg/ml	1 mg/kg (max 10.0 mg)
-	100	UMCU	intubatie	atropine	0.5	mg	0.005	mg/kg	1	ml	0.5	mg	0,5 mg (0,01 mg/kg)	1 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 0.5 mg)
+	100	UMCU	intubatie	atropine	0.5	mg	0.005	mg/kg	1	ml	0.5	mg	0,5 mg (0,005 mg/kg)	1 ml van 0,5 mg/ml	0,02 mg/kg (0.1 - 0.5 mg)
 	100	UMCU	stridor	dexamethason	20	mg	0.2	mg/kg	5	ml	4	mg	20 mg (0,2 mg/kg)	5 ml van 4 mg/ml	20 mg/dosis, zo nodig 1 x herhalen
 	100	UMCU	stridor	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	100	UMCU	astma	salbutamol vernevelen	5	mg			1	ml	5	mg	5 mg	1 ml van 5 mg/ml	5 mg
@@ -1684,7 +1684,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	100	UMCU	astma	magnesiumsulfaat 10%	2000	mg	20	mg/kg	20	ml	100	mg	2 000 mg (20 mg/kg)	20 ml van 100 mg/ml	40 mg/kg (max 2000.0 mg)
 	100	UMCU	astma	salbutamol oplaad	1500	microg	15	microg/kg	3	ml	500	microg	1 500 microg (15 microg/kg)	3 ml van 500 microg/ml	15 microg/kg
 	100	UMCU	astma	theofylline oplaad	500	mg	5	mg/kg	2.5	ml	200	mg	500 mg (5 mg/kg)	2,5 ml van 200 mg/ml	5 mg/kg
-	100	UMCU	anafylaxie	adrenaline im	0.5	mg	0.005	mg/kg	0.5	ml	1	mg	0,5 mg (0,01 mg/kg)	0,5 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
+	100	UMCU	anafylaxie	adrenaline im	0.5	mg	0.005	mg/kg	0.5	ml	1	mg	0,5 mg (0,005 mg/kg)	0,5 ml van 1 mg/ml	0,01 mg/kg (max 0.5 mg)
 	100	UMCU	anafylaxie	adrenaline vernevelen	5	mg			5	ml	1	mg	5 mg	5 ml van 1 mg/ml	5 mg/keer
 	100	UMCU	anafylaxie	clemastine	2	mg	0.02	mg/kg	2	ml	1	mg	2 mg (0,02 mg/kg)	2 ml van 1 mg/ml	0,05 mg/kg (max 2.0 mg)
 	100	UMCU	anafylaxie	hydrocortison	100	mg	1	mg/kg	10	ml	10	mg	100 mg (1 mg/kg)	10 ml van 10 mg/ml	4 mg/kg (max 100.0 mg)
@@ -1700,7 +1700,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	100	UMCU	hyperkaliemie	resonium (polystyreensulfonzuur) klysma	100	gram	1	gram/kg	667	ml	0.15	gram	100 gram (1 gram/kg)	667 ml van 0,15 gram/ml	1 gram/kg
 	100	UMCU	hyperkaliemie	furosemide	100	mg	1	mg/kg	10	ml	10	mg	100 mg (1 mg/kg)	10 ml van 10 mg/ml	1 mg/kg
 	100	UMCU	hyperkaliemie	NaBic 8.4%	250	mmol	2	mmol/kg	250	ml	1	mmol	250 mmol (2 mmol/kg)	250 ml van 1 mmol/ml	2,5 mmol/kg
-	100	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.04	mg/kg	20	ml	0.225	mg	4,5 mg (0,04 mg/kg)	20 ml van 0,23 mg/ml	0,13 mg/kg (max 4.5 mg)
+	100	UMCU	hyperkaliemie	calciumgluconaat	4.5	mg	0.04	mg/kg	20	ml	0.225	mg	4,5 mg (0,04 mg/kg)	20 ml van 0,225 mg/ml	0,13 mg/kg (max 4.5 mg)
 	100	UMCU	anticonvulsiva	diazepam rect	48	mg	0.5	mg/kg	12	ml	4	mg	48 mg (0,5 mg/kg)	12 ml van 4 mg/ml	0,5 mg/kg
 	100	UMCU	anticonvulsiva	diazepam iv	25	mg	0.2	mg/kg	5	ml	5	mg	25 mg (0,2 mg/kg)	5 ml van 5 mg/ml	0,25 mg/kg
 	100	UMCU	anticonvulsiva	levetiracetam	4005	mg	40	mg/kg	267	ml	15	mg	4 005 mg (40 mg/kg)	267 ml van 15 mg/ml	in 8 minuten
@@ -1719,7 +1719,7 @@ age	weight	hospital	category	name	substanceDose	substanceDoseUnit	substanceDoseA
 	100	UMCU	anti-emetica	metoclopramide	10	mg	0.1	mg/kg	2	ml	5	mg	10 mg (0,1 mg/kg)	2 ml van 5 mg/ml	0,1 mg/kg (max 10.0 mg)
 	100	UMCU	elektrolyten	kaliumchloride 7.4% centraal	40	mmol	0.4	mmol/kg	80	ml	0.5	mmol	40 mmol (0,4 mmol/kg)	80 ml van 0,5 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
 	100	UMCU	elektrolyten	kaliumchloride 7.4% perifeer	40	mmol	0.4	mmol/kg	500	ml	0.08	mmol	40 mmol (0,4 mmol/kg)	500 ml van 0,08 mmol/ml	0,5 mmol/kg (max 40.0 mmol)
-	100	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.04	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,04 mmol/kg)	20 ml van 0,23 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
+	100	UMCU	elektrolyten	calciumgluconaat 10%	4.5	mmol	0.04	mmol/kg	20	ml	0.225	mmol	4,5 mmol (0,04 mmol/kg)	20 ml van 0,225 mmol/ml	0,13 mmol/kg (max 4.5 mmol)
 	100	UMCU	elektrolyten	magnesiumchloride 10%	10	mmol	0.1	mmol/kg	100	ml	0.1	mmol	10 mmol (0,1 mmol/kg)	100 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	100	UMCU	elektrolyten	magnesiumsulfaat 10%	8	mmol	0.08	mmol/kg	80	ml	0.1	mmol	8 mmol (0,08 mmol/kg)	80 ml van 0,1 mmol/ml	verdunning tot 1:4 met NaCl of gluc 10%
 	100	UMCU	lokaal anesthesie	lidocaine 1%	200	mg	2	mg/kg	20	ml	10	mg	200 mg (2 mg/kg)	20 ml van 10 mg/ml	5 mg/kg (max 200.0 mg)

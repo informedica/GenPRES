@@ -1,9 +1,8 @@
 namespace Components
 
 
-/// The heading of a section of a form: a line across, with the section's name on it in small
-/// type, and beside the name an action when the section has one, such as removing it. The name
-/// is the caller's, resolved where its terms are.
+/// The heading of a form section: a line across with the section name on it in small type, and
+/// an optional action beside the name, such as a remove button. The caller gives the translated name.
 module SectionHeading =
 
 
@@ -11,7 +10,7 @@ module SectionHeading =
     open Feliz
 
 
-    /// The heading: the section's name, and an action beside it when there is one.
+    /// The section name, and an optional action beside it.
     type Props =
         {|
             label: string

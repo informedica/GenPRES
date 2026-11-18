@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides what the TPN intake slider shows and when the nutrition slot moves the dose of a composed
-/// TPN to the whole orderable by itself.
+/// Decides what the TPN intake slider shows, and when the nutrition slot sets the dose of a composed TPN
+/// to 100% of the orderable.
 module IntakePolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -18,7 +18,7 @@ module IntakePolicy =
         | Wait
 
 
-    /// The one value of an order variable, when it holds one.
+    /// Returns the value of an order variable that has a single value, else None.
     let singleValue (ovar: OrderVariable) =
         ovar.Variable.Vals
         |> Option.bind (fun vu ->
@@ -28,24 +28,25 @@ module IntakePolicy =
         )
 
 
-    /// The value of each component orderable quantity of an order, when it holds one.
+    /// Returns the single value of each component orderable quantity of an order, or None per component.
     let composition (ord: Order) =
         ord.Orderable.Components |> Array.map (_.OrderableQuantity >> singleValue)
 
 
-    /// Whether every component quantity of an order holds one value: the user has set the composition.
+    /// Whether every component quantity of an order has a single value, meaning the composition is set.
     let isComposed (ord: Order) = ord |> composition |> Array.forall Option.isSome
 
 
-    /// The share of the total the dose quantity is, in percent, when both hold one value.
+    /// Returns the dose quantity as a percentage of the orderable quantity, when both have a single value
+    /// and the orderable quantity is positive.
     let doseShare (ord: Order) =
         match ord.Orderable.Dose.Quantity |> singleValue, ord.Orderable.OrderableQuantity |> singleValue with
         | Some dose, Some total when total > 0m -> Some(dose / total * 100m)
         | _ -> None
 
 
-    /// The step of the intake slider a share is, to the nearest whole percent: a multiple of ten from 10
-    /// to 100.
+    /// Returns the intake slider step for a share rounded to a whole percent, when it is a multiple of ten
+    /// from 10 to 100.
     let sliderStep (share: decimal) =
         let pct = System.Math.Round share |> int
 
@@ -55,19 +56,19 @@ module IntakePolicy =
             None
 
 
-    /// Whether the intake slider can set the dose: the order is composed and its dose count holds one
+    /// Whether the intake slider can set the dose: the order is composed and its dose count has a single
     /// value.
     let canSetDoseQuantityPerc (ord: Order) =
         ord |> isComposed && ord.Orderable.DoseCount |> singleValue |> Option.isSome
 
 
-    /// Whether the composition is locked: the dose is a part of the total.
+    /// Whether the composition is locked because the dose is less than 100% of the orderable quantity.
     let isCompositionLocked (ord: Order) = ord |> doseShare |> Option.exists (fun share -> share < 100m)
 
 
-    /// What the slot does with a TPN order that arrived, given the order the move to 100% was last sent
-    /// for. A move the server cannot make returns the same order unchanged, so it is sent once per order
-    /// and composition, which stops a loop.
+    /// Decides what the slot does with an arriving TPN order, given the order and composition the move to
+    /// 100% was last sent for. The move is sent once per order and composition: a move the server cannot
+    /// make returns the order unchanged, and sending it again would loop.
     let start (sentFor: (string * decimal option[]) option) (ord: Order) =
         let key = ord.Id, ord |> composition
 

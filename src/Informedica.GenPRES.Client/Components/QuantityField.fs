@@ -1,15 +1,13 @@
 namespace Components
 
 
-/// One quantity of an order as the user sees and moves it: the value picked from what the
-/// rules allow, its severity marked on it, the step buttons beside it, and the value the
-/// steps predict shown while the server answers. The field renders one entry of a list its
-/// caller orders; it knows neither where it stands nor what the other fields are.
+/// One quantity of an order as a select with step buttons and a severity mark. While the server
+/// answers, the field shows the value that the step clicks predict. The field does not know the
+/// other fields of its list.
 ///
-/// The field is one row of five slots, whatever its mode: four button slots around the value.
-/// A slot without a button in the current mode is hidden, not left out, so a change of mode
-/// keeps the value and the buttons where they were on screen. A value whose large step is its
-/// small step is the exception: it never has outer buttons, so it leaves their slots out.
+/// The field is one row with four button slots around the value. A slot without a button in the
+/// current mode is hidden, not removed, so a change of mode keeps the value and the buttons in
+/// place. A stepable value without a large step has no outer slots.
 module QuantityField =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -22,10 +20,10 @@ module QuantityField =
     open Informedica.GenPRES.Shared
 
 
-    /// The steps a value offers and what a click does; absent steps draw disabled. The
-    /// prediction maps counted small and large clicks to the key and label the value would
-    /// have, so the field can show it before the server confirms. A value whose large step is its
-    /// small step has no large step: a stepable field then shows only the inner buttons.
+    /// The step handlers of a value; a missing handler draws a disabled button. The step function
+    /// maps the counted small and large clicks to the key and label the value would get, so the
+    /// field can show it before the server answers. When the large step equals the small step,
+    /// hasLarge is false and a stepable field shows only the inner buttons.
     type Steps =
         {|
             step: (int * int -> string * string) option
@@ -40,9 +38,9 @@ module QuantityField =
         |}
 
 
-    /// The texts the field shows in the user's language: what an empty value asks, what a
-    /// click on a range does, and the hover texts of the four button slots, from left to right,
-    /// where the field picks from a range and where it steps one value.
+    /// The texts of the field in the language of the user: the placeholder of an empty value, the
+    /// hover text of a range that picks its median, and the hover texts of the four button slots
+    /// from left to right, for a navigable and for a stepable field.
     type Texts =
         {|
             pickValue: string
@@ -64,10 +62,9 @@ module QuantityField =
         | Fixed
 
 
-    /// Where the answer to the clicks a field sent is: none awaited, the clicks sent, or their
-    /// request out. The field knows the request is out by its own disabled, which its caller sets
-    /// while a request of the page is out, and only then; a field the caller disables for another
-    /// reason meanwhile keeps its predicted value until the value changes.
+    /// The state of the answer to the step clicks a field sent: nothing awaited, the clicks sent,
+    /// or their request running. The field takes its disabled flag as the sign that the request
+    /// runs, because the caller disables the field while a page request runs.
     [<RequireQualifiedAccess>]
     type Answer =
         | Idle
@@ -75,9 +72,9 @@ module QuantityField =
         | Out
 
 
-    /// The field: its label, the values allowed and the one chosen, what choosing does, how
-    /// the value may be moved, whether it can be cleared, its severity, and whether it is the
-    /// field the user is pointed at first.
+    /// The label, the allowed values and the selected one, the change handler, the mode, the texts,
+    /// whether the value can be cleared, the severity, and whether this is the lead field that the
+    /// user should look at first.
     type Props =
         {|
             label: string
@@ -87,18 +84,19 @@ module QuantityField =
             mode: Mode
             texts: Texts
             hasClear: bool
-            // a field whose list cannot be opened: a value only shown, or one the solver determined
+            // the list cannot be opened: the value is only shown, or the solver has determined it
             readOnly: bool
-            // a field with one value: selecting it recalculates it and the list shows the answer
+            // for a field with one value: opening the list recalculates the field first, and the
+            // list shows the result
             reCalc: (unit -> unit) option
-            // the list of a recalculation closed without a pick
+            // called when the list of a recalculation closes without a pick
             restore: unit -> unit
-            // a request of the page under way: the field is not recalculated meanwhile
+            // a page request runs, so the field does not start a recalculation
             busy: bool
             disabled: bool
             isLoading: bool
             severity: Severity
-            // why the value is marked, as the caller words it; shown on hover
+            // the reason for the severity mark, shown on hover
             reason: string option
             minWidth: int option
             isLead: bool
@@ -113,15 +111,14 @@ module QuantityField =
     let markWidth = 28
     // the least width the value cell keeps, so a value stays readable in a narrow row
     let valueMinWidth = 120
-    // the least width of a field that keeps its button slots, and of one that drops them
+    // the least width of a field with all four button slots
     let fieldWidth = 4 * slotWidth + markWidth + valueMinWidth
-    // the least width of a field with only the inner buttons
+    // the least widths of a field with only the inner buttons and of a field without buttons
     let fieldWidthInnerSlots = 2 * slotWidth + markWidth + valueMinWidth
     let fieldWidthWithoutSlots = markWidth + valueMinWidth
 
 
-    // the label above the group; the field the user is pointed at first carries the accent on
-    // its left
+    // The label sits above the group. The lead field has an accent border on its left.
     let fieldSx (minWidth: int) (isLead: bool) =
         {|
             display = "flex"
@@ -191,8 +188,8 @@ module QuantityField =
         |}
 
 
-    // The value cell: the select without its own label and underline, since the label stands
-    // above the group and the cell draws the border; the border shows the focus instead.
+    // The value cell shows the select without its own label and underline, because the label sits
+    // above the group and the cell draws the border, which also shows the focus.
     let valueSx (hasButtons: bool) =
         {| cellSx false (if hasButtons then "0" else "4px") with
             minWidth = 0
@@ -212,15 +209,15 @@ module QuantityField =
                     padding = "0 8px"
                     borderRadius = 0
                 |}
-            // the value text stands in the middle of the cell whatever the select's own styling
-            // with the cross shown the dropdown arrow is hidden, so its room goes to the value,
-            // and the cross is a compact button: both fit a narrow cell without being cut off
+            // With the clear button shown the dropdown arrow is hidden and its room goes to the
+            // value. The clear button is compact, so both fit a narrow cell without being cut off.
             ``&& .MuiInputBase-adornedEnd .MuiSelect-select`` = {| paddingRight = 0 |}
             ``&& .MuiInputBase-root > .MuiIconButton-root`` =
                 {|
                     padding = "4px"
                     flexShrink = 0
                 |}
+            // the value text stands in the middle of the cell, whatever the own styling of the select
             ``&& .MuiSelect-select`` =
                 {|
                     display = "flex"
@@ -240,9 +237,8 @@ module QuantityField =
     let innerLabelSx = {| paddingLeft = $"%i{slotWidth + 8}px" |}
 
 
-    // For a container where a field without buttons never gets any, so dropping its hidden
-    // slots moves nothing: such a field gives their width to its value, and its label moves
-    // along with the value.
+    // For a container in which a field without buttons never gets any. The hidden slots of such a
+    // field are removed, its value takes their width and its label moves with the value.
     let dropUnusedSlotsSx =
         {|
             ``& [data-buttons="none"]`` = {| minWidth = $"%i{fieldWidthWithoutSlots}px" |}
@@ -272,7 +268,7 @@ module QuantityField =
         |}
 
 
-    // the range that picks its median on a click shows the hand, as a button does
+    // a range that picks its median on a click shows the pointer cursor of a button
     let medianSx =
         {| growSx with
             cursor = "pointer"
@@ -299,9 +295,9 @@ module QuantityField =
         """
 
 
-    // A step button: disabled when the step is not offered; with debounce a counting button,
-    // which repeats while held, shows the field's count on a badge and predicts each click, and
-    // the field sends the clicks; otherwise a plain button that sends one step per click.
+    // A step button, disabled when the step is not offered. With debounce it is a counting button
+    // that repeats while held, shows the count on a badge and predicts each click, and the field
+    // sends the counted clicks. Otherwise it is a plain button that sends one step per click.
     let stepButton disabled useDebounce count (step: (int -> unit) option) (onStep: unit -> unit) icon =
         match step with
         | None -> plainButton true ignore icon
@@ -370,10 +366,10 @@ module QuantityField =
         // would briefly show newServerValue + staleDelta × increment.
         React.useLayoutEffect (reset, [| box valueKey |])
 
-        // the answer to the clicks sent has landed once the field, disabled while their request is
-        // out, is enabled again; only then the prediction goes, also when the answer repeats the
-        // value. Right after the send the request may not be out yet, so the field first waits for
-        // the disable
+        // The answer to the sent clicks has arrived when the field, disabled while their request
+        // runs, is enabled again. Only then the prediction is cleared, also when the answer repeats
+        // the value. Right after sending, the request may not run yet, so the field first waits
+        // until it is disabled.
         let awaiting = React.useRef Answer.Idle
 
         React.useLayoutEffect (
@@ -388,8 +384,8 @@ module QuantityField =
             [| box props.disabled |]
         )
 
-        // while another field counts its clicks this one is disabled; the field counting stays
-        // enabled, and tells the App when it starts and when it has sent its clicks
+        // While another field counts its clicks this field is disabled. The counting field stays
+        // enabled and reports to the App when it starts counting and when it has sent its clicks.
         let counting = React.useContext Global.counting
         let selfCounting, setSelfCounting = React.useState false
         let report = React.useRef counting.Report
@@ -421,12 +417,12 @@ module QuantityField =
                 largeRef.current <- next
                 setLargeDelta next
 
-        // the clicks of all four arrows go out as one command for their net count, 700 ms after
-        // the last click, so that no click is lost to the request of another arrow. Meanwhile
-        // every other field and the page wait, so nothing else is out when the clicks go
+        // The clicks of all four buttons are sent as one command for their net count, 700 ms after
+        // the last click, so no click is lost to the request of another button. Meanwhile the other
+        // fields and the page wait, so no other request runs when the clicks are sent.
         let timerRef = React.useRef (None: int option)
 
-        // a field unmounted while it counts drops its clicks, and the count ends
+        // a field unmounted while counting drops its clicks and reports that counting has ended
         React.useEffect (
             (fun () ->
                 fun () ->
@@ -489,8 +485,8 @@ module QuantityField =
             |> Option.defaultValue false
 
         // A navigable field that shows its range picks the median on a click or on Enter or
-        // Space; the dropdown, which would hold the range alone, does not open. A click on the
-        // cross still clears the value.
+        // Space; the dropdown, which would list only the range, does not open. A click on the
+        // clear button still clears the value.
         let median =
             match props.mode, props.values with
             | Navigable steps, [| ("range", _) |] when not disabled -> steps.median
@@ -509,7 +505,7 @@ module QuantityField =
                     hasClear = props.hasClear
                     canStep = canStep
                     severity = props.severity
-                    // the minimum is the field's; the select takes the column the slots leave
+                    // the field sets the minimum width; the select takes the column the slots leave
                     minWidth = None
                     description = median |> Option.map (fun _ -> props.texts.pickMedian)
                     reCalc = props.reCalc
@@ -519,7 +515,7 @@ module QuantityField =
                     placeholderValue = None
                 |}
 
-        // the step buttons rest while the field is disabled, as while a request runs
+        // the step buttons are disabled while the field is disabled, such as while a request runs
         let hasButtons, (title1, title2, title4, title5), (icon1, icon2, icon4, icon5) =
             match props.mode with
             | Navigable _ ->
@@ -543,14 +539,15 @@ module QuantityField =
                  Mui.Icons.Add,
                  large "+" Mui.Icons.KeyboardDoubleArrowRightIcon)
 
-        // a pair rests while the other pair holds clicks, so the field's clicks are one pair's
+        // one pair of buttons is disabled while the other pair has counted clicks, so the counted
+        // clicks of a field come from one pair
         let button pair count (pick: Steps -> (int -> unit) option) bump icon =
             let useDebounce = steps |> Option.exists _.useDebounce
             let rests = disabled || StepPolicy.rests pair smallDelta largeDelta
             stepButton rests useDebounce count (steps |> Option.bind pick) (counted bump) icon
 
         // a stepable value without a large step leaves out the outer slots, which would step the
-        // same as the inner ones; the inner buttons then close the group
+        // same as the inner ones; the inner buttons then get the rounded ends of the group
         let hasOuter =
             match props.mode with
             | Stepable steps -> steps.hasLarge
@@ -593,8 +590,6 @@ module QuantityField =
             |> Option.defaultValue 150
             |> max (if hasOuter then fieldWidth else fieldWidthInnerSlots)
 
-        // the caption is not the select's own label, so a click on it moves the focus to the
-        // select, as a click on a label does
         // read by a container that drops the hidden slots of a field without buttons
         let buttons = if hasButtons then "some" else "none"
 
@@ -639,6 +634,8 @@ module QuantityField =
                 </Tooltip>
                 """
 
+        // the caption is not the label of the select, so a click on it focuses the select, as a
+        // click on a label does
         let focusSelect =
             fun _ ->
                 match Browser.Dom.document.getElementById props.label with

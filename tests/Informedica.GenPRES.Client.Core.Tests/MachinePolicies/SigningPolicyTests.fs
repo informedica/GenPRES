@@ -17,7 +17,7 @@ open SigningPolicy
 
 module Fixtures =
 
-    let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+    let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
 
     let userOf role =
         {
@@ -34,8 +34,8 @@ module Fixtures =
                     Some
                         {
                             PatientId = "p"
-                            Identity = None
-                            Patient = Some patient
+                            PatientIdentity = None
+                            PatientData = Some patient
                         }
                 else
                     None
@@ -232,8 +232,8 @@ let tests =
                         PatientId = "p"
                         Base = Some "plan-1"
                         OrderContexts = [||]
-                        Patient = patient
-                        Identity = None
+                        PatientData = patient
+                        PatientIdentity = None
                         Verified = true
                     }
 
@@ -245,7 +245,7 @@ let tests =
                 noticeSentence
                     named
                     {
-                        Data = Some patient
+                        PatientData = Some patient
                         Token = "d"
                     }
                 |> Expect.equal "changed" "<Signing Data Changed>"
@@ -253,7 +253,7 @@ let tests =
                 noticeSentence
                     named
                     {
-                        Data = None
+                        PatientData = None
                         Token = "d"
                     }
                 |> Expect.equal "unverified" "<Signing Data Unverified>"
@@ -264,7 +264,7 @@ let tests =
                 [
                     let notice data =
                         {
-                            Data = data
+                            PatientData = data
                             Token = "d"
                         }
 
@@ -301,7 +301,7 @@ let tests =
                                     { patient with
                                         Age =
                                             Some(
-                                                Informedica.GenPRES.Shared.Models.Patient.Age.create
+                                                Informedica.GenPRES.Shared.Models.PatientData.Age.create
                                                     24<year>
                                                     (Some 8<month>)
                                                     None
@@ -309,7 +309,7 @@ let tests =
                                             )
                                         AdultMark =
                                             AdultMark.MarkableAdult(
-                                                patient |> Informedica.GenPRES.Shared.Models.Patient.isAdult |> not
+                                                patient |> Informedica.GenPRES.Shared.Models.PatientData.isAdult |> not
                                             )
                                     }
                             ))
@@ -362,6 +362,24 @@ let tests =
 
                     test "an unverified notice has no lines" {
                         noticeRows named patient (notice None) |> Expect.isEmpty "no lines"
+                    }
+
+                    test "without the sheet the renal function and the gender are in English" {
+                        noticeRows
+                            english
+                            { patient with
+                                Gender = Male
+                                RenalFunction = Some(EGFR(Some 30, Some 50))
+                            }
+                            (notice (
+                                Some
+                                    { patient with
+                                        Gender = Female
+                                        RenalFunction = Some PeritonealDialysis
+                                    }
+                            ))
+                        |> List.map (fun r -> r.Plan, r.Ehr)
+                        |> Expect.equal "English" [ "Male", "Female"; "30 - 50 mL/min/1.73 m2", "Peritoneal dialysis" ]
                     }
                 ]
 
@@ -449,7 +467,7 @@ let tests =
                     SigningView.DataChanged(
                         plan,
                         {
-                            Data = None
+                            PatientData = None
                             Token = "d"
                         }
                     )
@@ -474,7 +492,7 @@ let tests =
                     SigningView.DataChanged(
                         plan,
                         {
-                            Data = None
+                            PatientData = None
                             Token = "d"
                         }
                     )

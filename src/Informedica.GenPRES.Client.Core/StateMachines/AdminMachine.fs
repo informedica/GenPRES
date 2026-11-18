@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// The admin login on the settings page and what it fetches under the token it bought: the log
-/// listing, the analysis of a log file and the resource reload, each a reading. A login answer of
-/// an earlier attempt is dropped, and a token the server no longer takes logs out.
+/// Handles the admin login on the settings page and the calls that need its token: the log file list,
+/// the analysis of a log file and the resource reload. A login answer to an earlier attempt is ignored,
+/// and an invalid token logs the user out.
 module AdminMachine =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -13,25 +13,25 @@ module AdminMachine =
     open Loads
 
 
-    /// The login, its token and the three readings.
+    /// The login state, the token and the state of the three admin loads.
     type AdminState =
         {
-            /// Whether the server took the password.
+            /// Whether the server accepted the password.
             IsAuthenticated: bool
-            /// The token the login bought; empty without a login.
+            /// The token from the login; empty when not logged in.
             AuthToken: string
-            /// Counts logins and logouts, so that a login answer of an earlier attempt is dropped.
+            /// Counts logins and logouts, so a login answer to an earlier attempt is ignored.
             LoginAttempt: int
             /// The log files on the server.
             LogFiles: Deferred<LogFileInfo[]>
             /// The analysis of one log file.
             LogAnalysisReport: Deferred<string>
-            /// The resource reload, out from the request until the server has reloaded.
+            /// The resource reload, in progress from the request until the server has reloaded.
             Reloading: Deferred<unit>
         }
 
 
-    /// What an admin call brought.
+    /// The answer to an admin call.
     [<RequireQualifiedAccess>]
     type Landing =
         /// The answer to a login, with the attempt it belongs to.
@@ -51,44 +51,44 @@ module AdminMachine =
         | Login of password: string
         /// The user logs out.
         | Logout
-        /// The log files asked for.
+        /// Requests the log files.
         | ListLogFiles
-        /// The analysis of this log file asked for.
+        /// Requests the analysis of this log file.
         | AnalyzeLogFile of fileName: string
-        /// The resources asked to be reloaded.
+        /// Requests a resource reload.
         | ReloadResources
-        /// An admin call's answer.
+        /// The answer to an admin call.
         | Landed of Landing
 
 
-    /// What the App carries out: a call, whose answer comes back as a message, or what the user and the
-    /// loads are told.
+    /// An effect the App carries out: a server call whose answer returns as a message, or a notice to the
+    /// user or the loader.
     [<RequireQualifiedAccess>]
     type AdminEffect =
-        /// Ask the server whether it takes this password, for this attempt.
+        /// Asks the server to validate this password, for this attempt.
         | ValidatePassword of attempt: int * password: string
-        /// Ask for the log files, under the token.
+        /// Requests the log files with the token.
         | FetchLogFiles of token: string
-        /// Ask for the analysis of this log file, under the token.
+        /// Requests the analysis of this log file with the token.
         | FetchLogAnalysis of token: string * fileName: string
-        /// Ask the server to reload its resources, under the token.
+        /// Asks the server to reload its resources with the token.
         | Reload of token: string
         /// The server has reloaded its resources.
         | ReloadDone
-        /// The login is over: by the user, or by a token the server no longer takes.
+        /// The user is logged out, by a logout or by an invalid token.
         | LoggedOut
-        /// Show the alert on the snackbar.
+        /// Shows the alert on the snackbar.
         | Alert of Alert.Alert
-        /// A request of this source failed with these errors.
+        /// Reports that a request from this source failed with these errors.
         | RequestFailed of ServerErrorPolicy.ErrorSource * string[]
-        /// A request of this source succeeded.
+        /// Reports that a request from this source succeeded.
         | RequestSucceeded of ServerErrorPolicy.ErrorSource
 
 
-    /// Reading the admin machine's state.
+    /// Functions on the admin state.
     module AdminState =
 
-        /// Not logged in, nothing asked for.
+        /// The state with no login and no load started.
         let initial =
             {
                 IsAuthenticated = false
@@ -100,7 +100,7 @@ module AdminMachine =
             }
 
 
-        /// Each load with its reading, the value left out.
+        /// Lists each load with its load state, without the loaded value.
         let readings (state: AdminState) =
             let reading deferred = deferred |> Deferred.map ignore
 
@@ -111,16 +111,16 @@ module AdminMachine =
             ]
 
 
-    /// The admin loads out.
+    /// Returns the admin loads that are in progress.
     let out state = state |> AdminState.readings |> outOf
 
 
-    /// The login over and its readings gone; a later login answer of the attempt before is dropped.
+    /// Logs out and clears all loads. The login attempt count goes up, so a late login answer is ignored.
     let loggedOut (state: AdminState) =
         { AdminState.initial with LoginAttempt = state.LoginAttempt + 1 }, [ AdminEffect.LoggedOut ]
 
 
-    /// What an answer sets, whichever call it answers.
+    /// Applies an admin answer to the state, whichever call it answers. A rejected password shows an alert.
     let answered response (state: AdminState) =
         match response with
         | AdminResponse.PasswordValidated(true, token) ->
@@ -140,8 +140,8 @@ module AdminMachine =
         | AdminResponse.ResourcesReloaded -> { state with Reloading = Resolved() }, [ AdminEffect.ReloadDone ]
 
 
-    /// An answer of this source: on success the error cleared and what the answer sets; on failure the
-    /// reading reset, the error raised and, for a token the server no longer takes, the login over.
+    /// Applies the answer of a call from this source. On success, reports the success and applies the answer.
+    /// On failure, reports the errors and resets the load; an invalid token logs the user out instead.
     let settle source reset result (state: AdminState) =
         match result with
         | Ok response ->
@@ -157,15 +157,15 @@ module AdminMachine =
                 reset state, [ failed ]
 
 
-    /// The next state and the effects for a message.
+    /// Returns the next state and the effects for a message.
     let transition msg (state: AdminState) =
         match msg with
         | AdminMsg.Login password ->
             let attempt = state.LoginAttempt + 1
             { state with LoginAttempt = attempt }, [ AdminEffect.ValidatePassword(attempt, password) ]
         | AdminMsg.Logout -> state |> loggedOut
-        // one listing at a time, so an earlier answer cannot clear the error of a later one; the table
-        // shown stays until the answer
+        // Only one listing runs at a time, so an earlier answer cannot clear the error of a later one.
+        // The table shown stays until the answer.
         | AdminMsg.ListLogFiles when isOut state.LogFiles -> state, []
         | AdminMsg.ListLogFiles ->
             { state with LogFiles = state.LogFiles |> Deferred.refresh }, [ AdminEffect.FetchLogFiles state.AuthToken ]
@@ -173,12 +173,12 @@ module AdminMachine =
             { state with LogAnalysisReport = InProgress }, [ AdminEffect.FetchLogAnalysis(state.AuthToken, fileName) ]
         | AdminMsg.ReloadResources -> { state with Reloading = InProgress }, [ AdminEffect.Reload state.AuthToken ]
 
-        // an answer of an earlier attempt: a login since logged out, or asked again
+        // An answer to an earlier attempt is ignored: the user logged out or logged in again since.
         | AdminMsg.Landed(Landing.Login(attempt, _)) when attempt <> state.LoginAttempt -> state, []
         | AdminMsg.Landed(Landing.Login(_, Ok response)) ->
             let state, effects = state |> answered response
             state, AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Login :: effects
-        // a failed login drops the token, but the page and the readings stay
+        // A failed login clears the token but keeps the loaded data.
         | AdminMsg.Landed(Landing.Login(_, Error errs)) ->
             { state with
                 IsAuthenticated = false

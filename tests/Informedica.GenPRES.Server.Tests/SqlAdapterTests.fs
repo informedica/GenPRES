@@ -17,6 +17,7 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 open Informedica.GenPRES.Server.Tests.SqlRecordTests
+open Informedica.GenPRES.Server.Tests.TestDates
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 
@@ -40,7 +41,7 @@ let portOver (store: StubDatabase.SessionStore) =
             (fun launch -> LaunchSeal.verify t0 sealKey launch)
             directory.idp
             directory.registry
-            StubAdapterTests.StubAdapters.patientData
+            StubAdapterTests.StubAdapters.ehrPatients
             outbox.port
             seeded
 
@@ -325,7 +326,8 @@ let tests =
                                 persist =
                                     fun writes ->
                                         match versionOf writes with
-                                        | Some _ -> SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                        | Some _ ->
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         | None -> inner.persist writes
                             }
 
@@ -494,7 +496,7 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist cs [ Session.WriteVersion(v1, None) ] |> ignore
+                        SqlDatabase.persist readAt cs [ Session.WriteVersion(v1, None) ] |> ignore
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.currentFixtureText ()
 
@@ -797,7 +799,7 @@ let tests =
                                 persist =
                                     fun writes ->
                                         if refusing.Value then
-                                            SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         else
                                             inner.persist writes
                             }

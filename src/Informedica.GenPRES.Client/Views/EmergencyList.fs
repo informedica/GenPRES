@@ -63,7 +63,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "catagory"
-                        "headerName" ==> (Terms.``Emergency List Catagory`` |> getTerm "Category")
+                        "headerName" ==> (Terms.``Emergency List Category`` |> getTerm "Category")
                         "width" ==> 140
                         "minWidth" ==> 100
                         "flex" ==> 0.5
@@ -74,7 +74,7 @@ module EmergencyList =
                     [
                         "field" ==> "intervention"
                         "headerName"
-                        ==> (Terms.``Emergency List Intervention`` |> getTerm "Interventie")
+                        ==> (Terms.``Emergency List Intervention`` |> getTerm "Intervention")
                         "width" ==> 300
                         "minWidth" ==> 150
                         "flex" ==> 1
@@ -84,7 +84,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "calculated"
-                        "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Berekend")
+                        "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Calculation")
                         "width" ==> 180
                         "minWidth" ==> 120
                         "flex" ==> 0.8
@@ -95,7 +95,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "preparation"
-                        "headerName" ==> (Terms.``Emergency List Preparation`` |> getTerm "Bereiding")
+                        "headerName" ==> (Terms.``Emergency List Preparation`` |> getTerm "Preparation")
                         "width" ==> 180
                         "minWidth" ==> 120
                         "flex" ==> 0.8
@@ -106,7 +106,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "advice"
-                        "headerName" ==> (Terms.``Emergency List Advice`` |> getTerm "Advies")
+                        "headerName" ==> (Terms.``Emergency List Advice`` |> getTerm "Advised")
                         "width" ==> 300
                         "minWidth" ==> 150
                         "flex" ==> 1
@@ -280,7 +280,7 @@ module EmergencyList =
             {|
                 isOpen = printOpen
                 onClose = fun () -> setPrintOpen false
-                title = Terms.``Emergency List`` |> getTerm "Noodlijst"
+                title = Terms.``Emergency List`` |> getTerm "Emergency List"
                 children = printContent
             |}
 

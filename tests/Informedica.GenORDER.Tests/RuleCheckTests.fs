@@ -11,6 +11,8 @@ open Informedica.GenOrder.Lib
 open Expecto
 open Expecto.Flip
 
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
 
 module Fixture =
 
@@ -18,8 +20,8 @@ module Fixture =
 
     let logger = DataUpdateFixtures.logger
     let limit v = Some(BigRational.FromInt v)
-    let counted = DilutionRuleComparison.Counted
-    let ignored = DilutionRuleComparison.Ignored
+    let counted = SolutionRuleComparison.Counted
+    let ignored = SolutionRuleComparison.Ignored
 
     /// Rule A up to 10 kg and rule B from 10 kg, with another maximum dose.
     let rows maxB =
@@ -73,15 +75,15 @@ module Fixture =
         let p, ctx = start ()
 
         ctx
-        |> OrderContext.rulesFor logger p ctx.Patient
+        |> OrderContext.rulesFor logger p ctx.PatientData
         |> Result.defaultWith (fun msgs -> failtest $"no rules: %A{msgs}")
 
-    /// A dilution rule to compare with.
-    let dilutionRules () =
-        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetDilutionRules()
+    /// A solution rule to compare with.
+    let solutionRules () =
+        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetSolutionRules()
 
-    let withDilutionRules rs =
-        rs |> Array.map (fun r -> { r with DilutionRules = dilutionRules () })
+    let withSolutionRules rs =
+        rs |> Array.map (fun r -> { r with SolutionRules = solutionRules () })
 
     let renalRule: RenalRule =
         {
@@ -113,7 +115,7 @@ module Fixture =
     let verdict provider current (ctx: OrderContext) =
         let rules pat = ctx |> OrderContext.rulesFor logger provider pat
 
-        OrderContext.rulesVerdict logger order.Value (rules ctx.Patient) (rules current)
+        OrderContext.rulesVerdict logger order.Value (rules ctx.PatientData) (rules current)
 
     let check provider start current =
         context provider (patient start) |> verdict provider (patient current)
@@ -139,7 +141,7 @@ let tests =
                 let p, ctx = Fixture.start ()
                 let _, found = ctx |> OrderContext.getRules Fixture.logger p
 
-                match found, ctx |> OrderContext.rulesFor Fixture.logger p ctx.Patient with
+                match found, ctx |> OrderContext.rulesFor Fixture.logger p ctx.PatientData with
                 | Ok a, Ok b -> PrescriptionRule.sameRules Fixture.counted a b |> Expect.isTrue "the same"
                 | other -> failtest $"no rules: %A{other}"
             }
@@ -173,10 +175,8 @@ let tests =
                 let p, ctx = Fixture.start ()
 
                 let other =
-                    { Fixture.patient (19N / 2N) with
-                        Weight = None
-                        Age = None
-                    }
+                    { Fixture.patient (19N / 2N) with Age = None }
+                    |> Patient.setWeight SamplePatients.measuredOn None
 
                 ctx |> Fixture.verdict p other |> Expect.equal "notice" (Some true)
             }
@@ -202,15 +202,17 @@ let tests =
 
             test "a data update calculates the order and the context keeps its patient" {
                 let p, ctx = Fixture.start ()
-                let current = { ctx.Patient with Weight = Some(20N |> ValueUnit.singleWithUnit Units.Weight.kiloGram) }
+                let current = ctx.PatientData |> SamplePatients.withWeightInKg 20m
                 let after = ctx |> Fixture.onData p current
 
-                after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
+                after.PatientData |> Expect.equal "the patient of the rules" ctx.PatientData
 
                 after.Scenarios[0].Order
                 |> Order.adjustValue
                 |> Option.map ValueUnit.getValue
-                |> Expect.equal "the order follows" (current.Weight |> Option.map ValueUnit.getValue)
+                |> Expect.equal
+                    "the order follows"
+                    (current |> CorePatientData.weightInKg |> Option.map ValueUnit.getValue)
             }
 
             test "a data update puts the notice on the order and the text, and a new update takes it off" {
@@ -263,28 +265,28 @@ let tests =
             }
 
             testList
-                "dilution rules"
+                "solution rules"
                 [
                     test "count with one dose, as when a central line is removed and its rule goes" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withDilutionRules) rules
+                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withSolutionRules) rules
                         |> Expect.isFalse "other rules"
                     }
 
                     test "are ignored with more doses" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withDilutionRules) rules
+                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withSolutionRules) rules
                         |> Expect.isTrue "the same rules"
                     }
 
                     test "the amount a per kg limit gives at a weight does not count" {
-                        let at (w: BigRational) (sr: DilutionRule) =
+                        let at (w: BigRational) (sr: SolutionRule) =
                             { sr with
                                 DilutionLimits =
                                     sr.DilutionLimits
-                                    |> Array.map (fun sl ->
+                                    |> Array.map (fun dl ->
                                         let perKg =
                                             5N
                                             |> ValueUnit.singleWithUnit (
@@ -293,8 +295,8 @@ let tests =
 
                                         let amount = 5N * w |> ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                                        { sl with
-                                            QuantityAdj = MinMax.createExact perKg
+                                        { dl with
+                                            QuantityAdjust = MinMax.createExact perKg
                                             Quantity = MinMax.createExact amount
                                         }
                                     )
@@ -302,8 +304,8 @@ let tests =
 
                         let atWeight w =
                             Fixture.rules ()
-                            |> Fixture.withDilutionRules
-                            |> Array.map (fun r -> { r with DilutionRules = r.DilutionRules |> Array.map (at w) })
+                            |> Fixture.withSolutionRules
+                            |> Array.map (fun r -> { r with SolutionRules = r.SolutionRules |> Array.map (at w) })
 
                         PrescriptionRule.sameRules Fixture.counted (atWeight 10N) (atWeight 20N)
                         |> Expect.isTrue "one rule"

@@ -7,7 +7,7 @@ module FilterSync =
     open Informedica.GenPRES.Shared.Types
 
 
-    /// The formulary with the choices of the prescribing filter.
+    /// Copies the choices of the prescribing filter to the formulary.
     let syncFilterToFormulary (filter: Filter) (form: Formulary) : Formulary =
         { form with
             Indication = filter.Indication
@@ -18,7 +18,7 @@ module FilterSync =
         }
 
 
-    /// The parenteralia page with the generic, form and route of the prescribing filter.
+    /// Copies the generic, form and route of the prescribing filter to the parenteralia page.
     let syncFilterToParenteralia (filter: Filter) (par: Parenteralia) : Parenteralia =
         { par with
             Generic = filter.Generic

@@ -1,18 +1,15 @@
 namespace ServerApi
 
-// The session store's test and development database, SQLite, beside the in-memory stand-in of
-// `ServerApi.StubAdapters.fs`. Production never opens it. The SQL schema lives in the
-// `Sql/*.sql` scripts embedded in this assembly.
+// The SQLite session store for tests and development, beside the in-memory store in ServerApi.StubAdapters.fs.
+// Production never opens it. The SQL schema lives in the Sql/*.sql scripts embedded in this assembly.
 
-// the module, not the union case of the same name
+// An alias for the BirthDate module, which has the same name as a union case.
 module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 
 /// <summary>
-/// The SQL schema of the session store, applied as numbered migrations. Each migration is a
-/// script <c>Sql/NNN-name.sql</c>; its number is the leading integer of the file name. The runner
-/// records every migration it applied in <c>schema_version</c> and applies each script above the
-/// highest recorded number, each in a transaction of its own with its <c>schema_version</c> row.
+/// Applies the SQL schema of the session store as numbered migrations, one script <c>Sql/NNN-name.sql</c>
+/// each. Each applied migration is recorded in <c>schema_version</c>.
 /// </summary>
 module SqlSchema =
 
@@ -22,7 +19,7 @@ module SqlSchema =
     open Microsoft.Data.Sqlite
 
 
-    /// A migration: its number, the name it is known by, and its SQL.
+    /// A migration script with its number, name and SQL.
     type Migration =
         {
             Number: int
@@ -35,7 +32,8 @@ module SqlSchema =
     let prefix = "Sql/"
 
 
-    /// The number of a migration from its name: the leading integer of the file name.
+    /// Reads the migration number from the leading integer of the file name. Returns an error when it is
+    /// not a positive number.
     let numberOf (name: string) =
         let file = Path.GetFileName name
         let digits = file |> Seq.takeWhile Char.IsDigit |> Seq.toArray |> String
@@ -46,9 +44,9 @@ module SqlSchema =
 
 
     /// <summary>
-    /// The migrations of named scripts, in the order they apply: by name, ordinal, so that
-    /// zero-padded numbers sort as numbers. Every name must start with a positive number, and
-    /// the numbers must rise strictly; a script that breaks either is a build defect, raised.
+    /// Makes the migrations of named scripts, ordered by name with an ordinal comparison, so zero-padded
+    /// numbers sort as numbers. Raises InvalidOperationException when a name does not start with a positive
+    /// number or the numbers do not rise strictly.
     /// </summary>
     let ofScripts (scripts: (string * string) list) =
         let migrations =
@@ -96,11 +94,10 @@ module SqlSchema =
 
 
     /// <summary>
-    /// Applies to the database of the connection string every migration above the highest
-    /// number <c>schema_version</c> records, and returns the numbers it applied, in order. Each
-    /// migration runs in one transaction with its <c>schema_version</c> row, and the highest number
-    /// is read inside that transaction, so a migration applied meanwhile by another process is
-    /// skipped, not applied twice. A script that fails rolls its migration back and raises.
+    /// Applies every migration above the highest number in <c>schema_version</c> and returns the applied
+    /// numbers in order. Each migration runs in one transaction with its <c>schema_version</c> row and reads
+    /// the highest number inside it, so a migration another process applied meanwhile is skipped. A failing
+    /// script rolls back its migration and raises.
     /// </summary>
     let applyAll (connectionString: string) (migrations: Migration list) =
         use conn = new SqliteConnection(connectionString)
@@ -143,12 +140,57 @@ module SqlSchema =
         typeof<Migration>.Assembly |> embedded |> applyAll connectionString
 
 
-/// <summary>
-/// The record on SQLite: the order plan versions of a patient loaded from <c>order_plan</c>, and
-/// the write of a commit inserted there. The plan is stored as the canonical JSON of
-/// <c>OrderPlanVersion.Dto</c> under a JSON structure version; a row this release cannot read
-/// loads as an unreadable entry built from the identity columns, never dropped.
-/// </summary>
+/// Reads and writes a stored EHR patient as JSON with its own structure version.
+module SqlEhrPatient =
+
+    module Canonical = Informedica.GenOrder.Lib.Canonical
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+
+
+    /// The JSON structure version of stored EHR data: the GenCORE patient Dto. Version 1 is not converted.
+    let ehrPatientJsonVersion = 2
+
+
+    /// Returns the JSON when the version lies from oldest to newest, an error otherwise.
+    let checkVersion oldest newest (version: int) (json: string) : Result<string, string> =
+        if version < oldest then
+            Error $"JSON structure version %i{version} is older than this release reads"
+        elif version > newest then
+            Error $"JSON structure version %i{version} is newer than this release knows"
+        else
+            Ok json
+
+
+    /// Parses stored EHR data on date today. Returns an error for an unsupported version, unreadable JSON
+    /// or invalid data, such as a weight or height dated after today.
+    let readEhrPatient (today: System.DateTime) (version: int) (json: string) : Result<CorePatient, string> =
+        checkVersion ehrPatientJsonVersion ehrPatientJsonVersion version json
+        |> Result.bind (fun json ->
+            try
+                json
+                |> Canonical.deserialize<CorePatient.Dto.Dto>
+                |> CorePatient.Dto.fromDto today
+                |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
+            with e ->
+                Error $"the JSON does not read: %s{e.Message}"
+        )
+
+
+    /// Reads EHR data from its version and JSON columns. Both null gives None; only one null gives an error.
+    let readEhrPatientColumns today version json =
+        match version, json with
+        | Some version, Some json -> readEhrPatient today version json |> Result.map Some
+        | None, None -> Ok None
+        | _ -> Error "the EHR data and its JSON structure version are not both present"
+
+
+    /// The JSON of EHR data.
+    let ehrPatientJson (ehr: CorePatient) = ehr |> CorePatient.Dto.toDto |> Canonical.serialize
+
+
+/// Loads the order plan versions of a patient from the order_plan table and inserts new versions. The order
+/// plan and the EHR data are stored as JSON, each with a structure version. A row that cannot be read loads
+/// as an unreadable version and is not skipped.
 module SqlDatabase =
 
     open System
@@ -158,35 +200,17 @@ module SqlDatabase =
     open Informedica.Utils.Lib.BCL
 
 
-    /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 13
-
-    /// The JSON structure version this release writes.
-    let jsonVersionWritten = 13
+    /// The JSON structure version this release reads and writes for the order plan of a version.
+    let jsonVersion = 16
 
 
-    /// The oldest JSON structure version this release reads.
-    let jsonVersionOldest = 13
+    /// Checks that this release reads plan JSON of the structure version. An older version is not
+    /// converted and loads as unreadable.
+    let upgrade version json = SqlEhrPatient.checkVersion jsonVersion jsonVersion version json
 
 
-    /// Brings plan JSON written under a structure version to the structure this release
-    /// reads. There are no steps yet: version 13 added the link on every plan context, renamed
-    /// its intake to totals and added the large increment of every order variable, and a version
-    /// before 13 is not converted, so its row loads as unreadable. No read path recomputes a digest of a stored version.
-    ///
-    /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
-    /// here as well as in upgradeEhr.
-    let upgrade (version: int) (json: string) : Result<string, string> =
-        if version < jsonVersionOldest then
-            Error $"JSON structure version %i{version} is older than this release reads"
-        elif version > jsonVersionRead then
-            Error $"JSON structure version %i{version} is newer than this release knows"
-        else
-            Ok json
-
-
-    /// The JSON this release writes for an order plan version.
-    let toJson (v: Types.OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+    /// The JSON of the order plan of a version.
+    let toJson (v: OrderPlanVersion) = v.Plan |> OrderPlan.Dto.toDto |> Canonical.serialize
 
 
     /// An order_plan row as read, before its JSON is parsed.
@@ -199,8 +223,11 @@ module SqlDatabase =
             SignedByUserId: string
             SignedByDisplayName: string
             SignedAt: int64
+            Verified: bool
             JsonVersion: int
             Plan: string
+            EhrJsonVersion: int option
+            EhrData: string option
             PatientName: string option
             BirthYear: int64 option
             BirthMonth: int64 option
@@ -208,15 +235,10 @@ module SqlDatabase =
         }
 
 
-    /// <summary>
-    /// A row as the record holds it: upgraded, parsed with <c>fromDto</c>, and checked against its
-    /// identity columns; else unreadable with the reason, its identity from the columns, which
-    /// are authoritative. Whom it names comes from its own columns in both cases: all four
-    /// present is the identity, all four null is none (a version signed without one, or a row
-    /// from before the columns), else a reason, as is an empty name or a birthdate the calendar
-    /// does not have, which a column too wide for a year, a month or a day counts as.
-    /// </summary>
-    let readRow (row: Row) : StoredVersion =
+    /// Reads a stored version from a row and parses its order plan and EHR data from JSON. A row with any
+    /// part that cannot be read gives an unreadable version with every reason. The patient identity comes
+    /// from the columns in both cases.
+    let readRow (today: DateTime) (row: Row) : StoredVersion =
         let identity: Result<Informedica.GenCore.Lib.Patients.PatientIdentity option, string> =
             match row.PatientName, row.BirthYear, row.BirthMonth, row.BirthDay with
             | Some name, _, _, _ when name |> String.isNullOrWhiteSpace -> Error "the patient's name is empty"
@@ -242,70 +264,74 @@ module SqlDatabase =
             | None, None, None, None -> Ok None
             | _ -> Error "the patient's name and birthdate are not all present"
 
-        let parsed =
+        let plan =
             upgrade row.JsonVersion row.Plan
             |> Result.bind (fun json ->
                 try
                     json
-                    |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                    |> OrderPlanVersion.Dto.fromDto
-                    |> Result.mapError (fun errs -> $"the order plan version does not parse: %A{errs}")
-                // any exception: a converter meeting a malformed value throws its own type
+                    |> Canonical.deserialize<OrderPlan.Dto.Dto>
+                    |> OrderPlan.Dto.fromDto today
+                    |> Result.mapError (fun errs -> $"the order plan does not parse: %A{errs}")
+                // Catch every exception: a JSON converter throws its own exception type on a malformed value.
                 with e ->
                     Error $"the JSON does not read: %s{e.Message}"
             )
-            |> Result.bind (fun v ->
-                if
-                    v.Id = row.VersionId
-                    && v.No = row.No
-                    && v.PatientId = row.PatientId
-                    && v.Base = row.Base
-                then
-                    Ok v
-                else
-                    Error "the identity in the JSON disagrees with the columns"
-            )
 
-        // a time the column holds but DateTime cannot: the row stays, at the earliest time
-        let signedAt, reason =
+        let ehr = SqlEhrPatient.readEhrPatientColumns today row.EhrJsonVersion row.EhrData
+
+        // A signed_at outside the DateTime range makes the row unreadable; the version then gets DateTime.MinValue.
+        let signedAt =
             try
-                DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime, None
+                Ok(DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime)
             with :? ArgumentOutOfRangeException ->
-                DateTime.MinValue, Some $"signed_at %i{row.SignedAt} is out of range"
+                Error $"signed_at %i{row.SignedAt} is out of range"
 
-        match parsed, identity with
-        | Ok v, Ok whom -> StoredVersion.Readable(v, whom)
+        let signer: Signer =
+            {
+                UserId = row.SignedByUserId
+                DisplayName = row.SignedByDisplayName
+            }
+
+        match plan, ehr, identity, signedAt with
+        | Ok plan, Ok ehr, Ok whom, Ok signedAt ->
+            StoredVersion.Readable(
+                {
+                    Id = row.VersionId
+                    No = row.No
+                    PatientId = row.PatientId
+                    Base = row.Base
+                    SignedBy = signer
+                    SignedAt = signedAt
+                    Plan = plan
+                    Verified = row.Verified
+                    EhrPatient = ehr
+                },
+                whom
+            )
         | _ ->
+            let reasonOf r =
+                match r with
+                | Error reason -> Some reason
+                | Ok _ -> None
+
             StoredVersion.Unreadable
                 {
                     Id = row.VersionId
                     No = row.No
                     PatientId = row.PatientId
                     Base = row.Base
-                    SignedBy =
-                        {
-                            UserId = row.SignedByUserId
-                            DisplayName = row.SignedByDisplayName
-                        }
-                    SignedAt = signedAt
+                    SignedBy = signer
+                    SignedAt = signedAt |> Result.defaultValue DateTime.MinValue
                     Identity = identity |> Result.toOption |> Option.flatten
                     Reason =
-                        [
-                            (match parsed with
-                             | Error r -> Some r
-                             | Ok _ -> None)
-                            (match identity with
-                             | Error r -> Some r
-                             | Ok _ -> None)
-                            reason
-                        ]
+                        [ reasonOf plan; reasonOf ehr; reasonOf identity; reasonOf signedAt ]
                         |> List.choose id
                         |> String.concat "; "
                 }
 
 
     /// Every order plan version of a patient, newest first.
-    let loadRecords (connectionString: string) (patientId: string) : StoredVersion list =
+    let loadRecords (today: DateTime) (connectionString: string) (patientId: string) : StoredVersion list =
         use conn = new SqliteConnection(connectionString)
         conn.Open()
         use cmd = conn.CreateCommand()
@@ -313,42 +339,49 @@ module SqlDatabase =
         cmd.CommandText <-
             """
             select version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                   signed_at, json_version, plan, patient_name, birth_year, birth_month, birth_day
+                   signed_at, verified, json_version, plan, ehr_json_version, ehr_data,
+                   patient_name, birth_year, birth_month, birth_day
             from order_plan where patient_id = $patient order by no desc
             """
 
         cmd.Parameters.AddWithValue("$patient", patientId) |> ignore
         use r = cmd.ExecuteReader()
 
+        let text i = if r.IsDBNull i then None else Some(r.GetString i)
+        let whole i = if r.IsDBNull i then None else Some(r.GetInt64 i)
+        let number i = if r.IsDBNull i then None else Some(r.GetInt32 i)
+
         [
             while r.Read() do
                 readRow
+                    today
                     {
                         VersionId = r.GetString 0
                         No = r.GetInt32 1
                         PatientId = r.GetString 2
-                        Base = if r.IsDBNull 3 then None else Some(r.GetString 3)
+                        Base = text 3
                         SignedByUserId = r.GetString 4
                         SignedByDisplayName = r.GetString 5
                         SignedAt = r.GetInt64 6
-                        JsonVersion = r.GetInt32 7
-                        Plan = r.GetString 8
-                        PatientName = if r.IsDBNull 9 then None else Some(r.GetString 9)
-                        BirthYear = if r.IsDBNull 10 then None else Some(r.GetInt64 10)
-                        BirthMonth = if r.IsDBNull 11 then None else Some(r.GetInt64 11)
-                        BirthDay = if r.IsDBNull 12 then None else Some(r.GetInt64 12)
+                        Verified = r.GetInt32 7 = 1
+                        JsonVersion = r.GetInt32 8
+                        Plan = r.GetString 9
+                        EhrJsonVersion = number 10
+                        EhrData = text 11
+                        PatientName = text 12
+                        BirthYear = whole 13
+                        BirthMonth = whole 14
+                        BirthDay = whole 15
                     }
         ]
 
 
-    /// Inserts an order plan version on a connection, within the transaction it is given, so
-    /// that a request writing more than this one row writes them all as one.
-    /// The version with whom it names, in its own columns: the name and the birthdate, all
-    /// four or none.
+    /// Inserts a version in the transaction given: its fields, the order plan and the EHR data as
+    /// JSON, and the identity of the patient.
     let insertVersion
         (conn: SqliteConnection)
         (tx: SqliteTransaction)
-        (v: Types.OrderPlanVersion)
+        (v: OrderPlanVersion)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         =
         use cmd = conn.CreateCommand()
@@ -358,25 +391,33 @@ module SqlDatabase =
             """
             insert into order_plan
                 (version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                 signed_at, verified, json_version, plan, patient_name, birth_year, birth_month, birth_day)
+                 signed_at, verified, json_version, plan, ehr_json_version, ehr_data,
+                 patient_name, birth_year, birth_month, birth_day)
             values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan,
-                    $patient_name, $birth_year, $birth_month, $birth_day)
+                    $ehr_json_version, $ehr_data, $patient_name, $birth_year, $birth_month, $birth_day)
             """
 
         let add (name: string) (value: obj) = cmd.Parameters.AddWithValue(name, value) |> ignore
+
         let orNull (value: 'a option) =
             value |> Option.map box |> Option.defaultValue (box DBNull.Value)
 
         add "$id" v.Id
         add "$no" v.No
         add "$patient" v.PatientId
-        add "$base" (v.Base |> Option.map box |> Option.defaultValue DBNull.Value)
+        add "$base" (v.Base |> orNull)
         add "$user" v.SignedBy.UserId
         add "$name" v.SignedBy.DisplayName
         add "$at" (DateTimeOffset(v.SignedAt, TimeSpan.Zero).ToUnixTimeMilliseconds())
         add "$verified" (if v.Verified then 1 else 0)
-        add "$json_version" jsonVersionWritten
+        add "$json_version" jsonVersion
         add "$plan" (toJson v)
+        add
+            "$ehr_json_version"
+            (v.EhrPatient
+             |> Option.map (fun _ -> SqlEhrPatient.ehrPatientJsonVersion)
+             |> orNull)
+        add "$ehr_data" (v.EhrPatient |> Option.map SqlEhrPatient.ehrPatientJson |> orNull)
         add "$patient_name" (whom |> Option.map _.Name |> orNull)
         add "$birth_year" (whom |> Option.map (fun w -> int w.BirthDate.Year) |> orNull)
         add "$birth_month" (whom |> Option.map (fun w -> int w.BirthDate.Month) |> orNull)
@@ -384,7 +425,7 @@ module SqlDatabase =
         cmd.ExecuteNonQuery() |> ignore
 
 
-    let private insert (connectionString: string) (v: Types.OrderPlanVersion, whom) =
+    let private insert (connectionString: string) (v: OrderPlanVersion, whom) =
         use conn = new SqliteConnection(connectionString)
         conn.Open()
         insertVersion conn null v whom
@@ -397,14 +438,14 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// Runs one order plan version: inserts it. A violated
-    /// <c>unique (patient_id, no)</c> is another server's sign of the same number, answered with
-    /// the head as it stands now; any other failure, other constraints included, is <c>Failed</c>
-    /// with the reason, so that the caller keeps its state and the next Submission retries.
+    /// Inserts an order plan version. A violated <c>unique (patient_id, no)</c> means another server wrote
+    /// the same number and returns <c>Conflict</c> with the current head. Any other failure returns
+    /// <c>Failed</c> with the reason, so the caller keeps its state and the next Submission retries.
     /// </summary>
     let persistVersion
+        (today: DateTime)
         (connectionString: string)
-        (v: Types.OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        (v: OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
         : Session.StoreOutcome
         =
         try
@@ -413,7 +454,7 @@ module SqlDatabase =
         with
         | :? SqliteException as e when isSameNumber e ->
             try
-                match loadRecords connectionString v.PatientId with
+                match loadRecords today connectionString v.PatientId with
                 | head :: _ -> Session.StoreOutcome.Conflict head
                 | [] -> Session.StoreOutcome.Failed e.Message
             with reread ->
@@ -422,12 +463,10 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// Runs the writes of a request. Only the order plan versions of a list reach the database
-    /// while the launch and session rows still live in memory; the first write that does not
-    /// land is the request's outcome. One transaction over the whole list, and the other facts
-    /// with it, arrives with those tables.
+    /// Writes only the order plan versions of the list, each on its own, and ignores the other writes.
+    /// Stops at the first write that is not <c>Written</c> and returns its outcome.
     /// </summary>
-    let persist (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
+    let persist (today: DateTime) (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
         writes
         |> List.choose (
             function
@@ -437,15 +476,15 @@ module SqlDatabase =
         |> List.fold
             (fun outcome v ->
                 match outcome with
-                | Session.StoreOutcome.Written -> persistVersion connectionString v
+                | Session.StoreOutcome.Written -> persistVersion today connectionString v
                 | refused -> refused
             )
             Session.StoreOutcome.Written
 
 
     /// <summary>
-    /// A connection string with a relative data source rooted at <c>root</c>, and the folder of the
-    /// file created when it is missing: SQLite creates the file, never its folder.
+    /// Roots a relative data source at <c>root</c> and creates the folder of the file when it is missing,
+    /// because SQLite creates the file but not its folder.
     /// </summary>
     let connectionString (root: string) (value: string) =
         let builder = SqliteConnectionStringBuilder value
@@ -466,28 +505,30 @@ module SqlDatabase =
 
 
 /// <summary>
-/// The launches, the Sessions and their endings in the database: the rows a request can touch
-/// read into its state, and the writes it returned appended in one transaction. Nothing is ever
-/// changed: an ending, a heartbeat and what a Session opened with are rows of their own, and a
-/// supersession is no row at all, since the newer Session of a login tells it.
+/// Loads the launches, Sessions and endings a request needs into its state, and appends the writes of the
+/// request in one transaction. Rows are only inserted, never updated. A supersession has no row: a newer
+/// Session of the same login shows it.
 /// </summary>
 module SqlSessions =
 
     open System
     open Microsoft.Data.Sqlite
     open Informedica.GenPRES.Shared.Types
-    // the canonical serializer the stored Dtos are written with
+    // Opens Canonical, the serializer of the stored Dtos.
     open Informedica.GenOrder.Lib
+    open SqlEhrPatient
 
     module GenForm = Informedica.GenForm.Lib.Types
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
-    /// Unix milliseconds, the form the columns hold, and back.
+    /// Converts a UTC time to the Unix milliseconds the columns hold; at converts back.
     let ms (at: DateTime) = DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds()
 
     let at (ms: int64) = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
 
 
-    /// The refusal a stored word names; the word is the one the client reads off the address.
+    /// Returns the launch refusal stored under the word, or None for an unknown word. The client reads the
+    /// same word from the URL.
     let refusalOf word =
         [
             LaunchRefusal.LaunchExpired
@@ -501,16 +542,15 @@ module SqlSessions =
         |> List.tryFind (fun refusal -> Session.refusalWord refusal = word)
 
 
-    /// The word a Role is stored under. Every Role matched, so that one without a word fails
-    /// to compile.
+    /// Returns the word a Role is stored under.
     let roleWord =
         function
         | UserRole.Prescriber -> "prescriber"
         | UserRole.Reader -> "reader"
 
 
-    /// The Role of a stored word, and nothing for a word no Role has: the column is free text,
-    /// and a word this release does not know must not come back as the Role that may sign.
+    /// Returns the Role stored under the word, or None for an unknown word. The column is free text, and
+    /// an unknown word must never become the Prescriber role that may sign.
     let roleOf word =
         if word = roleWord UserRole.Prescriber then
             Some UserRole.Prescriber
@@ -520,7 +560,7 @@ module SqlSessions =
             None
 
 
-    /// A command on a connection, within a transaction when one is given.
+    /// Makes a command with parameters on a connection, in the transaction when one is given.
     let command (conn: SqliteConnection) (tx: SqliteTransaction) (sql: string) (parameters: (string * obj) list) =
         let cmd = conn.CreateCommand()
         cmd.Transaction <- tx
@@ -546,9 +586,8 @@ module SqlSessions =
 
 
     /// <summary>
-    /// The Launch of a nonce or of a callback's <c>state</c>, with what its callback came to, while
-    /// it is within its lifetime; past it the record loads as absent, as a dropped row would.
-    /// The Session an outcome names is rebuilt by the caller, which has the session rows.
+    /// Loads the Launch with the nonce, or with the callback <c>state</c> when by is not "nonce", and its
+    /// outcome. A Launch past its expiry loads as None. The caller rebuilds the Session an outcome names.
     /// </summary>
     let loadLaunch (conn: SqliteConnection) (now: DateTime) (by: string) (value: string) =
         // the column is chosen here, never interpolated from a caller's string
@@ -578,78 +617,40 @@ module SqlSessions =
         |> List.tryHead
 
 
-    /// The highest JSON structure version this release reads for a stored patient. As for an
-    /// order plan version, a change ships as expand, then contract; the version it writes
-    /// lands with the writer that stores one.
-    let patientJsonRead = 1
+    /// The JSON structure version of the patient data of a data notice. Version 2 is the GenCORE
+    /// patient data. Version 1 is not converted.
+    let patientDataJsonVersion = 2
 
 
-    /// Brings stored patient JSON to the structure this release reads. There are no steps yet.
-    let upgradePatient (version: int) (json: string) : Result<string, string> =
-        if version < 1 then
-            Error $"JSON structure version %i{version} does not exist"
-        elif version > patientJsonRead then
-            Error $"JSON structure version %i{version} is newer than this release knows"
-        else
-            Ok json
-
-
-    /// The patient a stored row holds, upgraded and parsed; the JSON a release writes for one
-    /// lands with the writer that stores it.
-    let readPatient (version: int) (json: string) : Result<GenForm.Patient, string> =
-        upgradePatient version json
+    /// Reads the patient data of a stored row on a date. A weight or height dated after that date
+    /// is an error.
+    let readPatientData today (version: int) (json: string) : Result<CorePatientData, string> =
+        checkVersion patientDataJsonVersion patientDataJsonVersion version json
         |> Result.bind (fun json ->
             try
                 json
-                |> Canonical.deserialize<Informedica.GenForm.Lib.Patient.Dto.Dto>
-                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                |> Result.mapError (fun errs -> $"the patient does not parse: %A{errs}")
-            // any exception: a converter meeting a malformed value throws its own type
+                |> Canonical.deserialize<CorePatientData.Dto.Dto>
+                |> CorePatientData.Dto.fromDto today
+                |> Result.mapError (fun errs -> $"the patient data does not parse: %A{errs}")
+            // Catch every exception: a JSON converter throws its own exception type on a malformed value.
             with e ->
                 Error $"the JSON does not read: %s{e.Message}"
         )
 
 
-    /// The highest JSON structure version this release reads for stored EHR data.
-    let ehrJsonRead = 1
+    /// Reads the EHR data of a row from the version and JSON columns at the given indexes. Both null
+    /// gives None; only one null gives an error.
+    let readEhrPatientColumns (today: DateTime) (r: SqliteDataReader) (version: int) (json: int) =
+        SqlEhrPatient.readEhrPatientColumns
+            today
+            (if r.IsDBNull version then
+                 None
+             else
+                 Some(r.GetInt32 version))
+            (if r.IsDBNull json then None else Some(r.GetString json))
 
 
-    /// Brings stored EHR data JSON to the structure this release reads. There are no steps yet.
-    let upgradeEhr (version: int) (json: string) : Result<string, string> =
-        if version < 1 then
-            Error $"JSON structure version %i{version} does not exist"
-        elif version > ehrJsonRead then
-            Error $"JSON structure version %i{version} is newer than this release knows"
-        else
-            Ok json
-
-
-    /// The EHR data a stored row holds, upgraded and parsed.
-    let readEhr (version: int) (json: string) : Result<GenForm.EhrPatientData, string> =
-        upgradeEhr version json
-        |> Result.bind (fun json ->
-            try
-                json
-                |> Canonical.deserialize<Informedica.GenForm.Lib.EhrPatientData.Dto.Dto>
-                |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
-                |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
-            with e ->
-                Error $"the JSON does not read: %s{e.Message}"
-        )
-
-
-    /// The EHR data of a row, from the two columns that hold its structure version and its JSON:
-    /// both present reads it, both null is none (the read was none, or the row is from before
-    /// the columns), one of them null is a reason. The columns were added later and cannot
-    /// carry the check the patient's have, so the loader holds them to it.
-    let readEhrColumns (r: SqliteDataReader) (version: int) (json: int) =
-        match r.IsDBNull version, r.IsDBNull json with
-        | false, false -> readEhr (r.GetInt32 version) (r.GetString json) |> Result.map Some
-        | true, true -> Ok None
-        | _ -> Error "the EHR data and its JSON structure version are not both present"
-
-
-    /// The act as the column holds it.
+    /// Returns the word a Session act is stored under.
     let actWord act =
         match act with
         | SessionAct.Opened -> "opened"
@@ -658,7 +659,7 @@ module SqlSessions =
         | SessionAct.Signed -> "signed"
 
 
-    /// The act a column holds; an error for a word this release does not know.
+    /// Reads a Session act from its stored word. Returns an error for an unknown word.
     let actOf word =
         match word with
         | "opened" -> Ok SessionAct.Opened
@@ -668,10 +669,10 @@ module SqlSessions =
         | other -> Error $"the act %s{other} is not known to this release"
 
 
-    /// What a Session opened with, the newest row: the act that wrote it, the token, the id of the
-    /// version it opened with, the head it saw and the EHR data it opened on, whose reasons for not
-    /// reading make the Session unreadable.
-    let loadOpenedWith (conn: SqliteConnection) (sid: string) =
+    /// Loads the newest opened-with row of a Session: the act, the opened token, the version and head ids
+    /// and the EHR data. An act or EHR data that cannot be read is an error, which makes the Session
+    /// unreadable.
+    let loadOpenedWith (conn: SqliteConnection) (today: DateTime) (sid: string) =
         rows
             conn
             """
@@ -685,7 +686,7 @@ module SqlSessions =
                     HeadId = textOrNull r 1
                     OpenedToken = textOrNull r 2 |> Option.map OpenedToken
                     Act = r.GetString 3 |> actOf
-                    EhrData = readEhrColumns r 4 5
+                    EhrPatient = readEhrPatientColumns today r 4 5
                 |}
             )
         |> List.tryHead
@@ -700,9 +701,9 @@ module SqlSessions =
         |> List.tryHead
 
 
-    /// The ending of a Session, when it has one: the row of an act, or the supersession that a
-    /// newer session row of its login is, read whatever became of that newer row, so that
-    /// closing it never hands the login back. The second answer says the Session is gone.
+    /// Loads the ending of a Session and whether the Session is gone. The ending is a stored ending, or a
+    /// supersession when the login has a newer Session, even one that has since closed. A closed or
+    /// acknowledged Session is gone and has no ending.
     let loadEnding (conn: SqliteConnection) (sid: string) (login: string option) (id: int64) =
         let acknowledged =
             rows conn "select 1 from session_acknowledged where session_id = $sid" [ "$sid", box sid ] ignore
@@ -730,8 +731,8 @@ module SqlSessions =
             |> Option.map (fun at -> SessionEnding.SupersededByLaunch, at)
 
         if acknowledged then
-            // whatever the Session ended of, the User was told and asked to leave: it is gone
-            // and never told again, as the machine drops an ending it acknowledges
+            // The User was told about the ending and acknowledged it, so the Session is gone and the
+            // ending is not told again.
             None, true
         else
             match ending with
@@ -739,13 +740,13 @@ module SqlSessions =
             | Some("wrong-pin-limit", at) -> Some(SessionEnding.WrongPinLimit, at), false
             | Some("unreadable", at) -> Some(SessionEnding.Unreadable, at), false
             | Some("idle", at) -> Some(SessionEnding.Idle, at), false
-            // free text: a word this release cannot read still ended the Session
+            // The column is free text: an unknown word still ends the Session, as unreadable.
             | Some(_, at) -> Some(SessionEnding.Unreadable, at), false
             | None -> superseded, false
 
 
-    /// The User a session row holds: a Session opened without a launch has none, and a Role
-    /// this release cannot read makes the row one it cannot make sense of.
+    /// Reads the User of a session row. A Session opened without a launch has no User. An unknown Role or
+    /// a partly filled User is an error.
     let userOf (userId: string option) (displayName: string option) (role: string option) =
         match userId, displayName, role with
         | Some userId, Some name, Some word ->
@@ -764,11 +765,10 @@ module SqlSessions =
         | _ -> Error "the Session holds a User this release cannot read"
 
 
-    /// The Session of an id as the state holds it: the row, what it opened with, its heartbeat
-    /// and the head it opened on, through the headOf its caller loads the record with. One
-    /// this release cannot read is answered with the reason, and ends as unreadable; an ended
-    /// Session is answered with its ending, a closed one with none at all.
-    let loadSession (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
+    /// Loads the Session with the id and finds its head with headOf. Returns Choice1Of2 with the Session, or
+    /// with the error when it cannot be read; Choice2Of2 with the ending of an ended Session, or None for a
+    /// closed or acknowledged one. Returns None when there is no row.
+    let loadSession (conn: SqliteConnection) (today: DateTime) (headOf: string -> StoredVersion option) (sid: string) =
         rows
             conn
             """
@@ -794,7 +794,7 @@ module SqlSessions =
             | Some ending, _ -> Choice2Of2(Some ending)
             | None, true -> Choice2Of2 None
             | None, false ->
-                let opened = loadOpenedWith conn sid
+                let opened = loadOpenedWith conn today sid
 
                 let read =
                     userOf row.UserId row.UserDisplay row.UserRole
@@ -804,7 +804,7 @@ module SqlSessions =
                         |> Option.defaultValue (Ok SessionAct.Opened)
                         |> Result.bind (fun act ->
                             opened
-                            |> Option.map _.EhrData
+                            |> Option.map _.EhrPatient
                             |> Option.defaultValue (Ok None)
                             |> Result.map (fun ehr -> user, act, ehr)
                         )
@@ -818,7 +818,7 @@ module SqlSessions =
                                 {
                                     User = user
                                     PatientId = row.PatientId
-                                    EhrData = ehr
+                                    EhrPatient = ehr
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
                                     Head = opened |> Option.bind _.HeadId |> Option.bind headOf
@@ -836,25 +836,12 @@ module SqlSessions =
         )
 
 
-    /// The JSON structure version this release writes for the patient a data notice shows.
-    let patientJsonWritten = 1
+    /// The JSON of the patient data of a data notice.
+    let patientDataJson patientData = patientData |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
-    let patientJson (patient: GenForm.Patient) =
-        patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
-
-
-    /// The JSON structure version this release writes for the EHR data a Session opened on.
-    let ehrJsonWritten = 1
-
-
-    let ehrJson (ehr: GenForm.EhrPatientData) =
-        ehr |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto |> Canonical.serialize
-
-
-    /// The word an ending is stored under. Every ending matched, so that one without a word
-    /// fails to compile; a supersession is never written, since the newer Session tells it, and
-    /// neither is an inactive tab, which is told to a tab only.
+    /// Returns the word an ending is stored under. A supersession is not stored, because a newer Session
+    /// shows it, and an inactive tab is not stored, because only the tab is told.
     let endingWord =
         function
         | Session.StoredEnding.Closed -> "closed"
@@ -874,9 +861,8 @@ module SqlSessions =
         value |> Option.map box |> Option.defaultValue (box DBNull.Value)
 
 
-    /// The word a refusal is stored under, and what of it the row keeps beside the word. Every
-    /// refusal matched, so that one without a word fails to compile; Blocked keeps the id of
-    /// the head that blocked, which is an order_plan row the answer is rebuilt from.
+    /// Returns the word a signing refusal is stored under, with the id of the blocking head, the attempts
+    /// left and the lock time when the refusal has one. The blocking head is an order_plan row.
     let refusalRow (refusal: SigningRefusal) =
         match refusal with
         | SigningRefusal.NoSession -> "no-session", None, None, None
@@ -893,8 +879,7 @@ module SqlSessions =
         | SigningRefusal.PlanUnreadable -> "plan-unreadable", None, None, None
 
 
-    /// The rows of one write. Every case matched, so that a case without a row fails to
-    /// compile.
+    /// Inserts the rows of one write in the transaction.
     let run (conn: SqliteConnection) (tx: SqliteTransaction) (write: Session.Persist) =
         match write with
         | Session.WriteVersion(v, whom) -> SqlDatabase.insertVersion conn tx v whom
@@ -918,7 +903,7 @@ module SqlSessions =
                 | LaunchResult.Opened(sid, _) -> "opened", Some sid, None
                 | LaunchResult.Refused refusal -> $"refused:%s{Session.refusalWord refusal}", None, None
                 | LaunchResult.Enrolling attempt -> "enrolling", None, Some attempt
-                // a redirect is no outcome: it is what a launch is answered with until one
+                // A redirect is the answer before a launch has an outcome, so it is never stored.
                 | LaunchResult.RedirectTo _ -> invalidOp "a redirect is not an outcome of a launch"
 
             exec
@@ -968,8 +953,8 @@ module SqlSessions =
                     "$version", nullable session.OpenedWith
                     "$head", nullable (session.Opened.Head |> Option.map StoredVersion.id)
                     "$token", nullable token
-                    "$ejv", nullable (session.Opened.EhrData |> Option.map (fun _ -> ehrJsonWritten))
-                    "$ehr", nullable (session.Opened.EhrData |> Option.map ehrJson)
+                    "$ejv", nullable (session.Opened.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (session.Opened.EhrPatient |> Option.map ehrPatientJson)
                     "$at", box (ms at)
                 ]
         | Session.RecordSeen(sid, at) ->
@@ -1023,9 +1008,9 @@ module SqlSessions =
                     "$expiry", box (ms code.Expiry)
                     "$at", box (ms at)
                 ]
-        // a try and a spending name the very code the request read, by its mac: another server
-        // may have mailed a newer one meanwhile, and a try of the older must not void it. A
-        // code already spent matches nothing, and then there is nothing to write either
+        // A try and a spend name the code by its mac, because another server may have mailed a newer
+        // code meanwhile and a try of the older code must not void it. A spent code matches nothing,
+        // so nothing is written.
         | Session.CountCodeTry(userId, codeMac, at) ->
             exec
                 conn
@@ -1069,7 +1054,7 @@ module SqlSessions =
                     "$k", box key
                     "$at", box (ms at)
                 ]
-        // an attempt already given up is not an error: one request can name it twice
+        // Dropping a dropped attempt is ignored, because one request can drop the same attempt twice.
         | Session.DropEnrolmentWrite(attempt, at) ->
             exec
                 conn
@@ -1097,10 +1082,10 @@ module SqlSessions =
                 [
                     "$sid", box sid
                     "$n", box notice.Nonce
-                    "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonWritten))
-                    "$data", nullable (notice.Data |> Option.map patientJson)
-                    "$ejv", nullable (notice.Ehr |> Option.map (fun _ -> ehrJsonWritten))
-                    "$ehr", nullable (notice.Ehr |> Option.map ehrJson)
+                    "$jv", nullable (notice.PatientData |> Option.map (fun _ -> patientDataJsonVersion))
+                    "$data", nullable (notice.PatientData |> Option.map patientDataJson)
+                    "$ejv", nullable (notice.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (notice.EhrPatient |> Option.map ehrPatientJson)
                     "$e", box (ms notice.Expiry)
                     "$at", box (ms at)
                 ]
@@ -1117,13 +1102,13 @@ module SqlSessions =
                     "$sid", box sid
                     "$n", box challenge.Nonce
                     "$d", box challenge.Digest
-                    "$ejv", nullable (challenge.Ehr |> Option.map (fun _ -> ehrJsonWritten))
-                    "$ehr", nullable (challenge.Ehr |> Option.map ehrJson)
+                    "$ejv", nullable (challenge.EhrPatient |> Option.map (fun _ -> ehrPatientJsonVersion))
+                    "$ehr", nullable (challenge.EhrPatient |> Option.map ehrPatientJson)
                     "$e", box (ms challenge.Expiry)
                     "$at", box (ms at)
                 ]
-        // the challenge a commit used, named by its nonce: another server may have issued a
-        // newer one, and spending that one would take a challenge the User is answering
+        // The commit names its challenge by nonce, because another server may have issued a newer
+        // challenge that the User is answering.
         | Session.SpendChallenge(sid, nonce, at) ->
             exec
                 conn
@@ -1143,7 +1128,7 @@ module SqlSessions =
                 | SigningOutcome.Refused refusal ->
                     let word, blocked, left, until = refusalRow refusal
                     $"refused:%s{word}", blocked, None, left, until
-                // a challenge and a notice are answers of `challenge`, which remembers nothing
+                // A challenge and a notice answer the challenge request, which stores no answer.
                 | other -> invalidOp $"a Submission is not answered with %A{other}"
 
             exec
@@ -1166,8 +1151,7 @@ module SqlSessions =
                 ]
 
 
-    /// One line of the audit: when, to which Session, by whom, what was done and how it came
-    /// out, with what the action needs beside its name.
+    /// One audit line: the time, the Session, the actor, the action, the outcome and an optional JSON detail.
     type AuditEntry =
         {
             At: DateTime
@@ -1190,15 +1174,14 @@ module SqlSessions =
         }
 
 
-    /// A string as a JSON literal, quoted and escaped. The detail of an entry is JSON, and a
-    /// patient id or an attempt is whatever the launch carried, so nothing is pasted in raw.
+    /// Quotes and escapes a string as a JSON literal. The detail of an entry is JSON, and a patient id or
+    /// an attempt comes from the launch, so no value is inserted raw.
     let jsonText (text: string) = Newtonsoft.Json.JsonConvert.ToString text
 
 
     /// <summary>
-    /// What a write says about the request it belongs to: the Session it acts on, and the
-    /// person it acts for. Every case matched, as <c>auditOf</c> matches them, so that a write that
-    /// comes to name a Session or a person cannot quietly stop naming it in the audit.
+    /// Returns the Session id and the user id a write names, when it names them. <c>auditOf</c> adds them to
+    /// the entries of the request.
     /// </summary>
     let namedBy (write: Session.Persist) : string option * string option =
         match write with
@@ -1224,22 +1207,17 @@ module SqlSessions =
 
 
     /// <summary>
-    /// The audit of one write. Every case matched, so that a write nobody thought to audit
-    /// fails to compile; the writes that carry only a fact of an act another write already
-    /// audits return nothing, said here rather than left out. What the write does not know —
-    /// the Session a signature was made in, the person whose Session ended — <c>auditOf</c> fills in
-    /// from the rest of the request.
+    /// Returns the audit entry of one write, or None when another write audits the act. <c>auditOf</c> fills
+    /// in the Session and the actor from the other writes of the request.
     /// </summary>
     let entryOf (now: DateTime) (write: Session.Persist) : AuditEntry option =
         match write with
-        // a launch record carries the Launch's expiry, not the time it was made: the entry is
-        // timed by the request that wrote it
+        // The launch record holds the expiry, not the creation time, so the entry gets the request time.
         | Session.RecordLaunch r ->
             Some { auditEntry now "launched" "ok" with Detail = Some $"""{{"patient":%s{jsonText r.PatientId}}}""" }
         | Session.RecordLaunchOutcome(_, outcome, at) ->
             match outcome with
-            // the Session this launch opened is audited by the open itself, which the same
-            // request writes; a second entry would count one open twice
+            // The OpenSession write of the same request audits the open.
             | LaunchResult.Opened _ -> None
             | LaunchResult.Refused refusal ->
                 Some
@@ -1248,7 +1226,7 @@ module SqlSessions =
                     }
             | LaunchResult.Enrolling attempt ->
                 Some { auditEntry at "enrolling" "ok" with Detail = Some $"""{{"attempt":%s{jsonText attempt}}}""" }
-            // a redirect is no outcome: it is what a launch is answered with until one
+            // A redirect is the answer before a launch has an outcome.
             | LaunchResult.RedirectTo _ -> None
         | Session.OpenSession(sid, session) ->
             Some
@@ -1278,7 +1256,7 @@ module SqlSessions =
         | Session.WriteChallenge(sid, _, at) -> Some { auditEntry at "challenge-issued" "ok" with SessionId = Some sid }
         | Session.RememberAnswer(sid, _, outcome, at) ->
             match outcome with
-            // the signature itself is audited by the version it wrote
+            // The WriteVersion write audits the signature.
             | SigningOutcome.Submitted _ -> None
             | SigningOutcome.Refused refusal ->
                 let word, _, _, _ = refusalRow refusal
@@ -1288,12 +1266,9 @@ module SqlSessions =
                         SessionId = Some sid
                         Detail = Some $"""{{"refusal":%s{jsonText word}}}"""
                     }
-            // a challenge and a notice are answers of `challenge`, which remembers nothing
+            // A challenge and a notice answer the challenge request, which stores no answer.
             | _ -> None
-        // facts of an act that another of its writes audits, or that auditOf tells from the
-        // request as a whole: the heartbeat of a request, what a Session opened with, an ending
-        // acknowledged, a code or a challenge used up, and the enrolment attempts an act of the
-        // person's already tells
+        // These writes record part of an act that another write or auditOf already audits.
         | Session.RecordOpenedWith _
         | Session.RecordSeen _
         | Session.AcknowledgeEnding _
@@ -1305,15 +1280,14 @@ module SqlSessions =
 
 
     /// <summary>
-    /// What a request did, read off the writes it returned. The request is the unit, not the
-    /// single write: an act is told apart by the writes it brings together, and what one write
-    /// knows about the Session and the person is known to every entry of the request.
+    /// Returns the audit entries of a request from its writes. An entry without a Session id or an actor
+    /// gets the first one that a write of the request names.
     /// </summary>
     let auditOf (now: DateTime) (writes: Session.Persist list) : AuditEntry list =
         let named = writes |> List.map namedBy
 
-        // a version opened and a refresh have no write of their own: what the Session now opens
-        // with names the act. An open and a signature are told by their own writes.
+        // A version opened and a refresh have no write of their own; the act of the RecordOpenedWith
+        // write shows them. An open and a signature are audited by their own writes.
         let reopened =
             writes
             |> List.choose (
@@ -1336,7 +1310,7 @@ module SqlSessions =
         )
 
 
-    /// The entries of a request, in the transaction that carries its writes.
+    /// Inserts the audit entries of a request in the transaction of its writes.
     let appendAudit (conn: SqliteConnection) (tx: SqliteTransaction) (now: DateTime) (writes: Session.Persist list) =
         for e in auditOf now writes do
             exec
@@ -1357,20 +1331,20 @@ module SqlSessions =
 
 
     /// <summary>
-    /// Runs the writes of a request in one transaction: all of them land, or none does. A
-    /// violated <c>unique (patient_id, no)</c> on the record is another server's sign of the same
-    /// number, answered with the head as it stands; any other failure is <c>Failed</c> with its
-    /// reason, and the caller keeps the state it had, so that the next request retries.
+    /// Runs the writes of a request and their audit entries in one transaction. A violated
+    /// <c>unique (patient_id, no)</c> means another server wrote the same number and returns <c>Conflict</c>
+    /// with the current head. Any other failure returns <c>Failed</c> with the reason, so the caller keeps
+    /// its state and the next request retries.
     /// </summary>
     let runWrites
         (connectionString: string)
+        (zone: TimeZoneInfo)
         (now: unit -> DateTime)
         (writes: Session.Persist list)
         : Session.StoreOutcome
         =
-        // opening the file and starting the transaction are inside the try as well: a database
-        // that cannot be reached is the store failing, which the caller retries, never an
-        // exception escaping the request
+        // The connection and the transaction open inside the try, so an unreachable database returns
+        // Failed instead of raising.
         try
             use conn = new SqliteConnection(connectionString)
             conn.Open()
@@ -1395,7 +1369,10 @@ module SqlSessions =
                         | _ -> None
                     )
 
-                match patient |> Option.map (SqlDatabase.loadRecords connectionString) with
+                match
+                    patient
+                    |> Option.map (SqlDatabase.loadRecords (now () |> LocalDate.ofUtc zone) connectionString)
+                with
                 | Some(head :: _) -> Session.StoreOutcome.Conflict head
                 | _ -> Session.StoreOutcome.Failed e.Message
             | e ->
@@ -1407,9 +1384,8 @@ module SqlSessions =
 
     // ---- the credential, the code and the attempts ------------------------------------------
 
-    /// The credential of a person: the newest event carries it whole, so a load reads one row
-    /// and no history is replayed. A person with no event has no credential at all, which is
-    /// what a Prescriber who has never enrolled looks like.
+    /// Loads the credential of a person from the newest credential event, which holds it whole. A person
+    /// without events, such as a Prescriber who never enrolled, has no credential.
     let loadCredential (conn: SqliteConnection) (userId: string) =
         rows
             conn
@@ -1437,9 +1413,8 @@ module SqlSessions =
 
 
     /// <summary>
-    /// The live confirmation code of a person: the newest row, and only that row, with its
-    /// wrong tries counted. It is the code unless it is spent or past its lifetime, in which
-    /// case the person has none — never an older code in place of the one that was mailed last.
+    /// Loads the newest confirmation code of a person with its count of wrong tries. Returns None when
+    /// that code is spent or expired; an older code never takes its place.
     /// </summary>
     let loadCode (conn: SqliteConnection) (now: DateTime) (userId: string) =
         rows
@@ -1468,9 +1443,8 @@ module SqlSessions =
         |> Option.bind (fun (spent, code) -> if spent || now > code.Expiry then None else Some code)
 
 
-    /// An enrolment attempt that was not given up, and every undropped attempt of the person it
-    /// names: dropEnrolment spends the shared code only when no other attempt of that person
-    /// stands, and supplyPin drops them all, so both need the wider slice.
+    /// Loads the enrolment attempts that are not dropped, by attempt id when by is "attempt" and by user id
+    /// otherwise. dropEnrolment and supplyPin need every attempt of a person.
     let loadEnrolments (conn: SqliteConnection) (by: string) (value: string) =
         rows
             conn
@@ -1494,12 +1468,11 @@ module SqlSessions =
             )
 
 
-    /// The rows an enrolment attempt can touch, as the state holds them: the attempt, every
-    /// other attempt of the person it names, that person's live code and their credential.
+    /// Loads an enrolment attempt into the state, with the other attempts of the same person, the live
+    /// code and the credential of that person.
     let withEnrolment (conn: SqliteConnection) (now: DateTime) (attempt: string) (state: Session.State) =
         match loadEnrolments conn "attempt" attempt |> List.tryHead with
-        // the rows are what stands here too: an attempt another server dropped is gone, and
-        // must not be continued from what this server still held for it
+        // The database decides: an attempt another server dropped is removed from this server's state.
         | None -> { state with Enrolments = state.Enrolments |> Map.remove attempt }
         | Some e ->
             let attempts = loadEnrolments conn "user" e.UserId
@@ -1517,7 +1490,7 @@ module SqlSessions =
             }
 
 
-    /// The credential of the person a Session belongs to, which a signature is checked against.
+    /// Loads the credential of a person into the state; a signature is checked against it.
     let withCredential (conn: SqliteConnection) (userId: string) (state: Session.State) =
         match loadCredential conn userId with
         | None -> { state with Credentials = state.Credentials |> Map.remove userId }
@@ -1526,11 +1499,10 @@ module SqlSessions =
 
     // ---- what a Session holds in flight -------------------------------------------------------
 
-    /// The live data notice of a Session: the newest row within its two minutes. A reading this
-    /// release cannot read makes the Session unreadable, as an opened-with does. A notice told
-    /// over patient data before the store kept the read is no live notice: it cannot be matched
-    /// to any read, so the Session tells a fresh one.
-    let loadNotice (conn: SqliteConnection) (now: DateTime) (sid: string) =
+    /// Loads the newest data notice of a Session while it has not expired. A notice that cannot be read is
+    /// returned as an error whatever its expiry, and makes the Session unreadable. A notice with patient
+    /// data but no EHR data is ignored, because it cannot be matched to an EHR read.
+    let loadNotice (conn: SqliteConnection) (now: DateTime) (today: DateTime) (sid: string) =
         rows
             conn
             """
@@ -1541,16 +1513,16 @@ module SqlSessions =
             (fun r ->
                 let data =
                     match r.IsDBNull 1, r.IsDBNull 2 with
-                    | false, false -> readPatient (r.GetInt32 1) (r.GetString 2) |> Result.map Some
+                    | false, false -> readPatientData today (r.GetInt32 1) (r.GetString 2) |> Result.map Some
                     | _ -> Ok None
 
                 data
-                |> Result.bind (fun data -> readEhrColumns r 4 5 |> Result.map (fun ehr -> data, ehr))
+                |> Result.bind (fun data -> readEhrPatientColumns today r 4 5 |> Result.map (fun ehr -> data, ehr))
                 |> Result.map (fun (data, ehr) ->
                     {
                         Nonce = r.GetString 0
-                        Ehr = ehr
-                        Data = data
+                        EhrPatient = ehr
+                        PatientData = data
                         Expiry = at (r.GetInt64 3)
                     }
                     : Session.Notice
@@ -1559,18 +1531,17 @@ module SqlSessions =
         |> List.tryHead
         |> Option.filter (fun notice ->
             match notice with
-            // patient data without the read it was projected from: a row from before the
-            // columns, which a read that has since become none would wrongly match
-            | Ok n when n.Data.IsSome && n.Ehr.IsNone -> false
+            // Patient data without the EHR data it came from could wrongly match a later absent EHR read.
+            | Ok n when n.PatientData.IsSome && n.EhrPatient.IsNone -> false
             | Ok n -> now <= n.Expiry
-            // an unreadable row is answered whatever its lifetime says: the Session ends on it
+            // An unreadable row is returned whatever its expiry, so the Session ends.
             | Error _ -> true
         )
 
 
-    /// The live challenge of a Session: the newest row that is neither spent nor past its
-    /// lifetime.
-    let loadChallenge (conn: SqliteConnection) (now: DateTime) (sid: string) =
+    /// Loads the newest challenge of a Session unless it is spent or expired. A row that cannot be read is
+    /// returned as an error.
+    let loadChallenge (conn: SqliteConnection) (now: DateTime) (today: DateTime) (sid: string) =
         rows
             conn
             """
@@ -1585,13 +1556,13 @@ module SqlSessions =
             (fun r ->
                 let spent = r.GetInt64 3 = 1L
 
-                readEhrColumns r 4 5
+                readEhrPatientColumns today r 4 5
                 |> Result.map (fun ehr ->
                     spent,
                     ({
                         Nonce = r.GetString 0
                         Digest = r.GetString 1
-                        Ehr = ehr
+                        EhrPatient = ehr
                         Expiry = at (r.GetInt64 2)
                     }
                     : Session.Challenge)
@@ -1601,13 +1572,13 @@ module SqlSessions =
         |> Option.bind (fun challenge ->
             match challenge with
             | Ok(spent, c) -> if spent || now > c.Expiry then None else Some(Ok c)
-            // a row this release cannot read ends the Session, whatever became of it
+            // An unreadable row ends the Session, spent or not.
             | Error reason -> Some(Error reason)
         )
 
 
-    /// The signing refusal a stored word names, with what the row kept beside it. headOf
-    /// rebuilds the head that blocked from the record the caller loaded.
+    /// Returns the signing refusal stored under the word, with the values of the extra columns. headOf
+    /// finds the blocking head in the loaded record. Returns None for an unknown word or a missing value.
     let signingRefusalOf (headOf: string -> StoredVersion option) (word: string) versionId left until =
         match word with
         | "no-session" -> Some SigningRefusal.NoSession
@@ -1628,9 +1599,8 @@ module SqlSessions =
         | _ -> None
 
 
-    /// What the Submission under this key was answered, when it was answered at all. A row the
-    /// release cannot rebuild — an answer word it does not know, or a version that is gone —
-    /// is no answer, and the Submission is run again, which a signature may do.
+    /// Loads the stored answer to the Submission with this key and the time of the answer. A row with an
+    /// unknown answer word or a version that cannot be found gives None, and the Submission runs again.
     let loadAnswer
         (zone: TimeZoneInfo)
         (conn: SqliteConnection)
@@ -1656,13 +1626,14 @@ module SqlSessions =
 
                 let outcome =
                     if word = "submitted" then
-                        // the patient the commit answered: the plan signed, at the age of the sign
+                        // The patient data of the signed plan, at the age on the signing date.
                         match versionId |> Option.bind headOf, token with
                         | Some(StoredVersion.Readable(v, whom)), Some t ->
                             let patient =
-                                v.Plan.Patient |> Session.atBirthDate (v.SignedAt |> LocalDate.ofUtc zone) whom
+                                v.Plan.PatientData
+                                |> Session.atBirthDate (v.SignedAt |> LocalDate.ofUtc zone) whom
                             Some(SigningOutcome.Submitted(v, whom, OpenedToken t, patient))
-                        // the version it names cannot be read: there is no answer to repeat
+                        // The version is missing or cannot be read, so there is no answer to repeat.
                         | _ -> None
                     elif word.StartsWith "refused:" then
                         signingRefusalOf headOf (word.Substring "refused:".Length) versionId left until
@@ -1679,14 +1650,20 @@ module SqlSessions =
     // ---- the rows a request can touch -------------------------------------------------------
 
     /// <summary>
-    /// The record of a patient, as the state holds it. <c>warn</c> hears of every version this
-    /// release cannot read, so that a head a sign is refused against says why in the log.
+    /// Loads the order plan versions of a patient into the state. <c>warn</c> logs every version that cannot
+    /// be read, so a signature refused against an unreadable head is explained in the log.
     /// </summary>
-    let withRecord (warn: string -> unit) (cs: string) (patientId: string option) (state: Session.State) =
+    let withRecord
+        (warn: string -> unit)
+        (today: DateTime)
+        (cs: string)
+        (patientId: string option)
+        (state: Session.State)
+        =
         match patientId with
         | None -> state
         | Some pid ->
-            let versions = SqlDatabase.loadRecords cs pid
+            let versions = SqlDatabase.loadRecords today cs pid
 
             for v in versions do
                 match v with
@@ -1697,11 +1674,7 @@ module SqlSessions =
             { state with Records = state.Records |> Map.add pid versions }
 
 
-    /// A Session and its ending, and the record of the patient it was opened on. A Session
-    /// this release cannot read ends as unreadable, which is the ending its next request is
-    /// told; the ending is a row of its own, appended by the caller's writes.
-    /// The patient a Session was opened on, read before the Session itself so that its record
-    /// is in the state when the head it opened with is looked up there.
+    /// Reads the patient id a Session was opened on, or None.
     let patientOfSession (conn: SqliteConnection) (sid: string) =
         rows
             conn
@@ -1712,7 +1685,7 @@ module SqlSessions =
         |> Option.flatten
 
 
-    /// The versions of every record in the state, the head of a Session looked up among them.
+    /// Finds the version with the id among the records in the state.
     let headIn (state: Session.State) id =
         state.Records
         |> Map.toSeq
@@ -1720,27 +1693,30 @@ module SqlSessions =
         |> Seq.tryFind (fun v -> StoredVersion.id v = id)
 
 
+    /// Loads a Session, its ending and the record of its patient into the state. A Session that cannot be
+    /// read gets the ending Unreadable.
     let withSession
         (warn: string -> unit)
         (cs: string)
+        (zone: TimeZoneInfo)
         (conn: SqliteConnection)
         (now: DateTime)
         (sid: string)
         (state: Session.State)
         =
-        // the rows are what stands: whatever this server still held for the id is dropped
-        // first, so that a Session ended elsewhere cannot survive in the memory of a server
-        // that opened it
+        let today = now |> LocalDate.ofUtc zone
+
+        // The database decides: drop what this server has for the id first, so a Session ended elsewhere
+        // does not survive here.
         let state =
             { state with
                 Sessions = state.Sessions |> Map.remove sid
                 Endings = state.Endings |> Map.remove sid
             }
-            // the record first: the Session names the version it opened with by id, and that
-            // id is only a version once the patient's rows are there to find it among
-            |> withRecord warn cs (patientOfSession conn sid)
+            // Load the record first, so the head id of the Session can be found among its versions.
+            |> withRecord warn today cs (patientOfSession conn sid)
 
-        match loadSession conn (headIn state) sid with
+        match loadSession conn today (headIn state) sid with
         | None
         | Some(Choice2Of2 None) -> state
         | Some(Choice2Of2(Some ending)) -> { state with Endings = state.Endings |> Map.add sid ending }
@@ -1749,10 +1725,9 @@ module SqlSessions =
 
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
         | Some(Choice1Of2(Ok session)) ->
-            // what it holds in flight, read the same way: a notice or a challenge this
-            // release cannot read ends the Session, as an opened-with does
+            // A notice or a challenge that cannot be read ends the Session.
             let inFlight (state: Session.State) =
-                match loadNotice conn now sid, loadChallenge conn now sid with
+                match loadNotice conn now today sid, loadChallenge conn now today sid with
                 | Some(Error reason), _
                 | _, Some(Error reason) ->
                     warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
@@ -1776,16 +1751,14 @@ module SqlSessions =
                     }
 
             { state with Sessions = state.Sessions |> Map.add sid session }
-            // the credential of the person it belongs to, which its next signature is checked
-            // against, and which the wrong-PIN count and the lock live on
+            // Load the credential of the Session user; it holds the wrong PIN count and the lock.
             |> match session.Opened.User with
                | Some user -> withCredential conn user.UserId
                | None -> id
             |> inFlight
 
 
-    /// The id of the newest Session of a login, whatever became of it: the row the loader
-    /// reads a supersession off, and the one an open supersedes in turn.
+    /// Returns the id of the newest Session of a login, ended or not. A new open supersedes that Session.
     let newestOfLogin (conn: SqliteConnection) (login: string) =
         rows
             conn
@@ -1796,13 +1769,11 @@ module SqlSessions =
 
 
     /// <summary>
-    /// What a Session was opened with, whatever became of it since. A Launch that opened a
-    /// Session keeps that answer for its lifetime, so that a browser presenting it again is
-    /// sent to the app rather than through the hop a second time, and the cookie decides which
-    /// Session it lands on. <c>loadSession</c> answers an ended Session with its ending and no
-    /// <c>OpenedSession</c> at all, so the launch's outcome is rebuilt from the rows directly.
+    /// Rebuilds what a Session was opened with, ended or not. A Launch that opened a Session returns that
+    /// outcome for its lifetime, so a browser that presents the Launch again goes straight to the app.
+    /// <c>loadSession</c> returns no Session for an ended Session, so this reads the rows directly.
     /// </summary>
-    let openedOf (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
+    let openedOf (conn: SqliteConnection) (today: DateTime) (headOf: string -> StoredVersion option) (sid: string) =
         rows
             conn
             "select user_id, user_display, user_role, patient_id, key_thumbprint from session where session_id = $sid"
@@ -1818,7 +1789,7 @@ module SqlSessions =
             )
         |> List.tryHead
         |> Option.map (fun row ->
-            let opened = loadOpenedWith conn sid
+            let opened = loadOpenedWith conn today sid
 
             {
                 User =
@@ -1826,7 +1797,9 @@ module SqlSessions =
                     |> Result.toOption
                     |> Option.flatten
                 PatientId = row.PatientId
-                EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
+                EhrPatient =
+                    opened
+                    |> Option.bind (fun o -> o.EhrPatient |> Result.toOption |> Option.flatten)
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint
                 Head = opened |> Option.bind _.HeadId |> Option.bind headOf
@@ -1838,11 +1811,18 @@ module SqlSessions =
         )
 
 
-    /// The newest Session of a login, so that an open sees the one it supersedes, and the
-    /// ending of that Session when it has one.
-    let withLogin warn (cs: string) (conn: SqliteConnection) (now: DateTime) (login: string) (state: Session.State) =
-        // the login's rows are what stands: every Session this server still held for it goes
-        // first, so that one superseded or ended elsewhere cannot be found by its own id
+    /// Loads the newest Session of a login and its ending, so an open sees the Session it supersedes.
+    let withLogin
+        warn
+        (cs: string)
+        (zone: TimeZoneInfo)
+        (conn: SqliteConnection)
+        (now: DateTime)
+        (login: string)
+        (state: Session.State)
+        =
+        // The database decides: drop every Session this server has for the login, so a Session superseded
+        // or ended elsewhere cannot be found by its id.
         let held =
             state.Sessions
             |> Map.toSeq
@@ -1857,24 +1837,25 @@ module SqlSessions =
             }
 
         newestOfLogin conn login
-        |> Option.map (fun sid -> withSession warn cs conn now sid state)
+        |> Option.map (fun sid -> withSession warn cs zone conn now sid state)
         |> Option.defaultValue state
 
 
-    /// The Launch of a nonce or of a callback's state, with what its callback came to, and the
-    /// record of the patient it was launched on.
+    /// Loads the Launch with the nonce or callback state, its outcome and the record of its patient.
     let withLaunch
         warn
         (cs: string)
+        (zone: TimeZoneInfo)
         (conn: SqliteConnection)
         (now: DateTime)
         (by: string)
         (value: string)
         (state: Session.State)
         =
-        // the rows are what stands here too: a Launch past its lifetime, or one another server
-        // dropped, is gone from the state before the database is asked, so that nothing reads
-        // a record the loader itself calls absent
+        let today = now |> LocalDate.ofUtc zone
+
+        // The database decides: drop the Launch from the state before the query, so an expired Launch is
+        // not read from memory.
         let state =
             { state with
                 Launches =
@@ -1885,7 +1866,7 @@ module SqlSessions =
         match loadLaunch conn now by value with
         | None -> state
         | Some row ->
-            let state = state |> withRecord warn cs (Some row.PatientId)
+            let state = state |> withRecord warn today cs (Some row.PatientId)
 
             let headOf id =
                 state.Records
@@ -1896,7 +1877,7 @@ module SqlSessions =
             let outcome =
                 match row.Outcome, row.SessionId, row.Attempt with
                 | Some "opened", Some sid, _ ->
-                    openedOf conn headOf sid
+                    openedOf conn today headOf sid
                     |> Option.map (fun opened -> LaunchResult.Opened(sid, opened))
                 | Some "enrolling", _, Some attempt -> Some(LaunchResult.Enrolling attempt)
                 | Some word, _, _ when word.StartsWith "refused:" ->
@@ -1915,17 +1896,15 @@ module SqlSessions =
 
             let state = { state with Launches = state.Launches |> Map.add row.Nonce record }
 
-            // the Session it opened, so that a callback reloaded against it, and a request that
-            // follows, see it as the state holds it
+            // Load the Session the Launch opened, so a reloaded callback and the next request see it.
             match row.SessionId with
-            | Some sid -> withSession warn cs conn now sid state
+            | Some sid -> withSession warn cs zone conn now sid state
             | None -> state
 
 
     /// <summary>
-    /// The rows a slice names, read into the state a request runs over. Every load is a fresh
-    /// connection: the rows a request works on are the rows as they stand when it starts, and
-    /// the transaction it writes in is its own.
+    /// Loads the rows a slice names into the state of a request. Each load opens a fresh connection, so a
+    /// request reads the rows as they are when it starts.
     /// </summary>
     let load
         (warn: string -> unit)
@@ -1935,8 +1914,8 @@ module SqlSessions =
         (slice: StubDatabase.Slice)
         state
         =
-        // a request with no rows to read never opens the file: a Launch whose seal does not
-        // verify is refused as invalid whatever the database is doing
+        // A request without rows to read never opens the database, so a Launch with an invalid seal is
+        // refused even when the database fails.
         let withConnection f =
             use conn = new SqliteConnection(cs)
             conn.Open()
@@ -1945,14 +1924,16 @@ module SqlSessions =
         match slice with
         | StubDatabase.Slice.Nothing -> state
         | StubDatabase.Slice.LaunchNonce nonce ->
-            withConnection (fun conn -> withLaunch warn cs conn (now ()) "nonce" nonce state)
+            withConnection (fun conn -> withLaunch warn cs zone conn (now ()) "nonce" nonce state)
         | StubDatabase.Slice.LaunchState value ->
-            withConnection (fun conn -> withLaunch warn cs conn (now ()) "state" value state)
-        | StubDatabase.Slice.Login login -> withConnection (fun conn -> withLogin warn cs conn (now ()) login state)
-        | StubDatabase.Slice.Session sid -> withConnection (fun conn -> withSession warn cs conn (now ()) sid state)
+            withConnection (fun conn -> withLaunch warn cs zone conn (now ()) "state" value state)
+        | StubDatabase.Slice.Login login ->
+            withConnection (fun conn -> withLogin warn cs zone conn (now ()) login state)
+        | StubDatabase.Slice.Session sid ->
+            withConnection (fun conn -> withSession warn cs zone conn (now ()) sid state)
         | StubDatabase.Slice.Submission(sid, key) ->
             withConnection (fun conn ->
-                let state = withSession warn cs conn (now ()) sid state
+                let state = withSession warn cs zone conn (now ()) sid state
 
                 let headOf id =
                     state.Records
@@ -1960,13 +1941,13 @@ module SqlSessions =
                     |> Seq.collect snd
                     |> Seq.tryFind (fun v -> StoredVersion.id v = id)
 
-                // the answer this key was already given, when it was given one at all
+                // Load the earlier answer to this key, if there is one.
                 match loadAnswer zone conn headOf sid key with
                 | Some answer -> { state with Answered = state.Answered |> Map.add (sid, key) answer }
                 | None -> { state with Answered = state.Answered |> Map.remove (sid, key) }
             )
-        // the attempt, every other attempt of the person it names, their code and their
-        // credential, and the record of the patient an open out of it would show
+        // Load the attempt, the other attempts of the same person, their code and credential, and the
+        // record of the patient.
         | StubDatabase.Slice.Enrolment attempt ->
             withConnection (fun conn ->
                 let state = withEnrolment conn (now ()) attempt state
@@ -1974,14 +1955,14 @@ module SqlSessions =
                 state.Enrolments
                 |> Map.tryFind attempt
                 |> Option.map _.PatientId
-                |> fun pid -> withRecord warn cs pid state
+                |> fun pid -> withRecord warn (now () |> LocalDate.ofUtc zone) cs pid state
             )
 
 
     /// <summary>
-    /// The session state in the database: a load reads the rows a slice names, a write appends
-    /// what a request did, in one transaction. <c>warn</c> hears of every row the release cannot
-    /// read; a load that throws is rethrown, which the port answers as the store failing.
+    /// Makes the session store on the database. A load reads the rows a slice names; persist runs the writes
+    /// of a request in one transaction. <c>warn</c> logs every row that cannot be read. A load that throws
+    /// is logged and rethrown, and the port treats it as a store failure.
     /// </summary>
     let store
         (warn: string -> unit)
@@ -1998,14 +1979,13 @@ module SqlSessions =
                     with e ->
                         warn $"the session store could not be read: %s{e.Message}"
                         reraise ()
-            persist = runWrites cs now
+            persist = runWrites cs zone now
         }
 
 
     /// <summary>
-    /// The credentials the demo walkthrough needs, written once per login: a login that already
-    /// has a credential event is left alone, so a restart adds no row and never resets a PIN the
-    /// User changed. Demo servers only; production has no seed and refuses the key today.
+    /// Writes the demo credentials for each login without a credential event, so a restart adds no row and
+    /// never resets a PIN the User changed. Used on demo servers only.
     /// </summary>
     let seed (cs: string) (now: DateTime) (credentials: Map<string, Credential>) =
         try
@@ -2015,9 +1995,8 @@ module SqlSessions =
 
             try
                 for login, credential in credentials |> Map.toList do
-                    // one statement asks and writes: a credential another server set between a
-                    // question and an answer of ours would otherwise be replaced by the demo
-                    // PIN, and the newest event is the one that signs
+                    // One statement checks and inserts, so a credential another server sets meanwhile is not
+                    // replaced by the demo PIN.
                     exec
                         conn
                         tx
@@ -2044,5 +2023,5 @@ module SqlSessions =
             Session.StoreOutcome.Failed e.Message
 
 
-    /// The session port over the state in the database.
+    /// Makes the session port that keeps its state in the database.
     let makeSessionPort warn cs zone now = StubDatabase.makeSessionPortWith (store warn cs zone now) zone

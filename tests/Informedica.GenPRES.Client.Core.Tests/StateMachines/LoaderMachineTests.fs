@@ -43,7 +43,7 @@ let drugNames names notice =
     )
 
 
-let patient = Patient.empty
+let patient = PatientData.empty
 
 
 let filter generic = { OrderContext.empty.Filter with Generic = Some generic }
@@ -202,7 +202,7 @@ let tests =
                         |> Expect.equal
                             "both asked"
                             [
-                                LoaderEffect.FetchFormulary { Formulary.empty with Patient = Some patient }
+                                LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
                                 LoaderEffect.FetchParenteralia Parenteralia.empty
                             ]
 
@@ -268,7 +268,7 @@ let tests =
                         |> Expect.equal
                             "one request for each page"
                             [
-                                LoaderEffect.FetchFormulary { Formulary.empty with Patient = Some patient }
+                                LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
                                 LoaderEffect.FetchParenteralia Parenteralia.empty
                             ]
                     }
@@ -351,7 +351,7 @@ let tests =
                         |> Expect.equal
                             "asked and seeded"
                             [
-                                LoaderEffect.FetchFormulary { form with Patient = Some patient }
+                                LoaderEffect.FetchFormulary { form with PatientData = Some patient }
                                 LoaderEffect.SeedWorkbench
                                     {
                                         Source = SeedSource.Formulary
@@ -704,7 +704,7 @@ module TotalsFixtures =
 
     let query: TotalsQuery =
         {
-            Patient = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
+            PatientData = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
             OrderContexts = [| feeding |]
         }
 

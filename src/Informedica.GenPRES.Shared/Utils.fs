@@ -24,17 +24,15 @@ module Measures =
 module String =
 
 
-    /// True when `s` is null, empty, or only white space.
+    /// True when the string is null, empty or only white space.
     let isNullOrWhiteSpace (s: String) = String.IsNullOrWhiteSpace(s)
 
 
-    /// True when `s` has content other than white space. The negation of
-    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    /// True when the string has a character other than white space. False for a null string.
     let notEmpty = isNullOrWhiteSpace >> not
 
 
-    /// True when `s` is null or zero-length. White space counts as content
-    /// here, unlike `isNullOrWhiteSpace`.
+    /// True when the string is null or has no characters. A string of only white space is not empty.
     let isNullOrEmpty (s: String) = String.IsNullOrEmpty(s)
 
 
@@ -44,25 +42,13 @@ module String =
     let split (del: string) (s: string) = s.Split(del)
 
 
-    /// Apply `f` to string `s`
+    /// Applies f to the string s.
     let apply f (s: string) = f s
 
-    /// Utility to enable type inference
+    /// Returns the string unchanged. Callers use it to fix the type of a value to string for inference.
     let get = apply id
 
-    /// Count the number of times that a
-    /// string t starts with character c
-    let countFirstChar c t =
-        let _, count =
-            if t |> isNullOrEmpty then
-                (false, 0)
-            else
-                t
-                |> Seq.fold (fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec)) (true, 0)
-
-        count
-
-    /// Check if string `s2` contains string `s1`
+    /// True when the string s2 contains the string s1.
     let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
 
 
@@ -73,7 +59,7 @@ module String =
     let length s = (s |> get).Length
 
 
-    /// Remove trailing characters from a string
+    /// Removes from the end of the string every character that is in chars.
     let removeTrailing chars (s: String) =
         s
         |> Seq.rev
@@ -83,7 +69,8 @@ module String =
         |> String.concat ""
 
 
-    /// Remove trailing zeros from a Dutch number
+    /// Removes the trailing zeros after the decimal comma of a Dutch number.
+    /// Removes the comma too when no decimals remain.
     let removeTrailingZerosFromDutchNumber (s: string) =
         s.Split([| "," |], StringSplitOptions.None)
         |> function
@@ -101,61 +88,34 @@ module Math =
 
     let roundBy0_5 = roundBy 0.5
 
-    /// Calculates the number of decimal digits that
-    /// should be shown according to a precision
-    /// number n that specifies the number of
-    /// non-zero digits in the decimals.
-    /// * 66.666 |> getPrecision 1 = 0
-    /// * 6.6666 |> getPrecision 1 = 0
-    /// * 0.6666 |> getPrecision 1 = 1
-    /// * 0.0666 |> getPrecision 1 = 2
-    /// * 0.0666 |> getPrecision 0 = 0
-    /// * 0.0666 |> getPrecision 1 = 2
-    /// * 0.0666 |> getPrecision 2 = 3
-    /// * 0.0666 |> getPrecision 3 = 4
-    /// * 6.6666 |> getPrecision 0 = 0
-    /// * 6.6666 |> getPrecision 1 = 0
-    /// * 6.6666 |> getPrecision 2 = 1
-    /// * 6.6666 |> getPrecision 3 = 2
-    /// etc.
-    /// If n < 0 then n = 0 is used.
-    let getPrecision n f = // ToDo fix infinity case
-        let n = if n < 0 then 0 else n
+    /// Returns the number of decimals that shows f with at least n significant digits.
+    /// For example, 0.0666 |> getPrecision 2 = 3 and 6.6666 |> getPrecision 2 = 1.
+    /// A negative n counts as 0. Returns n when f is zero, infinite or not a number.
+    let getPrecision n f =
+        let n = max n 0
 
-        if f = 0. || n = 0 then
+        if f = 0. || n = 0 || Double.IsInfinity f || Double.IsNaN f then
             n
         else
-            let s = (f |> abs |> string).Split([| '.' |])
+            // The base-10 logarithm, rounded down, is the place of the first significant digit:
+            // 0 for 6.6, 1 for 66 and -2 for 0.066.
+            let first = f |> abs |> log10 |> floor |> int
+            // The logarithm of a float just below a power of ten rounds up to that power.
+            // The power of ten is read from text, because that gives the exact float.
+            let first = if float $"1e%i{first}" > abs f then first - 1 else first
 
-            // calculate number of remaining decimal digits (after '.')
-            let p = n - (if s[0] = "0" then 0 else s[0].Length)
+            max 0 (n - 1 - first)
 
-            let p = if p < 0 then 0 else p
-
-            if (int s[0]) > 0 then
-                p
-            else
-                // calculate the first occurrence of a non-zero decimal digit
-                let c = (s[1] |> String.countFirstChar '0')
-                c + p
-
-    /// Fix the precision of a float f to
-    /// match a minimum of non-zero digits n
-    /// * 66.666 |> fixPrecision 1 = 67
-    /// * 6.6666 |> fixPrecision 1 = 7
-    /// * 0.6666 |> fixPrecision 1 = 0.7
-    /// * 0.0666 |> fixPrecision 1 = 0.07
-    /// * 0.0666 |> fixPrecision 0 = 0
-    /// * 0.0666 |> fixPrecision 1 = 0.07
-    /// * 0.0666 |> fixPrecision 2 = 0.067
-    /// * 0.0666 |> fixPrecision 3 = 0.0666
-    /// * 6.6666 |> fixPrecision 0 = 7
-    /// * 6.6666 |> fixPrecision 1 = 7
-    /// * 6.6666 |> fixPrecision 2 = 6.7
-    /// * 6.6666 |> fixPrecision 3 = 6.67
-    /// etc.
-    /// If n < 0 then n = 0 is used.
-    let fixPrecision n (f: float) = Math.Round(f, f |> getPrecision n)
+    /// Rounds f to the number of decimals that shows at least n significant digits.
+    /// For example, 0.0666 |> fixPrecision 2 = 0.067 and 6.6666 |> fixPrecision 2 = 6.7.
+    /// Returns f unchanged when n is negative. The number of decimals is at most 15, because
+    /// Math.Round takes at most 15 decimals for a float.
+    let fixPrecision n (f: float) =
+        if n < 0 then
+            f
+        else
+            // Adding zero turns a negative zero into zero, so that it does not print as "-0".
+            Math.Round(f, f |> getPrecision n |> min 15) + 0.
 
 
 module List =
@@ -184,65 +144,39 @@ module Decimal =
     //----------------------------------------------------------------------------
 
 
-    /// Calculates the number of decimal digits that
-    /// should be shown according to a precision
-    /// number n that specifies the number of non
-    /// zero digits in the decimals.
-    /// * 66.666 |> getPrecision 1 = 0
-    /// * 6.6666 |> getPrecision 1 = 0
-    /// * 0.6666 |> getPrecision 1 = 1
-    /// * 0.0666 |> getPrecision 1 = 2
-    /// * 0.0666 |> getPrecision 0 = 0
-    /// * 0.0666 |> getPrecision 1 = 2
-    /// * 0.0666 |> getPrecision 2 = 3
-    /// * 0.0666 |> getPrecision 3 = 4
-    /// * 6.6666 |> getPrecision 0 = 0
-    /// * 6.6666 |> getPrecision 1 = 0
-    /// * 6.6666 |> getPrecision 2 = 1
-    /// * 6.6666 |> getPrecision 3 = 2
-    /// etc
-    /// If n < 0 then n = 0 is used.
+    /// Returns the number of decimals that shows d with at least n significant digits.
+    /// For example, 0.0666m |> getPrecision 2 = 3 and 6.6666m |> getPrecision 2 = 1.
+    /// A negative n counts as 0. Returns n when d is zero.
     let getPrecision n (d: Decimal) =
         let n = if n < 0 then 0 else n
 
         if d = 0m || n = 0 then
             n
         else
-            let absF = abs d
-            let s = absF.ToString("G", CultureInfo.InvariantCulture)
+            // The text is made with string and not with the "G" format, because in the browser
+            // that format drops the zeros at the end of a whole number: 1000 becomes "1".
+            // The text of a decimal has no exponent.
+            let parts = (d |> abs |> string).Split('.')
+            let leftPart = parts[0]
+            let p = n - (if leftPart = "0" then 0 else leftPart.Length)
+            let p = if p < 0 then 0 else p
 
-            if s.Contains "E" then
-                let eIndex = s.IndexOf("E") + 2
-                let h = int s[eIndex..]
-                h + n - 1
+            if leftPart <> "0" then
+                p
             else
-                let parts = s.Split('.')
-                let leftPart = parts[0]
-                let p = n - (if leftPart = "0" then 0 else leftPart.Length)
-                let p = if p < 0 then 0 else p
-
-                if int leftPart > 0 then
-                    p
-                else
-                    let rightPart = parts[1]
-                    let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
-                    zeroCount + p
+                let rightPart = parts[1]
+                let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
+                zeroCount + p
 
 
-    /// Fix the precision of a float f to
-    /// match a minimum of non zero digits n
-    /// * 66.666 |> fixPrecision 1 = 67
-    /// * 6.6666 |> fixPrecision 1 = 7
-    /// * 0.6666 |> fixPrecision 1 = 0.7
-    /// * 0.0666 |> fixPrecision 1 = 0.07
-    /// * 0.0666 |> fixPrecision 1 = 0.07
-    /// * 0.0666 |> fixPrecision 2 = 0.067
-    /// * 0.0666 |> fixPrecision 3 = 0.0666
-    /// * 6.6666 |> fixPrecision 1 = 7
-    /// * 6.6666 |> fixPrecision 2 = 6.7
-    /// * 6.6666 |> fixPrecision 3 = 6.67
-    /// etc
-    /// If n < 0 then the value is not changed.
+    /// Returns the number of decimals that d is rounded to for n significant digits.
+    /// The number is at most 28, because Math.Round takes at most 28 decimals for a decimal.
+    let roundingDecimals n (d: decimal) = d |> getPrecision n |> min 28
+
+
+    /// Rounds d to the number of decimals that shows at least n significant digits.
+    /// For example, 0.0666m |> fixPrecision 2 = 0.067m and 6.6666m |> fixPrecision 2 = 6.7m.
+    /// Returns d unchanged when n is negative.
     let fixPrecision n (d: decimal) =
         if n < 0 then
             d
@@ -252,7 +186,7 @@ module Decimal =
             // decimals as 0.04167. Multiplying by one stores the digits without those zeros; in .NET it
             // changes nothing.
             let d = d * 1m
-            Math.Round(d, d |> getPrecision n)
+            Math.Round(d, d |> roundingDecimals n)
 
 
     //----------------------------------------------------------------------------
@@ -260,7 +194,8 @@ module Decimal =
     //----------------------------------------------------------------------------
 
 
-    /// Returns a string representation of a decimal in Dutch format
+    /// Formats d as a Dutch number: a space between the thousands and a decimal comma.
+    /// The text p gives the number of decimals; an empty p gives the default of the F format, two in .NET.
     let toStringNumberNL p (d: decimal) =
         let invariantStr = d.ToString("F" + p, CultureInfo.InvariantCulture)
         let parts = invariantStr.Split('.')
@@ -282,15 +217,21 @@ module Decimal =
             formattedInteger + "," + decimalPart
 
 
-    /// Returns a string representation of a decimal in Dutch format without trailing zeros
-    let toStringNumberNLWithoutTrailingZeros =
-        toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
+    /// Formats d as a Dutch number with at least n significant digits and without trailing zeros.
+    /// A negative n prints the number in full, without rounding.
+    /// Example: 0.0666m with n = 2 gives "0,067".
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n d =
+        // a decimal has at most 28 decimals
+        let decimals = if n < 0 then 28 else d |> roundingDecimals n
+
+        d
+        |> fixPrecision n
+        |> toStringNumberNL $"%i{decimals}"
+        |> String.removeTrailingZerosFromDutchNumber
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    /// and with a fixed precision.
-    /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    /// Formats d as a Dutch number with at least 3 significant digits and without trailing zeros.
+    let toStringNumberNLWithoutTrailingZeros d = d |> toStringNumberNLWithoutTrailingZerosFixPrecision 3
 
 
 module Csv =
@@ -299,26 +240,26 @@ module Csv =
     open Types
 
 
-    /// The text NumberStyles.Float accepts under the invariant culture, bar Infinity and NaN:
-    /// optional white space, an optional sign, digits with at most one decimal point, an optional
-    /// exponent. The digits and the six white space characters .NET allows are spelled out, since
-    /// \d and \s differ between .NET and JavaScript.
+    /// Matches the text that NumberStyles.Float accepts under the invariant culture, except Infinity and NaN:
+    /// optional white space, an optional sign, digits with at most one decimal point and an optional exponent.
+    /// The digits and the six white space characters of .NET are spelled out, because \d and \s differ
+    /// between .NET and JavaScript.
     let plainDecimal =
         Regex(@"^[ \t\n\v\f\r]*[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?[ \t\n\v\f\r]*$")
 
 
-    /// Whether the text is a plain decimal, the only form the sheet writes a number in.
+    /// True when the text is a plain decimal, the only form in which the sheet writes a number. False for null.
     let isPlainDecimal (x: string) = not (isNull x) && plainDecimal.IsMatch x
 
 
-    /// The number as the sheet writes it, with a decimal point, whatever the culture of the host:
-    /// a parse with the current culture drops the point as a group separator under a culture that
-    /// writes the decimal comma, and reads 0.0192 as 192.
+    /// Parses a number written with a decimal point, whatever the culture of the host.
+    /// A parse with a culture that uses a decimal comma would read 0.0192 as 192.
+    /// Returns false and 0 when the text is not a number.
     let tryParseFloat (x: string) =
 #if FABLE_COMPILER
-        // Fable drops the style and the culture and parses as JavaScript does, which also takes
-        // 0x, 0b and 0o prefixes and an underscore; the shape check keeps the browser to what the
-        // server accepts. JavaScript's parse does not depend on the browser's locale
+        // Fable ignores the style and the culture and parses as JavaScript does, which also accepts
+        // the prefixes 0x, 0b and 0o and an underscore. The shape check limits the browser to the
+        // text the server accepts. The JavaScript parse does not depend on the locale of the browser.
         if isPlainDecimal x then Double.TryParse x else false, 0.
 #else
         Double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture)

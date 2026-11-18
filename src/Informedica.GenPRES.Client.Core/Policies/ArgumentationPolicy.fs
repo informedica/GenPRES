@@ -8,8 +8,8 @@ module ArgumentationPolicy =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// Every order variable of an order: its own, the schedule's, the orderable's, and those of each
-    /// component and item, doses included.
+    /// Returns all order variables of an order, with those of the schedule, the orderable, each component
+    /// and each item, including their doses.
     let variables (ord: Order) : OrderVariable list =
         let dose (d: Dose) =
             [
@@ -58,15 +58,15 @@ module ArgumentationPolicy =
         |> List.exists (SeverityReasonPolicy.ofOrderVariable >> Option.isSome)
 
 
-    /// Whether the dialog asks for an argumentation: when the context is narrowed to one scenario
-    /// whose order the rules mark, or when a text is already written.
+    /// Whether the dialog asks for an argumentation: when the context has one scenario whose order the
+    /// rules mark, or when a text is already written.
     let wanted (ctx: OrderContext) =
         ctx.Argumentation.IsSome
         || (ctx |> OrderContext.contribution |> Option.exists (fun sc -> marked sc.Order))
 
 
-    /// The maximum length of a text, the same as the server's, so the server never refuses a text
-    /// the client holds.
+    /// The maximum length of an argumentation text. It equals the server limit, so the server never
+    /// refuses a text the client accepts.
     let maxLength = OrderContext.Argumentation.maxLength
 
 

@@ -1,5 +1,5 @@
 ---
-last_commit_released: 34354d025708bd01f2f8438a1259da754e98da04
+last_commit_released: 719d8833e62f8c96678df9397d124b63792da4e0
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,90 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.57 - 2026-11-18
+
+### 🐞 Bug Fixes
+
+* *(api)* Calculate the float precision ([f8c39e7c](https://github.com/informedica/GenPRES/commit/f8c39e7c698356e29fd6730a0687d6fbb8a76665))
+* *(api)* Correct the precision at a power of ten ([9a406d8a](https://github.com/informedica/GenPRES/commit/9a406d8a940bedfa63996657297d3e841acd8a23))
+* *(gencore)* Give an infinite eGFR no band ([f7f0c9b7](https://github.com/informedica/GenPRES/commit/f7f0c9b75a70ecda9fcc696f6cf874873da681c8))
+* *(gencore)* Refuse a birth date in the future ([7271b95e](https://github.com/informedica/GenPRES/commit/7271b95e6b5b1d689c1106034d81e79c6ecfadfc))
+* *(genorder)* Step up from the increment ([49dc9287](https://github.com/informedica/GenPRES/commit/49dc9287c923e116a1fe04265e464df34fe33a6b))
+* *(genorder)* Return the norm dose itself ([d93d94df](https://github.com/informedica/GenPRES/commit/d93d94df177250c8d5abd5e96df3450e71ce8f6d))
+* *(genorder)* Print a norm or range beyond a decimal ([14909087](https://github.com/informedica/GenPRES/commit/14909087a9c7cea3e8980252aa28a1d3c3d7faa8))
+* *(genunits)* Print a value beyond a decimal ([6925ef51](https://github.com/informedica/GenPRES/commit/6925ef51beb7a257662fc52feb359dadf722a62a))
+* *(server)* Return the patient error of a formulary request ([6fe46aa0](https://github.com/informedica/GenPRES/commit/6fe46aa061bdc03a53be6d2e793ed57c03a764b8))
+* *(server)* Sign a plan on the date of its challenge ([0fb13eb9](https://github.com/informedica/GenPRES/commit/0fb13eb905234a0320f055d3e0fc4b78900a8603))
+* *(server)* Give GENPRES_DEBUG the default 0 ([9b654d8e](https://github.com/informedica/GenPRES/commit/9b654d8ef86173be821d7175ddd9d1225ab04d50))
+* *(utils)* Keep digits in Dutch number format ([4868e1e3](https://github.com/informedica/GenPRES/commit/4868e1e35dad73a8de944ffff93bb95d8bcd2a54))
+* *(utils)* Print large numbers and full decimals ([a41c8b4e](https://github.com/informedica/GenPRES/commit/a41c8b4e7363000e03d657dfaf6f408c53497894))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/ad762bbfa3ec1069c2d876523d6d934ad543c18c..719d8833e62f8c96678df9397d124b63792da4e0)</small></strong>
+
+## 0.1.2-alpha.56 - 2026-11-13
+
+### 🐞 Bug Fixes
+
+* *(genform)* Reword the undiluted concentration warning ([eb650c9d](https://github.com/informedica/GenPRES/commit/eb650c9dc4ed1cf27709d4ac1f5616086222c0f3))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/bde1e4efda533532e16390789f08b0bd117cf1e3..ad762bbfa3ec1069c2d876523d6d934ad543c18c)</small></strong>
+
+## 0.1.2-alpha.55 - 2026-11-12
+
+### 🐞 Bug Fixes
+
+* *(genform)* Restore the solution rule name ([13b38436](https://github.com/informedica/GenPRES/commit/13b384369f736cea3db1da4e004461be76ff2516))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/5a22b6f38e31846bda068ab6764373ab9526a145..bde1e4efda533532e16390789f08b0bd117cf1e3)</small></strong>
+
+## 0.1.2-alpha.54 - 2026-11-12
+
+### 🚀 Features
+
+* *(client)* Translate the alert and server error texts ([d3cb19a6](https://github.com/informedica/GenPRES/commit/d3cb19a6780809f2dd5a0c65e55878208bf2248d))
+* *(client)* Translate the patient text and renal options ([477e5402](https://github.com/informedica/GenPRES/commit/477e5402bdff609000720618b185a0bfe5548156))
+* *(client)* Translate the order and nutrition labels ([d4405290](https://github.com/informedica/GenPRES/commit/d4405290a5799e82fe2c4757ac350ddedbcd6bd2))
+* *(client)* Translate the shell and settings texts ([df0fd899](https://github.com/informedica/GenPRES/commit/df0fd8997132318925af0373e29626731519ba69))
+* *(genorder)* Apply component concentration limit ([dc01773e](https://github.com/informedica/GenPRES/commit/dc01773edef85c55d501d7dcdd80207443bd653a))
+* *(ui)* Show the TPN composition lock as a notice ([ef0a43a0](https://github.com/informedica/GenPRES/commit/ef0a43a0c2bd00fa0721eb6d1f5dce30b859acac))
+
+### 🐞 Bug Fixes
+
+* *(client)* Make every term fallback English ([34e0081c](https://github.com/informedica/GenPRES/commit/34e0081cd246fb46b57f48161361bc5303438802))
+* *(client)* Switch the last four fallbacks to English ([c8ce4fa3](https://github.com/informedica/GenPRES/commit/c8ce4fa3d1a9a6729dfcd36d251e8714f6804bfe))
+* *(client)* Unwrap the age words of the patient text ([e2cae8ca](https://github.com/informedica/GenPRES/commit/e2cae8caea03c1c665e570db09e39640d89787b9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/f1de12cbe91280be20d6385d5b473f88af35a1a4..5a22b6f38e31846bda068ab6764373ab9526a145)</small></strong>
+
+## 0.1.2-alpha.53 - 2026-11-11
+
+### 🚀 Features
+
+* *(client)* Show the weight and height in use ([597a5670](https://github.com/informedica/GenPRES/commit/597a5670bd5b28c90da8a7bbaac53de48cd42173))
+* *(genform)* Keep only dilution rules that limit a component ([6888c364](https://github.com/informedica/GenPRES/commit/6888c3640078622fd25529f2ed424a28abbc6112))
+* *(genform)* Load dose rules whose dilution rule limits them ([b3595910](https://github.com/informedica/GenPRES/commit/b3595910dc4f3c4ba4e04d4aa6ec7e998c6c9f29))
+* *(genform)* Warn for dose and dilution ranges no order meets ([f00d9fc8](https://github.com/informedica/GenPRES/commit/f00d9fc88ddd2b05a85866be84a7053bad97b551))
+* *(genform)* Warn about repeated dilution limit targets ([94005dff](https://github.com/informedica/GenPRES/commit/94005dff9ee1a3b014bfedfd3105bce86e30ce44))
+* *(genorder)* Limit Totals rows by gestational age ([16c8b48f](https://github.com/informedica/GenPRES/commit/16c8b48ff5eb685ffcf734765c08e2f957b6f46e))
+* *(ui)* Line up supplement fields with the feeding fields ([fea8e897](https://github.com/informedica/GenPRES/commit/fea8e8971b621b33116aa10282fbc7bca4fe45ca))
+* *(ui)* Add supplements from a menu ([6956cb1d](https://github.com/informedica/GenPRES/commit/6956cb1d65e33ba8cccce2c7b1d84cfe31bb47b8))
+* *(ui)* Put the scenario card actions on the action bar ([ff018208](https://github.com/informedica/GenPRES/commit/ff0182084bce70eb7a50338300ec27e6dd6f3f6f))
+
+### 🐞 Bug Fixes
+
+* *(genform)* Check the first dilution limit of a component ([65dcb354](https://github.com/informedica/GenPRES/commit/65dcb3549a93d39a7aa2b7f9d2140da0eb98bfc0))
+* *(genform)* Keep dose rules without limits in the export ([a14c935b](https://github.com/informedica/GenPRES/commit/a14c935b3b36473baaca5563d0107a454fb49a1b))
+* *(genorder)* Read back a medication with a placeholder product ([be208c37](https://github.com/informedica/GenPRES/commit/be208c371f2a979df93385e6640d2f76f38c1fd2))
+* *(genorder)* Read a null value array without throwing ([cfacac21](https://github.com/informedica/GenPRES/commit/cfacac219fadda3ac8e5f8a172a42559995b6248))
+* *(genorder)* Give the right refusal for dose rules without limits ([383eb961](https://github.com/informedica/GenPRES/commit/383eb961919341d95c8a211240d47c6b66956d53))
+* *(genorder)* Check reconstituted products in the refusal ([12c9eb95](https://github.com/informedica/GenPRES/commit/12c9eb95ed2748af8e1732939caa07490577df95))
+* *(ui)* Give feeding and supplement rows the same column widths ([c302c41d](https://github.com/informedica/GenPRES/commit/c302c41db1c1150b8db9f98d96bd584bf9bad728))
+* *(ui)* Make the bin work from the keyboard ([e8ca7352](https://github.com/informedica/GenPRES/commit/e8ca73520ea3a9c1439be23f8dbf3bee18fb82b8))
+* *(ui)* Keep the dose in place under a notice ([4f6639b0](https://github.com/informedica/GenPRES/commit/4f6639b042f1dd9f72ea41a092bb3f4423758676))
+* *(ui)* Pad shorter order text lines to all columns ([725ed635](https://github.com/informedica/GenPRES/commit/725ed63511b0407f91999914f5101c66ec3a8df8))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/34354d025708bd01f2f8438a1259da754e98da04..f1de12cbe91280be20d6385d5b473f88af35a1a4)</small></strong>
 
 ## 0.1.2-alpha.52 - 2026-11-11
 

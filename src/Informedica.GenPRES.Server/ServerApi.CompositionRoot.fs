@@ -6,8 +6,8 @@ module CompositionRoot =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The api of one request: the settings and the env are built once per host, the cookie
-    /// once per request; the settings take the departments as loaded when asked.
+    /// Builds the server api for one request. The settings and the env are built once per host, the
+    /// cookies once per request. The settings get the departments as loaded at the time of the request.
     let compose
         (settings: Informedica.GenForm.Lib.Types.Departments -> ServerSettings)
         (env: AppEnv)
@@ -17,8 +17,8 @@ module CompositionRoot =
         : IServerApi
         =
         {
-            // every computing member goes through Compute.bound: the log, the Session marked seen
-            // and told, the gate, the exception as an Error
+            // The computing functions run through Compute.bound: logging, the session check, the
+            // loaded-resources check and the exception as an Error.
             processOrderContext =
                 Compute.bound
                     env
@@ -43,10 +43,15 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (ParenteraliaCommand.processCmd env)
 
-            processPatient =
-                Compute.bound env cookie PatientCommand.toString PatientCommand.gate (PatientCommand.processCmd env)
+            processPatientData =
+                Compute.bound
+                    env
+                    cookie
+                    PatientDataCommand.toString
+                    PatientDataCommand.gate
+                    (PatientDataCommand.processCmd env)
 
-            // the one plan, nutrition included
+            // The order plan, including nutrition.
             processOrderPlan =
                 Compute.bound
                     env
@@ -55,7 +60,7 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (OrderPlanCommand.processCmd env)
 
-            // the totals over the orders asked for, the plan left as it is
+            // Calculates the totals of the requested orders without changing the plan.
             processTotals =
                 Compute.bound
                     env
@@ -64,7 +69,7 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (OrderPlanCommand.processTotals env)
 
-            // the one member whose gate differs per command: the drug names run open
+            // The check depends on the command: the medication names do not need the loaded resources.
             processInteraction =
                 Compute.bound
                     env
@@ -81,7 +86,7 @@ module CompositionRoot =
 
             processSigning = Compute.logged env "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
 
-            // never Session-bound: no cookie read, no notice, and not behind requireLoaded
+            // Admin commands read no session cookie, return no notice and run before the resources are loaded.
             processAdmin = Compute.logged env "admin" AdminCommand.toString (AdminCommand.processCmd env)
 
             getSettings =
@@ -90,7 +95,7 @@ module CompositionRoot =
                         Logging.ServerLogging.Info "Processing settings"
                         |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
-                        // the departments as loaded now, so a reload reaches the next asker
+                        // Reads the departments on every request, so a reload shows on the next request.
                         return env.departments () |> settings
                     }
 

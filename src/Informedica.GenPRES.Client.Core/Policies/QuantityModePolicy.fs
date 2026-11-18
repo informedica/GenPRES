@@ -39,15 +39,15 @@ module QuantityModePolicy =
         | Other
 
 
-    /// The number of values the order variable holds; 0 for a range or nothing.
+    /// The number of values of the order variable; 0 for a range or no values.
     let valuesCount (ovar: OrderVariable) =
         ovar.Variable.Vals
         |> Option.map (_.Value >> Array.length)
         |> Option.defaultValue 0
 
 
-    /// Whether the field can be stepped now. The dose quantity can only be stepped when every
-    /// component's orderable quantity holds one value.
+    /// Whether the field can be stepped now. The dose quantity can only be stepped when the orderable
+    /// quantity of every component has a single value.
     let canStep (field: Field) (ord: Order) =
         match field with
         | Field.ComponentQuantity
@@ -81,6 +81,6 @@ module QuantityModePolicy =
                 Mode.Selectable
 
 
-    /// The mode of a field of an order, as the views ask for it.
+    /// Returns the mode of a field of an order.
     let decideFor (field: Field) (ord: Order) (ovar: OrderVariable) =
         ovar |> decide (ord |> canStep field) (ord |> OrderDisplay.isSolved)

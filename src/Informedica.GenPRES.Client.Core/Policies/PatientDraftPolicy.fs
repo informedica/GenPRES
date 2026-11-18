@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides what an edit of the patient panel does to the draft the App holds, and whether the
-/// weight and height the user did not enter are estimated again after it.
+/// Decides what a patient panel edit does to the patient data draft, and whether the weight and height
+/// the user did not enter are estimated again.
 module PatientDraftPolicy =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -12,8 +12,8 @@ module PatientDraftPolicy =
     /// One edit the panel makes to the draft.
     [<RequireQualifiedAccess>]
     type Msg =
-        /// The draft discarded as a whole: the data of an anonymous patient, which is fictitious;
-        /// an identified patient's data is changed, never cleared.
+        /// Discards the whole draft. Used for an anonymous patient, whose data is fictitious; the data of
+        /// an identified patient is changed, never cleared.
         | Clear
         /// The years of the age, from the field.
         | UpdateYear of string option
@@ -23,9 +23,9 @@ module PatientDraftPolicy =
         | UpdateWeek of string option
         /// The days of the age, from the field.
         | UpdateDay of string option
-        /// The measured weight in grams, from the field; none clears it.
+        /// The measured weight in grams, from the field; None clears it.
         | UpdateWeight of string option
-        /// The measured height in centimetres, from the field; none clears it.
+        /// The measured height in centimetres, from the field; None clears it.
         | UpdateHeight of string option
         /// The weeks of the gestational age, from the field.
         | UpdateGAWeek of string option
@@ -35,7 +35,7 @@ module PatientDraftPolicy =
         | UpdateGender of string
         /// The renal function, as one of its options.
         | UpdateRenal of string option
-        /// The department, or none for the server's default.
+        /// The department; None uses the server default.
         | UpdateDepartment of string option
         /// A central venous line added or removed.
         | ToggleCVL
@@ -43,32 +43,32 @@ module PatientDraftPolicy =
         | TogglePVL
         /// An enteral tube added or removed.
         | ToggleET
-        /// The mark as an adult set or cleared, from the switch.
+        /// Sets or clears the adult mark, from the switch.
         | UpdateMarkedAdult of bool
 
 
     /// What becomes of the estimated weight and height after an edit.
     [<RequireQualifiedAccess>]
     type Estimates =
-        /// Estimated again, for the weight and height the user did not enter: after an edit of the
-        /// age, the gender or the gestational age, which the normal values follow.
+        /// The weight and height the user did not enter are estimated again, after an edit of the age,
+        /// gender or gestational age, on which the normal values depend.
         | Renewed
-        /// Kept as they were: after any other edit, so that a weight or a height the user cleared
-        /// stays cleared and is not estimated again.
+        /// The estimates do not change after any other edit, so a weight or height the user cleared
+        /// stays cleared.
         | Kept
 
 
-    /// The department chosen for the draft, or none, which leaves the server's default in force.
-    /// Clearing what was never a draft stays no draft.
-    let setDepartment (s: string option) (p: Patient option) : Patient option =
+    /// Sets the department of the draft; None uses the server default. Clearing the department when there
+    /// is no draft returns no draft.
+    let setDepartment (s: string option) (p: PatientData option) : PatientData option =
         match p, s with
         | None, None -> None
-        | _ -> { (p |> Option.defaultValue Patient.empty) with Department = s } |> Some
+        | _ -> { (p |> Option.defaultValue PatientData.empty) with Department = s } |> Some
 
 
-    /// The draft after one edit. The setters blank both estimates, so the result is what the App
-    /// receives, not what it shows: keepEstimates or the App's estimate completes it.
-    let update (msg: Msg) (draft: Patient option) : Patient option =
+    /// Applies one edit to the draft. The setters clear both estimates; keepEstimates or a new estimate
+    /// fills them in afterwards.
+    let update (msg: Msg) (draft: PatientData option) : PatientData option =
         match msg with
         | Msg.Clear -> None
         | Msg.UpdateYear s -> draft |> PatientEdit.setYear s
@@ -88,8 +88,8 @@ module PatientDraftPolicy =
         | Msg.UpdateMarkedAdult marked -> draft |> PatientEdit.setMarkedAdult marked
 
 
-    /// Whether the App estimates the weight and height again after the edit: after an edit of the
-    /// age, the gender or the gestational age, and after Clear, which leaves nothing to estimate.
+    /// Whether the weight and height are estimated again after the edit: after an edit of the age, gender
+    /// or gestational age, and after Clear.
     let estimates (msg: Msg) : Estimates =
         match msg with
         | Msg.Clear
@@ -110,10 +110,10 @@ module PatientDraftPolicy =
         | Msg.UpdateMarkedAdult _ -> Estimates.Kept
 
 
-    /// The edited draft with the weight and the height the edit does not set as they were in the
-    /// draft, estimates included. The setters blank both estimates; the measure an edit sets or
-    /// clears keeps none, so a cleared weight or height shows nothing.
-    let keepEstimates (msg: Msg) (draft: Patient option) (edited: Patient option) : Patient option =
+    /// Copies from the original draft, estimates included, the weight and height that the edit does not
+    /// set. The weight or height that the edit sets or clears gets no estimate, so a cleared value shows
+    /// nothing.
+    let keepEstimates (msg: Msg) (draft: PatientData option) (edited: PatientData option) : PatientData option =
         match draft, edited with
         | Some d, Some e ->
             match msg with
@@ -128,7 +128,7 @@ module PatientDraftPolicy =
         | _ -> edited
 
 
-    /// Whether the draft is a patient: an age, or a measured weight and height; an estimate does
-    /// not stand in for a measurement, so the minimum decides.
-    let canCalculate (draft: Patient option) : bool =
-        draft |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
+    /// Whether the draft is valid patient data: it has an age, or a measured weight and height. An estimate
+    /// does not count as a measurement.
+    let canCalculate (draft: PatientData option) : bool =
+        draft |> Option.bind (PatientData.validate >> Result.toOption) |> Option.isSome

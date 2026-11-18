@@ -45,16 +45,15 @@ module Fixture =
 
     // The per-kg limits of a component belong to its orderable quantity, the composition, not to its
     // dose: a part of the orderable may be given. So each component dose limit becomes a dilution limit
-    // on the component, made absolute by the weight as Medication.create does for a dilution rule.
+    // on the component, made absolute by the weight as Medication.create does for a solution rule.
     let withComponentDilutionLimits (med: Medication) =
         let toDilutionLimit (pc: ProductComponent) =
             match pc.Dose, med.Adjust with
             | Some dl, Some weight ->
                 { pc with
                     Dose = None
-                    DilutionLimit =
-                        { DilutionLimit.limit with
-                            DilutionLimitTarget = pc.Name |> ComponentLimitTarget
+                    Dilution =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
                             Quantity = dl.QuantityAdjust |> MinMax.apply ((*) weight)
                         }
                         |> Some
@@ -81,9 +80,8 @@ module Fixture =
             match med.Adjust with
             | Some weight when pc.Name = "gluc 10%" ->
                 { pc with
-                    DilutionLimit =
-                        { DilutionLimit.limit with
-                            DilutionLimitTarget = pc.Name |> ComponentLimitTarget
+                    Dilution =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
                             Quantity =
                                 { MinMax.empty with
                                     Min = mlPerKg 65N
@@ -332,7 +330,7 @@ let tests =
 
             test "the fixture limits the component orderable quantities, not the component doses" {
                 tpn.Components
-                |> List.forall (fun pc -> pc.Dose.IsNone && pc.DilutionLimit.IsSome)
+                |> List.forall (fun pc -> pc.Dose.IsNone && pc.Dilution.IsSome)
                 |> Expect.isTrue "every component should have a dilution limit and no dose limit"
             }
 

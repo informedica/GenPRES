@@ -17,8 +17,8 @@ module Format =
     let private defaultPrecision = 4
 
 
-    /// fixPrecision n f: round float f to show at least n
-    /// non-zero significant digits.
+    /// Rounds f to show at least n significant digits. Returns f unchanged when it is zero,
+    /// not a number or infinite, or when n is negative.
     let private fixPrecision n (f: float) =
         if n < 0 || Double.IsNaN f || Double.IsInfinity f then
             f
@@ -83,8 +83,8 @@ module Format =
         s
 
 
-    /// Pattern: standalone fraction like "629/10" (not inside ValueUnit).
-    /// Matches patterns: digits/digits optionally followed by N.
+    /// Matches a bare fraction such as "629/10" that does not follow a letter or digit and is not
+    /// followed by the bar that closes a ValueUnit array.
     let private fractionPattern = Regex(@"(?<!\w)(-?\d+)/(\d+)(?!N?\|)")
 
 
@@ -153,8 +153,8 @@ module Format =
         |> Option.defaultValue (unitStr.Trim())
 
 
-    /// Pattern: ValueUnit ([|values|], UnitType (SubType nN))
-    /// Handles nested parentheses in unit types.
+    /// Matches ValueUnit ([|values|], Group (Unit nN)). A unit with nested parentheses, such as a
+    /// combined unit, does not match.
     let private valueUnitPattern = Regex(@"ValueUnit\s*\(\[\|([^\|]*)\|\],\s*(\w+\s*\([^)]*\))\)")
 
 
@@ -291,11 +291,9 @@ type PipelineRun =
 
 module Parse =
 
-    /// The text lines of a log file. A line of the JSON format holds the rendered text of one
-    /// event in its Text field, with the line feeds escaped: it is unfolded into its lines,
-    /// after a blank line where the flat format had the header line of the event, so that the
-    /// text of one event never runs into the next and line numbers count as they did. Any other
-    /// line is kept as it is, so a flat file from before the JSON format reads as it did.
+    /// Returns the text lines of a log file. A JSON line becomes a blank line followed by the lines
+    /// of its Text field, so the text of one event never runs into the next. Any other line is
+    /// returned unchanged, so a log file in the older plain text format reads the same.
     let textLines (lines: string[]) : string[] =
         lines
         |> Array.collect (fun line ->

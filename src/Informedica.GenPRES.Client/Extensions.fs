@@ -11,14 +11,14 @@ let isDevelopment =
 #endif
 
 module Log =
-    /// Logs error to the console during development
+    /// Logs an error to the console in a debug build.
     let developmentError (error: exn) =
         if isDevelopment then
             Browser.Dom.console.error error
 
 module Cmd =
-    /// Converts an asynchronous operation that returns a message into into a command of that message.
-    /// Logs unexpected errors to the console while in development mode.
+    /// Converts an asynchronous operation that returns a message into a command of that message.
+    /// An exception is logged to the console in a debug build, and no message is dispatched.
     let fromAsync (operation: Async<'msg>) : Cmd<'msg> =
         let delayedCmd (dispatch: 'msg -> unit) : unit =
             let delayedDispatch =

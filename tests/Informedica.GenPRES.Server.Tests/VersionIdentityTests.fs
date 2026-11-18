@@ -9,17 +9,21 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
+open Informedica.GenPRES.Server.Tests.TestDates
 
 module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
-module GenFormPatient = Informedica.GenForm.Lib.Patient
-module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
-module OrderPlanVersion = Informedica.GenOrder.Lib.OrderPlanVersion
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+module CoreConversions = Informedica.GenCore.Lib.Conversions
+
+type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
 
 
 /// The date of the open, and the sign a day later. The EHR data is read at the open, so it has the
@@ -28,34 +32,32 @@ let today = DateTime(2026, 9, 26)
 
 let tomorrow = today.AddDays 1.0
 
-let port = StubPatientData.port
+let port = StubEhrPatient.port
 
-let ehr = StubPatientData.data today "stub-patient"
+let ehr = StubEhrPatient.patient today "stub-patient"
 
-let identity = ehr |> EhrPatientData.identity
+let identity = ehr.Identity
 
 
 /// The stub's EHR data with a weight the EHR has since changed.
 let heavier =
     let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
 
-    { ehr with Patient.Data.Weight = CoreWeight.create [ w ] None [] (Some w) }
+    { ehr with Data.Weight = CoreWeight.create [ w ] None [] (Some(Informedica.GenCore.Lib.Patients.Measured w)) }
 
 
 /// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
     { ehr with
-        Patient.Identity = None
-        Patient.Data.Age = Some CoreAgeValue.ten
+        Identity = None
+        Data.Age = Some CoreAgeValue.ten
     }
 
 
 /// The plan as signed: the projection at the open, the age the Session held.
 let plan =
-    Informedica.GenPRES.Shared.Models.OrderPlan.create
-        (port.patient ehr |> GenFormPatient.Dto.toDto |> Patient.toModel)
-        [||]
-    |> OrderPlanCommand.parsePlan
+    Informedica.GenPRES.Shared.Models.OrderPlan.create (port.patientData ehr |> Patient.ofPatientData) [||]
+    |> OrderPlanCommand.parsePlan readAt
     |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
 
@@ -63,14 +65,14 @@ let version = Store.versionOf 1 Store.prescriber tomorrow plan
 
 
 /// A Session opened at today on the EHR data given, with the head given, seen at today.
-let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option) (head: StoredVersion option) =
+let opened (sid: string) (ehr: Informedica.GenCore.Lib.Patients.Patient option) (head: StoredVersion option) =
     sid,
     ({
         Opened =
             {
                 User = Some Store.prescriber
                 PatientId = Some "stub-patient"
-                EhrData = ehr
+                EhrPatient = ehr
                 OpenedToken = Some(Store.token sid)
                 KeyThumbprint = Some "t"
                 Head = head
@@ -85,7 +87,7 @@ let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData opti
 
 
 /// What the Session given shows at a date, through the port whose projection moves with the clock.
-let shownAt date (_, record: Session.SessionRecord) = record.Opened |> Session.sessionPatient date port
+let shownAt date (_, record: Session.SessionRecord) = record.Opened |> Session.sessionPatientData date port
 
 
 let unreadable: UnreadableVersion =
@@ -101,11 +103,11 @@ let unreadable: UnreadableVersion =
     }
 
 
-let challengeOver (read: Informedica.GenForm.Lib.Types.EhrPatientData option) : Session.Challenge =
+let challengeOver (read: Informedica.GenCore.Lib.Patients.Patient option) : Session.Challenge =
     {
         Nonce = "c-s-1"
         Digest = StubDatabase.digest plan
-        Ehr = read
+        EhrPatient = read
         Expiry = tomorrow + Session.challengeLifetime
     }
 
@@ -138,13 +140,15 @@ let signedIn zone at (record: string * Session.SessionRecord) (challenge: Sessio
 let signedAt record challenge = signedIn TimeZoneInfo.Utc tomorrow record challenge
 
 
-let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Age
+let ageInDays pat =
+    pat
+    |> CorePatientData.ageInDays
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
 
 
-let weightInKg (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Weight
+let weightInKg pat =
+    pat
+    |> CorePatientData.weightInKg
     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram >> ValueUnit.getValue >> Array.head)
 
 
@@ -207,7 +211,7 @@ let localDateTests =
                             }
 
                     let moment = utc (2026, 11, 7, 23, 30)
-                    let pat = Informedica.GenForm.Lib.Patient.patient
+                    let pat = CorePatientData.unknown
 
                     test "on the local date the patient is 18 years, 6570 days" {
                         pat
@@ -244,7 +248,7 @@ let localDateTests =
 
                     test "a data notice shows the ages of the challenge's read" {
                         // the EHR read at the challenge, on the day the stub's clock gives
-                        let reading = StubPatientData.portAt (fun () -> today)
+                        let reading = StubEhrPatient.portAt (fun () -> today)
                         let sid, record = opened "s-1" (Some heavier) None
                         let record =
                             { record with
@@ -269,7 +273,7 @@ let localDateTests =
                         | other -> failtest $"expected DataNotice, got %A{other}"
                         |> Expect.equal
                             "the read's age"
-                            (reading.patient (StubPatientData.data today "stub-patient") |> ageInDays)
+                            (reading.patientData (StubEhrPatient.patient today "stub-patient") |> ageInDays)
                     }
                 ]
         ]
@@ -297,9 +301,9 @@ let tests =
                         |> Expect.equal
                             "the stub's name three times, then none twice"
                             [
-                                Some StubPatientData.name
-                                Some StubPatientData.name
-                                Some StubPatientData.name
+                                Some StubEhrPatient.name
+                                Some StubEhrPatient.name
+                                Some StubEhrPatient.name
                                 None
                                 None
                             ]
@@ -318,24 +322,23 @@ let tests =
                 [
                     let later = today.AddYears 2
                     let readable = StoredVersion.Readable(version, identity)
-                    let days n =
-                        n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+                    let days n = n |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
                     let openedLater head = opened "s-1" None head |> shownAt later
 
-                    let withoutAges (pat: Informedica.GenForm.Lib.Types.Patient) =
+                    let withoutAges (pat: CorePatientData) =
                         { pat with
                             Age = None
-                            PMAge = None
+                            PostMenstrualAge = None
                         }
 
                     let premature =
                         { version with
                             Plan =
                                 { version.Plan with
-                                    Patient =
-                                        { version.Plan.Patient with
-                                            GestAge = Some(days 210)
-                                            PMAge = Some(days 1)
+                                    PatientData =
+                                        { version.Plan.PatientData with
+                                            GestationalAge = Some(days 210)
+                                            PostMenstrualAge = Some(days 1)
                                         }
                                 }
                         }
@@ -346,37 +349,39 @@ let tests =
                         age
                         |> Expect.equal
                             "the age an EHR read at that date gives"
-                            (port.patient (StubPatientData.data later "stub-patient")).Age
+                            (port.patientData (StubEhrPatient.patient later "stub-patient")).Age
 
                         age
-                        |> Expect.notEqual "another age than the one signed" version.Plan.Patient.Age
+                        |> Expect.notEqual "another age than the one signed" version.Plan.PatientData.Age
                     }
 
                     test "is the head's in every other field" {
                         openedLater (Some readable)
                         |> Option.map withoutAges
-                        |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
+                        |> Expect.equal "the signed data" (Some(version.Plan.PatientData |> withoutAges))
                     }
 
                     test "has no post-menstrual age from 1 year, also with a gestational age" {
                         openedLater (Some(StoredVersion.Readable(premature, identity)))
-                        |> Option.bind _.PMAge
+                        |> Option.bind _.PostMenstrualAge
                         |> Expect.isNone "the gestational age is ignored from 1 year"
                     }
 
                     test "has no post-menstrual age without a gestational age" {
-                        openedLater (Some readable) |> Option.bind _.PMAge |> Expect.isNone "none"
+                        openedLater (Some readable)
+                        |> Option.bind _.PostMenstrualAge
+                        |> Expect.isNone "none"
                     }
 
                     test "stays as signed without an identity" {
                         openedLater (Some(StoredVersion.Readable(version, None)))
-                        |> Expect.equal "as signed" (Some version.Plan.Patient)
+                        |> Expect.equal "as signed" (Some version.Plan.PatientData)
                     }
 
                     test "gives way to EHR data, whatever the head" {
                         opened "s-1" (Some ehr) (Some readable)
                         |> shownAt later
-                        |> Expect.equal "the projection of the read" (Some(port.patient ehr))
+                        |> Expect.equal "the projection of the read" (Some(port.patientData ehr))
                     }
 
                     test "is none from nothing, and from a head that cannot be read" {
@@ -390,8 +395,8 @@ let tests =
                 [
                     let resume = today.AddMonths 2
                     let readable = Some(StoredVersion.Readable(version, identity))
-                    let shownEhr = Some(port.patient heavier)
-                    let shownSigned = Some(version.Plan.Patient |> Session.atBirthDate resume identity)
+                    let shownEhr = Some(port.patientData heavier)
+                    let shownSigned = Some(version.Plan.PatientData |> Session.atBirthDate resume identity)
 
                     let afterAct act head =
                         let sid, record = opened "s-1" (Some heavier) head
@@ -430,18 +435,23 @@ let tests =
             testList
                 "the record of a sign"
                 [
+                    let thirtyKg source =
+                        CoreWeightValue.weightInKg 30m
+                        |> CoreWeightAtDate.create today
+                        |> source
+                        |> Some
+                        |> CoreWeight.create [] None []
+
                     let typed =
                         { version with
                             Plan =
                                 { version.Plan with
-                                    Patient =
-                                        { version.Plan.Patient with
-                                            Weight = 30N |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        }
+                                    PatientData =
+                                        { version.Plan.PatientData with Weight = thirtyKg CoreSource.Measured }
                                 }
                         }
 
-                    let signed = typed.Plan.Patient
+                    let signed = typed.Plan.PatientData
 
                     test "the typed weight stands after the sign, whatever the EHR reads" {
                         signed
@@ -455,17 +465,13 @@ let tests =
                             { typed with
                                 Plan =
                                     { typed.Plan with
-                                        Patient =
-                                            { signed with
-                                                WeightMeasured = false
-                                                HeightMeasured = true
-                                            }
+                                        PatientData = { signed with Weight = thirtyKg CoreSource.Estimated }
                                     }
                             }
 
                         let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(estimated, identity)))
                         let session = { record.Opened with Act = SessionAct.Signed }
-                        let shown date = session |> Session.sessionPatient date port
+                        let shown date = session |> Session.sessionPatientData date port
 
                         shown today
                         |> Option.bind weightInKg
@@ -475,7 +481,7 @@ let tests =
                         |> Option.bind weightInKg
                         |> Expect.isNone "a new age, no old estimate"
 
-                        (shown tomorrow |> Option.bind _.Height, signed.Height)
+                        (shown tomorrow |> Option.bind CorePatientData.heightInCm, signed |> CorePatientData.heightInCm)
                         |> fun (shownHeight, signedHeight) ->
                             shownHeight |> Expect.equal "the measured height stays" signedHeight
                     }
@@ -483,24 +489,6 @@ let tests =
                     test "the patient after the sign is at the age of the sign, the version keeps its own" {
                         (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
                         |> Expect.equal "a day more" (Some 3848N, Some 3847N)
-                    }
-
-                    test "the EHR data of the challenge go with the version and come back as read" {
-                        { typed with EhrData = Some heavier }
-                        |> OrderPlanVersion.Dto.toDto
-                        |> Informedica.GenOrder.Lib.Canonical.serialize
-                        |> Informedica.GenOrder.Lib.Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "as read" (Ok(Some heavier))
-                    }
-
-                    test "a challenge without a reading keeps none" {
-                        typed
-                        |> OrderPlanVersion.Dto.toDto
-                        |> OrderPlanVersion.Dto.fromDto
-                        |> Result.map _.EhrData
-                        |> Expect.equal "none" (Ok None)
                     }
                 ]
 
@@ -523,14 +511,13 @@ let tests =
                              identity,
                              Some version.Id,
                              Some token,
-                             record.Opened |> Session.sessionPatient tomorrow port)
+                             record.Opened |> Session.sessionPatientData tomorrow port)
                     }
 
                     test "the version names the patient of the read signed on: a notice accepted over another name" {
                         let renamed =
                             { ehr with
-                                Patient.Identity =
-                                    ehr.Patient.Identity |> Option.map (fun idn -> { idn with Name = "Renamed" })
+                                Identity = ehr.Identity |> Option.map (fun idn -> { idn with Name = "Renamed" })
                             }
 
                         let record, _, whom, _, _ =
@@ -553,8 +540,10 @@ let tests =
                         let record, version, _, _, _ =
                             signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
 
-                        (record.Opened |> Session.sessionPatient tomorrow port |> Option.bind ageInDays,
-                         version.Plan.Patient |> ageInDays)
+                        (record.Opened
+                         |> Session.sessionPatientData tomorrow port
+                         |> Option.bind ageInDays,
+                         version.Plan.PatientData |> ageInDays)
                         |> Expect.equal "3848 on the Session, 3847 on the version" (Some 3848N, Some 3847N)
                     }
 
@@ -562,9 +551,11 @@ let tests =
                         let sid, record = opened "s-1" (Some ehr) None
                         let after, version, _, _, patient = signedAt (sid, record) (challengeOver (Some heavier))
 
-                        (version.EhrData,
+                        (version.EhrPatient,
                          patient |> weightInKg,
-                         after.Opened |> Session.sessionPatient tomorrow port |> Option.bind weightInKg)
+                         after.Opened
+                         |> Session.sessionPatientData tomorrow port
+                         |> Option.bind weightInKg)
                         |> Expect.equal "the 34 kg read, the 32 kg signed" (Some heavier, Some 32N, Some 32N)
                     }
                 ]

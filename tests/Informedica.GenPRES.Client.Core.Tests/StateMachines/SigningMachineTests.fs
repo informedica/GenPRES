@@ -30,7 +30,7 @@ let tests =
                         SigningState.noticed
                             plan
                             {
-                                Data = None
+                                PatientData = None
                                 Token = "d"
                             }
                     ] do
@@ -44,7 +44,7 @@ let tests =
 
                 let notice =
                     {
-                        Data = Some otherData
+                        PatientData = Some otherData
                         Token = "d-1"
                     }
 
@@ -85,13 +85,13 @@ let tests =
                 [
                     let changed =
                         {
-                            Data = Some otherData
+                            PatientData = Some otherData
                             Token = "d-1"
                         }
 
                     let unverified =
                         {
-                            Data = None
+                            PatientData = None
                             Token = "d-2"
                         }
 
@@ -142,7 +142,7 @@ let tests =
                         SigningState.noticed
                             plan
                             {
-                                Data = None
+                                PatientData = None
                                 Token = "d"
                             }
                     ] do
@@ -236,7 +236,7 @@ let tests =
             }
 
             test "the token goes to the Session with whom the signed version names" {
-                let named = { signed with Identity = Some who }
+                let named = { signed with PatientIdentity = Some who }
 
                 transition
                     (SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Submitted(named, OpenedToken "t2", patient))))
@@ -315,7 +315,7 @@ let tests =
 let viewTests =
     let notice =
         {
-            Data = None
+            PatientData = None
             Token = "d-1"
         }
 

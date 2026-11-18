@@ -12,6 +12,9 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 
 
+open Informedica.GenPRES.Server.Tests.TestDates
+
+
 let order: Order =
     Scenarios.pcmSupp
     |> Medication.toOrderDto Scenarios.testStart
@@ -51,7 +54,7 @@ let context id category name : OrderContext =
         Category = category
         DemoVersion = false
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
-        Patient = StubPatientData.patient
+        PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario name |]
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
@@ -59,7 +62,7 @@ let context id category name : OrderContext =
 
 let plan: OrderPlan =
     {
-        Patient = StubPatientData.patient
+        PatientData = StubEhrPatient.contractPatient
         Filtered = [| "c-1" |]
         OrderContexts =
             [|
@@ -90,8 +93,8 @@ let signed: SignedOrderPlan =
         PatientId = "stub-patient"
         Base = Some "plan-1"
         OrderContexts = plan.OrderContexts
-        Patient = StubPatientData.patient
-        Identity = None
+        PatientData = StubEhrPatient.contractPatient
+        PatientIdentity = None
         Verified = true
     }
 
@@ -103,23 +106,23 @@ let tests =
         [
             test "L3: an order plan to the Dto and back is the identity, the demo flag the server's" {
                 plan
-                |> OrderPlanMapper.ofModel
+                |> OrderPlanMapper.ofModel readAt
                 |> OrderPlanMapper.toModel false
                 |> Expect.equal "the same plan" plan
 
-                (plan |> OrderPlanMapper.ofModel |> OrderPlanMapper.toModel true).OrderContexts
+                (plan |> OrderPlanMapper.ofModel readAt |> OrderPlanMapper.toModel true).OrderContexts
                 |> Array.forall _.DemoVersion
                 |> Expect.isTrue "demo on every context"
             }
 
             test "the plan's Dto carries the categories as strings and parses" {
-                let dto = plan |> OrderPlanMapper.ofModel
+                let dto = plan |> OrderPlanMapper.ofModel readAt
 
                 dto.Contexts
                 |> Array.map _.Category
                 |> Expect.equal "category strings" [| "medication"; "nutrition:tpn" |]
 
-                match dto |> OrderPlan.Dto.fromDto with
+                match dto |> OrderPlan.Dto.fromDto readAt with
                 | Ok p ->
                     p.Filtered |> Expect.equal "the filter" [| "c-1" |]
                     p.Contexts |> Array.map _.Id |> Expect.equal "the contexts" [| "c-1"; "c-2" |]
@@ -142,23 +145,25 @@ let tests =
                     |> Expect.equal $"{c}" (OrderCategory.Nutrition c)
             }
 
-            test "L3: a signed order plan to the version's Dto and back, on what the version records" {
+            test "L3: a signed order plan to the version and back, on what the version records" {
                 signed
-                |> SessionMapper.ofSigned
-                |> SessionMapper.toSigned false None
-                |> Expect.equal "the same signed plan" signed
+                |> SessionMapper.ofSigned readAt
+                |> Result.map (SessionMapper.toSigned false None)
+                |> Expect.equal "the same signed plan" (Ok signed)
             }
 
             test "outside L3: the signer's role is not recorded, a Reader comes back a Prescriber" {
                 let byReader =
                     { signed with Head = { signed.Head with By = { prescriber with Role = UserRole.Reader } } }
 
-                (byReader |> SessionMapper.ofSigned |> SessionMapper.toSigned false None).Head.By.Role
-                |> Expect.equal "only a Prescriber signs" UserRole.Prescriber
+                byReader
+                |> SessionMapper.ofSigned readAt
+                |> Result.map (SessionMapper.toSigned false None >> _.Head.By.Role)
+                |> Expect.equal "only a Prescriber signs" (Ok UserRole.Prescriber)
             }
 
-            test "the version's Dto parses: the record reads what the mapper writes" {
-                match signed |> SessionMapper.ofSigned |> OrderPlanVersion.Dto.fromDto with
+            test "the version of a signed order plan holds what the wire carries" {
+                match signed |> SessionMapper.ofSigned readAt with
                 | Ok v ->
                     v.Id |> Expect.equal "id" "plan-2"
                     v.No |> Expect.equal "no" 2
@@ -174,16 +179,16 @@ let tests =
             test "a data notice's patient goes through the patient mapper, none stays none" {
                 let n =
                     {
-                        Data = Some StubPatientData.patient
+                        PatientData = Some StubEhrPatient.contractPatient
                         Token = "t-1"
                     }
 
-                let data = n |> SessionMapper.noticeData
+                let data = n |> SessionMapper.noticeData readAt
                 data |> Option.isSome |> Expect.isTrue "a reading"
                 SessionMapper.notice "t-1" data |> Expect.equal "the same notice" n
 
-                { n with Data = None }
-                |> SessionMapper.noticeData
+                { n with PatientData = None }
+                |> SessionMapper.noticeData readAt
                 |> Expect.equal "unreadable" None
             }
 
@@ -191,15 +196,14 @@ let tests =
                 "what the client keeps of an open Session: the head the signed plan it knows, none when it cannot be read" {
                 let version =
                     signed
-                    |> SessionMapper.ofSigned
-                    |> OrderPlanVersion.Dto.fromDto
+                    |> SessionMapper.ofSigned readAt
                     |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
                 let stored: OpenedSession =
                     {
                         User = Some prescriber
                         PatientId = Some "stub-patient"
-                        EhrData = None
+                        EhrPatient = None
                         OpenedToken = Some(OpenedToken "opened-1")
                         KeyThumbprint = Some "thumb"
                         Head = Some(StoredVersion.Readable(version, None))
@@ -207,8 +211,8 @@ let tests =
                     }
 
                 let shown _ =
-                    StubPatientData.patient
-                    |> Patient.parse
+                    StubEhrPatient.contractPatient
+                    |> Patient.parse readAt
                     |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
                     |> Some
 
@@ -222,35 +226,33 @@ let tests =
                     (Some
                         {
                             PatientId = "stub-patient"
-                            Identity = None
-                            Patient = Some StubPatientData.patient
+                            PatientIdentity = None
+                            PatientData = Some StubEhrPatient.contractPatient
                         })
 
                 let identified =
-                    { stored with EhrData = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient") }
+                    { stored with EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient") }
                     |> SessionMapper.toOpened false shown
 
                 identified.PatientContext
-                |> Option.bind _.Identity
+                |> Option.bind _.PatientIdentity
                 |> Expect.equal
                     "the identity, the birthdate as three integers"
                     (Some(
                         {
-                            Name = StubPatientData.name
+                            Name = StubEhrPatient.name
                             BirthYear = 2016
                             BirthMonth = 3
                             BirthDay = 15
                         }
-                        : NameAndBirthDate
+                        : PatientIdentity
                     ))
 
                 opened.OpenedToken |> Expect.equal "token" (Some(OpenedToken "opened-1"))
                 opened.KeyThumbprint |> Expect.equal "thumbprint" (Some "thumb")
 
                 opened.Head
-                |> Expect.equal
-                    "head"
-                    (Some(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned false None))
+                |> Expect.equal "head" (Some(version |> SessionMapper.toSigned false None))
 
                 let unreadable =
                     StoredVersion.Unreadable

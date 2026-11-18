@@ -11,8 +11,8 @@ module VenousAccess =
         | _ -> venousAccess |> List.exists ((=) location)
 
 
-    /// Whether a patient can have both access devices: any access goes with every device, and
-    /// otherwise the devices are the same.
+    /// Returns true when one patient can have both access devices: AnyAccess goes with every device, and
+    /// other devices must be equal.
     let canMeet a b =
         match a, b with
         | AnyAccess, _
@@ -24,8 +24,10 @@ module Gender =
 
     open Informedica.Utils.Lib.BCL
 
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
-    /// Map a string to a Gender.
+
+    /// Parses man or vrouw, in any case. Any other string gives AnyGender.
     let fromString s =
         let s = s |> String.toLower |> String.trim
 
@@ -43,8 +45,8 @@ module Gender =
         | AnyGender -> ""
 
 
-    /// A gender from its string form; an empty string is AnyGender, anything else
-    /// that toString never writes is None.
+    /// Parses the string form of a gender. An empty string gives AnyGender, and any other string that
+    /// toString does not write gives None.
     let tryFromString s =
         match s |> String.toLower |> String.trim with
         | "man" -> Some Male
@@ -53,50 +55,20 @@ module Gender =
         | _ -> None
 
 
-    /// Check if a Filter contains a Gender.
-    /// Note if AnyGender is specified, this will always return true.
+    /// Maps the gender of a patient to the gender of the rules. An unknown gender matches only the rules
+    /// for any gender.
+    let ofPatient =
+        function
+        | CoreGender.Male -> Male
+        | CoreGender.Female -> Female
+        | CoreGender.UnknownGender -> AnyGender
+
+
+    /// Returns true when gender is AnyGender or equals filterGender.
     let isMatch gender filterGender =
         match filterGender, gender with
         | _, AnyGender -> true
         | _ -> filterGender = gender
-
-
-    /// Check if a Filter contains a Gender.
-    /// Note if AnyGender is specified, this will always return true.
-    let filter gender (filter: DoseFilter) =
-        match filter.Patient.Gender, gender with
-        | _, AnyGender -> true
-        | _ -> filter.Patient.Gender = gender
-
-
-/// Who is an adult: a patient of at least 18 years, or a patient the user marked as an adult.
-module Adult =
-
-    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
-
-    type AdultMark = Informedica.GenCore.Lib.Patients.AdultMark
-
-
-    /// The adult mark of an age in days and the mark of the user, as GenCORE sets it.
-    let mark marked age =
-        age
-        |> Option.map CoreAgeValue.fromValueUnit
-        |> fun age -> CoreAdultMark.ofAge age marked
-
-
-    /// Whether a patient is an adult: a patient of at least 18 years, or a patient marked as an
-    /// adult who is at least 16 years old or has no age. Below 16 years the mark is ignored.
-    let isAdult (pat: Patient) = pat.Age |> mark pat.MarkedAdult |> CoreAdultMark.isAdult
-
-
-    /// Whether the mark is refused: a patient marked as an adult who is younger than 16 years.
-    let markRefused marked age = marked && age |> mark marked = AdultMark.NotAdult
-
-
-    /// Whether a patient is matched to the rules as an adult and not by the age held: a marked
-    /// patient without an age, or of 16 or 17 years. Below 18 years only the mark makes an adult.
-    let matchedAsAdult (pat: Patient) = pat.Age |> mark pat.MarkedAdult = AdultMark.MarkableAdult true
 
 
 module PatientCategory =
@@ -141,16 +113,15 @@ module PatientCategory =
             p
 
 
-    /// The age range a category applies to: the absolute range it names, or, for a rule that
-    /// says adults, from the adult threshold up. A patient with no age is in neither, since
-    /// the facet asserts something about the patient and nothing is known.
+    /// Returns the age range of a category: the absolute range, or for an adult category the range from
+    /// the adult age of 18 years up.
     let getAge (pat: PatientCategory) =
         match pat.Age with
         | AbsoluteAge a -> a
         | IsAdult -> { MinMax.empty with Min = Some(Inclusive Utils.ValueUnit.ageAdult) }
 
 
-    /// Whether two optional values can hold together: a value only one side names restricts nothing.
+    /// Returns true when the two values are equal, or when either value is None.
     let canMeet a b =
         match a, b with
         | Some a, Some b -> a = b
@@ -170,17 +141,9 @@ module PatientCategory =
         && MinMax.canMeet a.PMAge b.PMAge
 
 
-    /// <summary>
-    /// Use a PatientCategory to get a sort value.
-    /// </summary>
-    /// <remarks>
-    /// The order will be based on the following:
-    /// - Age
-    /// - Weight
-    /// - Gestational Age
-    /// - Post Menstrual Age
-    /// The first will receive the highest weight and the last the lowest.
-    /// </remarks>
+    /// Returns a sort value for a patient category. The value is the sum of the minimum age in days, plus 300
+    /// when above zero, the minimum gestational and post-menstrual age in days, term when absent, and the
+    /// minimum weight divided by 1000.
     let sortBy (pat: PatientCategory) =
         let toInt def =
             function
@@ -203,173 +166,14 @@ module PatientCategory =
         + (pat.Weight.Min |> toInt 0 |> (fun w -> w / 1000))
 
 
-    /// Whether a patient's department is one a rule applies to. A rule that names no
-    /// department is a rule for everybody; a patient with no department matches no rule that
-    /// names one; a patient with one matches the rules that name it, written the same way.
+    /// Returns true when a rule applies to the department of a patient. A rule without a department
+    /// applies to every patient. A patient without a department matches only those rules; otherwise the
+    /// names must be written the same.
     let departmentMatches (rule: string option) (patient: string option) =
         match rule, patient with
         | None, _ -> true
         | Some _, None -> false
         | Some rule, Some patient -> rule = patient
-
-
-    /// The patient as the rules see a patient matched as an adult: the adult age, no gestational
-    /// age, since a gestational age says nothing about a patient older than one year, and the post
-    /// menstrual age left to follow from the adult age and a term birth.
-    let asAdult (pat: Patient) =
-        { pat with
-            Age = Some Utils.ValueUnit.ageAdult
-            GestAge = None
-            PMAge = None
-        }
-
-
-    /// The patient to match and the check a rule's age range must pass beside the age check. A
-    /// patient matched as an adult is matched with the adult age, and the age range must have no
-    /// upper bound: the age check then holds every age from the adult age up. Any other patient
-    /// is matched as held, with no further check.
-    let forAdultMatch pat =
-        if pat |> Adult.matchedAsAdult then
-            pat |> asAdult, (fun (age: MinMax) -> age.Max.IsNone)
-        else
-            pat, (fun _ -> true)
-
-
-    /// <summary>
-    /// Filters a PatientCategory using a Filter.
-    /// Returns true if the PatientCategory matches the Filter criteria. A patient matched as an
-    /// adult matches a category whose age range holds every age from the adult age up, and is
-    /// checked further with the adult age.
-    /// </summary>
-    /// <param name="filter">The Filter to filter the PatientCategory with</param>
-    /// <param name="patCat">The Patient Category</param>
-    let filter (filter: DoseFilter) (patCat: PatientCategory) =
-        let eqs a b =
-            match a, b with
-            | None, _
-            | _, None -> true
-            | Some a, Some b -> a = b
-
-        let pat, ageHolds = filter.Patient |> forAdultMatch
-        let filter = { filter with Patient = pat }
-
-        ([| patCat |],
-         [|
-             fun (p: PatientCategory) -> p |> getAge |> ageHolds
-             // if either filter location or patient category location is None, pass; otherwise must match
-             fun (p: PatientCategory) -> filter.Patient.Location |> eqs p.Location
-             // a rule that names a department is for the patients of that department only
-             fun (p: PatientCategory) -> filter.Patient.Department |> departmentMatches p.Department
-             // patient age must be within patient category age range (if specified)
-             fun (p: PatientCategory) -> filter.Patient.Age |> MinMax.inRange (p |> getAge)
-             // patient weight must be within patient category weight range (if specified)
-             fun (p: PatientCategory) -> filter.Patient.Weight |> MinMax.inRange p.Weight
-             // the BSA from the weight and the height must be within the patient category BSA range;
-             // without a weight or a height there is no BSA, which fails a BSA range
-             fun (p: PatientCategory) ->
-                 Option.map2 Calculations.calcDuBois filter.Patient.Weight filter.Patient.Height
-                 |> MinMax.inRange p.BSA
-             // gestational age check: if patient category is empty (all patients), pass;
-             // if filter has a preterm gestational age and patient category has no gest/pm age, filter out;
-             // otherwise the gestational age is in the patient category range, so a patient without one
-             // matches no rule with a gestational age range
-             fun (p: PatientCategory) ->
-                 // all patients rule
-                 if p |> isEmpty then
-                     true
-                 // if the gestational age is set and preterm, filter out all
-                 // dose rules with no gestational age or pm age
-                 else if
-                     filter.Patient.GestAge.IsSome
-                     && p.GestAge = MinMax.empty
-                     && p.PMAge = MinMax.empty
-                 then
-                     filter.Patient.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
-                 else
-                     filter.Patient.GestAge |> MinMax.inRange p.GestAge
-             // post-menstrual age check: if patient category is empty (all patients), pass;
-             // otherwise the patient's post-menstrual age is in the patient category range, so a
-             // patient without one matches no rule with a post-menstrual age range
-             fun (p: PatientCategory) ->
-                 // all patients rule
-                 if p |> isEmpty then
-                     true
-                 else
-                     filter.Patient.PMAge |> MinMax.inRange p.PMAge
-             // patient gender must match patient category gender (or category allows any gender)
-             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
-             // patient venous access must be compatible with patient category access requirements
-             fun (p: PatientCategory) -> VenousAccess.check p.Access filter.Patient.Access
-         |])
-        ||> Array.fold (fun acc pred -> acc |> Array.filter pred)
-        |> fun xs -> xs |> Array.length > 0
-
-
-    /// Whether a patient matches a category; a patient matched as an adult as in filter.
-    let filterPatient (pat: Patient) (patCat: PatientCategory) =
-        let pat, ageHolds = pat |> forAdultMatch
-
-        ([| patCat |],
-         [|
-             fun (p: PatientCategory) -> p |> getAge |> ageHolds
-             fun (p: PatientCategory) -> pat.Department |> departmentMatches p.Department
-             fun (p: PatientCategory) -> pat.Age |> MinMax.inRange (p |> getAge)
-             fun (p: PatientCategory) -> pat.Weight |> MinMax.inRange p.Weight
-             fun (p: PatientCategory) ->
-                 Option.map2 Calculations.calcDuBois pat.Weight pat.Height
-                 |> MinMax.inRange p.BSA
-             // check gestational age
-             fun (p: PatientCategory) ->
-                 // all patients rule
-                 if p |> isEmpty then
-                     true
-                 // if the gestational age is set and preterm, filter out all
-                 // dose rules with no gestational age or pm age
-                 else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
-                     pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
-                 else
-                     // a patient without a gestational age matches no rule with a gestational age range
-                     pat.GestAge |> MinMax.inRange p.GestAge
-             // check the post-menstrual age: a patient without one matches no rule with a
-             // post-menstrual age range
-             fun (p: PatientCategory) ->
-                 // all patients rule
-                 if p |> isEmpty then
-                     true
-                 else
-                     pat.PMAge |> MinMax.inRange p.PMAge
-             //            fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
-             fun (p: PatientCategory) -> VenousAccess.check p.Access pat.Access
-         |])
-        ||> Array.fold (fun acc pred -> acc |> Array.filter pred)
-        |> fun xs -> xs |> Array.length > 0
-
-
-    /// Check whether patCat2 is a match with patCat2
-    let isMatch (patCat1: PatientCategory) (patCat2: PatientCategory) =
-        let eqsOpt a b =
-            match a, b with
-            | None, _
-            | _, None -> true
-            | Some a, Some b -> a = b
-
-        let inRange (minMax1: MinMax) minMax2 =
-            minMax1.Min |> Option.map Limit.getValueUnit |> MinMax.inRange minMax2
-            && minMax2.Max |> Option.map Limit.getValueUnit |> MinMax.inRange minMax2
-
-        ([| patCat2 |],
-         [|
-             fun (p: PatientCategory) -> patCat1.Department |> eqsOpt p.Department
-             fun (p: PatientCategory) -> p |> getAge |> inRange (patCat1 |> getAge)
-             fun (p: PatientCategory) -> p.GestAge |> inRange patCat1.GestAge
-             fun (p: PatientCategory) -> p.PMAge |> inRange patCat1.PMAge
-             fun (p: PatientCategory) -> p.Weight |> inRange patCat1.Weight
-             fun (p: PatientCategory) -> p.BSA |> inRange patCat1.BSA
-             fun (p: PatientCategory) -> patCat1.Gender |> Gender.isMatch p.Gender
-             fun (p: PatientCategory) -> VenousAccess.check p.Access [ patCat1.Access ]
-         |])
-        ||> Array.fold (fun acc pred -> acc |> Array.filter pred)
-        |> fun xs -> xs |> Array.length > 0
 
 
     /// Prints an age in days as a string, in its largest unit: days below one week, weeks up to 30
@@ -394,7 +198,8 @@ module PatientCategory =
         $"%i{weeks} weken"
 
 
-    /// Print an MinMax age as a string.
+    /// Prints an age range as Dutch text, such as leeftijd vanaf 1 jaar. An empty range gives an empty
+    /// string.
     let printAgeMinMax (age: MinMax) =
         let printAge = Limit.getValueUnit >> printAge
 
@@ -412,15 +217,14 @@ module PatientCategory =
         | _ -> ""
 
 
-    /// The age as the category words it: "volwassenen" for a rule that says adults, the range
-    /// otherwise.
+    /// Prints the age of a category: volwassenen for an adult category, otherwise the age range.
     let ageToString (pat: PatientCategory) =
         match pat.Age with
         | IsAdult -> "volwassenen"
         | AbsoluteAge a -> a |> printAgeMinMax
 
 
-    /// Print an PatientCategory as a string.
+    /// Prints a patient category as Dutch text: the department, gender, neonatal ages, age and weight.
     let toString (pat: PatientCategory) =
 
         let gender = pat.Gender |> Gender.toString
@@ -486,7 +290,8 @@ module PatientCategory =
         |> String.concat ", "
 
 
-    /// The ranges of a patient category, each with its name. An adult age is no range.
+    /// Returns the ranges of a patient category, each with its name. An adult category has no age range
+    /// in the list.
     let ranges (pc: PatientCategory) =
         [
             match pc.Age with
@@ -499,10 +304,21 @@ module PatientCategory =
         ]
 
 
-/// The string form of an access device, for the Dto.
+/// Maps the access of a patient to an access device, and an access device to and from its string form
+/// for the Dto.
 module AccessDevice =
 
     open Informedica.Utils.Lib.BCL
+
+    type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+
+
+    /// Maps the access of a patient to the access device of the rules.
+    let ofPatient =
+        function
+        | CoreAccess.PVL -> PVL
+        | CoreAccess.CVL -> CVL
+        | CoreAccess.EnteralTube -> EnteralTube
 
 
     let toString =
@@ -527,6 +343,22 @@ module AccessDevice =
 module RenalFunction =
 
     open Informedica.Utils.Lib.BCL
+
+    type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
+    type EGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+
+
+    /// Maps the renal function of a patient to the renal function of the renal rules. An eGFR band
+    /// becomes the pair of its bounds.
+    let ofPatient =
+        function
+        | CoreRenalFunction.EGFR EGFRBand.Above50 -> EGFR(Some 50, None)
+        | CoreRenalFunction.EGFR EGFRBand.From30To50 -> EGFR(Some 30, Some 50)
+        | CoreRenalFunction.EGFR EGFRBand.From10To30 -> EGFR(Some 10, Some 30)
+        | CoreRenalFunction.EGFR EGFRBand.UpTo10 -> EGFR(None, Some 10)
+        | CoreRenalFunction.IntermittentHemodialysis -> IntermittentHemodialysis
+        | CoreRenalFunction.ContinuousHemodialysis -> ContinuousHemodialysis
+        | CoreRenalFunction.PeritonealDialysis -> PeritonealDialysis
 
 
     let toString =
@@ -562,441 +394,191 @@ module RenalFunction =
         | _ -> None
 
 
-module EhrPatientData =
-
-    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-
-
-    let create pat renal access : EhrPatientData =
-        {
-            Patient = pat
-            RenalFunction = renal
-            Access = access
-        }
-
-
-    /// Who the patient is: the identity of the core patient, none for an anonymous patient.
-    let identity (ehr: EhrPatientData) = ehr.Patient.Identity
-
-
-    /// The serializable shape of the EHR data: the core patient's Dto, the renal function and
-    /// the access devices as the strings their modules write.
-    module Dto =
-
-        type Dto =
-            {
-                Patient: CorePatient.Dto.Dto
-                RenalFunction: string option
-                Access: string[]
-            }
-
-
-        /// Total: every EHR data has a Dto.
-        let toDto (ehr: EhrPatientData) : Dto =
-            {
-                Patient = ehr.Patient |> CorePatient.Dto.toDto
-                RenalFunction = ehr.RenalFunction |> Option.map RenalFunction.toString
-                Access = ehr.Access |> List.map AccessDevice.toString |> List.toArray
-            }
-
-
-        /// The EHR data the Dto is, or every reason it is none: the core patient's own, a
-        /// renal function or an access string that names nothing.
-        let fromDto (dto: Dto) : Result<EhrPatientData, string list> =
-            let patient =
-                dto.Patient
-                |> CorePatient.Dto.fromDto
-                |> Result.mapError (fun errs -> [ $"the patient does not parse: %A{errs}" ])
-
-            let renal =
-                match dto.RenalFunction with
-                | None -> Ok None
-                | Some s ->
-                    match RenalFunction.tryFromString s with
-                    | Some r -> Ok(Some r)
-                    | None -> Error [ $"unknown renal function: %s{s}" ]
-
-            let access =
-                // a reference field a serializer left null is read as absent
-                (if isNull dto.Access then [||] else dto.Access)
-                |> Array.toList
-                |> List.map (fun s ->
-                    match AccessDevice.tryFromString s with
-                    | Some a -> Ok a
-                    | None -> Error [ $"unknown access: %s{s}" ]
-                )
-
-            let errors =
-                [
-                    match patient with
-                    | Error e -> yield! e
-                    | Ok _ -> ()
-                    match renal with
-                    | Error e -> yield! e
-                    | Ok _ -> ()
-                    for a in access do
-                        match a with
-                        | Error e -> yield! e
-                        | Ok _ -> ()
-                ]
-
-            match patient, renal, errors with
-            | Ok pat, Ok renal, [] -> create pat renal (access |> List.choose Result.toOption) |> Ok
-            | _ -> Error errors
-
-
-module Patient =
+/// Reads the GenCORE patient data for rule selection: the values of a patient in the terms of the
+/// rules, whether a patient is an adult, and whether a patient matches a patient category.
+module PatientData =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
+    open Informedica.GenCore.Lib.Ranges
 
-    module BSA = Informedica.GenCore.Lib.Calculations.BSA
-    module Conversions = Informedica.GenCore.Lib.Conversions
-    module Limit = Informedica.GenCore.Lib.Ranges.Limit
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
-    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
-    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
 
     open Utils
 
-    /// An empty Patient. Both measured flags are set, so a weight or height given to a
-    /// copy of it counts as measured unless the copy says otherwise.
-    let patient =
-        {
-            Location = None
-            Department = None
-            Diagnoses = [||]
-            Gender = AnyGender
-            Age = None
-            Weight = None
-            Height = None
-            WeightMeasured = true
-            HeightMeasured = true
-            MarkedAdult = false
-            GestAge = None
-            PMAge = None
-            Access = []
-            RenalFunction = None
+
+    /// Patient data without any value.
+    let unknown = CorePatientData.unknown
+
+
+    /// The name of the department. A rule names a department by this name.
+    let department (dat: CorePatientData) = dat.Department |> CoreDepartment.name
+
+
+    /// The gender in the terms of the rules. An unknown gender matches the rules for any gender.
+    let gender (dat: CorePatientData) = dat.Gender |> Gender.ofPatient
+
+
+    /// The access devices in the terms of the rules.
+    let access (dat: CorePatientData) = dat.Access |> List.map AccessDevice.ofPatient
+
+
+    /// The renal function in the terms of the renal rules.
+    let renalFunction (dat: CorePatientData) = dat.RenalFunction |> Option.map RenalFunction.ofPatient
+
+
+    /// Returns the adult mark that GenCORE gives for the age and the MarkedAdult value of the patient data.
+    let adultMark (dat: CorePatientData) = CoreAdultMark.ofAge dat.Age dat.MarkedAdult
+
+
+    /// Returns true when the GenCORE adult mark says adult: from 18 years, or from 16 years or without an
+    /// age when the patient is marked as an adult.
+    let isAdult dat = dat |> adultMark |> CoreAdultMark.isAdult
+
+
+    /// Whether the rules for adults apply because of the mark: a marked patient of 16 or 17 years,
+    /// or a marked patient without an age.
+    let matchedAsAdult dat = dat |> adultMark = CoreAdultMark.MarkableAdult true
+
+
+    /// Gives a patient the age of 18 years and removes the gestational and post-menstrual age. A
+    /// gestational age has no meaning for a patient older than one year.
+    let asAdult (dat: CorePatientData) =
+        { dat with
+            Age = Some CoreAgeValue.eighteen
+            GestationalAge = None
+            PostMenstrualAge = None
         }
 
 
-    /// Whether the patient has data besides the department: a patient with a department alone, or
-    /// without any data, has none.
-    let hasDataBesidesDepartment (pat: Patient) = { pat with Department = None } <> patient
+    /// Returns the patient to match and an extra check on the age range of a rule. For a patient
+    /// matched as an adult, the patient gets the adult age and the age range must have no maximum.
+    /// Any other patient is returned unchanged, with a check that always passes.
+    let forAdultMatch dat =
+        if dat |> matchedAsAdult then
+            dat |> asAdult, (fun (age: MinMax) -> age.Max.IsNone)
+        else
+            dat, (fun _ -> true)
 
 
-    let correctAdjustUnit (pat: Patient) =
-        { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
+    /// Whether a patient matches a patient category. The location and the gender are not checked.
+    let matchesCategoryWithoutLocationAndGender dat patCat =
+        let dat, ageHolds = dat |> forAdultMatch
+        let gestAge = dat |> CorePatientData.gestationalAgeInDays
+
+        let agesMatch () =
+            // A category for all patients does not check the gestational or post-menstrual age.
+            if patCat |> PatientCategory.isEmpty then
+                true
+            else
+                let gestAgeMatches =
+                    match gestAge with
+                    // A preterm patient does not match a rule without a gestational or post-menstrual age.
+                    | Some ga when patCat.GestAge = MinMax.empty && patCat.PMAge = MinMax.empty ->
+                        ga |> CoreAgeWeeksDays.isPretermValue |> not
+                    | _ -> gestAge |> MinMax.inRange patCat.GestAge
+
+                gestAgeMatches
+                && dat |> CorePatientData.postMenstrualAgeInDays |> MinMax.inRange patCat.PMAge
+
+        patCat |> PatientCategory.getAge |> ageHolds
+        && dat |> department |> PatientCategory.departmentMatches patCat.Department
+        && dat
+           |> CorePatientData.ageInDays
+           |> MinMax.inRange (patCat |> PatientCategory.getAge)
+        && dat |> CorePatientData.weightInKg |> MinMax.inRange patCat.Weight
+        && dat |> CorePatientData.bodySurfaceArea |> MinMax.inRange patCat.BSA
+        && agesMatch ()
+        && VenousAccess.check patCat.Access (dat |> access)
 
 
-    /// Calculate the BSA of a Patient.
-    let calcBSA (pat: Patient) =
-        match pat.Weight, pat.Height with
-        | Some w, Some h -> Calculations.calcDuBois w h |> Some
-        | _ -> None
+    /// Whether a patient matches a patient category, including the location and the gender. The
+    /// location matches when the patient or the category has no location.
+    let matchesCategory (dat: CorePatientData) (patCat: PatientCategory) =
+        let locationMatches =
+            match dat.Location, patCat.Location with
+            | Some a, Some b -> a = b
+            | _ -> true
+
+        locationMatches
+        && Gender.isMatch patCat.Gender (dat |> gender)
+        && matchesCategoryWithoutLocationAndGender dat patCat
 
 
-    /// The value a limit with an adjust unit is adjusted with: the patient's weight for a per kg
-    /// unit, the BSA for any other adjust unit, when known.
-    let adjustValue (pat: Patient) adjustUnit =
+    /// Returns the value to adjust a limit with: the weight in kg for the adjust unit kg, the body surface
+    /// area for any other adjust unit. Returns None without an adjust unit or without that value.
+    let adjustValue dat adjustUnit =
         adjustUnit
         |> Option.bind (fun u ->
             if u |> Units.eqsUnit Units.Weight.kiloGram then
-                pat.Weight
+                dat |> CorePatientData.weightInKg
             else
-                pat |> calcBSA
+                dat |> CorePatientData.bodySurfaceArea
         )
 
 
-    /// The patient with the ages of a core patient: the age in days, the gestational age and the
-    /// post-menstrual age, as GenCORE calculated them.
-    let withAgesOf (core: Informedica.GenCore.Lib.Patients.Patient) (pat: Patient) =
-        { pat with
-            Age = core.Data.Age |> Option.map CoreAgeValue.toValueUnit
-            GestAge = core.Data.GestationalAge |> Option.map CoreAgeWeeksDays.toValueUnit
-            PMAge = core.Data.PostMenstrualAge |> Option.map CoreAgeWeeksDays.toValueUnit
-        }
+    /// Whether the patient has any value other than the department.
+    let hasDataBesidesDepartment (dat: CorePatientData) =
+        { dat with Department = CoreDepartment.unknown } <> CorePatientData.unknown
 
 
-    /// The patient the EHR data is: from withAgesOf, the age, the gestational age and the
-    /// post-menstrual age the read created; weight and height from the calculation values, measured
-    /// when there are any; the department's name; renal function and access as given; the BSA left
-    /// to the calculation over weight and height.
-    let ofEhr (ehr: EhrPatientData) : Patient =
-        let gender =
-            function
-            | CoreGender.Male -> Male
-            | CoreGender.Female -> Female
-            | CoreGender.AnyGender
-            | CoreGender.UnknownGender -> AnyGender
+    /// Prints the patient data as Dutch text.
+    let toString dat =
+        let gestAge = dat |> CorePatientData.gestationalAgeInDays
 
-        let core = ehr.Patient.Data
+        let toStr u vu =
+            let v =
+                vu
+                |> ValueUnit.convertTo u
+                |> ValueUnit.getValue
+                |> Array.tryHead
+                |> Option.defaultValue 0N
 
-        let weight =
-            core.Weight.Calculation
-            |> Option.map (fun w ->
-                w.Weight
-                |> CoreWeightValue.getWeightInKg
-                |> decimal
-                |> BigRational.fromDecimal
-                |> ValueUnit.singleWithUnit Units.Weight.kiloGram
-            )
+            if v.Denominator = 1I then
+                v |> BigRational.ToInt32 |> sprintf "%i"
+            else
+                v |> BigRational.ToDouble |> sprintf "%A"
 
-        let height =
-            core.Height.Calculation
-            |> Option.map (fun h ->
-                h.Height
-                |> CoreHeightValue.getHeightCm
-                |> decimal
-                |> BigRational.fromDecimal
-                |> ValueUnit.singleWithUnit Units.Height.centiMeter
-            )
+        let group =
+            if gestAge |> Option.exists CoreAgeWeeksDays.isPretermValue then
+                "prematuren"
+            else
+                "neonaten"
 
-        { patient with
-            Department = core.Department |> CoreDepartment.name
-            Diagnoses = core.Diagnoses
-            Gender = core.Gender |> gender
-            Weight = weight
-            Height = height
-            WeightMeasured = weight.IsSome
-            HeightMeasured = height.IsSome
-            Access = ehr.Access
-            RenalFunction = ehr.RenalFunction
-        }
-        |> withAgesOf ehr.Patient
-
-
-    /// Get the string representation of a Patient.
-    let rec toString (pat: Patient) =
         [
-            pat.Department |> Option.defaultValue ""
-            pat.Gender |> Gender.toString
-            pat.Age |> Option.map PatientCategory.printAge |> Option.defaultValue ""
+            dat |> department |> Option.defaultValue ""
+            dat |> gender |> Gender.toString
+            dat
+            |> CorePatientData.ageInDays
+            |> Option.map PatientCategory.printAge
+            |> Option.defaultValue ""
 
-            let printDaysToWeeks = PatientCategory.printDaysToWeeks
-
-            let s =
-                if pat.GestAge.IsSome && pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue then
-                    "prematuren"
-                else
-                    "neonaten"
-
-            match pat.GestAge, pat.PMAge with
-            | _, Some a ->
-                let a = a |> printDaysToWeeks
-                $"{s} postconceptie leeftijd %s{a}"
-            | Some a, _ ->
-                let a = a |> printDaysToWeeks
-                $"{s} zwangerschapsduur %s{a}"
+            match gestAge, dat |> CorePatientData.postMenstrualAgeInDays with
+            | _, Some a -> $"%s{group} postconceptie leeftijd %s{a |> PatientCategory.printDaysToWeeks}"
+            | Some a, _ -> $"%s{group} zwangerschapsduur %s{a |> PatientCategory.printDaysToWeeks}"
             | _ -> ""
 
-            let toStr u vu =
-                let v =
-                    vu
-                    |> ValueUnit.convertTo u
-                    |> ValueUnit.getValue
-                    |> Array.tryHead
-                    |> Option.defaultValue 0N
-
-                if v.Denominator = 1I then
-                    v |> BigRational.ToInt32 |> sprintf "%i"
-                else
-                    v |> BigRational.ToDouble |> sprintf "%A"
-
-            pat.Weight
+            dat
+            |> CorePatientData.weightInKg
             |> Option.map (fun w -> $"gewicht %s{w |> toStr Units.Mass.kiloGram} kg")
             |> Option.defaultValue ""
 
-            pat.Height
-            |> Option.map (fun h -> $"lengte {h |> toStr Units.Height.centiMeter} cm")
+            dat
+            |> CorePatientData.heightInCm
+            |> Option.map (fun h -> $"lengte %s{h |> toStr Units.Height.centiMeter} cm")
             |> Option.defaultValue ""
 
-            pat
-            |> calcBSA
-            |> Option.map (fun bsa -> $"BSA {bsa |> Utils.ValueUnit.toString 3}")
+            dat
+            |> CorePatientData.bodySurfaceArea
+            |> Option.map (fun bsa -> $"BSA %s{bsa |> Utils.ValueUnit.toString 3}")
             |> Option.defaultValue ""
         ]
         |> List.filter String.notEmpty
-        |> List.filter String.notEmpty
         |> String.concat ", "
-
-
-    /// The patient the value is, or why it is none: the minimum data is an age, or a
-    /// measured weight with a measured height. Below that there is no patient, no
-    /// order context and no evaluation; a value that is missing never matches a bounded range.
-    /// The minimum data, stated once for the patient and for its Dto: an age, or a
-    /// measured weight with a measured height, or the mark as an adult.
-    let meetsMinimumData
-        markedAdult
-        (age: 'a option)
-        (weight: 'b option)
-        weightMeasured
-        (height: 'c option)
-        heightMeasured
-        =
-        markedAdult
-        || age.IsSome
-        || (weight.IsSome && weightMeasured && height.IsSome && heightMeasured)
-
-
-    /// The patient, or why it is none: a mark as an adult below 16 years, or less than the
-    /// minimum data.
-    let validate (pat: Patient) : Result<Patient, PatientError> =
-        if Adult.markRefused pat.MarkedAdult pat.Age then
-            Error PatientError.MarkedAdultBelowSixteen
-        else if
-            meetsMinimumData pat.MarkedAdult pat.Age pat.Weight pat.WeightMeasured pat.Height pat.HeightMeasured
-        then
-            Ok pat
-        else
-            Error PatientError.NoAgeOrMeasuredWeightAndHeight
-
-
-    /// The serializable shape of a Patient: primitives only, one aggregate, no logic.
-    /// Ages in days, the weight in kilograms, the height in centimetres; gender, access
-    /// and renal function as the strings their modules write.
-    module Dto =
-
-        type Dto =
-            {
-                Location: string option
-                Department: string option
-                Diagnoses: string[]
-                Gender: string
-                AgeDays: BigRational option
-                WeightKg: BigRational option
-                HeightCm: BigRational option
-                WeightMeasured: bool
-                HeightMeasured: bool
-                MarkedAdult: bool
-                GestAgeDays: BigRational option
-                PMAgeDays: BigRational option
-                Access: string[]
-                RenalFunction: string option
-            }
-
-
-        let private value unit (vu: ValueUnit) =
-            vu |> ValueUnit.convertTo unit |> ValueUnit.getValue |> Array.tryExactlyOne
-
-
-        let private withUnit unit (br: BigRational) = ValueUnit.singleWithUnit unit br
-
-
-        let private toResult err =
-            function
-            | Some v -> Ok v
-            | None -> Error err
-
-
-        /// A reference field a serializer left null is read as absent, never dereferenced.
-        let private orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
-
-
-        let private orBlank (s: string) = if isNull s then "" else s
-
-
-        /// Total: every patient has a Dto.
-        let toDto (pat: Patient) : Dto =
-            {
-                Location = pat.Location
-                Department = pat.Department
-                Diagnoses = pat.Diagnoses
-                Gender = pat.Gender |> Gender.toString
-                AgeDays = pat.Age |> Option.bind (value Units.Time.day)
-                WeightKg = pat.Weight |> Option.bind (value Units.Weight.kiloGram)
-                HeightCm = pat.Height |> Option.bind (value Units.Height.centiMeter)
-                WeightMeasured = pat.WeightMeasured
-                HeightMeasured = pat.HeightMeasured
-                MarkedAdult = pat.MarkedAdult
-                GestAgeDays = pat.GestAge |> Option.bind (value Units.Time.day)
-                PMAgeDays = pat.PMAge |> Option.bind (value Units.Time.day)
-                Access = pat.Access |> List.map AccessDevice.toString |> List.toArray
-                RenalFunction = pat.RenalFunction |> Option.map RenalFunction.toString
-            }
-
-
-        /// The patient a Dto is, or every reason it is none: a string that names nothing, a
-        /// value below the minimum data, and a mark as an adult below 16 years. Never throws,
-        /// never normalizes.
-        let fromDto (dto: Dto) : Result<Patient, PatientError list> =
-            let gender =
-                dto.Gender
-                |> Option.ofObj
-                |> Option.bind Gender.tryFromString
-                |> toResult (PatientError.UnknownGender(orBlank dto.Gender))
-
-            let access =
-                dto.Access
-                |> orEmpty
-                |> Array.toList
-                |> List.map (fun s ->
-                    s
-                    |> Option.ofObj
-                    |> Option.bind AccessDevice.tryFromString
-                    |> toResult (PatientError.UnknownAccess(orBlank s))
-                )
-
-            let renal =
-                match dto.RenalFunction with
-                | None -> Ok None
-                | Some s ->
-                    s
-                    |> RenalFunction.tryFromString
-                    |> Option.map Some
-                    |> toResult (PatientError.UnknownRenalFunction s)
-
-            let errors =
-                [
-                    match gender with
-                    | Error e -> yield e
-                    | Ok _ -> ()
-                    for a in access do
-                        match a with
-                        | Error e -> yield e
-                        | Ok _ -> ()
-                    match renal with
-                    | Error e -> yield e
-                    | Ok _ -> ()
-                    // the minimum data is judged on the Dto too, so that it is reported
-                    // next to a string that names nothing, never dropped behind one
-                    if
-                        not (
-                            meetsMinimumData
-                                dto.MarkedAdult
-                                dto.AgeDays
-                                dto.WeightKg
-                                dto.WeightMeasured
-                                dto.HeightCm
-                                dto.HeightMeasured
-                        )
-                    then
-                        yield PatientError.NoAgeOrMeasuredWeightAndHeight
-                    if Adult.markRefused dto.MarkedAdult (dto.AgeDays |> Option.map (withUnit Units.Time.day)) then
-                        yield PatientError.MarkedAdultBelowSixteen
-                ]
-
-            match errors, gender, renal with
-            | [], Ok gender, Ok renal ->
-                {
-                    Location = dto.Location
-                    Department = dto.Department
-                    Diagnoses = dto.Diagnoses |> orEmpty
-                    Gender = gender
-                    Age = dto.AgeDays |> Option.map (withUnit Units.Time.day)
-                    Weight = dto.WeightKg |> Option.map (withUnit Units.Weight.kiloGram)
-                    Height = dto.HeightCm |> Option.map (withUnit Units.Height.centiMeter)
-                    WeightMeasured = dto.WeightMeasured
-                    HeightMeasured = dto.HeightMeasured
-                    MarkedAdult = dto.MarkedAdult
-                    GestAge = dto.GestAgeDays |> Option.map (withUnit Units.Time.day)
-                    PMAge = dto.PMAgeDays |> Option.map (withUnit Units.Time.day)
-                    Access = access |> List.choose Result.toOption
-                    RenalFunction = renal
-                }
-                |> Ok
-            | errors, _, _ -> Error errors

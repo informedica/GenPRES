@@ -1,11 +1,9 @@
 namespace Components
 
 
-/// A list as it goes on paper: the patient it is for at the top, the rows in a table of named
-/// columns, and a line to sign at the bottom. What is on paper is what the list showed, the
-/// filter and the search of the moment included, so the sheet in the hand and the screen it was
-/// printed from say the same thing. The emphasis the screen draws a value in has no meaning on
-/// paper and is left out.
+/// A printable list: a patient header at the top, the rows in a table with named columns, and a
+/// signature line at the bottom. It prints the rows the screen shows, with the current filter and
+/// search applied. The emphasis marks of the screen are left out.
 module PrintTable =
 
 
@@ -13,8 +11,7 @@ module PrintTable =
     open Feliz
 
 
-    /// One column on paper: which value of a row it shows, the name above it, and how wide it
-    /// is, as a share of the page.
+    /// A printed column: the field it shows, its heading, and its width as a share of the page.
     type Column =
         {|
             field: string
@@ -23,7 +20,7 @@ module PrintTable =
         |}
 
 
-    /// One cell of a row: the column it belongs to and what it says.
+    /// A cell of a row: the field of its column and its text.
     type Cell =
         {|
             field: string
@@ -31,7 +28,7 @@ module PrintTable =
         |}
 
 
-    /// One row: its cells, and what the list offers to do with it, which paper has no use for.
+    /// A row: its cells, and the row actions of the list, which are not printed.
     type Row =
         {|
             cells: Cell[]
@@ -39,7 +36,7 @@ module PrintTable =
         |}
 
 
-    /// The sheet: the columns, the rows, the patient it is for and the line to sign.
+    /// The columns, the rows, the patient header and the signature line.
     type Props =
         {|
             columns: Column[]
@@ -56,7 +53,8 @@ module PrintTable =
         |}
 
 
-    /// The value of a row in a column, without the emphasis the screen drew it with.
+    /// Returns the text of a row in a column with the asterisks of the emphasis removed, or an
+    /// empty string when the row has no cell for the column.
     let valueOf (row: Row) field =
         row.cells
         |> Array.tryFind (fun cell -> cell.field = field)

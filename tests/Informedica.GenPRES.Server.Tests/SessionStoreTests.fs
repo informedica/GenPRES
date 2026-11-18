@@ -12,6 +12,7 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 let t0 = DateTime(2026, 9, 17, 12, 0, 0, DateTimeKind.Utc)
@@ -25,7 +26,7 @@ let counter prefix =
         n.Value <- n.Value + 1
         $"{prefix}-{n.Value}"
 
-let stubPatient = StubPatientData.patient
+let stubPatient = StubEhrPatient.contractPatient
 let token sid = OpenedToken $"opened-{sid}"
 
 let prescriber: UserContext =
@@ -76,7 +77,7 @@ let domainPlan = lazy (parsed plan)
 let session sid (user: UserContext) openedWith =
     sid, SessionStubTests.sessionOf sid (Some user) (Some("stub-patient", Some stubPatient)) openedWith
 
-let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.OrderPlanVersion =
+let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : OrderPlanVersion =
     {
         Id = $"plan-{no}"
         No = no
@@ -90,7 +91,7 @@ let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.O
         SignedAt = at
         Plan = p
         Verified = true
-        EhrData = None
+        EhrPatient = None
     }
 
 let unreadable no (by: UserContext) (at: DateTime) : StoredVersion =
@@ -121,7 +122,7 @@ let ask now nonces state sid (p, opened) =
         now
         nonces
         StubDatabase.digest
-        StubAdapterTests.StubAdapters.patientData
+        StubAdapterTests.StubAdapters.ehrPatients
         sid
         (p, opened, None)
         state
@@ -140,7 +141,7 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
+        EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
         Expiry = at + Session.challengeLifetime
     }
 
@@ -202,9 +203,7 @@ let tests =
                     version.Verified |> Expect.isTrue "the reading stood"
 
                     // the version names the patient the Session is for
-                    let whom =
-                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
 
                     Session.headOf "stub-patient" state
                     |> Expect.equal "the head" (Some(StoredVersion.Readable(version, whom)))
@@ -258,7 +257,7 @@ let tests =
                     |> OrderPlan.Dto.toDto
                     |> Canonical.serialize
                     |> Canonical.deserialize<OrderPlan.Dto.Dto>
-                    |> OrderPlan.Dto.fromDto
+                    |> OrderPlan.Dto.fromDto readAt
                     |> Result.defaultWith (fun e -> failtest $"%A{e}")
 
                 StubDatabase.digest (parsed plan)
@@ -427,7 +426,7 @@ let tests =
                                             versionOf 1 prescriber t0 s.Plan,
                                             None,
                                             token "s-2",
-                                            s.Plan.Patient
+                                            s.Plan.PatientData
                                         )
                                 }
                     }
@@ -438,6 +437,7 @@ let tests =
                           (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                         session = port
                         demo = demo
+                        today = fun () -> SessionStubTests.today0
                     }
 
                 let cookie: SessionCookie =
@@ -605,6 +605,7 @@ let tests =
                                   (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty)
                                   (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                                 session = port
+                                today = fun () -> SessionStubTests.today0
                             }
 
                         let cookie: SessionCookie =

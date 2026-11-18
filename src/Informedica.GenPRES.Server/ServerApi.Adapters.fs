@@ -8,8 +8,8 @@ module Adapters =
 
     open Informedica.GenForm.Lib
     open Informedica.Utils.Lib.BCL
-    // after the contract model, so that the order context and order plan ports, on domain
-    // values, read unqualified; the other ports name only what the contract model has
+    // Opened after the contract model, so the order context and order plan ports, which take domain values, read
+    // unqualified.
     open Informedica.GenOrder.Lib
 
 
@@ -28,9 +28,8 @@ module Adapters =
     let loadInteractionJson () = interactionJsonCache.Value
 
 
-    /// Run an interaction query against the cached data, or say it is unavailable.
-    /// A missing cache is an incomplete deployment, not a patient with nothing to
-    /// report, so it fails the query rather than answering that nothing was found.
+    /// Runs an interaction query on the cached interaction data. A missing cache is an incomplete deployment, so the
+    /// query fails instead of reporting no interactions.
     let private withInteractionJson f =
         async {
             match loadInteractionJson () with
@@ -59,9 +58,9 @@ module Adapters =
         }
 
 
-    let private makeFormularyPort logger (provider: Resources.IResourceProvider) : FormularyPort =
+    let private makeFormularyPort logger today (provider: Resources.IResourceProvider) : FormularyPort =
         {
-            getFormulary = fun form -> async { return form |> FormularyService.get provider }
+            getFormulary = fun form -> async { return form |> FormularyService.get (today ()) provider }
 
             getParenteralia =
                 fun par ->
@@ -74,24 +73,23 @@ module Adapters =
         }
 
 
-    /// Used by the order context port and the order plan port: the nutrition rule sets from the
-    /// provider, and the evaluation of a context settled to the rule set of its category.
+    /// Helpers for the order context and order plan ports: the nutrition rule sets from the provider, and the
+    /// evaluation of a context settled to the rule set of its category.
     module NutritionRuleSets =
 
-        /// Maps an order plan error to its words.
+        /// Maps an order plan error in a result to its message.
         let refused r = r |> Result.mapError (OrderPlanMapper.words >> Array.singleton)
 
 
-        /// The rule sets from the rule set rows of the provider, read on every use so that a reload of
-        /// the sheet is seen.
+        /// Reads the rule sets from the rule set rows of the provider on every call, so a reload of the sheet is seen.
         let ruleSets (provider: Resources.IResourceProvider) =
             provider.Get Resources.Keys.ruleSetData
             |> NutritionRuleSet.ofData
             |> Result.mapError (List.map OrderPlanMapper.words >> List.toArray)
 
 
-        /// The rule sets and the rule set of a nutrition category, refused when the rule sets have
-        /// none for it; for a medication context, no rule sets and no rule set.
+        /// Returns the rule sets and the rule set of a nutrition category, or an error when there is no rule set for
+        /// the category. For a medication context, returns no rule sets and no rule set.
         let ruleSetOf provider category =
             match category with
             | Some c ->
@@ -102,11 +100,11 @@ module Adapters =
             | None -> Ok([||], None)
 
 
-        /// The context evaluated with the command, as an outcome. An evaluated nutrition context is
-        /// narrowed to the rule set and evaluated again, with the option of each list of one as its
-        /// choice, as long as a list of one is left without its choice; a refusal on the way is answered
-        /// as the refused context. A refused nutrition context is narrowed to the rule set too, so that it
-        /// offers no medication of another category. A medication context is evaluated once.
+        /// Evaluates the context with the command and returns the outcome. An evaluated nutrition context is narrowed
+        /// to the rule set and evaluated again, with every single-option list taken as its choice, until no
+        /// single-option list is left without a choice; a refusal along the way is returned as the refused context.
+        /// A refused nutrition context is also narrowed to the rule set, so it offers no medication of another
+        /// category. A medication context is evaluated once.
         let evaluateSettled start logger provider set cmd pc =
             let evaluate cmd pc =
                 pc |> OrderContextService.evaluateOutcome start logger provider cmd
@@ -122,26 +120,24 @@ module Adapters =
                     (narrow set)
                     (function
                     | Evaluated pc ->
-                        // the evaluation rebuilds the lists from a fresh context and keeps a narrowed
-                        // list only when its field has a choice, so each list of one is made the choice
-                        // first
+                        // The evaluation rebuilds the lists from a fresh context and keeps a narrowed list only when
+                        // its field has a choice, so every single-option list is made the choice first.
                         { pc with Context = pc.Context |> OrderContext.withFilterPicks }
                         |> evaluate OrderContext.UpdateOrderContext
-                    // a refusal ends the settling: the same filter again stops it
+                    // A refusal is returned unchanged, so the filter stays the same and the settling stops.
                     | refused -> Ok refused
                     )
             | Ok(Refused _ as refused), Some set -> refused |> narrow set |> Ok
             | answer, _ -> answer
 
 
-        /// The order contexts the link rules offer to link to the main context, when it is narrowed to
-        /// one order. There is one offer per rule, and for a rule without a generic one per generic that
-        /// the dose rules offer. Each offer is evaluated for the main context's patient, with its dose
-        /// types narrowed to the side, its category from the rule sets and, for a nutrition category,
-        /// its lists narrowed to that rule set. When the narrowing leaves one dose type of several, the
-        /// offer is evaluated once more, so that it comes with the scenarios of that dose type. An offer is
-        /// left out when the rules refuse it, when its evaluation fails, or when its evaluation finds no dose
-        /// type of the side.
+        /// Returns the order contexts the link rules offer to link to the main context when it is narrowed to one
+        /// order. There is one offer per rule, or for a rule without a generic one offer per generic the dose rules
+        /// give. Each offer is evaluated for the patient of the main context, with its dose types narrowed to the
+        /// link side, its category from the rule sets and, for a nutrition category, its lists narrowed to that rule
+        /// set. When the narrowing leaves one dose type of several, the offer is evaluated again to get the scenarios
+        /// of that dose type. An offer is left out when the rules refuse it, its evaluation fails, or it has no dose
+        /// type of the link side.
         let linkedOffers routeMapping rules sets evaluate (main: PlanContext) =
             let offer side (ctx: OrderContext) =
                 let category = NutritionRuleSet.orderCategory sets ctx.Filter.Indication ctx.Filter.Generic
@@ -153,16 +149,16 @@ module Adapters =
 
                 match ctx |> PlanContext.create "" category |> evaluate set with
                 | Ok(Evaluated pc) ->
-                    // the evaluation picks a dose type when it finds only one, so an offer without a
-                    // dose type of the side is left out rather than offered with another dose
+                    // The evaluation picks a dose type when it finds only one, so an offer without a dose type of the
+                    // link side is left out rather than offered with another dose type.
                     let narrowed = pc.Context |> OrderContext.narrowToLinkSide side
 
                     match narrowed.Filter.DoseTypes with
                     | [||] -> None
                     | [| _ |] when pc.Context.Filter.DoseTypes.Length > 1 ->
-                        // without a picked dose type the evaluation finds no scenarios; evaluated once more,
-                        // the one dose type of the side left in the list is read as the pick, and the lookup
-                        // filters on it, so the answer lists that dose type only and needs no narrowing
+                        // Without a picked dose type the evaluation finds no scenarios. Evaluated again, the single
+                        // dose type left in the list counts as the pick, so the answer has only that dose type and
+                        // needs no narrowing.
                         match { pc with Context = narrowed } |> evaluate set with
                         | Ok(Evaluated pc) -> Some pc
                         | _ -> None
@@ -170,13 +166,13 @@ module Adapters =
                 | _ -> None
 
             let offers (rule: LinkRule) =
-                let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.Patient
+                let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.PatientData
 
                 match unpicked.Filter.Generic with
                 | Some _ -> [| unpicked |]
                 | None ->
-                    // a rule without a generic offers every generic the dose rules give under its other
-                    // fields; a refusal offers none
+                    // A rule without a generic offers every generic the dose rules give for its other fields; a
+                    // refusal offers none.
                     match unpicked |> PlanContext.create "" OrderCategory.Medication |> evaluate None with
                     | Ok(Evaluated pc) ->
                         pc.Context.Filter.Generics
@@ -189,13 +185,12 @@ module Adapters =
             |> Array.collect offers
 
 
-    /// The dose rules of the context as sent, before a command changes it: the stand-alone dose rules, and
-    /// the dose rules that need a main order when the context selects them. The context selects them with
-    /// its picked indication and generic, a list of one option counting as its pick, and with a dose type
-    /// list of one dose type. The lists are the server's answer, which a pick or a seed does not change,
-    /// so only a linked offer, whose dose types the server narrowed to its link side, selects such a dose
-    /// rule. The prescribe still refuses an order that needs a main order and comes without one. When
-    /// the dose rules did not load there are none.
+    /// Returns the dose rules for the context as sent, before a command changes it: the stand-alone dose rules, plus
+    /// the dose rules that need a main order when the context selects them. The context selects them with a picked
+    /// indication and generic, where a single-option list counts as picked, and a dose type list of exactly one.
+    /// Only a linked offer, whose dose types the server narrowed to the link side, has such a list, because a pick or
+    /// a seed does not change the lists the server returned. Prescribing still refuses an order that needs a main
+    /// order and has none. Returns an empty array when a resource is missing from the cache.
     let doseRulesOf (provider: Resources.IResourceProvider) (ctx: OrderContext) =
         let picks = ctx |> OrderContext.filterPicks
 
@@ -207,8 +202,8 @@ module Adapters =
             | Some _, Some _, [| doseType |] ->
                 let routes = provider.GetRouteMappings()
 
-                // every form of the dose, so that a clear of the form lists the other forms again; the lookup
-                // after the command applies the form picked
+                // Every form of the dose, so clearing the form lists the other forms again; the lookup after the
+                // command applies the picked form.
                 provider.GetDoseRules()
                 |> DoseRule.filter
                     routes
@@ -223,9 +218,8 @@ module Adapters =
             [||]
 
 
-    /// The provider whose dose rules are the dose rules of the context, as doseRulesOf gives them.
-    /// Every dose rule lookup of the order context port reads them, for the pick lists, the scenarios and
-    /// the refusal alike.
+    /// Wraps the provider so its dose rules are the dose rules of the context from doseRulesOf. Every dose rule lookup
+    /// of the order context port reads them: the pick lists, the scenarios and the refusal.
     let withDoseRulesOf (ctx: OrderContext) (provider: Resources.IResourceProvider) =
         { new Resources.IResourceProvider with
             member _.Get key = provider.Get key
@@ -242,7 +236,7 @@ module Adapters =
 
             member _.GetDoseRules() = ctx |> doseRulesOf provider
 
-            member _.GetDilutionRules() = provider.GetDilutionRules()
+            member _.GetSolutionRules() = provider.GetSolutionRules()
             member _.GetRenalRules() = provider.GetRenalRules()
             member _.GetTotals() = provider.GetTotals()
             member _.GetGStandProvider() = provider.GetGStandProvider()
@@ -251,10 +245,9 @@ module Adapters =
         }
 
 
-    /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
-    /// settled to the rule set of the category it carries, a refused context unchanged. The evaluation leaves
-    /// out the orders that need a main order unless the context as sent selects them, as a linked offer
-    /// does; the linked offers are evaluated over every dose rule.
+    /// Makes the order context port. A nutrition context is narrowed to the rule set of its category, and an
+    /// evaluated one is also settled to it. The evaluation leaves out orders that need a main order unless the
+    /// context as sent selects them, as a linked offer does; linked offers are evaluated over all dose rules.
     let private makeOrderContextPort
         logger
         (provider: Resources.IResourceProvider)
@@ -291,7 +284,7 @@ module Adapters =
                                 set
                                 OrderContext.UpdateOrderContext
 
-                        // without readable rule sets an offer's category is unknown, so nothing is offered
+                        // Without readable rule sets the category of an offer is unknown, so nothing is offered.
                         return
                             match NutritionRuleSets.ruleSets provider with
                             | Ok sets ->
@@ -312,9 +305,9 @@ module Adapters =
         }
 
 
-    /// The order plan port over the domain's rules: the plan's contexts through the order
-    /// context service, its totals over the provider's data, the nutrition rule sets from the
-    /// rule set rows of the provider, read on every use so that a reload of the sheet is seen.
+    /// Makes the order plan port: evaluates the contexts of the plan through the order context service, calculates
+    /// the totals from the provider data, and reads the nutrition rule sets on every call, so a reload of the sheet
+    /// is seen.
     let private makeOrderPlanPort
         logger
         (provider: Resources.IResourceProvider)
@@ -336,7 +329,7 @@ module Adapters =
                             |> Array.tryFind (fun c -> c.Id = contextId)
                             |> Option.bind PlanContext.nutritionCategory
 
-                        // the plan answers a refusal as its message, as the message-list contract does
+                        // A refused evaluation becomes an error with its message, as the message-list contract expects.
                         return
                             NutritionRuleSets.ruleSetOf provider category
                             |> Result.bind (fun (sets, set) ->
@@ -389,13 +382,14 @@ module Adapters =
                             )
                     }
             find = fun _ -> async { return SessionLookup.NotFound }
-            patient = fun _ -> None
+            patientData = fun _ -> None
             close = fun _ -> async { return () }
             closeTab = fun _ _ -> async { return OnOwnToken.Done() }
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
+            challengeDate = fun _ -> async { return None }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }
@@ -413,25 +407,17 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
-    /// The normal-value tables of weight and height the provider parsed at load, while it is
-    /// loaded; none when it is not, or when the rows did not parse.
+    /// Returns the normal-value tables of weight and height the provider parsed at load; None when the provider is not
+    /// loaded or the rows did not parse.
     let normalValuesOf (provider: Resources.IResourceProvider) () =
         match notLoaded provider with
         | None -> provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueTables
         | Some _ -> None
 
 
-    /// <summary>
-    /// The env of the server. <c>store</c> is the SQLite connection string of the session store:
-    /// set, the migrations are applied and the session port runs over the record in the
-    /// database; unset, over the record in memory.
-    /// </summary>
-    /// <summary>
-    /// The session store made ready before anything is hosted: the migrations applied and the
-    /// demo credentials seeded, each once. Answers what went wrong instead of raising, so that
-    /// a store that cannot be written is a refused start with a message and an exit code, not
-    /// a crash. A server without the setting has no store to prepare.
-    /// </summary>
+    /// Prepares the session store before anything is hosted: applies the migrations and seeds the demo credentials.
+    /// Returns an error instead of raising, so a store that cannot be written stops the start with a message and an
+    /// exit code. Does nothing when there is no store setting.
     let prepareStore (store: string option) : Result<unit, string> =
         match store with
         | None -> Ok()
@@ -441,8 +427,8 @@ module Adapters =
 
                 SqlSchema.apply cs |> ignore
 
-                // the machine reads a credential from the rows, so the demo logins need theirs
-                // in the file: without them no Prescriber could sign and nothing would say why
+                // The session functions read credentials from the rows, so the demo logins need them in the file;
+                // without them no prescriber could sign and nothing would say why.
                 match
                     SqlSessions.seed
                         cs
@@ -455,6 +441,8 @@ module Adapters =
                 Error $"the session store could not be prepared: %s{e.Message}"
 
 
+    /// Makes the server environment. store is the SQLite connection string of the session store: when set, the
+    /// session port runs over the record in that database; when unset, over a record in memory.
     let makeAppEnvWith
         (demo: bool)
         (store: string option)
@@ -470,9 +458,10 @@ module Adapters =
         let orderLogger = Logging.getLogger Logging.OrderLogger
         let orderPlanLogger = Logging.getLogger Logging.OrderPlanLogger
         let parenteraliaLogger = Logging.getLogger Logging.ParenteraliaLogger
+        let today () = DateTime.UtcNow |> LocalDate.ofUtc zone
 
         {
-            formulary = makeFormularyPort parenteraliaLogger provider
+            formulary = makeFormularyPort parenteraliaLogger today provider
             orderContext = makeOrderContextPort orderLogger provider (fun () -> DateTime.UtcNow)
             orderPlan =
                 makeOrderPlanPort
@@ -495,7 +484,7 @@ module Adapters =
                 }
             admin =
                 {
-                    // the setting as the DMZ reads it: blank is no secret
+                    // A blank or whitespace setting counts as no secret.
                     secret =
                         fun () ->
                             Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
@@ -511,8 +500,8 @@ module Adapters =
                                     return Error [| ex.Message |]
                             }
                     analyzeLogFile = fun fileName -> async { return LogAnalyzer.analyzeFile fileName }
-                    // a reload that leaves the provider unloaded is a failure with its messages,
-                    // not a success: reloadCache records the state and returns normally
+                    // A reload that leaves the provider unloaded is a failure with its messages; reloadCache records
+                    // the state and returns normally.
                     reloadResources =
                         fun () ->
                             async {
@@ -529,9 +518,10 @@ module Adapters =
                 }
             requireLoaded = fun () -> notLoaded provider
             normalValues = normalValuesOf provider
+            today = today
             departments = fun () -> provider.GetDepartments()
-            // a stub with a two-minute Launch lifetime; its sessions live as long as this
-            // AppEnv, and the record as long as its store
+            // The session port over the SQLite store when store is set, otherwise in memory. In memory, the sessions
+            // and the record live as long as this AppEnv.
             session =
                 let makeSessionPort =
                     match store with
@@ -552,18 +542,17 @@ module Adapters =
                     sessionIdle
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
-                    // the confirmation code and the salt from the CSPRNG, the code mac under
-                    // the host key
+                    // The confirmation code and the salt come from the CSPRNG; the code MAC uses the launch key.
                     (Session.newCode System.Security.Cryptography.RandomNumberGenerator.GetInt32)
                     System.Security.Cryptography.RandomNumberGenerator.GetBytes
                     (Session.codeMac launchKey)
                     (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     directory.idp
                     directory.registry
-                    // the platform's reading estimated at the boundary, from the tables as loaded;
-                    // the test patients measured on the local date
-                    (StubPatientData.portAt (fun () -> DateTime.UtcNow |> LocalDate.ofUtc zone)
-                     |> Patient.estimating (normalValuesOf provider))
+                    // The stub EHR data with estimates from the loaded normal-value tables; the test patients are
+                    // measured on the local date.
+                    (StubEhrPatient.portAt today
+                     |> Patient.estimating today (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (
@@ -573,10 +562,10 @@ module Adapters =
         }
 
 
-    /// An env with its own seal key and stub directory: what tests and the MCP host build. The
-    /// server builds makeAppEnvWith so that its stub pages share the key and the directory.
+    /// Makes an environment with its own launch key and stub directory, for tests and the MCP host. The server calls
+    /// makeAppEnvWith instead, so its stub pages share the key and the directory.
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
-        // the demo flag as the server reads it, once
+        // Demo unless GENPRES_PROD is 1.
         let demo =
             Informedica.Utils.Lib.Env.getItem "GENPRES_PROD"
             |> Option.map (fun v -> v <> "1")

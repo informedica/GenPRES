@@ -92,8 +92,8 @@ let all: GoldenTotals list =
             Totals =
                 [
                     "Volume", "#1,47# - #22,7# mL||/kg||/dag||"
-                    "Energy", "#0,29# - #8,61# kCal||/kg||/dag||"
-                    "Carbohydrate", "#0,07# - #2,15# g||/kg||/dag||"
+                    "Energy", "#0,293# - #8,61# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,0733# - #2,15# g||/kg||/dag||"
                 ]
         }
         {
@@ -102,8 +102,8 @@ let all: GoldenTotals list =
             Totals =
                 [
                     "Volume", "#1,12# - #4,48# mL||/kg||/dag||"
-                    "Energy", "#0,36# - #1,76# kCal||/kg||/dag||"
-                    "Carbohydrate", "#0,09# - #0,44# g||/kg||/dag||"
+                    "Energy", "#0,358# - #1,76# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,0896# - #0,439# g||/kg||/dag||"
                 ]
         }
         {
@@ -114,7 +114,7 @@ let all: GoldenTotals list =
         {
             Name = "cotrim"
             Medication = Scenarios.cotrim
-            Totals = [ ("Volume", "#0,93# mL||/kg||/dag||") ]
+            Totals = [ ("Volume", "#0,933# mL||/kg||/dag||") ]
         }
         {
             Name = "tpn"
@@ -122,8 +122,8 @@ let all: GoldenTotals list =
             Totals =
                 [
                     "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
-                    "Protein", "#0,59# - #1,47# g||/kg||/dag||"
-                    "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
+                    "Protein", "#0,587# - #1,47# g||/kg||/dag||"
+                    "Carbohydrate", "#0,00667# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
                     "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
                 ]
@@ -135,14 +135,14 @@ let all: GoldenTotals list =
                 [
                     "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
                     "Energy", "#2,37# - #22,9# kCal||/kg||/dag||"
-                    "Protein", "#0,59# - #1,47# g||/kg||/dag||"
-                    "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
+                    "Protein", "#0,587# - #1,47# g||/kg||/dag||"
+                    "Carbohydrate", "#0,00667# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
                     "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
                     "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
                     "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
-                    "Phosphate", "#0,15# - #0,37# mmol||/kg||/dag||"
-                    "Magnesium", "#0,07# - #0,18# mmol||/kg||/dag||"
+                    "Phosphate", "#0,147# - #0,367# mmol||/kg||/dag||"
+                    "Magnesium", "#0,0733# - #0,183# mmol||/kg||/dag||"
                 ]
         }
         {
@@ -150,8 +150,8 @@ let all: GoldenTotals list =
             Medication = Scenarios.fullMedication
             Totals =
                 [
-                    "Volume", "#0,53# - #1,33# mL||/kg||/dag||"
-                    "Sodium", "#0,07# - #0,16# mmol||/kg||/dag||"
+                    "Volume", "#0,533# - #1,33# mL||/kg||/dag||"
+                    "Sodium", "#0,0657# - #0,164# mmol||/kg||/dag||"
                 ]
         }
     ]
@@ -163,13 +163,13 @@ let together =
         "Volume", "#31,3# - #142# mL||/kg||/dag||"
         "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
-        "Carbohydrate", "#0,18# - #11,1# g||/kg||/dag||"
+        "Carbohydrate", "#0,176# - #11,1# g||/kg||/dag||"
         "Sodium", "#4,21# - #5,33# mmol||/kg||/dag||"
         "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
         "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
         "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
-        "Phosphate", "#0,15# - #0,37# mmol||/kg||/dag||"
-        "Magnesium", "#0,07# - #0,18# mmol||/kg||/dag||"
+        "Phosphate", "#0,147# - #0,367# mmol||/kg||/dag||"
+        "Magnesium", "#0,0733# - #0,183# mmol||/kg||/dag||"
     ]
 
 

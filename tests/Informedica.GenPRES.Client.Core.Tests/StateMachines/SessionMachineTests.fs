@@ -32,8 +32,8 @@ module SessionMachineTests =
                 |> Option.map (fun p ->
                     {
                         PatientId = "p"
-                        Identity = None
-                        Patient = Some p
+                        PatientIdentity = None
+                        PatientData = Some p
                     }
                 )
             OpenedToken = Some(OpenedToken "t")
@@ -41,7 +41,7 @@ module SessionMachineTests =
             Head = None
         }
 
-    let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+    let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
 
     let full = sessionWith (Some "thumb") (Some patient)
 
@@ -50,7 +50,7 @@ module SessionMachineTests =
         { patient with
             Age =
                 Some
-                    { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with
+                    { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with
                         Age.Years = 10<year>
                         Age.Days = 1<day>
                     }
@@ -78,8 +78,8 @@ module SessionMachineTests =
             PatientId = "p"
             Base = None
             OrderContexts = [||]
-            Patient = aged
-            Identity = Some who
+            PatientData = aged
+            PatientIdentity = Some who
             Verified = true
         }
 
@@ -93,8 +93,8 @@ module SessionMachineTests =
                 session.PatientContext
                 |> Option.map (fun c ->
                     { c with
-                        Patient = Some aged
-                        Identity = Some who
+                        PatientData = Some aged
+                        PatientIdentity = Some who
                     }
                 )
         }
@@ -213,8 +213,8 @@ module SessionMachineTests =
                                 PatientId = "p"
                                 Base = None
                                 OrderContexts = [||]
-                                Patient = patient
-                                Identity = None
+                                PatientData = patient
+                                PatientIdentity = None
                                 Verified = true
                             }
 
@@ -770,8 +770,8 @@ module SessionMachineTests =
                     PatientId = "p"
                     Base = Some "plan-1"
                     OrderContexts = [||]
-                    Patient = patient
-                    Identity = None
+                    PatientData = patient
+                    PatientIdentity = None
                     Verified = true
                 }
 
@@ -809,7 +809,7 @@ module SessionMachineTests =
                             (SessionState.opened reopened None,
                              [
                                  SessionEffect.LoadSignedPlan head
-                                 SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.Patient)
+                                 SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.PatientData)
                                  SessionEffect.TellSignedPlanOpened head.Head
                              ])
                     }
@@ -883,7 +883,7 @@ module SessionMachineTests =
                         let refreshed =
                             { reopened with
                                 PatientContext =
-                                    full.PatientContext |> Option.map (fun c -> { c with Patient = Some aged })
+                                    full.PatientContext |> Option.map (fun c -> { c with PatientData = Some aged })
                             }
 
                         transition
@@ -1476,8 +1476,8 @@ module SessionMachineTests =
                             PatientId = "p"
                             Base = Some "plan-1"
                             OrderContexts = [||]
-                            Patient = patient
-                            Identity = None
+                            PatientData = patient
+                            PatientIdentity = None
                             Verified = true
                         }
 
@@ -1495,7 +1495,7 @@ module SessionMachineTests =
                         (SessionState.opened reopened None,
                          [
                              SessionEffect.LoadSignedPlan signedTwo
-                             SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.Patient)
+                             SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.PatientData)
                              SessionEffect.TellSignedPlanOpened two
                          ])
 

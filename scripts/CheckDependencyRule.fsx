@@ -128,8 +128,6 @@ let allowances =
         // Logging.Lib
         allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
         allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
-        // GenCORE.Lib
-        allowToken "src/Informedica.GenCORE.Lib/Patient.fs" "DateTime.Now" clock
         // GenSOLVER.Lib
         allowToken "src/Informedica.GenSOLVER.Lib/Utils.fs" "Environment.ProcessorCount" chunking
         // GenFORM.Lib
@@ -143,7 +141,7 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/DoseRuleLoader.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/DoseRuleLoader.fs" "Async.RunSynchronously" evict
         allowFile "src/Informedica.GenFORM.Lib/SourceLoader.fs" evict
-        allowToken "src/Informedica.GenFORM.Lib/DilutionRule.fs" "Web." evict
+        allowToken "src/Informedica.GenFORM.Lib/SolutionRule.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "File." "cwd-relative export file write; moves to the adapter project (Phase 2)"

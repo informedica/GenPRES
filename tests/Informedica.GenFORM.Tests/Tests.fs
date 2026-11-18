@@ -1,80 +1,6 @@
 namespace Informedica.GenForm.Tests
 
 
-/// Create the necessary test generators
-module Generators =
-
-
-    open Expecto
-    open FsCheck
-    open Informedica.Utils.Lib.BCL
-
-    let bigRGen (n, d) =
-        let d = if d = 0 then 1 else d
-        let n = abs n |> BigRational.FromInt
-        let d = abs d |> BigRational.FromInt
-        n / d
-
-
-    let bigRGenOpt (n, _) = bigRGen (n, 1) |> Some
-
-
-    let bigRGenerator =
-        gen {
-            let! n = Arb.generate<int>
-            let! d = Arb.generate<int>
-            return bigRGen (n, d)
-        }
-
-
-    type BigRGenerator() =
-        static member BigRational() =
-            { new Arbitrary<BigRational>() with
-                override x.Generator = bigRGenerator
-            }
-
-
-    type MinMax = | MinMax of BigRational * BigRational
-
-    let minMaxArb () =
-        bigRGenerator
-        |> Gen.map abs
-        |> Gen.two
-        |> Gen.map (fun (br1, br2) ->
-            let br1 = br1.Numerator |> BigRational.FromBigInt
-            let br2 = br2.Numerator |> BigRational.FromBigInt
-
-            if br1 >= br2 then br2, br1 else br1, br2
-            |> fun (br1, br2) -> if br1 = br2 then br1, br2 + 1N else br1, br2
-        )
-        |> Arb.fromGen
-        |> Arb.convert MinMax (fun (MinMax(min, max)) -> min, max)
-
-
-    type ListOf37<'a> = | ListOf37 of 'a List
-
-    let listOf37Arb () =
-        Gen.listOfLength 37 Arb.generate
-        |> Arb.fromGen
-        |> Arb.convert ListOf37 (fun (ListOf37 xs) -> xs)
-
-
-    let config =
-        { FsCheckConfig.defaultConfig with
-            arbitrary =
-                [
-                    typeof<BigRGenerator>
-                    typeof<ListOf37<_>>.DeclaringType
-                    typeof<MinMax>.DeclaringType
-                ]
-                @ FsCheckConfig.defaultConfig.arbitrary
-            maxTest = 1000
-        }
-
-
-    let testProp testName prop = prop |> testPropertyWithConfig config testName
-
-
 module GenericLabelTests =
 
 
@@ -936,7 +862,7 @@ module DoseRuleToDataTests =
     /// tolerant reader.
     ///
     /// Verified by mutation: renaming <c>get "MinQty"</c> to <c>get "MinQuantity"</c>
-    /// in DilutionRule.fs turns assertion (1) for DilutionRules red. Note it is (1)
+    /// in SolutionRule.fs turns assertion (1) for SolutionRules red. Note it is (1)
     /// that catches a rename - (2) stays green because the parse then fails for the
     /// wrong reason - so do not weaken (1) into "parses with at least these columns".
     /// </remarks>
@@ -1142,7 +1068,7 @@ module DoseRuleToDataTests =
                 [],
                 (DoseRuleData.parseDoseRuleData >> Result.isOk)
 
-                "DilutionRules",
+                "SolutionRules",
                 [
                     "Generic"
                     "Form"
@@ -1186,7 +1112,7 @@ module DoseRuleToDataTests =
                 ],
                 [],
                 [],
-                (DilutionRule.parseDilutionRuleData >> Result.isOk)
+                (SolutionRule.parseSolutionRuleData >> Result.isOk)
 
                 "RenalRules",
                 [
@@ -2191,6 +2117,97 @@ module Tests =
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+    type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+    type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
+    type EGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+    type PatientDataError = Informedica.GenCore.Lib.Patients.PatientDataError
+
+
+    /// Builds the patient data of the tests. Each function sets one value of a patient.
+    module TestPatient =
+
+        open System
+        open Informedica.GenCore.Lib
+        open Informedica.GenCore.Lib.Patients
+
+        /// The date of every weight and height in the tests.
+        let measuredOn = DateTime(2026, 1, 1)
+
+        /// A patient with nothing known.
+        let unknown = CorePatientData.unknown
+
+        /// Sets the age from a time value. The age is rounded down to whole days.
+        let withAge age (pat: PatientData) = { pat with Age = age |> AgeValue.fromValueUnit |> Some }
+
+        /// Sets the age in days.
+        let withAgeInDays days (pat: PatientData) = { pat with Age = days * 1<day> |> AgeValue.fromDays |> Some }
+
+        /// Sets the weight in kg. The source is Measured or Estimated.
+        let withWeightFrom source kg (pat: PatientData) =
+            let weight =
+                kg
+                |> BigRational.toDecimal
+                |> WeightValue.weightInKg
+                |> WeightAtDate.create measuredOn
+
+            { pat with Weight = Weight.create [] None [] (Some(source weight)) }
+
+        /// Sets a measured weight in kg.
+        let withWeightInKg kg = withWeightFrom Measured kg
+
+        /// Sets an estimated weight in kg.
+        let withEstimatedWeightInKg kg = withWeightFrom Estimated kg
+
+        /// Sets the height in cm. The source is Measured or Estimated.
+        let withHeightFrom source cm (pat: PatientData) =
+            let height =
+                cm
+                |> BigRational.toDecimal
+                |> HeightValue.heightInCm
+                |> HeightAtDate.create measuredOn
+
+            { pat with Height = Height.create [] None (Some(source height)) }
+
+        /// Sets a measured height in cm.
+        let withHeightInCm cm = withHeightFrom Measured cm
+
+        /// Sets an estimated height in cm.
+        let withEstimatedHeightInCm cm = withHeightFrom Estimated cm
+
+        /// Sets the gestational age in days.
+        let withGestationalAgeInDays days (pat: PatientData) =
+            { pat with GestationalAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
+
+        /// Sets the post-menstrual age in days.
+        let withPostMenstrualAgeInDays days (pat: PatientData) =
+            { pat with PostMenstrualAge = days * 1<day> |> AgeWeeksDays.fromDays |> Some }
+
+        /// Sets the department by name. Without a name the department is unknown.
+        let withDepartment name (pat: PatientData) =
+            { pat with
+                Department =
+                    name
+                    |> Option.map Department.otherDepartment
+                    |> Option.defaultValue Department.unknown
+            }
+
+        /// Sets the gender.
+        let withGender gender (pat: PatientData) = { pat with Gender = gender }
+
+        /// Sets the access devices.
+        let withAccess access (pat: PatientData) = { pat with Access = access }
+
+        /// Sets the renal function.
+        let withRenalFunction renalFunction (pat: PatientData) = { pat with RenalFunction = Some renalFunction }
+
+        /// Marks the patient as an adult.
+        let markedAsAdult (pat: PatientData) = { pat with MarkedAdult = true }
+
 
     module DoseLimitTests =
 
@@ -2287,9 +2304,9 @@ module Tests =
         let mgPerKgPerDay = mgPerKg |> ValueUnit.per day
         let perDay = Units.Count.times |> ValueUnit.per day
 
-        let pat15kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
+        let pat15kg = TestPatient.unknown |> TestPatient.withWeightInKg 15N
 
-        let pat24kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
+        let pat24kg = TestPatient.unknown |> TestPatient.withWeightInKg 24N
 
         /// A frequency ValueUnit set (per day) from a list of frequencies.
         let freqSet (vs: bigint list) =
@@ -2498,7 +2515,6 @@ module Tests =
     module MaxQtyConflictTests =
 
         let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
 
         // --- build DoseRuleData rows programmatically, by column NAME ---
 
@@ -2735,26 +2751,24 @@ module Tests =
             | _ -> None
 
         let bsaOf w h =
-            { Patient.patient with
-                Weight = Some w
-                Height = Some h
-            }
-            |> Patient.calcBSA
+            TestPatient.unknown
+            |> TestPatient.withWeightInKg w
+            |> TestPatient.withHeightInCm h
+            |> CorePatientData.bodySurfaceArea
 
         /// A patient whose weight (kg) or BSA (m2) equals the target adjust value.
         let patientFor (dl: DoseLimit) (adjVU: ValueUnit) =
             if dl.AdjustUnit.Value |> Units.eqsUnit kg then
-                { Patient.patient with
-                    Weight = Some(adjVU |> ValueUnit.convertTo kg)
-                    Height = Some(ValueUnit.singleWithUnit cm 150N)
-                }
+                TestPatient.unknown
+                |> TestPatient.withWeightInKg (adjVU |> ValueUnit.convertTo kg |> ValueUnit.getValue |> Array.head)
+                |> TestPatient.withHeightInCm 150N
             else
-                let h = ValueUnit.singleWithUnit cm 175N
+                let h = 175N
                 let mutable w = 1
                 let mutable found = None
 
                 while found.IsNone && w <= 400 do
-                    let wv = ValueUnit.singleWithUnit kg (BigRational.fromInt w)
+                    let wv = BigRational.fromInt w
 
                     match bsaOf wv h with
                     | Some b when (b >? adjVU) || b = adjVU -> found <- Some wv
@@ -2764,10 +2778,9 @@ module Tests =
 
                 match found with
                 | Some wv ->
-                    { Patient.patient with
-                        Weight = Some wv
-                        Height = Some h
-                    }
+                    TestPatient.unknown
+                    |> TestPatient.withWeightInKg wv
+                    |> TestPatient.withHeightInCm h
                 | None ->
                     // fail loudly rather than fall back to a size that does not
                     // actually conflict, which would make the test vacuous
@@ -2794,14 +2807,14 @@ module Tests =
         ///   always satisfiable by a smaller dose; feasibility hinges on reaching
         ///   the lower target at the maximum quantity, and on the absolute PerTime
         ///   cap admitting that adjusted target.
-        let isSolvable (dl: DoseLimit) (pat: Patient) (freqVU: ValueUnit option) =
+        let isSolvable (dl: DoseLimit) pat (freqVU: ValueUnit option) =
             match dl.AdjustUnit, freqVU, dl.Quantity.Max |> Option.map Limit.getValueUnit with
             | Some au, Some fvu, Some qmax ->
                 let adj =
                     (if au |> Units.eqsUnit kg then
-                         pat.Weight
+                         pat |> CorePatientData.weightInKg
                      else
-                         pat |> Patient.calcBSA)
+                         pat |> CorePatientData.bodySurfaceArea)
                     |> Option.get
 
                 let pinned =
@@ -2906,222 +2919,819 @@ module Tests =
                 ]
 
 
-    module EhrPatientDataTests =
+    module RulesReadPatientDataTests =
 
-        open System
         open Expecto
         open Expecto.Flip
         open Informedica.Utils.Lib.BCL
         open Informedica.GenUnits.Lib
-        open Informedica.GenCore.Lib
+        open Informedica.GenCore.Lib.Ranges
         open Informedica.GenCore.Lib.Patients
 
-        module FormPatient = Informedica.GenForm.Lib.Patient
-        module FormTypes = Informedica.GenForm.Lib.Types
+        module FormData = Informedica.GenForm.Lib.PatientData
+        module FormGender = Informedica.GenForm.Lib.Gender
+        module FormRenalFunction = Informedica.GenForm.Lib.RenalFunction
+        module Core = Informedica.GenCore.Lib.Patients.PatientData
 
-        /// The thirteenth of March, 2026, the day a patient born on the fifteenth of March, 2016, is
-        /// 3650 days old.
-        let measuredOn = DateTime(2016, 3, 15).AddDays 3650.
+        type CoreData = Informedica.GenCore.Lib.Patients.PatientData
 
-        /// The stub's kind of patient read at a moment: born 2016-03-15, 32 kg and 140 cm measured on
-        /// the day the patient is 3650 days old, nothing else known, its ages created at the read.
-        let ehrAt readAt : FormTypes.EhrPatientData =
-            let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
-            let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
+        /// A child of ten years, 32 kg and 140 cm, both measured.
+        let child =
+            TestPatient.unknown
+            |> TestPatient.withAgeInDays 3650
+            |> TestPatient.withWeightInKg 32N
+            |> TestPatient.withHeightInCm 140N
 
-            PatientData.create
-                Department.unknown
-                [||]
-                UnknownGender
-                None
-                (Weight.create [ weight ] None [] (Some weight))
-                (Height.create [ height ] None (Some height))
-                None
-                UnknownEnteral
-                UnknownVenous
-            |> Patient.createAt
-                readAt
-                (PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
-                 |> Some)
-            |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+        /// The patients of the tests, each with a name.
+        let patients: (string * CoreData) list =
+            [
+                "nothing known", Core.unknown
+                "a child of ten years", child
+                "a child with estimates",
+                child
+                |> TestPatient.withEstimatedWeightInKg 30N
+                |> TestPatient.withEstimatedHeightInCm 138N
+                "an age alone", Core.unknown |> TestPatient.withAgeInDays 3650
+                "a weight alone", Core.unknown |> TestPatient.withWeightInKg (345N / 100N)
+                "a boy", { child with Gender = Male }
+                "a girl", { child with Gender = Female }
+                "a department alone", { Core.unknown with Department = Department.otherDepartment "ICK" }
+                "a child on the ICK", { child with Department = Department.pediatricICU "ICK" }
+                "a child on the NICU", { child with Department = Department.otherDepartment "NICU" }
+                "a child at a location", { child with Location = Some "OK" }
+                "a child with a central line", { child with Access = [ CVL ] }
+                "a child with a peripheral line and a tube", { child with Access = [ PVL; EnteralTube ] }
+                "a term newborn of 3 days",
+                Core.unknown
+                |> TestPatient.withAgeInDays 3
+                |> TestPatient.withWeightInKg (35N / 10N)
+                |> TestPatient.withHeightInCm 51N
+                |> TestPatient.withGestationalAgeInDays (40 * 7)
+                |> TestPatient.withPostMenstrualAgeInDays (40 * 7 + 3)
+                "a preterm newborn of 10 days",
+                Core.unknown
+                |> TestPatient.withAgeInDays 10
+                |> TestPatient.withWeightInKg (12N / 10N)
+                |> TestPatient.withGestationalAgeInDays (30 * 7 + 2)
+                |> TestPatient.withPostMenstrualAgeInDays (31 * 7 + 5)
+                "an infant of 100 days with a gestational age",
+                Core.unknown
+                |> TestPatient.withAgeInDays 100
+                |> TestPatient.withEstimatedWeightInKg (56N / 10N)
+                |> TestPatient.withGestationalAgeInDays (38 * 7)
+                "15 years, marked as an adult",
+                child |> TestPatient.withAgeInDays (15 * 365) |> TestPatient.markedAsAdult
+                "16 years", child |> TestPatient.withAgeInDays (16 * 365)
+                "16 years, marked as an adult",
+                child |> TestPatient.withAgeInDays (16 * 365) |> TestPatient.markedAsAdult
+                "17 years, marked as an adult, with a gestational age",
+                child
+                |> TestPatient.withAgeInDays (17 * 365 + 200)
+                |> TestPatient.markedAsAdult
+                |> TestPatient.withGestationalAgeInDays (39 * 7)
+                "18 years", child |> TestPatient.withAgeInDays (18 * 365)
+                "40 years, 80 kg and 180 cm",
+                Core.unknown
+                |> TestPatient.withAgeInDays (40 * 365)
+                |> TestPatient.withWeightInKg 80N
+                |> TestPatient.withHeightInCm 180N
+                "no age, marked as an adult", Core.unknown |> TestPatient.markedAsAdult
+                "no age, marked as an adult, with a weight",
+                Core.unknown |> TestPatient.markedAsAdult |> TestPatient.withWeightInKg 70N
+            ]
 
-        /// The stub's kind of patient read on the day it is 3650 days old.
-        let ehr () = ehrAt measuredOn
+        let days (n: int) = BigRational.fromInt n |> ValueUnit.singleWithUnit Units.Time.day
 
-        let days (vu: ValueUnit option) =
-            vu
-            |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
+        let range unit (min: decimal option) (max: decimal option) : MinMax =
+            let limit = BigRational.fromDecimal >> ValueUnit.singleWithUnit unit >> Limit.Inclusive
+
+            {
+                Min = min |> Option.map limit
+                Max = max |> Option.map limit
+            }
+
+        let ageRange min max =
+            range Units.Time.day (min |> Option.map decimal) (max |> Option.map decimal)
+
+        /// The patient categories the patients are matched with.
+        let categories: (string * PatientCategory) list =
+            let empty = PatientCategory.empty
+
+            [
+                "all patients", empty
+                "adults", { empty with Age = IsAdult }
+                "from 18 years, by days", { empty with Age = AbsoluteAge(ageRange (Some(18 * 365)) None) }
+                "from 16 to 30 years", { empty with Age = AbsoluteAge(ageRange (Some(16 * 365)) (Some(30 * 365))) }
+                "1 month to 18 years", { empty with Age = AbsoluteAge(ageRange (Some 30) (Some(18 * 365))) }
+                "up to 28 days", { empty with Age = AbsoluteAge(ageRange None (Some 28)) }
+                "10 to 40 kg", { empty with Weight = range Units.Weight.kiloGram (Some 10m) (Some 40m) }
+                "under 2 kg", { empty with Weight = range Units.Weight.kiloGram None (Some 2m) }
+                "body surface area 1 to 1.5 m2", { empty with BSA = range Units.BSA.m2 (Some 1m) (Some 1.5m) }
+                "gestational age under 32 weeks", { empty with GestAge = ageRange None (Some(32 * 7)) }
+                "gestational age from 37 weeks", { empty with GestAge = ageRange (Some(37 * 7)) None }
+                "post-menstrual age under 37 weeks", { empty with PMAge = ageRange None (Some(37 * 7)) }
+                "department ICK", { empty with Department = Some "ICK" }
+                "department NICU", { empty with Department = Some "NICU" }
+                "location OK", { empty with Location = Some "OK" }
+                "location ward", { empty with Location = Some "ward" }
+                "boys", { empty with Gender = Types.Male }
+                "girls", { empty with Gender = Types.Female }
+                "central line", { empty with Access = Types.CVL }
+                "peripheral line", { empty with Access = Types.PVL }
+                "boys of 1 month to 18 years on the ICK",
+                { empty with
+                    Gender = Types.Male
+                    Department = Some "ICK"
+                    Age = AbsoluteAge(ageRange (Some 30) (Some(18 * 365)))
+                }
+            ]
+
+
+        /// The expected results of the rule functions for one patient.
+        type Expected =
+            {
+                /// The patient is an adult.
+                IsAdult: bool
+                /// The patient is matched as an adult.
+                MatchedAsAdult: bool
+                /// The weight in kg. This is the adjust value per kg.
+                WeightInKg: BigRational option
+                /// The body surface area in m2. This is the adjust value per m2.
+                BsaInM2: BigRational option
+                /// The patient as text.
+                Text: string
+                /// The categories that match when location and gender are not checked.
+                Matches: string list
+                /// The categories in Matches that fail on the location or the gender.
+                NoMatchByLocationOrGender: string list
+            }
+
+        /// The expected results by the name of the patient.
+        let expected =
+            [
+                "nothing known",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = ""
+                    Matches =
+                        [
+                            "all patients"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child of ten years",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child with estimates",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 30N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 30 kg, lengte 138 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "an age alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = "10 jaar"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a weight alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(69N / 20N)
+                    BsaInM2 = None
+                    Text = "gewicht 3.45 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a boy",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "man, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "girls" ]
+                }
+                "a girl",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "vrouw, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys" ]
+                }
+                "a department alone",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = "ICK"
+                    Matches =
+                        [
+                            "all patients"
+                            "department ICK"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child on the ICK",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "ICK, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "department ICK"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                            "boys of 1 month to 18 years on the ICK"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls"; "boys of 1 month to 18 years on the ICK" ]
+                }
+                "a child on the NICU",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "NICU, 10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "department NICU"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child at a location",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "location ward"; "boys"; "girls" ]
+                }
+                "a child with a central line",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a child with a peripheral line and a tube",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "10 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a term newborn of 3 days",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(7N / 2N)
+                    BsaInM2 = Some(21N / 100N)
+                    Text =
+                        "3 dagen, neonaten postconceptie leeftijd 40 weken, gewicht 3.5 kg, lengte 51 cm, BSA 0,21 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "up to 28 days"
+                            "gestational age from 37 weeks"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "a preterm newborn of 10 days",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(6N / 5N)
+                    BsaInM2 = None
+                    Text = "1 week, prematuren postconceptie leeftijd 31 weken, gewicht 1.2 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "gestational age under 32 weeks"
+                            "post-menstrual age under 37 weeks"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = []
+                }
+                "an infant of 100 days with a gestational age",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some(28N / 5N)
+                    BsaInM2 = None
+                    Text = "3 maanden, neonaten zwangerschapsduur 38 weken, gewicht 5.6 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "gestational age from 37 weeks"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "15 years, marked as an adult",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "15 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "16 years",
+                {
+                    IsAdult = false
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "16 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "from 16 to 30 years"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "16 years, marked as an adult",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "16 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "17 years, marked as an adult, with a gestational age",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "17 jaar, neonaten zwangerschapsduur 39 weken, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "18 years",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = false
+                    WeightInKg = Some 32N
+                    BsaInM2 = Some(11N / 10N)
+                    Text = "18 jaar, gewicht 32 kg, lengte 140 cm, BSA 1,1 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "from 16 to 30 years"
+                            "1 month to 18 years"
+                            "10 to 40 kg"
+                            "body surface area 1 to 1.5 m2"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "40 years, 80 kg and 180 cm",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = false
+                    WeightInKg = Some 80N
+                    BsaInM2 = Some 2N
+                    Text = "40 jaar, gewicht 80 kg, lengte 180 cm, BSA 2 m2"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "no age, marked as an adult",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = None
+                    BsaInM2 = None
+                    Text = ""
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+                "no age, marked as an adult, with a weight",
+                {
+                    IsAdult = true
+                    MatchedAsAdult = true
+                    WeightInKg = Some 70N
+                    BsaInM2 = None
+                    Text = "gewicht 70 kg"
+                    Matches =
+                        [
+                            "all patients"
+                            "adults"
+                            "from 18 years, by days"
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "central line"
+                            "peripheral line"
+                        ]
+                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                }
+            ]
+            |> Map.ofList
+
 
         let tests =
             testList
-                "EhrPatientData"
+                "the rules read the GenCORE patient data"
                 [
-                    test "the projection at 3650 days is ten years, the measures, nothing else" {
-                        let pat = ehr () |> FormPatient.ofEhr
+                    testList
+                        "the results for each patient"
+                        [
+                            for name, dat in patients do
+                                let exp = expected |> Map.find name
 
-                        let expected: FormTypes.Patient =
-                            { FormPatient.patient with
-                                Gender = FormTypes.AnyGender
-                                Age = Some(3650N |> ValueUnit.singleWithUnit Units.Time.day)
-                                Weight = Some(32N |> ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                                Height = Some(140N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
-                                WeightMeasured = true
-                                HeightMeasured = true
-                            }
-
-                        pat |> Expect.equal "field for field" expected
-                    }
-
-                    test "the age is the birthdate's at the read, in days" {
-                        let at dt = ehrAt dt |> FormPatient.ofEhr |> _.Age |> days
-
-                        (at measuredOn, at (measuredOn.AddDays 1.0), at (measuredOn.AddYears 1))
-                        |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
-                    }
-
-                    test "the age value of an anonymous patient is projected as its days" {
-                        let ehr = ehr ()
-
-                        { ehr with
-                            Patient =
-                                { ehr.Patient.Data with
-                                    Age = AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>) |> Some
+                                test $"is an adult: %s{name}" {
+                                    dat |> FormData.isAdult |> Expect.equal "is adult" exp.IsAdult
                                 }
-                                |> Patient.create None
-                        }
-                        |> FormPatient.ofEhr
-                        |> _.Age
-                        |> days
-                        |> Expect.equal "2 years, 3 months and 4 days" (Some 824N)
+
+                                test $"is matched as an adult: %s{name}" {
+                                    dat
+                                    |> FormData.matchedAsAdult
+                                    |> Expect.equal "matched as adult" exp.MatchedAsAdult
+                                }
+
+                                test $"the patient as an adult: %s{name}" {
+                                    let adult = dat |> FormData.asAdult
+
+                                    (adult |> Core.ageInDays, adult.GestationalAge, adult.PostMenstrualAge)
+                                    |> Expect.equal
+                                        "18 years of 365 days, no gestational age, no post-menstrual age"
+                                        (Some(days 6570), None, None)
+
+                                    { adult with
+                                        Age = dat.Age
+                                        GestationalAge = dat.GestationalAge
+                                        PostMenstrualAge = dat.PostMenstrualAge
+                                    }
+                                    |> Expect.equal "the other values stay" dat
+                                }
+
+                                test $"the adjust value: %s{name}" {
+                                    FormData.adjustValue dat None |> Expect.isNone "no adjust unit"
+
+                                    FormData.adjustValue dat (Some Units.Weight.kiloGram)
+                                    |> Expect.equal
+                                        "per kg"
+                                        (exp.WeightInKg |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram))
+
+                                    FormData.adjustValue dat (Some Units.BSA.m2)
+                                    |> Expect.equal
+                                        "per m2"
+                                        (exp.BsaInM2 |> Option.map (ValueUnit.singleWithUnit Units.BSA.m2))
+                                }
+
+                                test $"the text: %s{name}" { dat |> FormData.toString |> Expect.equal "text" exp.Text }
+
+                                for catName, patCat in categories do
+                                    test $"the match of %s{name} with the category %s{catName}" {
+                                        let matches = exp.Matches |> List.contains catName
+
+                                        FormData.matchesCategoryWithoutLocationAndGender dat patCat
+                                        |> Expect.equal "without location and gender" matches
+
+                                        FormData.matchesCategory dat patCat
+                                        |> Expect.equal
+                                            "with location and gender"
+                                            (matches && exp.NoMatchByLocationOrGender |> List.contains catName |> not)
+                                    }
+                        ]
+
+                    test "a patient without data, or with a department alone, has no data besides the department" {
+                        for dat in
+                            [
+                                Core.unknown
+                                { Core.unknown with Department = Department.otherDepartment "ICK" }
+                            ] do
+                            dat |> FormData.hasDataBesidesDepartment |> Expect.isFalse "no data"
                     }
 
-                    test "a measurement without a calculation value is no measure" {
-                        let ehr = ehr ()
-
-                        let pat =
-                            { ehr with
-                                Patient =
-                                    { ehr.Patient with
-                                        Data.Weight = { ehr.Patient.Data.Weight with Calculation = None }
-                                    }
-                            }
-                            |> FormPatient.ofEhr
-
-                        (pat.Weight, pat.WeightMeasured, pat.Height.IsSome, pat.HeightMeasured)
-                        |> Expect.equal "no weight, not measured; the height as before" (None, false, true, true)
+                    test "a patient with any other value has data besides the department" {
+                        for dat in
+                            [
+                                child
+                                { Core.unknown with Location = Some "OK" }
+                                { Core.unknown with Gender = Male }
+                                { Core.unknown with MarkedAdult = true }
+                                { Core.unknown with Access = [ CVL ] }
+                            ] do
+                            dat |> FormData.hasDataBesidesDepartment |> Expect.isTrue "data"
                     }
 
-                    test "gestational age in days, PMA calculated, department named, rule data as given" {
-                        let ehr = ehr ()
-
-                        let pat =
-                            { ehr with
-                                Patient =
-                                    { ehr.Patient with
-                                        Data =
-                                            { ehr.Patient.Data with
-                                                Department = Department.pediatricICU "ICK"
-                                                Gender = Female
-                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
-                                            }
-                                    }
-                                    |> Patient.calculatePostMenstrualAge
-                                RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
-                                Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
+                    test "the values of the patient as the rules name them" {
+                        let dat =
+                            { child with
+                                Department = Department.pediatricICU "ICK"
+                                Gender = Female
+                                Access = [ CVL; EnteralTube ]
+                                RenalFunction = Some(RenalFunction.EGFR From30To50)
                             }
-                            |> FormPatient.ofEhr
 
-                        (pat.GestAge |> days,
-                         pat.PMAge |> days,
-                         pat.Department,
-                         pat.Gender,
-                         pat.RenalFunction,
-                         pat.Access)
+                        (dat |> FormData.department,
+                         dat |> FormData.gender,
+                         dat |> FormData.access,
+                         dat |> FormData.renalFunction)
                         |> Expect.equal
-                            "254 days, 254 plus the age of 3650 days, ICK, female, the eGFR, the two devices"
-                            (Some 254N,
-                             Some 3904N,
-                             Some "ICK",
-                             FormTypes.Female,
-                             Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60)),
-                             [ FormTypes.CVL; FormTypes.EnteralTube ])
+                            "as the rules name them"
+                            (Some "ICK",
+                             Types.Female,
+                             [ Types.CVL; Types.EnteralTube ],
+                             Some(Types.RenalFunction.EGFR(Some 30, Some 50)))
                     }
 
-                    test
-                        "withAgesOf: the age in days, the gestational age and the post-menstrual age GenCORE calculated" {
-                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
-
-                        { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
-                        |> Patient.create (Some identity)
-                        |> Patient.atDate (DateTime(2026, 3, 30))
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
-                        |> fun pat -> pat.Age |> days, pat.GestAge |> days, pat.PMAge |> days
-                        |> Expect.equal "58 days, 182 days, 182 plus 58 days" (Some 58N, Some 182N, Some 240N)
+                    test "every access of a patient is the access of the same name" {
+                        [ PVL; CVL; EnteralTube ]
+                        |> List.map AccessDevice.ofPatient
+                        |> Expect.equal "the three accesses" [ Types.PVL; Types.CVL; Types.EnteralTube ]
                     }
 
-                    test "withAgesOf: no gestational age, no post-menstrual age" {
-                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
-
-                        PatientData.unknown
-                        |> Patient.create (Some identity)
-                        |> Patient.atDate (DateTime(2026, 3, 30))
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
-                        |> _.PMAge
-                        |> Expect.isNone "none"
+                    test "an eGFR band is the pair of its bounds" {
+                        [ Above50; From30To50; From10To30; UpTo10 ]
+                        |> List.map (EGFR >> FormRenalFunction.ofPatient)
+                        |> Expect.equal
+                            "the four bands"
+                            [
+                                Types.EGFR(Some 50, None)
+                                Types.EGFR(Some 30, Some 50)
+                                Types.EGFR(Some 10, Some 30)
+                                Types.EGFR(None, Some 10)
+                            ]
                     }
 
-                    test "the EHR data goes there and back through its Dto, nothing dropped" {
-                        let ehr = ehr ()
-
-                        let full =
-                            { ehr with
-                                Patient =
-                                    { ehr.Patient with
-                                        Data =
-                                            { ehr.Patient.Data with
-                                                Department = Department.pediatricICU "ICK"
-                                                Gender = Female
-                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
-                                            }
-                                    }
-                                    |> Patient.calculatePostMenstrualAge
-                                RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
-                                Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
-                            }
-
-                        [ ehr; full ]
-                        |> List.map (fun e ->
-                            e
-                            |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto
-                            |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
-                        )
-                        |> Expect.equal "there and back again" [ Ok ehr; Ok full ]
+                    test "a kind of dialysis is the kind of the same name" {
+                        [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
+                        |> List.map FormRenalFunction.ofPatient
+                        |> Expect.equal
+                            "the three kinds"
+                            [
+                                Types.IntermittentHemodialysis
+                                Types.ContinuousHemodialysis
+                                Types.PeritonealDialysis
+                            ]
                     }
 
-                    test "a string that names nothing is a reason the Dto is no EHR data" {
-                        let dto = ehr () |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto
-
-                        { dto with
-                            RenalFunction = Some "nope"
-                            Access = [| "CVL"; "wire" |]
-                        }
-                        |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
-                        |> Expect.equal "both named" (Error [ "unknown renal function: nope"; "unknown access: wire" ])
-                    }
-
-                    test "the identity is the core patient's" {
-                        ehr ()
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
-                        |> Option.map (fun id -> id.Id, id.Name, id.BirthDate |> BirthDate.toDate)
-                        |> Expect.equal "id, name, birthdate" (Some("p1", "Stub Testpatiënt", DateTime(2016, 3, 15)))
-                    }
-
-                    test "the printer writes neither the name nor the birthdate" {
-                        let printed = ehr () |> FormPatient.ofEhr |> FormPatient.toString
-
-                        [ "Stub"; "Testpatiënt"; "2016"; "15-03"; "03-15" ]
-                        |> List.map (fun s -> printed.Contains s)
-                        |> Expect.allEqual $"nothing of the identity in: %s{printed}" false
+                    test "a patient without a known gender matches the rules for any gender" {
+                        [ Male; Female; UnknownGender ]
+                        |> List.map FormGender.ofPatient
+                        |> Expect.equal "the three genders" [ Types.Male; Types.Female; Types.AnyGender ]
                     }
                 ]
 
@@ -3134,69 +3744,21 @@ module Tests =
         open Informedica.GenUnits.Lib
         open Informedica.GenForm.Lib
 
-        let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
-
         let tests =
             testList
                 "Patient"
                 [
                     test "a patient has data besides the department only when more than the department is set" {
                         [
-                            Patient.patient
-                            { Patient.patient with Department = Some "ICK" }
-                            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
-                            { Patient.patient with
-                                Department = Some "ICK"
-                                Gender = Male
-                            }
+                            TestPatient.unknown
+                            TestPatient.unknown |> TestPatient.withDepartment (Some "ICK")
+                            TestPatient.unknown |> TestPatient.withWeightInKg 5N
+                            TestPatient.unknown
+                            |> TestPatient.withDepartment (Some "ICK")
+                            |> TestPatient.withGender CoreGender.Male
                         ]
-                        |> List.map Patient.hasDataBesidesDepartment
+                        |> List.map PatientData.hasDataBesidesDepartment
                         |> Expect.equal "none, none, a weight, a gender" [ false; false; true; true ]
-                    }
-
-                    test "the empty patient has both measured flags set" {
-                        Patient.patient.WeightMeasured |> Expect.isTrue "weight counts as measured"
-                        Patient.patient.HeightMeasured |> Expect.isTrue "height counts as measured"
-                    }
-
-                    test "a patient built as a copy keeps counting as measured" {
-                        let pat =
-                            { Patient.patient with
-                                Weight = Some(ValueUnit.singleWithUnit kg 15N)
-                                Height = Some(ValueUnit.singleWithUnit cm 100N)
-                            }
-
-                        pat.WeightMeasured |> Expect.isTrue "the weight is measured"
-                        pat.HeightMeasured |> Expect.isTrue "the height is measured"
-                        pat.Weight |> Expect.isSome "the weight is held"
-                    }
-
-                    test "an estimate is the held value with its flag clear, and survives copies" {
-                        let estimated =
-                            { Patient.patient with
-                                Age = Some(ValueUnit.singleWithUnit Units.Time.year 10N)
-                                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                                WeightMeasured = false
-                            }
-
-                        let copied = { estimated with Department = Some "ICK" }
-
-                        copied.WeightMeasured |> Expect.isFalse "still an estimate after a copy"
-                        copied.HeightMeasured |> Expect.isTrue "the other flag is untouched"
-                        copied.Weight |> Expect.equal "the estimate is the held value" estimated.Weight
-                    }
-
-                    test "the measured flags are independent" {
-                        let pat =
-                            { Patient.patient with
-                                Weight = Some(ValueUnit.singleWithUnit kg (35N / 10N))
-                                Height = Some(ValueUnit.singleWithUnit cm 50N)
-                                HeightMeasured = false
-                            }
-
-                        (pat.WeightMeasured, pat.HeightMeasured)
-                        |> Expect.equal "measured weight, estimated height" (true, false)
                     }
                 ]
 
@@ -3212,182 +3774,60 @@ module Tests =
 
         module Fixtures =
 
-            let kg = Units.Weight.kiloGram
-            let cm = Units.Height.centiMeter
-            let day = Units.Time.day
-
             /// A ten-year-old, weight and height measured, on a PVL.
             let child =
-                { Patient.patient with
-                    Department = Some "ICK"
-                    Gender = Male
-                    Age = Some(ValueUnit.singleWithUnit day 3650N)
-                    Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                    Height = Some(ValueUnit.singleWithUnit cm 140N)
-                    Access = [ PVL ]
-                }
-
-            /// A premature of two days, 30 weeks gestation, 1.2 kg.
-            let premature =
-                { Patient.patient with
-                    Gender = Female
-                    Age = Some(ValueUnit.singleWithUnit day 2N)
-                    GestAge = Some(ValueUnit.singleWithUnit day 210N)
-                    PMAge = Some(ValueUnit.singleWithUnit day 212N)
-                    Weight = Some(ValueUnit.singleWithUnit kg (12N / 10N))
-                    Height = Some(ValueUnit.singleWithUnit cm 38N)
-                    Access = [ CVL ]
-                    RenalFunction = Some(EGFR(Some 30, Some 50))
-                }
+                TestPatient.unknown
+                |> TestPatient.withDepartment (Some "ICK")
+                |> TestPatient.withGender CoreGender.Male
+                |> TestPatient.withAgeInDays 3650
+                |> TestPatient.withWeightInKg 32N
+                |> TestPatient.withHeightInCm 140N
+                |> TestPatient.withAccess [ CoreAccess.PVL ]
 
             /// No age, but a measured weight and height.
             let measuredOnly =
-                { Patient.patient with
-                    Weight = Some(ValueUnit.singleWithUnit kg 70N)
-                    Height = Some(ValueUnit.singleWithUnit cm 175N)
-                }
+                TestPatient.unknown
+                |> TestPatient.withWeightInKg 70N
+                |> TestPatient.withHeightInCm 175N
 
 
         let tests =
             testList
-                "Patient validate and Dto"
+                "Patient minimum data and string forms"
                 [
                     testList
-                        "validate"
+                        "the minimum data"
                         [
                             test "an age alone is a patient" {
-                                { Patient.patient with Age = Some(ValueUnit.singleWithUnit Fixtures.day 3650N) }
-                                |> Patient.validate
+                                TestPatient.unknown
+                                |> TestPatient.withAgeInDays 3650
+                                |> CorePatientData.checkMinimumData
                                 |> Result.isOk
                                 |> Expect.isTrue "a patient"
                             }
 
                             test "a measured weight and height without an age is a patient" {
                                 Fixtures.measuredOnly
-                                |> Patient.validate
+                                |> CorePatientData.checkMinimumData
                                 |> Result.isOk
                                 |> Expect.isTrue "a patient"
                             }
 
                             test "an estimated weight without an age is no patient" {
-                                { Fixtures.measuredOnly with WeightMeasured = false }
-                                |> Patient.validate
+                                Fixtures.measuredOnly
+                                |> TestPatient.withEstimatedWeightInKg 70N
+                                |> CorePatientData.checkMinimumData
                                 |> Expect.equal
                                     "below the minimum data"
-                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
 
                             test "the empty patient is no patient" {
-                                Patient.patient
-                                |> Patient.validate
+                                TestPatient.unknown
+                                |> CorePatientData.checkMinimumData
                                 |> Expect.equal
                                     "below the minimum data"
-                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
-                            }
-                        ]
-
-                    testList
-                        "L1, fromDto (toDto x) = Ok x"
-                        [
-                            for name, pat in
-                                [
-                                    "a child", Fixtures.child
-                                    "a premature", Fixtures.premature
-                                    "measured only", Fixtures.measuredOnly
-                                ] do
-                                test $"{name} round-trips" {
-                                    pat
-                                    |> Patient.Dto.toDto
-                                    |> Patient.Dto.fromDto
-                                    |> Expect.equal "the same patient" (Ok pat)
-                                }
-                        ]
-
-                    testList
-                        "L2, fromDto d |> Result.map toDto = Ok d"
-                        [
-                            for name, pat in [ "a child", Fixtures.child; "a premature", Fixtures.premature ] do
-                                test $"{name}'s Dto round-trips" {
-                                    let dto = pat |> Patient.Dto.toDto
-
-                                    dto
-                                    |> Patient.Dto.fromDto
-                                    |> Result.map Patient.Dto.toDto
-                                    |> Expect.equal "the same Dto" (Ok dto)
-                                }
-                        ]
-
-                    testList
-                        "fromDto refuses"
-                        [
-                            test "an unknown gender string" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with Gender = "x" }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "named" (Error [ PatientError.UnknownGender "x" ])
-                            }
-
-                            test "an unknown access string, and every error is reported" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = "x"
-                                    Access = [| "pvl"; "tube" |]
-                                    RenalFunction = Some "egfr:a:b"
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "all three"
-                                    (Error
-                                        [
-                                            PatientError.UnknownGender "x"
-                                            PatientError.UnknownAccess "tube"
-                                            PatientError.UnknownRenalFunction "egfr:a:b"
-                                        ])
-                            }
-
-                            test "a null gender or access string is an unknown one, never a crash" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = null
-                                    Access = [| null |]
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "both named"
-                                    (Error [ PatientError.UnknownGender ""; PatientError.UnknownAccess "" ])
-                            }
-
-                            test "null arrays are read as empty" {
-                                let dto =
-                                    { (Fixtures.child |> Patient.Dto.toDto) with
-                                        Access = null
-                                        Diagnoses = null
-                                    }
-
-                                match dto |> Patient.Dto.fromDto with
-                                | Ok pat ->
-                                    pat.Access |> Expect.isEmpty "no access"
-                                    pat.Diagnoses |> Expect.isEmpty "no diagnoses"
-                                | Error e -> failtest $"expected a patient, got {e}"
-                            }
-
-                            test "an unknown string and the minimum data are reported together" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    Gender = "x"
-                                    AgeDays = None
-                                    WeightMeasured = false
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal
-                                    "both"
-                                    (Error
-                                        [ PatientError.UnknownGender "x"; PatientError.NoAgeOrMeasuredWeightAndHeight ])
-                            }
-
-                            test "a draft with no age and no measured weight and height" {
-                                { (Fixtures.child |> Patient.Dto.toDto) with
-                                    AgeDays = None
-                                    WeightMeasured = false
-                                }
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "no patient" (Error [ PatientError.NoAgeOrMeasuredWeightAndHeight ])
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
                         ]
 
@@ -3415,18 +3855,6 @@ module Tests =
                                         PeritonealDialysis
                                      ]
                                      |> List.map Some)
-                            }
-
-                            test "toDto converts to the canonical units" {
-                                let dto =
-                                    { Fixtures.child with
-                                        Weight = Some(ValueUnit.singleWithUnit Units.Weight.gram 32000N)
-                                        Age = Some(ValueUnit.singleWithUnit Units.Time.week 10N)
-                                    }
-                                    |> Patient.Dto.toDto
-
-                                dto.WeightKg |> Expect.equal "kilograms" (Some 32N)
-                                dto.AgeDays |> Expect.equal "days" (Some 70N)
                             }
                         ]
                 ]
@@ -3484,23 +3912,22 @@ module Tests =
                             ]
 
                         let matches access =
-                            categories
-                            |> List.map (
-                                PatientCategory.filterPatient { PatientDtoTests.Fixtures.child with Access = access }
-                            )
+                            let pat = PatientDtoTests.Fixtures.child |> TestPatient.withAccess access
 
-                        matches [ PVL ]
+                            categories |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
+
+                        matches [ CoreAccess.PVL ]
                         |> Expect.equal "PVL: the PVL and any categories" [ true; false; true ]
 
-                        matches [ PVL; EnteralTube ]
+                        matches [ CoreAccess.PVL; CoreAccess.EnteralTube ]
                         |> Expect.equal "PVL and a tube: the same" [ true; false; true ]
 
-                        matches [ EnteralTube ]
+                        matches [ CoreAccess.EnteralTube ]
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
                     test "a dilution limit is headed by the rule's access, the tube included" {
-                        let rule access : DilutionRule =
+                        let rule access : SolutionRule =
                             {
                                 Generic = "paracetamol"
                                 Form = None
@@ -3510,27 +3937,14 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Access = access }
                                 Dose = MinMax.empty
                                 Diluents = [||]
-                                Div = None
-                                Volumes = None
-                                Volume = MinMax.empty
-                                VolumeAdjust = MinMax.empty
-                                DripRate = MinMax.empty
-                                DoseFraction = MinMax.empty
+                                SolutionLimit = SolutionRule.SolutionLimit.empty
                                 DilutionLimits = [||]
                             }
 
-                        let limit: DilutionLimit =
-                            {
-                                DilutionLimitTarget = NoLimitTarget
-                                Quantity = MinMax.empty
-                                QuantityAdj = MinMax.empty
-                                Quantities = None
-                                Concentration = MinMax.empty
-                                Products = [||]
-                            }
+                        let limit = SolutionRule.DilutionLimit.create (DilutionTarget.Substance "paracetamol")
 
                         let heading access =
-                            (DilutionRule.Print.printDilutionLimit (rule access) false limit).head
+                            (SolutionRule.Print.printDilutionLimit (rule access) false limit).head
 
                         heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
                         heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
@@ -3574,11 +3988,12 @@ module Tests =
                 DoseType = None
                 Diluent = None
                 Components = ComponentSelection.AllComponents
-                Patient = { PatientDtoTests.Fixtures.child with Department = department }
+                PatientData = PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
             }
 
 
-        let patientFor department = { PatientDtoTests.Fixtures.child with Department = department }
+        let patientFor department =
+            PatientDtoTests.Fixtures.child |> TestPatient.withDepartment department
 
 
         let categories =
@@ -3608,14 +4023,16 @@ module Tests =
         /// department: ICK, NICU, any.
         let matchers =
             [
-                "PatientCategory.filter",
+                "PatientData.matchesCategory",
                 fun dep ->
                     categories
-                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor dep))
-                "PatientCategory.filterPatient",
+                    |> List.map (fun (_, cat) -> cat |> PatientData.matchesCategory (patientFor dep))
+                "PatientData.matchesCategoryWithoutLocationAndGender",
                 fun dep ->
                     categories
-                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filterPatient (patientFor dep))
+                    |> List.map (fun (_, cat) ->
+                        cat |> PatientData.matchesCategoryWithoutLocationAndGender (patientFor dep)
+                    )
                 "Reconstitution.matches",
                 fun dep -> reconstitutions |> List.map (Product.Reconstitution.matches [||] None dep None)
                 "Reconstitution.filter",
@@ -3683,7 +4100,7 @@ module Tests =
                         [
                             test "a rule that names a location still matches a patient with none" {
                                 { PatientCategory.empty with Location = Some "OK" }
-                                |> PatientCategory.filter (filterFor None)
+                                |> PatientData.matchesCategory (patientFor None)
                                 |> Expect.isTrue "the location comparison is untouched"
                             }
 
@@ -3708,9 +4125,9 @@ module Tests =
             doseRules.Value
             |> Array.map (fun dr ->
                 {
-                    Patient = PatientDtoTests.Fixtures.child
+                    PatientData = PatientDtoTests.Fixtures.child
                     DoseRule = dr
-                    DilutionRules = [||]
+                    SolutionRules = [||]
                     RenalRules = [||]
                 }
             )
@@ -3772,24 +4189,26 @@ module Tests =
                         }
 
                     test "an empty filter and empty patient category" {
-                        patCat |> PatientCategory.filter filter |> Expect.isTrue "should return true"
+                        patCat
+                        |> PatientData.matchesCategory filter.PatientData
+                        |> Expect.isTrue "should return true"
                     }
 
                     test "an empty filter and patient category with female gender" {
                         { patCat with Gender = Female }
-                        |> PatientCategory.filter filter
+                        |> PatientData.matchesCategory filter.PatientData
                         |> Expect.isFalse "should return false"
                     }
 
                     test "a filter with female gender and patient category with female gender" {
                         { patCat with Gender = Female }
-                        |> PatientCategory.filter { filter with DoseFilter.Patient.Gender = Female }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withGender CoreGender.Female)
                         |> Expect.isTrue "should return true"
                     }
 
                     test "a filter with female gender and patient category with no gender" {
                         { patCat with Gender = AnyGender }
-                        |> PatientCategory.filter { filter with DoseFilter.Patient.Gender = Female }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withGender CoreGender.Female)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -3797,7 +4216,10 @@ module Tests =
 
                     let adults = { patCat with Age = IsAdult }
 
-                    let aged age = { filter with DoseFilter.Patient.Age = age }
+                    let aged age =
+                        match age with
+                        | Some age -> TestPatient.unknown |> TestPatient.withAge age
+                        | None -> TestPatient.unknown
 
                     test "the adult threshold is the domain's eighteen years, in days as a patient's age is written" {
                         Utils.ValueUnit.ageAdult
@@ -3810,11 +4232,13 @@ module Tests =
                         n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
 
                     let neonate age gestAge pmAge =
-                        { Patient.patient with
-                            Age = age |> Option.map inDays
-                            GestAge = gestAge |> Option.map inDays
-                            PMAge = pmAge |> Option.map inDays
-                        }
+                        let set f value pat =
+                            value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+                        TestPatient.unknown
+                        |> set TestPatient.withAgeInDays age
+                        |> set TestPatient.withGestationalAgeInDays gestAge
+                        |> set TestPatient.withPostMenstrualAgeInDays pmAge
 
                     let pmaRule =
                         { patCat with
@@ -3825,7 +4249,7 @@ module Tests =
                                 }
                         }
 
-                    let matches rule pat = rule |> PatientCategory.filter { filter with Patient = pat }
+                    let matches rule pat = rule |> PatientData.matchesCategory pat
 
                     test "a post-menstrual age rule matches the patient's exact post-menstrual age" {
                         [
@@ -3858,8 +4282,8 @@ module Tests =
                         [
                             noAge |> matches gestRule
                             noAge |> matches pmaRule
-                            PatientCategory.filterPatient noAge gestRule
-                            PatientCategory.filterPatient noAge pmaRule
+                            PatientData.matchesCategoryWithoutLocationAndGender noAge gestRule
+                            PatientData.matchesCategoryWithoutLocationAndGender noAge pmaRule
                         ]
                         |> Expect.allEqual "no match" false
                     }
@@ -3869,7 +4293,10 @@ module Tests =
                         let locationRule = { patCat with Location = Some "UMCU" }
                         let pat = neonate None (Some 210) None
 
-                        [ pat |> matches locationRule; PatientCategory.filterPatient pat locationRule ]
+                        [
+                            pat |> matches locationRule
+                            PatientData.matchesCategoryWithoutLocationAndGender pat locationRule
+                        ]
                         |> Expect.allEqual "left out, as a patient with an age is" false
                     }
 
@@ -3882,8 +4309,9 @@ module Tests =
 
                     test "setting a patient on a filter keeps the patient's post-menstrual age" {
                         Filter.doseFilter
-                        |> Filter.setPatient (neonate (Some 45) (Some 196) (Some 242))
-                        |> _.Patient.PMAge
+                        |> Filter.setPatientData (neonate (Some 45) (Some 196) (Some 242))
+                        |> _.PatientData
+                        |> CorePatientData.postMenstrualAgeInDays
                         |> Expect.equal "242 days, not recalculated" (Some(inDays 242))
                     }
 
@@ -3903,31 +4331,31 @@ module Tests =
                         "a patient entered as eighteen, 6570 days by the contract model, is an adult; a day less is not" {
                         let days n = n |> ValueUnit.singleWithUnit Units.Time.day
 
-                        (adults |> PatientCategory.filter (aged (Some(days 6570N))),
-                         adults |> PatientCategory.filter (aged (Some(days 6569N))))
+                        (adults |> PatientData.matchesCategory (aged (Some(days 6570N))),
+                         adults |> PatientData.matchesCategory (aged (Some(days 6569N))))
                         |> Expect.equal "the threshold day in, the day before out" (true, false)
                     }
 
                     test "an adult rule matches a patient of eighteen and over" {
                         [ 18N; 40N; 90N ]
-                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> List.map (fun y -> adults |> PatientData.matchesCategory (aged (Some(years y))))
                         |> Expect.allEqual "all adults" true
                     }
 
                     test "an adult rule matches no child" {
                         [ 0N; 1N; 10N; 17N ]
-                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> List.map (fun y -> adults |> PatientData.matchesCategory (aged (Some(years y))))
                         |> Expect.allEqual "no child" false
                     }
 
                     test "an adult rule does not match a patient with no age" {
                         adults
-                        |> PatientCategory.filter (aged None)
+                        |> PatientData.matchesCategory (aged None)
                         |> Expect.isFalse "unknown is not an adult"
                     }
 
                     test "a rule with no age bound still matches a patient with no age" {
-                        patCat |> PatientCategory.filter (aged None) |> Expect.isTrue "everyone"
+                        patCat |> PatientData.matchesCategory (aged None) |> Expect.isTrue "everyone"
                     }
 
                     test "an adult rule and a children's rule ending at the threshold never both match one patient" {
@@ -3948,7 +4376,7 @@ module Tests =
 
                         let both age =
                             let f = aged (Some age)
-                            adults |> PatientCategory.filter f, children |> PatientCategory.filter f
+                            adults |> PatientData.matchesCategory f, children |> PatientData.matchesCategory f
 
                         [ years 0N; years 5N; years 17N; days 6569N; days 6570N; days 6571N; years 30N ]
                         |> List.map both
@@ -3978,7 +4406,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter filter
+                        |> PatientData.matchesCategory filter.PatientData
                         |> Expect.isFalse "should return false"
                     }
 
@@ -3990,10 +4418,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4005,10 +4430,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4021,10 +4443,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4039,10 +4458,7 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                DoseFilter.Patient.Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                            }
+                        |> PatientData.matchesCategory (TestPatient.unknown |> TestPatient.withAgeInDays 5)
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4057,27 +4473,21 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Gender = Female
-                                        Age = 5N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withGender CoreGender.Female
+                            |> TestPatient.withAgeInDays 5
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
                     test "a filter with age 0 and gestational age 30 weeks with an empty patient category" {
                         patCat
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4090,14 +4500,11 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4111,16 +4518,13 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 28N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        Weight = (115N / 100N) |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        Height = 45N |> ValueUnit.singleWithUnit Units.Height.centiMeter |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (28 * 7)
+                            |> TestPatient.withWeightInKg (115N / 100N)
+                            |> TestPatient.withHeightInCm 45N
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4139,14 +4543,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4165,14 +4566,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 33N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (33 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4191,14 +4589,11 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 8
+                            |> TestPatient.withGestationalAgeInDays (27 * 7)
+                        )
                         |> Expect.isFalse "should return false"
                     }
 
@@ -4217,15 +4612,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 210N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (30 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 210
+                        )
 
                         |> Expect.isTrue "should return true"
                     }
@@ -4245,15 +4637,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 259N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withGestationalAgeInDays (37 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 259
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
@@ -4273,15 +4662,12 @@ module Tests =
                                     Max = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                        PMAge = 197N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 8
+                            |> TestPatient.withGestationalAgeInDays (27 * 7)
+                            |> TestPatient.withPostMenstrualAgeInDays 197
+                        )
                         |> Expect.isTrue "should return true"
                     }
 
@@ -4304,19 +4690,12 @@ module Tests =
                                 }
                             GestAge.Max = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Inclusive |> Some
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight =
-                                            1.45m
-                                            |> BigRational.FromDecimal
-                                            |> ValueUnit.singleWithUnit Units.Weight.kiloGram
-                                            |> Some
-                                        GestAge = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (145N / 100N)
+                            |> TestPatient.withGestationalAgeInDays (32 * 7)
+                        )
 
                         |> Expect.isTrue "should return true"
                     }
@@ -4331,15 +4710,12 @@ module Tests =
                                 }
                                 |> AbsoluteAge
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight = (145N / 10N) |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
-                                        GestAge = 32N |> ValueUnit.singleWithUnit Units.Time.week |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (145N / 10N)
+                            |> TestPatient.withGestationalAgeInDays (32 * 7)
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
@@ -4359,132 +4735,14 @@ module Tests =
                                     Max = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Limit.Exclusive |> Some
                                 }
                         }
-                        |> PatientCategory.filter
-                            { filter with
-                                Patient =
-                                    { filter.Patient with
-                                        Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
-                                        Weight = 3500N |> ValueUnit.singleWithUnit Units.Weight.gram |> Some
-                                    }
-                            }
+                        |> PatientData.matchesCategory (
+                            TestPatient.unknown
+                            |> TestPatient.withAgeInDays 0
+                            |> TestPatient.withWeightInKg (3500N / 1000N)
+                        )
 
                         |> Expect.isFalse "should return false"
                     }
-
-                    test "an empty patient category is a match with another empty patient category" {
-                        PatientCategory.empty
-                        |> PatientCategory.isMatch PatientCategory.empty
-                        |> Expect.isTrue "should return true"
-                    }
-
-                    testList
-                        "patient category tests"
-                        [
-
-                            fun minAge maxAge ->
-                                let minAge = if minAge < 0N then None else Some minAge
-                                let maxAge = if maxAge < 0N then None else Some maxAge
-                                let minAge, maxAge = if minAge > maxAge then maxAge, minAge else minAge, maxAge
-
-                                let patCatToMatch =
-                                    { PatientCategory.empty with
-                                        Age =
-                                            {
-                                                Min =
-                                                    minAge
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive
-                                                    )
-                                                Max =
-                                                    maxAge
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive
-                                                    )
-                                            }
-                                            |> AbsoluteAge
-                                    }
-
-                                let emptyPatCat = PatientCategory.empty
-                                emptyPatCat |> PatientCategory.isMatch patCatToMatch
-                            |> Generators.testProp
-                                "a patient cat with age should always match an empty patient category"
-
-                            fun minWeight maxWeight ->
-                                let minWeight = if minWeight < 0N then None else Some minWeight
-                                let maxWeight = if maxWeight < 0N then None else Some maxWeight
-
-                                let minWeight, maxWeight =
-                                    if minWeight > maxWeight then
-                                        maxWeight, minWeight
-                                    else
-                                        minWeight, maxWeight
-
-                                let patCatToMatch =
-                                    { PatientCategory.empty with
-                                        Weight =
-                                            {
-                                                Min =
-                                                    minWeight
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Weight.kiloGram
-                                                        >> Limit.Inclusive
-                                                    )
-                                                Max =
-                                                    maxWeight
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Weight.kiloGram
-                                                        >> Limit.Inclusive
-                                                    )
-                                            }
-                                    }
-
-                                let emptyPatCat = PatientCategory.empty
-                                emptyPatCat |> PatientCategory.isMatch patCatToMatch
-                            |> Generators.testProp
-                                "a patient cat with weight should always match an empty patient category"
-
-                            fun gender ->
-                                let patCatToMatch = { PatientCategory.empty with Gender = gender }
-                                let emptyPatCat = PatientCategory.empty
-                                emptyPatCat |> PatientCategory.isMatch patCatToMatch
-                            |> Generators.testProp
-                                "a patient cat with a gender should always match an empty patient category"
-
-                            fun location ->
-                                let patCatToMatch = { PatientCategory.empty with Access = location }
-                                let emptyPatCat = PatientCategory.empty
-                                emptyPatCat |> PatientCategory.isMatch patCatToMatch
-                            |> Generators.testProp
-                                "a patient cat with a location should always match an empty patient category"
-
-                            fun minAge maxAge ->
-                                let minAge = if minAge < 0N then Some 0N else Some minAge
-                                let maxAge = if maxAge < 0N then Some 0N else Some maxAge
-                                let minAge, maxAge = if minAge > maxAge then maxAge, minAge else minAge, maxAge
-
-                                let notEmptyPatCat =
-                                    { PatientCategory.empty with
-                                        Age =
-                                            {
-                                                Min =
-                                                    minAge
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive
-                                                    )
-                                                Max =
-                                                    maxAge
-                                                    |> Option.map (
-                                                        ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive
-                                                    )
-                                            }
-                                            |> AbsoluteAge
-                                    }
-
-                                let patCatToWatch = PatientCategory.empty
-                                notEmptyPatCat |> PatientCategory.isMatch patCatToWatch |> not
-                            |> Generators.testProp "an empty pat cat should never match an patient category with age"
-
-                        ]
                 ]
 
 
@@ -4500,9 +4758,12 @@ module Tests =
 
         let kg n = n |> ValueUnit.singleWithUnit Units.Weight.kiloGram
 
-        let aged age = { Patient.patient with Age = age }
+        let aged age =
+            match age with
+            | Some age -> TestPatient.unknown |> TestPatient.withAge age
+            | None -> TestPatient.unknown
 
-        let marked (pat: Patient) = { pat with MarkedAdult = true }
+        let marked = TestPatient.markedAsAdult
 
         let ageRange min max : MinMax =
             {
@@ -4528,7 +4789,7 @@ module Tests =
         let childrenOneToEighteen =
             category (ageRange (Some(years 1N)) (Some(years 18N)) |> AbsoluteAge) MinMax.empty
 
-        let filterFor pat = { Filter.doseFilter with Patient = pat }
+        let filterFor pat = { Filter.doseFilter with PatientData = pat }
 
         let private load<'T> name =
             Path.Combine(AppContext.BaseDirectory, "fixtures", name)
@@ -4560,13 +4821,10 @@ module Tests =
                         Some(years 17N)
                         Some(years 40N)
                     ] do
-                    for weight in [ None; Some(kg 3N); Some(kg 60N) ] do
-                        { aged age with
-                            Weight = weight
-                            Height =
-                                weight
-                                |> Option.map (fun _ -> 150N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
-                        }
+                    for weight in [ None; Some 3N; Some 60N ] do
+                        match weight with
+                        | Some kg -> aged age |> TestPatient.withWeightInKg kg |> TestPatient.withHeightInCm 150N
+                        | None -> aged age
             ]
 
 
@@ -4575,67 +4833,55 @@ module Tests =
                 "Adult"
                 [
                     testList
-                        "Adult.isAdult"
+                        "PatientData.isAdult"
                         [
                             test "a patient of 18 years without the mark is an adult" {
-                                aged (Some(years 18N)) |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 18N)) |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 17 years with the mark is an adult" {
-                                aged (Some(years 17N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 17N)) |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient without an age with the mark is an adult" {
-                                aged None |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged None |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 17 years without the mark is not an adult" {
-                                aged (Some(years 17N)) |> Adult.isAdult |> Expect.isFalse "not an adult"
+                                aged (Some(years 17N)) |> PatientData.isAdult |> Expect.isFalse "not an adult"
                             }
 
                             test "a patient of exactly 16 years with the mark is an adult" {
-                                aged (Some(years 16N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                                aged (Some(years 16N)) |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
                             test "a patient of 16 years less one day with the mark is refused and is not an adult" {
                                 let pat = aged (Some(days 5839N)) |> marked
 
-                                pat |> Adult.isAdult |> Expect.isFalse "not an adult"
+                                pat |> PatientData.isAdult |> Expect.isFalse "not an adult"
 
                                 pat
-                                |> Patient.validate
-                                |> Expect.equal "validate refuses" (Error PatientError.MarkedAdultBelowSixteen)
-
-                                pat
-                                |> Patient.Dto.toDto
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "fromDto refuses" (Error [ PatientError.MarkedAdultBelowSixteen ])
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.equal "the mark is refused" (Error PatientDataError.MarkedAdultBelowSixteen)
                             }
                         ]
 
                     testList
                         "the minimum data"
                         [
-                            test "a marked patient without an age passes validate and fromDto" {
-                                let pat = aged None |> marked
-
-                                pat |> Patient.validate |> Expect.isOk "validate accepts"
-                                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto |> Expect.isOk "fromDto accepts"
-                            }
-
-                            test "the mark survives the Dto" {
-                                let pat = aged (Some(years 17N)) |> marked
-
-                                pat
-                                |> Patient.Dto.toDto
-                                |> Patient.Dto.fromDto
-                                |> Expect.equal "the same patient" (Ok pat)
+                            test "a marked patient without an age has the minimum data" {
+                                aged None
+                                |> marked
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.isOk "accepted"
                             }
 
                             test "an unmarked patient without an age is refused as before" {
                                 aged None
-                                |> Patient.validate
-                                |> Expect.equal "no minimum data" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                                |> CorePatientData.checkMinimumData
+                                |> Expect.equal
+                                    "no minimum data"
+                                    (Error PatientDataError.NoAgeOrMeasuredWeightAndHeight)
                             }
                         ]
 
@@ -4647,54 +4893,55 @@ module Tests =
 
                                 test $"a marked patient %s{name} matches the adult, the all-age and the from-18 rules" {
                                     [ adults; allAges; fromEighteen ]
-                                    |> List.map (PatientCategory.filter (filterFor pat))
-                                    |> Expect.allEqual "filter matches" true
+                                    |> List.map (PatientData.matchesCategory pat)
+                                    |> Expect.allEqual "matches" true
 
                                     [ adults; allAges; fromEighteen ]
-                                    |> List.map (PatientCategory.filterPatient pat)
-                                    |> Expect.allEqual "filterPatient matches" true
+                                    |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
+                                    |> Expect.allEqual "matches without location and gender" true
                                 }
 
                                 test $"a marked patient %s{name} does not match a rule of 12 to 25 years" {
                                     twelveToTwentyFive
-                                    |> PatientCategory.filter (filterFor pat)
-                                    |> Expect.isFalse "filter does not match"
+                                    |> PatientData.matchesCategory pat
+                                    |> Expect.isFalse "does not match"
 
                                     twelveToTwentyFive
-                                    |> PatientCategory.filterPatient pat
-                                    |> Expect.isFalse "filterPatient does not match"
+                                    |> PatientData.matchesCategoryWithoutLocationAndGender pat
+                                    |> Expect.isFalse "does not match without location and gender"
                                 }
 
                             test
                                 "a marked patient of 17 with a weight matches the adult rules and not a rule for children" {
-                                let pat = { aged (Some(years 17N)) with Weight = Some(kg 60N) } |> marked
+                                let pat = aged (Some(years 17N)) |> TestPatient.withWeightInKg 60N |> marked
 
                                 [ adults; childrenOneToEighteen ]
-                                |> List.map (PatientCategory.filter (filterFor pat))
+                                |> List.map (PatientData.matchesCategory pat)
                                 |> Expect.equal "the adult rule only" [ true; false ]
 
                                 [ adults; childrenOneToEighteen ]
-                                |> List.map (PatientCategory.filterPatient pat)
+                                |> List.map (PatientData.matchesCategoryWithoutLocationAndGender pat)
                                 |> Expect.equal "the adult rule only" [ true; false ]
                             }
 
                             test "a marked patient with a preterm gestational age matches the adult rules" {
-                                let pat = { aged (Some(years 17N)) with GestAge = Some(days (30N * 7N)) } |> marked
+                                let pat =
+                                    aged (Some(years 17N))
+                                    |> TestPatient.withGestationalAgeInDays (30 * 7)
+                                    |> marked
+
+                                adults |> PatientData.matchesCategory pat |> Expect.isTrue "matches"
 
                                 adults
-                                |> PatientCategory.filter (filterFor pat)
-                                |> Expect.isTrue "filter matches"
-
-                                adults
-                                |> PatientCategory.filterPatient pat
-                                |> Expect.isTrue "filterPatient matches"
+                                |> PatientData.matchesCategoryWithoutLocationAndGender pat
+                                |> Expect.isTrue "matches without location and gender"
                             }
 
                             test "a marked patient without a weight does not match a rule with a weight range" {
                                 let byWeight = category IsAdult { MinMax.empty with Min = Some(Inclusive(kg 50N)) }
 
                                 byWeight
-                                |> PatientCategory.filter (filterFor (aged None |> marked))
+                                |> PatientData.matchesCategory (aged None |> marked)
                                 |> Expect.isFalse "no weight, no match"
                             }
 
@@ -4702,13 +4949,13 @@ module Tests =
                                 let cats = demoCategories.Value
                                 cats |> Array.isEmpty |> Expect.isFalse "the fixtures hold dose rules"
 
-                                for pat in demoPatients |> List.filter Adult.isAdult do
+                                for pat in demoPatients |> List.filter PatientData.isAdult do
                                     for cat in cats do
                                         cat
-                                        |> PatientCategory.filter (filterFor (pat |> marked))
+                                        |> PatientData.matchesCategory (pat |> marked)
                                         |> Expect.equal
                                             "the mark changes nothing"
-                                            (cat |> PatientCategory.filter (filterFor pat))
+                                            (cat |> PatientData.matchesCategory pat)
                             }
                         ]
 
@@ -4733,7 +4980,7 @@ module Tests =
                             let adultRenal = renalRule (ageRange (Some(years 18N)) None)
                             let twelveToTwentyFiveRenal = renalRule (ageRange (Some(years 12N)) (Some(years 25N)))
 
-                            let reduced (pat: Patient) = { pat with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+                            let reduced = TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                             let selected pat rule =
                                 [| rule |]
@@ -4835,7 +5082,9 @@ module Tests =
         let reducedRule = renalRule (EGFR(Some 10, Some 30))
 
         let patient weight =
-            { Patient.patient with Weight = weight |> Option.map (ValueUnit.singleWithUnit kg) }
+            match weight with
+            | Some kg -> TestPatient.unknown |> TestPatient.withWeightInKg kg
+            | None -> TestPatient.unknown
 
         let adjust weight rl dl =
             dl |> RenalRule.adjustDoseLimit (patient weight) (reducedRule rl)
@@ -4998,12 +5247,14 @@ module Tests =
                     test "a per m2 renal maximum on a per kg dose limit is applied at the BSA" {
                         let m2 = Units.BSA.m2
 
-                        let pat =
-                            { patient (Some 30N) with
-                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
-                            }
+                        let pat = patient (Some 30N) |> TestPatient.withHeightInCm 130N
 
-                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+                        let bsa =
+                            pat
+                            |> CorePatientData.bodySurfaceArea
+                            |> Option.get
+                            |> ValueUnit.getValue
+                            |> Array.head
 
                         let dl =
                             { doseLimit with
@@ -5023,12 +5274,14 @@ module Tests =
                     }
 
                     test "a converted per m2 renal maximum below the absolute renal maximum wins" {
-                        let pat =
-                            { patient (Some 30N) with
-                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
-                            }
+                        let pat = patient (Some 30N) |> TestPatient.withHeightInCm 130N
 
-                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+                        let bsa =
+                            pat
+                            |> CorePatientData.bodySurfaceArea
+                            |> Option.get
+                            |> ValueUnit.getValue
+                            |> Array.head
 
                         let renal maxMg =
                             { replace with
@@ -5618,7 +5871,7 @@ module Tests =
         /// The severities of the signals the check of the sample dose rule, amoxicillin IV at most
         /// 50 mg/kg per dose, gives for the dosages.
         let private severitiesOf dosages =
-            (Check.checkDoseRuleWithProvider (providerOf dosages) Patient.patient sampleDoseRule.Value).signals
+            (Check.checkDoseRuleWithProvider (providerOf dosages) TestPatient.unknown sampleDoseRule.Value).signals
             |> Array.map fst
             |> Array.distinct
 
@@ -5693,13 +5946,14 @@ module Tests =
                         [
                             for d, months in [ 6570N, 216.; 6569N, 215.99; 365N, 12.; 364N, 11.99 ] do
                                 test $"%s{d |> BigRational.toString} days is %.2f{months} months" {
-                                    { Patient.patient with Age = Some(day d) }
+                                    TestPatient.unknown
+                                    |> TestPatient.withAge (day d)
                                     |> Check.ageInMonths
                                     |> Expect.equal "months" (Some months)
                                 }
 
                             test "a patient without an age has no age in months" {
-                                Patient.patient |> Check.ageInMonths |> Expect.isNone "none"
+                                TestPatient.unknown |> Check.ageInMonths |> Expect.isNone "none"
                             }
                         ]
 
@@ -5890,7 +6144,8 @@ module Tests =
                                 calls <- calls + 1
                                 Seq.empty
 
-                        let result = Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
+                        let result =
+                            Check.checkDoseRuleWithProvider fakeProvider TestPatient.unknown sampleDoseRule.Value
 
                         calls > 0 |> Expect.isTrue "injected provider was invoked"
 
@@ -6196,12 +6451,12 @@ module Tests =
                         |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
                     }
 
-                    test "the names come from the dose rules, the dilution rules and the reconstitutions" {
+                    test "the names come from the dose rules, the solution rules and the reconstitutions" {
                         let doseRow =
                             let d = DoseRuleProductTests.mkData "paracetamol" "oral" "" "" [||] [||]
                             { d with Patient = { d.Patient with Dep = "PICU" } }
 
-                        let dilutionRow: DilutionRuleData =
+                        let solutionRow: SolutionRuleData =
                             {
                                 Generic = "paracetamol"
                                 Form = ""
@@ -6244,7 +6499,7 @@ module Tests =
                                 MaxConc = None
                             }
 
-                        Departments.ofRules [| doseRow |] [| dilutionRow |] [| reconstitutionOf (Some "NEO") |]
+                        Departments.ofRules [| doseRow |] [| solutionRow |] [| reconstitutionOf (Some "NEO") |]
                         |> _.Names
                         |> Expect.equal "ICC, ICK, NEO, PICU" [| "ICC"; "ICK"; "NEO"; "PICU" |]
                     }
@@ -6260,15 +6515,6 @@ module Tests =
                     test "the default is the one literal" {
                         ([] |> Departments.ofNamed).Default
                         |> Expect.equal "ICK" Departments.defaultDepartment
-                    }
-
-                    test "a patient without a department is prescribed for in the default, one with keeps it" {
-                        let deps = Departments.ofNamed [ Some "NEO" ]
-                        None |> Departments.forPatient deps |> Expect.equal "the default" (Some "ICK")
-                        Some "NEO" |> Departments.forPatient deps |> Expect.equal "kept" (Some "NEO")
-                        Some "OTHER"
-                        |> Departments.forPatient deps
-                        |> Expect.equal "kept, known or not" (Some "OTHER")
                     }
 
                     test "a department is known when a rule names it or it is the default" {
@@ -6291,8 +6537,8 @@ module Tests =
                     }
 
                     test
-                        "the default applied to the matching: a patient without a department takes the default's dilution rules and the rules for any" {
-                        let rule dep : DilutionRule =
+                        "the default applied to the matching: a patient without a department takes the default's solution rules and the rules for any" {
+                        let rule dep : SolutionRule =
                             {
                                 Generic = "paracetamol"
                                 Form = None
@@ -6302,12 +6548,7 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Department = dep }
                                 Dose = MinMax.empty
                                 Diluents = [||]
-                                Div = None
-                                Volumes = None
-                                Volume = MinMax.empty
-                                VolumeAdjust = MinMax.empty
-                                DripRate = MinMax.empty
-                                DoseFraction = MinMax.empty
+                                SolutionLimit = SolutionRule.SolutionLimit.empty
                                 DilutionLimits = [||]
                             }
 
@@ -6316,13 +6557,12 @@ module Tests =
 
                         // what getRules does: the default on the filter's patient, never on the patient itself
                         let matched (department: string option) =
-                            { Filter.dilutionFilter "paracetamol" with
-                                Patient =
-                                    { PatientDtoTests.Fixtures.child with
-                                        Department = department |> Departments.forPatient deps
-                                    }
+                            { Filter.solutionFilter "paracetamol" with
+                                PatientData =
+                                    PatientDtoTests.Fixtures.child
+                                    |> TestPatient.withDepartment (department |> Option.orElse (Some deps.Default))
                             }
-                            |> fun filter -> rules |> DilutionRule.filter [||] filter
+                            |> fun filter -> rules |> SolutionRule.filter [||] filter
                             |> Array.map _.PatientCategory.Department
 
                         matched None |> Expect.equal "ICK and any" [| Some "ICK"; None |]
@@ -6380,14 +6620,14 @@ module Tests =
                     }
 
                     test
-                        "the registry derives it from the dose-rule rows, the dilution-rule rows and the reconstitutions, once" {
+                        "the registry derives it from the dose-rule rows, the solution-rule rows and the reconstitutions, once" {
                         let mutable loads = 0
 
                         let registry =
                             Map
                                 [
                                     Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
-                                    Keys.dilutionRuleData.Name, ofResult (fun () -> Ok([||]: DilutionRuleData[]))
+                                    Keys.solutionRuleData.Name, ofResult (fun () -> Ok([||]: SolutionRuleData[]))
                                     Keys.reconstitution.Name,
                                     ofResult (fun () ->
                                         loads <- loads + 1
@@ -6413,7 +6653,7 @@ module Tests =
                 ]
 
 
-    module DilutionRuleFilterTests =
+    module SolutionRuleFilterTests =
 
         open Informedica.GenForm.Lib.Types
 
@@ -6426,8 +6666,8 @@ module Tests =
             MinMax.createInclIncl (min |> ValueUnit.singleWithUnit u) (max |> ValueUnit.singleWithUnit u)
 
 
-        /// A paracetamol iv dilution rule for a patient category, named by its indication.
-        let rule name patCat : DilutionRule =
+        /// A paracetamol iv solution rule for a patient category, named by its indication.
+        let rule name patCat : SolutionRule =
             {
                 Generic = "paracetamol"
                 Form = None
@@ -6437,12 +6677,7 @@ module Tests =
                 PatientCategory = patCat
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = MinMax.empty
-                VolumeAdjust = MinMax.empty
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
+                SolutionLimit = SolutionRule.SolutionLimit.empty
                 DilutionLimits = [||]
             }
 
@@ -6464,36 +6699,36 @@ module Tests =
 
         /// A child of 10 years, 32 kg and 140 cm, on the ICK.
         let child =
-            { Patient.patient with
-                Department = Some "ICK"
-                Gender = Male
-                Age = Some(ValueUnit.singleWithUnit day 3650N)
-                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 140N)
-                Access = [ PVL ]
-            }
+            TestPatient.unknown
+            |> TestPatient.withDepartment (Some "ICK")
+            |> TestPatient.withGender CoreGender.Male
+            |> TestPatient.withAgeInDays 3650
+            |> TestPatient.withWeightInKg 32N
+            |> TestPatient.withHeightInCm 140N
+            |> TestPatient.withAccess [ CoreAccess.PVL ]
 
 
         /// The indications of the rules a lookup for the patient finds.
         let matched pat =
-            { Filter.dilutionFilter "paracetamol" with Patient = pat }
-            |> fun filter -> rules |> DilutionRule.filter [||] filter
-            |> Array.choose (fun (sr: DilutionRule) -> sr.Indication)
+            { Filter.solutionFilter "paracetamol" with PatientData = pat }
+            |> fun filter -> rules |> SolutionRule.filter [||] filter
+            |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
 
 
         let tests =
             testList
-                "DilutionRule.filter"
+                "SolutionRule.filter"
                 [
                     test
-                        "a lookup without a patient returns every dilution rule, also those with an age or weight range" {
-                        Patient.patient
+                        "a lookup without a patient returns every solution rule, also those with an age or weight range" {
+                        TestPatient.unknown
                         |> matched
                         |> Expect.equal "all five" [| "any"; "neonate"; "under 10 kg"; "ICK"; "NEO neonate" |]
                     }
 
                     test "a department alone selects the rules for that department and the rules for any" {
-                        { Patient.patient with Department = Some "NEO" }
+                        TestPatient.unknown
+                        |> TestPatient.withDepartment (Some "NEO")
                         |> matched
                         |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
                     }
@@ -6503,21 +6738,24 @@ module Tests =
                     }
 
                     test "a child without a department gets only the rule for any" {
-                        { child with Department = None } |> matched |> Expect.equal "any" [| "any" |]
+                        child
+                        |> TestPatient.withDepartment None
+                        |> matched
+                        |> Expect.equal "any" [| "any" |]
                     }
 
                     test "a neonate on the NEO gets the rule for any, the ranges and the NEO rule" {
-                        { child with
-                            Department = Some "NEO"
-                            Age = Some(ValueUnit.singleWithUnit day 10N)
-                            Weight = Some(ValueUnit.singleWithUnit kg 3N)
-                        }
+                        child
+                        |> TestPatient.withDepartment (Some "NEO")
+                        |> TestPatient.withAgeInDays 10
+                        |> TestPatient.withWeightInKg 3N
                         |> matched
                         |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
                     }
 
                     test "a patient with only a weight gets the rule for any and the weight range" {
-                        { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
+                        TestPatient.unknown
+                        |> TestPatient.withWeightInKg 5N
                         |> matched
                         |> Expect.equal "any and under 10 kg" [| "any"; "under 10 kg" |]
                     }
@@ -6605,7 +6843,7 @@ module Tests =
 
                         let reg = Map [ Keys.gStandProvider.Name, derive (fun _ -> fake) ]
                         let gstand: Check.GStandProvider = LoadEngine(reg).Resolve Keys.gStandProvider
-                        let out = gstand Patient.patient "paracetamol" "tablet" "iv"
+                        let out = gstand TestPatient.unknown "paracetamol" "tablet" "iv"
 
                         out |> Seq.isEmpty |> Expect.isTrue "fake provider returns empty"
                         called |> Expect.isTrue "function-valued resource was invoked"
@@ -6753,10 +6991,12 @@ module Tests =
         let private m2 n = n |> ValueUnit.singleWithUnit Units.BSA.m2
 
         let private patient weight height =
-            { Patient.patient with
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            }
+            let set f value pat =
+                value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+            TestPatient.unknown
+            |> set TestPatient.withWeightInKg weight
+            |> set TestPatient.withHeightInCm height
 
         let private noWeight = patient None None
         let private weightOnly = patient (Some 70N) None
@@ -6772,8 +7012,7 @@ module Tests =
             }
 
         let private both pat (cat: PatientCategory) =
-            cat |> PatientCategory.filterPatient pat,
-            cat |> PatientCategory.filter { Filter.doseFilter with Patient = pat }
+            cat |> PatientData.matchesCategoryWithoutLocationAndGender pat, cat |> PatientData.matchesCategory pat
 
 
         let tests =
@@ -6957,10 +7196,9 @@ module Tests =
             }
 
         let private measured =
-            { Patient.patient with
-                Weight = Some(ValueUnit.singleWithUnit kg 70N)
-                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 175N)
-            }
+            TestPatient.unknown
+            |> TestPatient.withWeightInKg 70N
+            |> TestPatient.withHeightInCm 175N
 
         let private noLogger = Informedica.Logging.Lib.Logging.noOp
 
@@ -7270,7 +7508,7 @@ module Tests =
                                     Keys.formRoutes.Name, ofResult (fun () -> Ok([||]: FormRoute[]))
                                     Keys.products.Name, ofResult (fun () -> Ok Fixtures.prods.Value)
                                     Keys.doseRuleData.Name, ofResult (fun () -> Ok Fixtures.data.Value)
-                                    Keys.dilutionRules.Name, ofResult (fun () -> Ok([||]: DilutionRule[]))
+                                    Keys.solutionRules.Name, ofResult (fun () -> Ok([||]: SolutionRule[]))
                                     Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> Ok [| valid; wrong |])
                                     for key in
                                         [
@@ -7327,7 +7565,7 @@ module Tests =
 
                         let dr = doseRuleWith (Some kg) dl |> RenalRule.adjustDoseRule measured rr
                         let dl = dr |> substanceLimits |> Array.head
-                        let bsa = Patient.calcBSA measured |> Option.get
+                        let bsa = CorePatientData.bodySurfaceArea measured |> Option.get
 
                         dr.AdjustUnit |> Expect.equal "the rule keeps kg" (Some kg)
                         dl.AdjustUnit |> Expect.equal "the limit keeps kg" (Some kg)
@@ -7358,11 +7596,13 @@ module Tests =
         let private years n = ValueUnit.singleWithUnit RR.day (n * 365N)
 
         let private patient weight height =
-            { Patient.patient with
-                Age = Some(years 5N)
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit RR.kg)
-                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            }
+            let set f value pat =
+                value |> Option.map (fun v -> pat |> f v) |> Option.defaultValue pat
+
+            TestPatient.unknown
+            |> TestPatient.withAge (years 5N)
+            |> set TestPatient.withWeightInKg weight
+            |> set TestPatient.withHeightInCm height
 
         let private noWeight = patient None None
         let private weightOnly = patient (Some 30N) None
@@ -7373,7 +7613,7 @@ module Tests =
                 (DoseRuleLoader.fromData Fixtures.rm.Value [||] Fixtures.prods.Value [||] Fixtures.data.Value
                  |> fst)
 
-        let private filterFor pat = { Filter.doseFilter with Patient = pat }
+        let private filterFor pat = { Filter.doseFilter with PatientData = pat }
 
         let private doseLimit adjustUnit = { RR.doseLimit with AdjustUnit = adjustUnit }
 
@@ -7391,7 +7631,8 @@ module Tests =
                 (demoRules.Value
                  |> Array.find (fun dr ->
                      dr.Generic |> Generic.genericName = "paracetamol"
-                     && dr.PatientCategory |> PatientCategory.filterPatient noWeight
+                     && dr.PatientCategory
+                        |> PatientData.matchesCategoryWithoutLocationAndGender noWeight
                  ))
 
         /// The demo prescription rule of paracetamol with the given substance limit, for the patient.
@@ -7399,7 +7640,7 @@ module Tests =
             let dr = paracetamol.Value
 
             {
-                Patient = pat
+                PatientData = pat
                 DoseRule =
                     { dr with
                         AdjustUnit = dl.AdjustUnit
@@ -7411,11 +7652,11 @@ module Tests =
                                 }
                             |]
                     }
-                DilutionRules = [||]
+                SolutionRules = [||]
                 RenalRules = [||]
             }
 
-        let private dilutionRule volumeAdjust : DilutionRule =
+        let private solutionRule volumeAdjust : SolutionRule =
             {
                 Generic = "paracetamol"
                 Form = None
@@ -7425,12 +7666,11 @@ module Tests =
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = RR.range mL None (Some 500N)
-                VolumeAdjust = volumeAdjust
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
+                SolutionLimit =
+                    { SolutionRule.SolutionLimit.empty with
+                        Volume = RR.range mL None (Some 500N)
+                        VolumeAdjust = volumeAdjust
+                    }
                 DilutionLimits = [||]
             }
 
@@ -7540,9 +7780,9 @@ module Tests =
                             [ false; true; true ]
                     }
 
-                    test "a dilution rule with a per kg volume makes the rule need a weight" {
+                    test "a solution rule with a per kg volume makes the rule need a weight" {
                         let withSolution volumeAdjust =
-                            { ruleWith noWeight absoluteLimit with DilutionRules = [| dilutionRule volumeAdjust |] }
+                            { ruleWith noWeight absoluteLimit with SolutionRules = [| solutionRule volumeAdjust |] }
 
                         [
                             withSolution (RR.range (RR.perKg mL) None (Some 10N))
@@ -7639,7 +7879,9 @@ module Tests =
                             |> RenalRule.map noLogger
                             |> Result.defaultValue [||]
 
-                        let pat = { measured with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+                        let pat =
+                            measured
+                            |> TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                         let prs =
                             { filterFor pat with
@@ -7798,7 +8040,7 @@ module Tests =
                             [ true; false; true; false ]
                     }
 
-                    test "a dilution rule whose diluent is a component of the dose rule is left out" {
+                    test "a solution rule whose diluent is a component of the dose rule is left out" {
                         let dr = paracetamol.Value
                         let cl = dr.ComponentLimits[0]
 
@@ -7812,7 +8054,7 @@ module Tests =
                                 (fun _ -> false)
                                 [| dr |]
                                 [|
-                                    { dilutionRule MinMax.empty with
+                                    { solutionRule MinMax.empty with
                                         Route = dr.Route
                                         Diluents = diluents
                                     }
@@ -7820,7 +8062,7 @@ module Tests =
                                 [||]
                                 Fixtures.rm.Value
                             |> Result.defaultValue [||]
-                            |> Array.collect _.DilutionRules
+                            |> Array.collect _.SolutionRules
                             |> Array.length
 
                         let asComponent = { cl.Products[0] with Generic = cl.Name }
@@ -7859,10 +8101,10 @@ module Tests =
 
                         let generics = drs |> Array.distinctBy (fun dr -> dr.Generic |> Generic.genericName, dr.Route)
 
-                        let dilutionRules =
+                        let solutionRules =
                             generics
                             |> Array.collect (fun dr ->
-                                let sr = dilutionRule (RR.range (RR.perKg mL) None (Some 10N))
+                                let sr = solutionRule (RR.range (RR.perKg mL) None (Some 10N))
 
                                 let sr =
                                     { sr with
@@ -7873,8 +8115,11 @@ module Tests =
                                 [|
                                     sr
                                     { sr with
-                                        VolumeAdjust = MinMax.empty
-                                        Volume = RR.range mL None (Some 250N)
+                                        SolutionLimit =
+                                            { sr.SolutionLimit with
+                                                VolumeAdjust = MinMax.empty
+                                                Volume = RR.range mL None (Some 250N)
+                                            }
                                     }
                                 |]
                             )
@@ -7908,17 +8153,16 @@ module Tests =
 
                         for weight, height, age in [ 3N, 50N, 1N / 10N; 20N, 115N, 6N; 70N, 175N, 30N ] do
                             let pat =
-                                { patient (Some weight) (Some height) with
-                                    Age = Some(years age)
-                                    RenalFunction = Some(EGFR(Some 20, Some 20))
-                                }
+                                patient (Some weight) (Some height)
+                                |> TestPatient.withAge (years age)
+                                |> TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                             let prs =
                                 filterFor pat
                                 |> PrescriptionRule.filter
                                     (fun _ -> false)
                                     drs
-                                    dilutionRules
+                                    solutionRules
                                     renalRules
                                     Fixtures.rm.Value
 
@@ -7998,7 +8242,7 @@ module Tests =
             }
 
 
-        let dilutionRule generic conc =
+        let solutionRule generic conc =
             {
                 Generic = generic
                 Form = None
@@ -8008,16 +8252,10 @@ module Tests =
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
                 Diluents = [||]
-                Div = None
-                Volumes = None
-                Volume = MinMax.empty
-                VolumeAdjust = MinMax.empty
-                DripRate = MinMax.empty
-                DoseFraction = MinMax.empty
+                SolutionLimit = SolutionRule.SolutionLimit.empty
                 DilutionLimits =
                     [|
-                        { DilutionLimit.limit with
-                            DilutionLimitTarget = SubstanceLimitTarget generic
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Substance generic) with
                             Concentration = conc
                         }
                     |]
@@ -8046,13 +8284,13 @@ module Tests =
 
 
         let doseFractionRule doseFraction =
-            { dilutionRule "vancomycine" MinMax.empty with
+            { solutionRule "vancomycine" MinMax.empty with
                 DilutionLimits = [||]
-                DoseFraction = doseFraction
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
             }
 
 
-        /// A dilution rule with a maximum dose fraction and nothing that bounds the preparation.
+        /// A solution rule with a maximum dose fraction and nothing that bounds the preparation.
         let unboundedRule = bounds None (times 1N) |> doseFractionRule
 
 
@@ -8160,7 +8398,7 @@ module Tests =
             }
 
 
-        let dilutionRow generic diluents : DilutionRuleData =
+        let solutionRow generic diluents : SolutionRuleData =
             {
                 Generic = generic
                 Form = ""
@@ -8212,7 +8450,7 @@ module Tests =
             }
 
 
-        let withPatient f (sr: DilutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
+        let withPatient f (sr: SolutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
 
 
         let withWeight mm = withPatient (fun pc -> { pc with Weight = mm })
@@ -8230,17 +8468,17 @@ module Tests =
             | ws -> ws |> failtestf "expected one warning, got %A"
 
 
-        // The entry of the default registry, run on hand-built dose rules and dilution rules.
-        let ruleCheckWarnings (doseRules: DoseRule[]) (dilutionRules: DilutionRule[]) =
+        // The entry of the default registry, run on hand-built dose rules and solution rules.
+        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) =
             let reg =
                 Map
                     [
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
-                        Keys.dilutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<DilutionRuleData>))
+                        Keys.solutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
                         Keys.formularyProducts.Name, ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
-                        Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
+                        Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
                         Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
                     ]
 
@@ -8492,12 +8730,12 @@ module Tests =
                         ]
 
                     testList
-                        "dilution rules"
+                        "solution rules"
                         [
                             test "the granisetron concentration of 0.5 to 0.1 mg/mL is reported" {
                                 let s =
-                                    [| dilutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
-                                    |> DilutionRule.invertedRanges
+                                    [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                    |> SolutionRule.invertedRanges
                                     |> List.map warningText
                                     |> single
 
@@ -8506,8 +8744,8 @@ module Tests =
                             }
 
                             test "a concentration of 0.1 to 0.5 mg/mL is not reported" {
-                                [| dilutionRule "granisetron" (range mgPerMl (1N / 10N) (1N / 2N)) |]
-                                |> DilutionRule.invertedRanges
+                                [| solutionRule "granisetron" (range mgPerMl (1N / 10N) (1N / 2N)) |]
+                                |> SolutionRule.invertedRanges
                                 |> Expect.isEmpty "none"
                             }
                         ]
@@ -8518,21 +8756,21 @@ module Tests =
                             let parenteral = [| parenteral "NaCl 0,9%"; parenteral "glucose 5%" |]
 
                             test "diluents that match a parenteral product give no warning" {
-                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
-                                |> DilutionRule.missingDiluents parenteral
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
                             test "the match ignores case" {
-                                [| dilutionRow "granisetron" [ "nacl 0,9%" ] |]
-                                |> DilutionRule.missingDiluents parenteral
+                                [| solutionRow "granisetron" [ "nacl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
                             test "diluents that match no parenteral product give one warning naming them" {
                                 let s =
-                                    [| dilutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
-                                    |> DilutionRule.missingDiluents parenteral
+                                    [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
+                                    |> SolutionRule.missingDiluents parenteral
                                     |> List.map warningText
                                     |> single
 
@@ -8541,40 +8779,40 @@ module Tests =
                             }
 
                             test "one matching solution among several is enough" {
-                                [| dilutionRow "granisetron" [ "NaCl 0,45%"; "glucose 5%" ] |]
-                                |> DilutionRule.missingDiluents parenteral
+                                [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 5%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
                             test "an empty Diluents column gives no warning" {
-                                [| dilutionRow "granisetron" []; dilutionRow "granisetron" [ "" ] |]
-                                |> DilutionRule.missingDiluents parenteral
+                                [| solutionRow "granisetron" []; solutionRow "granisetron" [ "" ] |]
+                                |> SolutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
                             test "with no parenteral products at all, a rule asking for diluents is reported" {
-                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
-                                |> DilutionRule.missingDiluents [||]
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents [||]
                                 |> List.length
                                 |> Expect.equal "one" 1
                             }
 
                             test "two rows of one rule, one per substance, give one warning" {
                                 [|
-                                    { dilutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "a" }
-                                    { dilutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "b" }
+                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "a" }
+                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "b" }
                                 |]
-                                |> DilutionRule.missingDiluents parenteral
+                                |> SolutionRule.missingDiluents parenteral
                                 |> List.length
                                 |> Expect.equal "one" 1
                             }
 
                             test "two rules for two departments give two warnings" {
                                 [|
-                                    { dilutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "ICK" }
-                                    { dilutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "NEO" }
+                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "ICK" }
+                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "NEO" }
                                 |]
-                                |> DilutionRule.missingDiluents parenteral
+                                |> SolutionRule.missingDiluents parenteral
                                 |> List.length
                                 |> Expect.equal "two" 2
                             }
@@ -8584,48 +8822,48 @@ module Tests =
                         "substances without an allowed strength"
                         [
                             test "a limit below the only strength reports the substance" {
-                                dilutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
                                 |> Expect.equal "zidovudine" [| "zidovudine" |]
                             }
 
                             test "a limit that allows one of two strengths reports nothing" {
-                                dilutionRule "midazolam" (maxConc 5N)
-                                |> DilutionRule.substancesWithoutAllowedStrength
+                                solutionRule "midazolam" (maxConc 5N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
                                     [| liquid "midazolam" 1N; liquid "midazolam" 5N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit below both of two strengths reports the substance" {
-                                dilutionRule "teicoplanine" (maxConc 10N)
-                                |> DilutionRule.substancesWithoutAllowedStrength
+                                solutionRule "teicoplanine" (maxConc 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
                                     [| liquid "teicoplanine" 64N; liquid "teicoplanine" 127N |]
                                 |> Expect.equal "teicoplanine" [| "teicoplanine" |]
                             }
 
                             test "a strength equal to an inclusive maximum is allowed" {
-                                dilutionRule "tigecycline" (maxConc 1N)
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "tigecycline" 1N |]
+                                solutionRule "tigecycline" (maxConc 1N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "tigecycline" 1N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit of 10 to 10 mg/mL allows 10 mg/mL" {
-                                dilutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" 10N |]
+                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" 10N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit of 10 to 10 mg/mL does not allow 10.5 mg/mL" {
-                                dilutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
+                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
                                 |> Expect.equal "voriconazol" [| "voriconazol" |]
                             }
 
                             test "a strength in grams per mL is compared in the same unit group" {
                                 let gPerMl = Units.Mass.gram |> ValueUnit.per mL
 
-                                dilutionRule "tigecycline" (maxConc 1N)
-                                |> DilutionRule.substancesWithoutAllowedStrength
+                                solutionRule "tigecycline" (maxConc 1N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
                                     [|
                                         product
                                             "tigecycline"
@@ -8641,8 +8879,8 @@ module Tests =
                             test "a strength per piece is not compared, so nothing is reported" {
                                 let mgPerVial = mg |> ValueUnit.per (Units.General.general "flacon")
 
-                                dilutionRule "teicoplanine" (maxConc 10N)
-                                |> DilutionRule.substancesWithoutAllowedStrength
+                                solutionRule "teicoplanine" (maxConc 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
                                     [|
                                         product
                                             "teicoplanine"
@@ -8656,20 +8894,20 @@ module Tests =
                             }
 
                             test "a product without the substance reports nothing" {
-                                dilutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "esmolol" 10N |]
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "esmolol" 10N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "no products report nothing" {
-                                dilutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> DilutionRule.substancesWithoutAllowedStrength [||]
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [||]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a rule without a concentration limit reports nothing" {
-                                dilutionRule "zidovudine" MinMax.empty
-                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                solutionRule "zidovudine" MinMax.empty
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
                                 |> Expect.isEmpty "none"
                             }
                         ]
@@ -8679,23 +8917,31 @@ module Tests =
                         [
                             let injection = Solution "injectievloeistof"
                             let zidovudine = [| ivDoseRule "zidovudine" injection [| liquid "zidovudine" 10N |] |]
-                            let undilutable = DilutionRule.undilutableRules ivRouteMapping
+                            let undilutable = SolutionRule.undilutableRules ivRouteMapping
                             let ick = { PatientCategory.empty with Department = Some "ICK" }
 
                             test "a rule without diluents whose limit allows no strength gives one warning" {
                                 let s =
-                                    [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                    [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                     |> undilutable zidovudine
                                     |> List.map warningText
                                     |> single
 
                                 s |> Expect.stringContains "names the generic" "zidovudine"
-                                s |> Expect.stringContains "says why" "no diluent"
+
+                                s
+                                |> Expect.stringContains
+                                    "says why"
+                                    "given undiluted, the concentration limit of zidovudine allows no strength of its products"
+
+                                s
+                                |> String.contains "no diluent"
+                                |> Expect.isFalse "does not say a diluent is missing"
                             }
 
                             test "a rule with a diluent gives no warning" {
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         Diluents = [| liquid "glucose 5%" 50N |]
                                     }
                                 |]
@@ -8704,7 +8950,7 @@ module Tests =
                             }
 
                             test "a rule whose limit allows the strength gives no warning" {
-                                [| dilutionRule "zidovudine" (maxConc 10N) |]
+                                [| solutionRule "zidovudine" (maxConc 10N) |]
                                 |> undilutable zidovudine
                                 |> Expect.isEmpty "none"
                             }
@@ -8720,20 +8966,20 @@ module Tests =
                                                 [| { dr.ComponentLimits[0] with Name = "glucose 5%" } |]
                                     }
 
-                                [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> undilutable [| dr |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a dose rule of another generic gives no warning" {
-                                [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> undilutable [| ivDoseRule "esmolol" injection [| liquid "zidovudine" 10N |] |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a dose rule of another indication gives no warning" {
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         Indication = Some "HIV profylaxe"
                                     }
                                 |]
@@ -8743,7 +8989,7 @@ module Tests =
 
                             test "a dose rule of another dose type gives no warning" {
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
                                 |]
                                 |> undilutable zidovudine
                                 |> Expect.isEmpty "none"
@@ -8751,7 +8997,7 @@ module Tests =
 
                             test "a powder is compared at the strength it has once dissolved for the department" {
                                 // 400 mg in 3 mL is about 133 mg/mL
-                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8765,7 +9011,7 @@ module Tests =
 
                             test "a powder dissolved to a strength within the limit gives no warning" {
                                 // 400 mg in 40 mL is 10 mg/mL
-                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8777,7 +9023,7 @@ module Tests =
                             }
 
                             test "a powder dose rule that fails next to a liquid dose rule that fits gives one warning" {
-                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8797,7 +9043,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
                                 |> undilutable
                                     [|
@@ -8812,7 +9058,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
                                     }
                                 |]
@@ -8827,7 +9073,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
                                 |> undilutable
                                     [|
@@ -8841,7 +9087,7 @@ module Tests =
 
                             test "a rule without a department checks a powder for the department of its reconstitution" {
                                 // 400 mg in 3 mL is about 133 mg/mL, reconstituted only for ICK
-                                [| dilutionRule "teicoplanine" (maxConc 10N) |]
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8855,7 +9101,7 @@ module Tests =
 
                             test "a rule without a department gives no warning when the powder fits in that department" {
                                 // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
-                                [| dilutionRule "teicoplanine" (maxConc 10N) |]
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8868,8 +9114,8 @@ module Tests =
 
                             test "two equal rules give one warning" {
                                 [|
-                                    dilutionRule "zidovudine" (maxConc (5N / 2N))
-                                    dilutionRule "zidovudine" (maxConc (5N / 2N))
+                                    solutionRule "zidovudine" (maxConc (5N / 2N))
+                                    solutionRule "zidovudine" (maxConc (5N / 2N))
                                 |]
                                 |> undilutable zidovudine
                                 |> List.length
@@ -8883,21 +9129,21 @@ module Tests =
                             }
 
                             test "the rule checks at load report the rule" {
-                                ruleCheckWarnings zidovudine [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                |> List.exists (String.contains "no diluent")
+                                ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                |> List.exists (String.contains "given undiluted")
                                 |> Expect.isTrue "reported"
                             }
                         ]
 
                     testList
-                        "competing dilution rules"
+                        "competing solution rules"
                         [
                             let day1 = Timed "dag 1"
                             let day2 = Timed "dag 2"
                             let injection = Solution "injectievloeistof"
 
                             let rule doseType =
-                                { dilutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
+                                { solutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
 
                             let withAccess access = withPatient (fun pc -> { pc with Access = access })
                             let withDepartment dep = withPatient (fun pc -> { pc with Department = Some dep })
@@ -8906,7 +9152,7 @@ module Tests =
                                 let dr = ivDoseRule "samenstelling c" injection [||]
 
                                 rules
-                                |> DilutionRule.competingRules ivRouteMapping [| { dr with DoseType = day1 } |]
+                                |> SolutionRule.competingRules ivRouteMapping [| { dr with DoseType = day1 } |]
 
                             test "a rule without a dose type competes with a rule of the dose type" {
                                 [| rule NoDoseType; rule day1 |]
@@ -8929,7 +9175,7 @@ module Tests =
                                     rule day1 |> withWeight (weights 10000N 20000N)
                                     rule day1 |> withWeight (weights 10000N 20000N)
                                 |]
-                                |> DilutionRule.competingRules ivRouteMapping [| dr |]
+                                |> SolutionRule.competingRules ivRouteMapping [| dr |]
                                 |> Expect.isEmpty "no patient of the dose rule reaches them"
                             }
 
@@ -8956,7 +9202,7 @@ module Tests =
                                         { pc with Age = AbsoluteAge { MinMax.empty with Max = days 365N } }
                                     )
                                 |]
-                                |> DilutionRule.competingRules ivRouteMapping [| anyPatient |]
+                                |> SolutionRule.competingRules ivRouteMapping [| anyPatient |]
                                 |> Expect.isEmpty "no patient is both"
                             }
 
@@ -9014,7 +9260,7 @@ module Tests =
 
                             test "rules without a shared dose rule do not compete" {
                                 [| rule NoDoseType; rule day1 |]
-                                |> DilutionRule.competingRules ivRouteMapping [||]
+                                |> SolutionRule.competingRules ivRouteMapping [||]
                                 |> Expect.isEmpty "no dose rule"
                             }
 
@@ -9042,12 +9288,12 @@ module Tests =
                         ]
 
                     testList
-                        "the diluents of a dilution rule"
+                        "the diluents of a solution rule"
                         [
                             let gluc = [| parenteral "gluc 20%"; parenteral "gluc 30%" |]
 
                             let diluentRow cell =
-                                { dilutionRow "samenstelling c" cell with
+                                { solutionRow "samenstelling c" cell with
                                     Component = "diluent"
                                     Substance = ""
                                     Unit = "mL"
@@ -9058,16 +9304,16 @@ module Tests =
                                 }
 
                             let mapped rows =
-                                match rows |> DilutionRule.map ivRouteMapping gluc [||] with
-                                | Ok [| dilRule |] -> dilRule
-                                | res -> failtest $"expected one dilution rule, got %A{res}"
+                                match rows |> SolutionRule.map ivRouteMapping gluc [||] with
+                                | Ok [| solRule |] -> solRule
+                                | res -> failtest $"expected one solution rule, got %A{res}"
 
-                            let targets (dilRule: DilutionRule) =
-                                dilRule.DilutionLimits
-                                |> Array.map (_.DilutionLimitTarget >> LimitTarget.toString)
+                            let targets (solRule: SolutionRule) =
+                                solRule.DilutionLimits
+                                |> Array.map (_.DilutionLimitTarget >> SolutionRule.DilutionTarget.toString)
 
                             test "keep the order of the Diluents cell" {
-                                [| dilutionRow "samenstelling c" [ "gluc 30%"; "gluc 20%" ] |]
+                                [| solutionRow "samenstelling c" [ "gluc 30%"; "gluc 20%" ] |]
                                 |> mapped
                                 |> _.Diluents
                                 |> Array.map _.Generic
@@ -9076,16 +9322,16 @@ module Tests =
 
                             test "a diluent row gives one component limit per diluent, named after the diluent" {
                                 let cell = [ "gluc 20%"; "gluc 30%" ]
-                                let dilRule = [| dilutionRow "samenstelling c" cell; diluentRow cell |] |> mapped
+                                let solRule = [| solutionRow "samenstelling c" cell; diluentRow cell |] |> mapped
 
-                                dilRule
+                                solRule
                                 |> targets
                                 |> Expect.equal
                                     "the substance, then each diluent"
                                     [| "samenstelling c"; "gluc 20%"; "gluc 30%" |]
 
-                                dilRule.DilutionLimits[1..]
-                                |> Array.map _.QuantityAdj
+                                solRule.DilutionLimits[1..]
+                                |> Array.map _.QuantityAdjust
                                 |> Array.distinct
                                 |> Expect.hasLength "the limit of the diluent row for both diluents" 1
                             }
@@ -9107,14 +9353,14 @@ module Tests =
 
                             test "a diluent row of a rule without diluents gives no limit" {
                                 [| diluentRow [] |]
-                                |> DilutionRule.map ivRouteMapping gluc [||]
+                                |> SolutionRule.map ivRouteMapping gluc [||]
                                 |> Result.map (Array.collect _.DilutionLimits)
                                 |> Expect.equal "no limit" (Ok [||])
                             }
 
                             test "a diluent row in a rule with an empty cell gives a warning" {
                                 [| diluentRow [] |]
-                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> SolutionRule.diluentRowsWithoutDiluent gluc
                                 |> List.map warningText
                                 |> single
                                 |> Expect.stringContains "names the cause" "a diluent row but no diluent"
@@ -9122,19 +9368,19 @@ module Tests =
 
                             test "a diluent row in a rule whose cell names no parenteral product gives a warning" {
                                 [| diluentRow [ "gluc 11%" ] |]
-                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> SolutionRule.diluentRowsWithoutDiluent gluc
                                 |> Expect.hasLength "one warning" 1
                             }
 
                             test "a diluent row in a rule with a diluent gives no warning" {
                                 [| diluentRow [ "gluc 20%" ] |]
-                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> SolutionRule.diluentRowsWithoutDiluent gluc
                                 |> Expect.isEmpty "no warning"
                             }
 
                             test "a rule without a diluent row gives no warning" {
-                                [| dilutionRow "samenstelling c" [] |]
-                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                [| solutionRow "samenstelling c" [] |]
+                                |> SolutionRule.diluentRowsWithoutDiluent gluc
                                 |> Expect.isEmpty "no warning"
                             }
 
@@ -9157,36 +9403,36 @@ module Tests =
                                 { dr with ComponentLimits = [| cl; { cl with Name = "gluc 30%" } |] }
 
                             let withDiluent dil =
-                                { dilutionRule "samenstelling c" MinMax.empty with Diluents = [| parenteral dil |] }
+                                { solutionRule "samenstelling c" MinMax.empty with Diluents = [| parenteral dil |] }
 
                             test "is found" {
                                 withDiluent "gluc 30%"
-                                |> DilutionRule.componentDiluents withGlucose
+                                |> SolutionRule.componentDiluents withGlucose
                                 |> Expect.equal "gluc 30%" [| "gluc 30%" |]
                             }
 
                             test "matches the name in any case" {
                                 withDiluent "Gluc 30%"
-                                |> DilutionRule.componentDiluents withGlucose
+                                |> SolutionRule.componentDiluents withGlucose
                                 |> Expect.hasLength "found" 1
                             }
 
                             test "another diluent is not" {
                                 withDiluent "gluc 20%"
-                                |> DilutionRule.componentDiluents withGlucose
+                                |> SolutionRule.componentDiluents withGlucose
                                 |> Expect.isEmpty "not found"
                             }
 
                             test "gives one warning that names the diluent" {
                                 [| withDiluent "gluc 30%" |]
-                                |> DilutionRule.diluentsThatAreComponents ivRouteMapping [| withGlucose |]
+                                |> SolutionRule.diluentsThatAreComponents ivRouteMapping [| withGlucose |]
                                 |> List.map warningText
                                 |> single
                                 |> Expect.stringContains "names the diluent" "the diluent gluc 30% is also a component"
                             }
 
                             test "gives no warning for rules that cannot meet the same patient" {
-                                let dilRule = withDiluent "gluc 30%" |> withWeight (weights 10000N 16000N)
+                                let solRule = withDiluent "gluc 30%" |> withWeight (weights 10000N 16000N)
 
                                 let dr =
                                     { withGlucose with
@@ -9194,8 +9440,8 @@ module Tests =
                                             { withGlucose.PatientCategory with Weight = weights 7000N 10000N }
                                     }
 
-                                [| dilRule |]
-                                |> DilutionRule.diluentsThatAreComponents ivRouteMapping [| dr |]
+                                [| solRule |]
+                                |> SolutionRule.diluentsThatAreComponents ivRouteMapping [| dr |]
                                 |> Expect.isEmpty "no patient meets both"
                             }
 
@@ -9223,8 +9469,8 @@ module Tests =
                                 |]
 
                             test "is reported with the diluent and the generic" {
-                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
-                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                [| solutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> SolutionRule.unmarkedDiluents (formulary false)
                                 |> List.map warningText
                                 |> single
                                 |> Expect.equal
@@ -9234,10 +9480,10 @@ module Tests =
 
                             test "gives one warning for the spellings of one diluent" {
                                 [|
-                                    dilutionRow "NICU mix" [ "gluc 10%" ]
-                                    dilutionRow "Primene" [ "Gluc 10%" ]
+                                    solutionRow "NICU mix" [ "gluc 10%" ]
+                                    solutionRow "Primene" [ "Gluc 10%" ]
                                 |]
-                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> SolutionRule.unmarkedDiluents (formulary false)
                                 |> List.map warningText
                                 |> single
                                 |> Expect.stringContains "both generics" "named by NICU mix, Primene"
@@ -9245,18 +9491,18 @@ module Tests =
 
                             test "gives one warning per diluent, listing every generic that names it" {
                                 [|
-                                    dilutionRow "NICU mix" [ "gluc 10%" ]
-                                    dilutionRow "Primene" [ "gluc 10%" ]
+                                    solutionRow "NICU mix" [ "gluc 10%" ]
+                                    solutionRow "Primene" [ "gluc 10%" ]
                                 |]
-                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> SolutionRule.unmarkedDiluents (formulary false)
                                 |> List.map warningText
                                 |> single
                                 |> Expect.stringContains "both generics" "named by NICU mix, Primene"
                             }
 
                             test "a marked diluent is not reported" {
-                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
-                                |> DilutionRule.unmarkedDiluents (formulary true)
+                                [| solutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> SolutionRule.unmarkedDiluents (formulary true)
                                 |> Expect.isEmpty "none"
                             }
 
@@ -9264,23 +9510,23 @@ module Tests =
                                 let gStandaard =
                                     FormularyProductTests.parseOne [ "GPKODE", "61913"; "Generic", "gluc 10%" ]
 
-                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
-                                |> DilutionRule.unmarkedDiluents (Array.append (formulary true) [| gStandaard |])
+                                [| solutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> SolutionRule.unmarkedDiluents (Array.append (formulary true) [| gStandaard |])
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a diluent without a parenteral product is not reported here" {
-                                [| dilutionRow "NICU mix" [ "gluc 11%" ] |]
-                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                [| solutionRow "NICU mix" [ "gluc 11%" ] |]
+                                |> SolutionRule.unmarkedDiluents (formulary false)
                                 |> Expect.isEmpty "missingDiluents reports it"
                             }
 
                             test "rows of one rule give one warning" {
                                 [|
-                                    dilutionRow "NICU mix" [ "gluc 10%" ]
-                                    dilutionRow "NICU mix" [ "gluc 10%" ]
+                                    solutionRow "NICU mix" [ "gluc 10%" ]
+                                    solutionRow "NICU mix" [ "gluc 10%" ]
                                 |]
-                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> SolutionRule.unmarkedDiluents (formulary false)
                                 |> Expect.hasLength "one" 1
                             }
                         ]
@@ -9342,34 +9588,45 @@ module Tests =
                         [
                             let volume n = n |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some
 
-                            let warns sr = [| sr |] |> DilutionRule.openDoseCounts |> List.length
+                            let warns sr = [| sr |] |> SolutionRule.openDoseCounts |> List.length
 
                             test "a maximum dose fraction alone gives a warning that names the rule" {
                                 [| unboundedRule |]
-                                |> DilutionRule.openDoseCounts
+                                |> SolutionRule.openDoseCounts
                                 |> List.map warningText
                                 |> Expect.equal
                                     "one warning"
                                     [
-                                        "dilution rule vancomycine, INTRAVENEUS: a maximum dose fraction without a "
+                                        "solution rule vancomycine, INTRAVENEUS: a maximum dose fraction without a "
                                         + "minimum and no maximum volume, so the preparation cannot be set"
                                     ]
                             }
 
                             test "a maximum volume bounds the preparation" {
-                                { unboundedRule with Volume = bounds None (volume 50N) }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with Volume = bounds None (volume 50N) }
+                                }
                                 |> warns
                                 |> Expect.equal "no warning" 0
                             }
 
                             test "a minimum volume alone does not bound the preparation" {
-                                { unboundedRule with Volume = bounds (volume 10N) None }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with Volume = bounds (volume 10N) None }
+                                }
                                 |> warns
                                 |> Expect.equal "a warning" 1
                             }
 
                             test "a list of volumes bounds the preparation" {
-                                { unboundedRule with Volumes = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some }
+                                { unboundedRule with
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with
+                                            Volumes = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some
+                                        }
+                                }
                                 |> warns
                                 |> Expect.equal "no warning" 0
                             }
@@ -9378,8 +9635,13 @@ module Tests =
                                 let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
 
                                 { unboundedRule with
-                                    VolumeAdjust =
-                                        bounds None (10N |> ValueUnit.singleWithUnit mLPerKg |> Limit.inclusive |> Some)
+                                    SolutionLimit =
+                                        { unboundedRule.SolutionLimit with
+                                            VolumeAdjust =
+                                                bounds
+                                                    None
+                                                    (10N |> ValueUnit.singleWithUnit mLPerKg |> Limit.inclusive |> Some)
+                                        }
                                 }
                                 |> warns
                                 |> Expect.equal "no warning" 0
@@ -9423,10 +9685,11 @@ module Tests =
                                         { unboundedRule with
                                             DilutionLimits =
                                                 [|
-                                                    { DilutionLimit.limit with
-                                                        DilutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                                                    { SolutionRule.DilutionLimit.create (
+                                                          DilutionTarget.Substance "vancomycine"
+                                                      ) with
                                                         Quantity = qty
-                                                        QuantityAdj = qtyAdj
+                                                        QuantityAdjust = qtyAdj
                                                         Concentration = cnc
                                                     }
                                                 |]
@@ -9473,7 +9736,7 @@ module Tests =
 
                             test "two rules that differ only in the dose give one warning" {
                                 [| unboundedRule; { unboundedRule with Dose = range mg 1N 2N } |]
-                                |> DilutionRule.openDoseCounts
+                                |> SolutionRule.openDoseCounts
                                 |> List.length
                                 |> Expect.equal "one warning" 1
                             }
@@ -9490,7 +9753,7 @@ module Tests =
                         "the rule checks registry entry"
                         [
                             // The entry of the default registry, run on hand-built dependencies.
-                            let warnings (doseRules: DoseRule[]) (dilutionRules: DilutionRule[]) rows =
+                            let warnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) rows =
                                 let reg =
                                     Map
                                         [
@@ -9498,11 +9761,11 @@ module Tests =
                                             (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                                             Keys.parenteralMeds.Name,
                                             ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
-                                            Keys.dilutionRuleData.Name, ofResult (fun () -> Ok rows)
+                                            Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
                                             Keys.formularyProducts.Name,
                                             ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
-                                            Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
+                                            Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
                                             Keys.routeMappings.Name, ofResult (fun () -> Ok(Array.empty<RouteMapping>))
                                         ]
 
@@ -9512,14 +9775,14 @@ module Tests =
 
                             test "gives a warning for a rule without diluents and for each inverted range" {
                                 let ws =
-                                    [| dilutionRow "granisetron" [ "NaCl 0,45%" ] |]
+                                    [| solutionRow "granisetron" [ "NaCl 0,45%" ] |]
                                     |> warnings
                                         [|
                                             doseRule
                                                 "paracetamol/coffeine"
                                                 [| substanceLimit "paracetamol" (range mg 500N 100N) |]
                                         |]
-                                        [| dilutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                        [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
 
                                 ws |> List.length |> Expect.equal "three warnings" 3
                                 ws
@@ -9531,11 +9794,11 @@ module Tests =
 
                                 ws
                                 |> List.exists (String.contains "granisetron concentration")
-                                |> Expect.isTrue "dilution rule"
+                                |> Expect.isTrue "solution rule"
                             }
 
                             test "gives a warning for a dose count without a maximum" {
-                                Array.empty<DilutionRuleData>
+                                Array.empty<SolutionRuleData>
                                 |> warnings [||] [| unboundedRule |]
                                 |> List.exists (String.contains "maximum dose fraction")
                                 |> Expect.isTrue "reported"
@@ -9543,7 +9806,7 @@ module Tests =
 
                             test "gives a warning for a diluent row without a diluent" {
                                 [|
-                                    { dilutionRow "granisetron" [] with
+                                    { solutionRow "granisetron" [] with
                                         Component = "diluent"
                                         Substance = ""
                                     }
@@ -9554,7 +9817,7 @@ module Tests =
                             }
 
                             test "gives no warning for sound rules" {
-                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
                                 |> warnings [||] [||]
                                 |> Expect.isEmpty "none"
                             }
@@ -10208,13 +10471,10 @@ module Tests =
                 ]
 
 
-    /// A dose rule with components without a limit, which only a dilution rule of the patient limits.
-    module LimitingDilutionRuleTests =
+    /// A dose rule with components without a limit, which only a solution rule of the patient limits.
+    module LimitingSolutionRuleTests =
 
         open RuleCheckTests
-
-
-        let gram = Units.Weight.gram
 
 
         let componentLimit name limit : ComponentLimit =
@@ -10249,59 +10509,60 @@ module Tests =
         let withoutLimits = doseRule [| componentLimit "NaCl 3%" None; componentLimit "KCl 7,4%" None |]
 
 
-        let dilutionLimit name quantity quantityAdj quantities =
-            { DilutionLimit.limit with
-                DilutionLimitTarget = ComponentLimitTarget name
+        let dilutionLimit name quantity quantityAdjust quantities =
+            { SolutionRule.DilutionLimit.create (DilutionTarget.Component name) with
                 Quantity = quantity
-                QuantityAdj = quantityAdj
+                QuantityAdjust = quantityAdjust
                 Quantities = quantities
             }
 
 
-        let dilutionRule limits =
-            { RuleCheckTests.dilutionRule "electrolyt/glucose mengsel" MinMax.empty with
-                DoseFraction = fraction None (Some 1N)
+        let solutionRule limits =
+            { RuleCheckTests.solutionRule "electrolyt/glucose mengsel" MinMax.empty with
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = fraction None (Some 1N) }
                 DilutionLimits = limits
             }
 
 
-        /// A dilution rule that limits both components with a quantity.
+        /// A solution rule that limits both components with a quantity.
         let limitsBoth =
-            dilutionRule
+            solutionRule
                 [|
                     dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
                     dilutionLimit "KCl 7,4%" (range mL 0N 20N) MinMax.empty None
                 |]
 
 
-        /// A dilution rule that limits both components per kg only, as the production sheet does.
+        /// A solution rule that limits both components per kg only, as the production sheet does.
         let limitsBothPerKg =
-            dilutionRule
+            solutionRule
                 [|
                     dilutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
                     dilutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
                 |]
 
 
-        let limitsNone = dilutionRule [||]
+        let limitsNone = solutionRule [||]
 
 
-        let prescriptionRule dr dilRules : PrescriptionRule =
+        let prescriptionRule dr solRules : PrescriptionRule =
             {
-                Patient = Patient.patient
+                PatientData = TestPatient.unknown
                 DoseRule = dr
-                DilutionRules = dilRules
+                SolutionRules = solRules
                 RenalRules = [||]
             }
 
 
         let patient weight =
-            { Patient.patient with Weight = weight |> Option.map (fun w -> w * 1000N |> ValueUnit.singleWithUnit gram) }
+            match weight with
+            | Some kg -> TestPatient.unknown |> TestPatient.withWeightInKg kg
+            | None -> TestPatient.unknown
 
 
-        let filterFor weight dilRules =
-            { Filter.doseFilter with Patient = patient weight }
-            |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] dilRules [||] ivRouteMapping
+        let filterFor weight solRules =
+            { Filter.doseFilter with PatientData = patient weight }
+            |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] solRules [||] ivRouteMapping
 
 
         let tests =
@@ -10309,7 +10570,7 @@ module Tests =
                 "a dose rule without limits"
                 [
                     testList
-                        "withLimitingDilutionRules"
+                        "withLimitingSolutionRules"
                         [
                             test "a rule whose components all have a limit is kept as it is" {
                                 let pr =
@@ -10318,7 +10579,7 @@ module Tests =
                                         [| limitsNone |]
 
                                 pr
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.equal "the same" (Some pr)
                             }
 
@@ -10338,36 +10599,36 @@ module Tests =
                                 let pr = prescriptionRule (doseRule [| cl |]) [||]
 
                                 pr
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.equal "the same" (Some pr)
                             }
 
-                            test "a rule without limits and without a dilution rule is dropped" {
+                            test "a rule without limits and without a solution rule is dropped" {
                                 prescriptionRule withoutLimits [||]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
                             }
 
-                            test "a rule without limits is kept with a dilution rule that limits every component" {
+                            test "a rule without limits is kept with a solution rule that limits every component" {
                                 prescriptionRule withoutLimits [| limitsBoth |]
-                                |> PrescriptionRule.withLimitingDilutionRules
-                                |> Option.map _.DilutionRules
-                                |> Expect.equal "the dilution rule" (Some [| limitsBoth |])
+                                |> PrescriptionRule.withLimitingSolutionRules
+                                |> Option.map _.SolutionRules
+                                |> Expect.equal "the solution rule" (Some [| limitsBoth |])
                             }
 
-                            test "only the dilution rules that limit every component are kept" {
+                            test "only the solution rules that limit every component are kept" {
                                 prescriptionRule withoutLimits [| limitsNone; limitsBoth |]
-                                |> PrescriptionRule.withLimitingDilutionRules
-                                |> Option.map _.DilutionRules
-                                |> Expect.equal "the limiting dilution rule" (Some [| limitsBoth |])
+                                |> PrescriptionRule.withLimitingSolutionRules
+                                |> Option.map _.SolutionRules
+                                |> Expect.equal "the limiting solution rule" (Some [| limitsBoth |])
                             }
 
-                            test "a dilution rule that limits one of two components does not keep the rule" {
+                            test "a solution rule that limits one of two components does not keep the rule" {
                                 let onlyNaCl =
-                                    dilutionRule [| dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None |]
+                                    solutionRule [| dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None |]
 
                                 prescriptionRule withoutLimits [| onlyNaCl |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
                             }
 
@@ -10375,14 +10636,14 @@ module Tests =
                                 let qts = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some
 
                                 let listed =
-                                    dilutionRule
+                                    solutionRule
                                         [|
                                             dilutionLimit "NaCl 3%" MinMax.empty MinMax.empty qts
                                             dilutionLimit "KCl 7,4%" MinMax.empty MinMax.empty qts
                                         |]
 
                                 prescriptionRule withoutLimits [| listed |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isSome "kept"
                             }
 
@@ -10391,14 +10652,14 @@ module Tests =
                                     bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
 
                                 let minOnly =
-                                    dilutionRule
+                                    solutionRule
                                         [|
                                             dilutionLimit "NaCl 3%" atLeast MinMax.empty None
                                             dilutionLimit "KCl 7,4%" atLeast MinMax.empty None
                                         |]
 
                                 prescriptionRule withoutLimits [| minOnly |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
                             }
 
@@ -10407,7 +10668,7 @@ module Tests =
                                     bounds (10N |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some) None
 
                                 let minFirst =
-                                    dilutionRule
+                                    solutionRule
                                         [|
                                             dilutionLimit "NaCl 3%" atLeast MinMax.empty None
                                             dilutionLimit "NaCl 3%" (range mL 0N 60N) MinMax.empty None
@@ -10415,26 +10676,26 @@ module Tests =
                                         |]
 
                                 prescriptionRule withoutLimits [| minFirst |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
                             }
 
                             test "a quantity per kg that is not adjusted to a weight does not limit" {
                                 prescriptionRule withoutLimits [| limitsBothPerKg |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
                             }
 
                             test "the component names match in any case" {
                                 let upper =
-                                    dilutionRule
+                                    solutionRule
                                         [|
                                             dilutionLimit "NACL 3%" (range mL 0N 60N) MinMax.empty None
                                             dilutionLimit "kcl 7,4%" (range mL 0N 20N) MinMax.empty None
                                         |]
 
                                 prescriptionRule withoutLimits [| upper |]
-                                |> PrescriptionRule.withLimitingDilutionRules
+                                |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isSome "kept"
                             }
 
@@ -10453,10 +10714,16 @@ module Tests =
                                             Some 2N, Some 2N, false
                                         ] do
                                         test $"a dose fraction of %A{min} to %A{max} keeps the rule: %b{kept}" {
-                                            let dilRule = { limitsBoth with DoseFraction = fraction min max }
+                                            let solRule =
+                                                { limitsBoth with
+                                                    SolutionLimit =
+                                                        { limitsBoth.SolutionLimit with
+                                                            DoseFraction = fraction min max
+                                                        }
+                                                }
 
-                                            prescriptionRule withoutLimits [| dilRule |]
-                                            |> PrescriptionRule.withLimitingDilutionRules
+                                            prescriptionRule withoutLimits [| solRule |]
+                                            |> PrescriptionRule.withLimitingSolutionRules
                                             |> Option.isSome
                                             |> Expect.equal "kept" kept
                                         }
@@ -10466,19 +10733,19 @@ module Tests =
                     testList
                         "filter"
                         [
-                            test "a patient with a weight gets the rule with a dilution rule per kg" {
+                            test "a patient with a weight gets the rule with a solution rule per kg" {
                                 filterFor (Some 10N) [| limitsBothPerKg |]
-                                |> Result.map (Array.map _.DilutionRules.Length)
-                                |> Expect.equal "one rule, one dilution rule" (Ok [| 1 |])
+                                |> Result.map (Array.map _.SolutionRules.Length)
+                                |> Expect.equal "one rule, one solution rule" (Ok [| 1 |])
                             }
 
-                            test "a patient without a weight does not get the rule with a dilution rule per kg" {
+                            test "a patient without a weight does not get the rule with a solution rule per kg" {
                                 filterFor None [| limitsBothPerKg |]
                                 |> Result.map Array.length
                                 |> Expect.equal "no rule" (Ok 0)
                             }
 
-                            test "a patient does not get the rule without a dilution rule" {
+                            test "a patient does not get the rule without a solution rule" {
                                 filterFor (Some 10N) [||]
                                 |> Result.map Array.length
                                 |> Expect.equal "no rule" (Ok 0)
@@ -10487,7 +10754,7 @@ module Tests =
                 ]
 
 
-    /// Loading a dose rule without limits, which a dilution rule limits.
+    /// Loading a dose rule without limits, which a solution rule limits.
     module LoadWithoutLimitsTests =
 
         open RuleCheckTests
@@ -10557,60 +10824,58 @@ module Tests =
         let rowsWithoutLimits = [| row "NaCl 3%" None; row "KCl 7,4%" None |]
 
 
-        let dilutionLimit name quantityAdj =
-            { DilutionLimit.limit with
-                DilutionLimitTarget = ComponentLimitTarget name
-                QuantityAdj = quantityAdj
-            }
+        let dilutionLimit name quantityAdjust =
+            { SolutionRule.DilutionLimit.create (DilutionTarget.Component name) with QuantityAdjust = quantityAdjust }
 
 
         let perKg max = range (mL |> ValueUnit.per kg) 0N max
 
 
-        let dilutionRule limits =
-            { RuleCheckTests.dilutionRule "electrolyt/glucose mengsel" MinMax.empty with
+        let solutionRule limits =
+            { RuleCheckTests.solutionRule "electrolyt/glucose mengsel" MinMax.empty with
                 Indication = Some "Parenterale suppletie"
                 PatientCategory = { PatientCategory.empty with Department = Some "ICK" }
-                DoseFraction = fraction None (Some 1N)
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = fraction None (Some 1N) }
                 DilutionLimits = limits
             }
 
 
-        /// The dilution rule of the production sheet for 3 to 7 kg: at most 6 and 1.5 mL per kg.
+        /// The solution rule of the production sheet for 3 to 7 kg: at most 6 and 1.5 mL per kg.
         let limitsBoth =
-            dilutionRule
+            solutionRule
                 [|
                     dilutionLimit "NaCl 3%" (perKg 6N)
                     dilutionLimit "KCl 7,4%" (perKg (3N / 2N))
                 |]
 
 
-        let limitsNaClOnly = dilutionRule [| dilutionLimit "NaCl 3%" (perKg 6N) |]
+        let limitsNaClOnly = solutionRule [| dilutionLimit "NaCl 3%" (perKg 6N) |]
 
 
-        let load dilRules rows =
-            rows |> DoseRuleLoader.fromData ivRouteMapping [||] prods dilRules
+        let load solRules rows =
+            rows |> DoseRuleLoader.fromData ivRouteMapping [||] prods solRules
 
 
         let patient weight =
-            { Patient.patient with
-                Department = Some "ICK"
-                Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
-            }
+            let onICK = TestPatient.unknown |> TestPatient.withDepartment (Some "ICK")
+
+            match weight with
+            | Some gram -> onICK |> TestPatient.withWeightInKg (gram / 1000N)
+            | None -> onICK
 
 
         let tests =
             testList
                 "loading a dose rule without limits"
                 [
-                    test "without a dilution rule the rule is dropped without a warning" {
+                    test "without a solution rule the rule is dropped without a warning" {
                         let rules, msgs = rowsWithoutLimits |> load [||]
 
                         rules |> Expect.isEmpty "dropped"
                         msgs |> Expect.isEmpty "no warning"
                     }
 
-                    test "a dilution rule that limits every component keeps the rule with its components" {
+                    test "a solution rule that limits every component keeps the rule with its components" {
                         let rules, msgs = rowsWithoutLimits |> load [| limitsBoth |]
 
                         rules
@@ -10620,27 +10885,33 @@ module Tests =
                         msgs |> Expect.isEmpty "no warning"
                     }
 
-                    test "a dilution rule that limits one component drops the rule with a warning" {
+                    test "a solution rule that limits one component drops the rule with a warning" {
                         let rules, msgs = rowsWithoutLimits |> load [| limitsNaClOnly |]
 
                         rules |> Expect.isEmpty "dropped"
                         msgs |> Expect.hasLength "one warning" 1
                     }
 
-                    test "a dilution rule with a dose count below 1 drops the rule with a warning" {
+                    test "a solution rule with a dose count below 1 drops the rule with a warning" {
                         let rules, msgs =
                             rowsWithoutLimits
-                            |> load [| { limitsBoth with DoseFraction = fraction None (Some 2N) } |]
+                            |> load
+                                [|
+                                    { limitsBoth with
+                                        SolutionLimit =
+                                            { limitsBoth.SolutionLimit with DoseFraction = fraction None (Some 2N) }
+                                    }
+                                |]
 
                         rules |> Expect.isEmpty "dropped"
                         msgs |> Expect.hasLength "one warning" 1
                     }
 
-                    test "a dilution rule with a minimum only drops the rule with a warning" {
+                    test "a solution rule with a minimum only drops the rule with a warning" {
                         let atLeast = { perKg 1N with Max = None }
 
                         let minOnly =
-                            dilutionRule [| dilutionLimit "NaCl 3%" atLeast; dilutionLimit "KCl 7,4%" atLeast |]
+                            solutionRule [| dilutionLimit "NaCl 3%" atLeast; dilutionLimit "KCl 7,4%" atLeast |]
 
                         let rules, msgs = rowsWithoutLimits |> load [| minOnly |]
 
@@ -10648,7 +10919,7 @@ module Tests =
                         msgs |> Expect.hasLength "one warning" 1
                     }
 
-                    test "a dilution rule of another generic does not keep the rule and gives no warning" {
+                    test "a solution rule of another generic does not keep the rule and gives no warning" {
                         let rules, msgs = rowsWithoutLimits |> load [| { limitsBoth with Generic = "paracetamol" } |]
 
                         rules |> Expect.isEmpty "dropped"
@@ -10679,7 +10950,7 @@ module Tests =
                         |> Expect.hasLength "one warning" 1
                     }
 
-                    test "a rule with limits loads the same with or without a dilution rule" {
+                    test "a rule with limits loads the same with or without a solution rule" {
                         let rows = [| row "NaCl 3%" (Some 6N); row "KCl 7,4%" (Some(3N / 2N)) |]
 
                         rows
@@ -10728,7 +10999,7 @@ module Tests =
                     }
 
                     test "the round-trip check counts only the rows of the kept rule of a group" {
-                        // day 1 and day 2 form one group of rules; only day 1 has a dilution rule
+                        // day 1 and day 2 form one group of rules; only day 1 has a solution rule
                         let onDay day (r: DoseRuleData) =
                             { r with ScheduleData = { r.ScheduleData with DoseText = day } }
                             |> DoseRuleData.setDataHashIds
@@ -10757,7 +11028,7 @@ module Tests =
                     test "a kept rule reaches a patient with a weight through the filter" {
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
-                        { Filter.doseFilter with Patient = patient (Some 5000N) }
+                        { Filter.doseFilter with PatientData = patient (Some 5000N) }
                         |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "one prescription rule" (Ok 1)
@@ -10766,10 +11037,423 @@ module Tests =
                     test "a kept rule does not reach a patient without a weight" {
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
-                        { Filter.doseFilter with Patient = patient None }
+                        { Filter.doseFilter with PatientData = patient None }
                         |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "no prescription rule" (Ok 0)
+                    }
+                ]
+
+
+    /// A dose rule and a solution rule whose ranges for a component no order can meet.
+    module ConflictingLimitTests =
+
+        let mL = Units.Volume.milliLiter
+        let kg = Units.Weight.kiloGram
+        let mLPerKg = mL |> ValueUnit.per kg
+
+
+        /// A range in the unit, each bound optional and inclusive.
+        let optRange u min max =
+            RuleCheckTests.bounds
+                (min |> Option.map (ValueUnit.singleWithUnit u >> Limit.inclusive))
+                (max |> Option.map (ValueUnit.singleWithUnit u >> Limit.inclusive))
+
+
+        let fraction = RuleCheckTests.fraction
+
+
+        /// Samenstelling C, day 2, with a dose per kg for the component.
+        let doseRule doseMin doseMax =
+            { RuleCheckTests.ivDoseRule "Samenstelling C" (Solution "vloeistof") [||] with
+                Indication = "Standaard Totale Parenterale Voeding"
+                PatientCategory = PatientCategory.empty
+                DoseType = Timed "dag 2"
+                AdjustUnit = Some kg
+                ComponentLimits =
+                    [|
+                        {
+                            Name = "Samenstelling C"
+                            ProductIds = [||]
+                            Limit =
+                                { DoseLimit.limit with
+                                    DoseLimitTarget = ComponentLimitTarget "Samenstelling C"
+                                    DoseUnit = mL
+                                    AdjustUnit = Some kg
+                                    QuantityAdjust = optRange mLPerKg doseMin doseMax
+                                }
+                                |> Some
+                            Products = [||]
+                            SubstanceLimits = [||]
+                        }
+                    |]
+            }
+
+
+        /// The solution rule of Samenstelling C, day 2, with a range per kg for the component and a
+        /// dose fraction.
+        let solutionRule prepMin prepMax doseFraction =
+            { RuleCheckTests.solutionRule "Samenstelling C" MinMax.empty with
+                Indication = Some "Standaard Totale Parenterale Voeding"
+                DoseType = Timed "dag 2"
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
+                DilutionLimits =
+                    [|
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component "Samenstelling C") with
+                            QuantityAdjust = optRange mLPerKg prepMin prepMax
+                        }
+                    |]
+            }
+
+
+        let exactlyOne = fraction (Some 1N) (Some 1N)
+        let atMostOne = fraction None (Some 1N)
+
+
+        let times n = n |> ValueUnit.singleWithUnit Units.Count.times
+        let incl n = n |> times |> Limit.inclusive |> Some
+        let excl n = n |> times |> Limit.exclusive |> Some
+
+
+        /// The dose count range of a solution rule with the dose fraction.
+        let countOf doseFraction =
+            { solutionRule None None doseFraction with DilutionLimits = [||] }
+            |> SolutionRule.doseCountRange
+
+
+        let warnings dr solRule =
+            [| solRule |]
+            |> SolutionRule.conflictingLimits RuleCheckTests.ivRouteMapping [| dr |]
+
+
+        let tests =
+            testList
+                "a dose rule and a solution rule that no order can meet"
+                [
+                    test "the production rule of Samenstelling C, day 2, cuts the range but gives no warning" {
+                        solutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule None (Some 20N))
+                        |> Expect.isEmpty "the ranges overlap"
+                    }
+
+                    test "a dose maximum below the preparation minimum warns with a dose count of 1" {
+                        solutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a dose minimum above the preparation maximum warns with a dose count of 1" {
+                        solutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule (Some 25N) None)
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a partial dose meets a dose maximum below the preparation, so no warning" {
+                        // 10 mL/kg in the preparation and at most 5 per dose: a dose count of 2 meets both
+                        solutionRule (Some 10N) (Some 10N) atMostOne
+                        |> warnings (doseRule None (Some 5N))
+                        |> Expect.isEmpty "a dose count of 2"
+                    }
+
+                    test "a dose minimum above the preparation maximum warns also with a partial dose" {
+                        solutionRule (Some 18N) (Some 22N) atMostOne
+                        |> warnings (doseRule (Some 25N) None)
+                        |> Expect.hasLength "the dose is never more than the preparation" 1
+                    }
+
+                    test "a dose count of 1 to 2 warns when half the preparation minimum is above the dose maximum" {
+                        let oneOrTwo = fraction (Some(1N / 2N)) (Some 1N)
+
+                        solutionRule (Some 18N) (Some 22N) oneOrTwo
+                        |> warnings (doseRule None (Some 5N))
+                        |> Expect.hasLength "18 / 2 is above 5" 1
+
+                        solutionRule (Some 18N) (Some 22N) oneOrTwo
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.isEmpty "18 / 2 is below 10"
+                    }
+
+                    test "without a dose fraction the dose count is 1" {
+                        solutionRule (Some 18N) (Some 22N) MinMax.empty
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a quantity is not compared with a quantity per kg" {
+                        let dr = doseRule None None
+
+                        let absolute =
+                            { dr with
+                                ComponentLimits =
+                                    dr.ComponentLimits
+                                    |> Array.map (fun cl ->
+                                        { cl with
+                                            Limit =
+                                                cl.Limit
+                                                |> Option.map (fun l ->
+                                                    { l with Quantity = optRange mL None (Some 1N) }
+                                                )
+                                        }
+                                    )
+                            }
+
+                        solutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings absolute
+                        |> Expect.isEmpty "no comparison"
+                    }
+
+                    test "a solution rule of another generic is not compared" {
+                        { solutionRule (Some 18N) (Some 22N) exactlyOne with Generic = "Samenstelling D" }
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.isEmpty "does not apply"
+                    }
+
+                    test "the warning names both ranges with min. and max." {
+                        let ws =
+                            solutionRule (Some 18N) (Some 22N) exactlyOne
+                            |> warnings (doseRule None (Some 10N))
+
+                        match ws with
+                        | [ Warning text ] ->
+                            text
+                            |> Expect.stringContains "the dose range" "the dose quantity per kg max. 10"
+
+                            text
+                            |> Expect.stringContains "the preparation range" "in the preparation 18 - 22"
+
+                            text |> Expect.stringEnds "one clause" "meet for no dose count"
+                        | ws -> failtest $"expected one warning, got %A{ws}"
+                    }
+
+                    testList
+                        "doseCountRange"
+                        [
+                            test "0.5 to 0.5, half the preparation, is a dose count of exactly 2" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "exactly 2" (RuleCheckTests.bounds (incl 2N) (incl 2N))
+                            }
+
+                            test "2 to 2, twice the preparation, is a dose count of exactly 1/2" {
+                                RuleCheckTests.bounds (incl 2N) (incl 2N)
+                                |> countOf
+                                |> Expect.equal "exactly 1/2" (RuleCheckTests.bounds (incl (1N / 2N)) (incl (1N / 2N)))
+                            }
+
+                            test "1 to 1 is a dose count of exactly 1" {
+                                RuleCheckTests.bounds (incl 1N) (incl 1N)
+                                |> countOf
+                                |> Expect.equal "exactly 1" (RuleCheckTests.bounds (incl 1N) (incl 1N))
+                            }
+
+                            test "an empty minimum and a maximum of 1 is a dose count of at least 1 without a maximum" {
+                                RuleCheckTests.bounds None (incl 1N)
+                                |> countOf
+                                |> Expect.equal "at least 1" (RuleCheckTests.bounds (incl 1N) None)
+                            }
+
+                            test "0.25 to 0.5 is a dose count of 2 to 4" {
+                                RuleCheckTests.bounds (incl (1N / 4N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "2 to 4" (RuleCheckTests.bounds (incl 2N) (incl 4N))
+                            }
+
+                            test "an exclusive limit stays exclusive on the other side" {
+                                RuleCheckTests.bounds (excl (1N / 4N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "2 to below 4" (RuleCheckTests.bounds (incl 2N) (excl 4N))
+                            }
+
+                            test "empty columns are an empty dose count" {
+                                MinMax.empty |> countOf |> Expect.equal "empty" MinMax.empty
+                            }
+
+                            test "a minimum of 0.5 and an empty maximum is a dose count of 1 to 2" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) None
+                                |> countOf
+                                |> Expect.equal "1 to 2" (RuleCheckTests.bounds (incl 1N) (incl 2N))
+                            }
+
+                            test "an empty minimum and a maximum of 0.5 is a dose count of at least 2" {
+                                RuleCheckTests.bounds None (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "at least 2" (RuleCheckTests.bounds (incl 2N) None)
+                            }
+
+                            test "a minimum of 0 gives no maximum" {
+                                RuleCheckTests.bounds (incl 0N) (incl 1N)
+                                |> countOf
+                                |> Expect.equal "at least 1" (RuleCheckTests.bounds (incl 1N) None)
+                            }
+
+                            test "a maximum of 0 counts as empty, so the dose count is at least 1" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) (incl 0N)
+                                |> countOf
+                                |> Expect.equal "1 to 2" (RuleCheckTests.bounds (incl 1N) (incl 2N))
+                            }
+
+                            test "both 0 are an empty dose count" {
+                                RuleCheckTests.bounds (incl 0N) (incl 0N)
+                                |> countOf
+                                |> Expect.equal "empty" MinMax.empty
+                            }
+
+                            test "a minimum of 2 and an empty maximum is a dose count of at most 1/2 without a minimum" {
+                                RuleCheckTests.bounds (incl 2N) None
+                                |> countOf
+                                |> Expect.equal "at most 1/2" (RuleCheckTests.bounds None (incl (1N / 2N)))
+                            }
+
+                            test "a minimum of 1 and an empty maximum is a dose count of exactly 1" {
+                                RuleCheckTests.bounds (incl 1N) None
+                                |> countOf
+                                |> Expect.equal "exactly 1" (RuleCheckTests.bounds (incl 1N) (incl 1N))
+                            }
+
+                            // the minimum comes from the default of 1 and the maximum from 1 / 0.5
+                            test "both limits of the dose count have the unit times" {
+                                let count = RuleCheckTests.bounds (incl (1N / 2N)) None |> countOf
+                                let unitOf = Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
+
+                                (count.Min |> unitOf, count.Max |> unitOf)
+                                |> Expect.equal "times" (Some Units.Count.times, Some Units.Count.times)
+                            }
+                        ]
+                ]
+
+
+    module RepeatedTargetTests =
+
+        let dilutionLimit target =
+            { SolutionRule.DilutionLimit.create target with
+                Concentration = RuleCheckTests.range RuleCheckTests.mgPerMl 0N 5N
+            }
+
+
+        let solutionRule generic limits =
+            { RuleCheckTests.solutionRule generic MinMax.empty with DilutionLimits = limits }
+
+
+        let warningTexts rules =
+            rules |> SolutionRule.repeatedTargets |> List.map RuleCheckTests.warningText
+
+
+        let tests =
+            testList
+                "a solution rule with more than one dilution limit for the same target"
+                [
+                    test "two limits for the same substance give one warning" {
+                        [|
+                            solutionRule
+                                "erytromycine"
+                                [|
+                                    dilutionLimit (DilutionTarget.Substance "erytromycine")
+                                    dilutionLimit (DilutionTarget.Substance "erytromycine")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.equal
+                            "one warning"
+                            [
+                                "solution rule erytromycine, INTRAVENEUS: 2 dilution limits for the substance erytromycine, "
+                                + "an order takes only the first"
+                            ]
+                    }
+
+                    test "two limits for the same component give one warning" {
+                        [|
+                            solutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "three limits for the same target give one warning that counts three" {
+                        [|
+                            solutionRule
+                                "erytromycine"
+                                [|
+                                    for _ in 1..3 do
+                                        dilutionLimit (DilutionTarget.Substance "erytromycine")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> List.exactlyOne
+                        |> Expect.stringContains "three" "3 dilution limits"
+                    }
+
+                    test "names that differ only in case are the same target" {
+                        [|
+                            solutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "NACL 3%")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a component and a substance with the same name are different targets" {
+                        [|
+                            solutionRule
+                                "kaliumchloride"
+                                [|
+                                    dilutionLimit (DilutionTarget.Component "kaliumchloride")
+                                    dilutionLimit (DilutionTarget.Substance "kaliumchloride")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "limits for different targets give no warning" {
+                        [|
+                            solutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Component "KCl 7,4%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "one limit each in two solution rules gives no warning" {
+                        [|
+                            solutionRule "erytromycine" [| dilutionLimit (DilutionTarget.Substance "erytromycine") |]
+                            { solutionRule "erytromycine" [| dilutionLimit (DilutionTarget.Substance "erytromycine") |] with
+                                SolutionLimit =
+                                    { SolutionRule.SolutionLimit.empty with
+                                        Volume = RuleCheckTests.range Units.Volume.milliLiter 5N 10N
+                                    }
+                            }
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "a repeated component and a repeated substance in one rule give two warnings" {
+                        [|
+                            solutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
+                                    dilutionLimit (DilutionTarget.Component "NaCl 3%")
+                                    dilutionLimit (DilutionTarget.Substance "natrium")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "two warnings" 2
                     }
                 ]
 
@@ -10786,7 +11470,7 @@ module Tests =
                 AdultTests.tests
                 RenalReductionTests.tests
                 PatientTests.tests
-                EhrPatientDataTests.tests
+                RulesReadPatientDataTests.tests
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests
@@ -10803,7 +11487,7 @@ module Tests =
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
-                DilutionRuleFilterTests.tests
+                SolutionRuleFilterTests.tests
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
                 RuleCheckTests.tests
@@ -10812,6 +11496,8 @@ module Tests =
                 PrescribableTests.tests
                 RuleSetTests.tests
                 LinkRuleTests.tests
-                LimitingDilutionRuleTests.tests
+                LimitingSolutionRuleTests.tests
                 LoadWithoutLimitsTests.tests
+                ConflictingLimitTests.tests
+                RepeatedTargetTests.tests
             ]

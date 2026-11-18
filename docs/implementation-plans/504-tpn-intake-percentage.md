@@ -45,8 +45,8 @@ Taken 2026-10-03 by the maintainer.
 |---|---|
 | Meaning of the percentage | A point in the range of the dose quantity, from its defined minimum up to the orderable quantity: in effect the share of the composed orderable that is given. |
 | Composition | The orderable and component orderable quantities keep the values the user set. |
-| Where the per-kg limits of a component live | On the component orderable quantity, through a solution rule, not on the component dose. |
-| Dose count | Defined as at least one in the solution rule, with no maximum. The solution limits on the component orderable quantities keep the composition safe, so the count need not be one while the user composes. The dose quantity stays a range until the slider or a dose pick sets it; a partial dose is the orderable divided into more than one dose. |
+| Where the per-kg limits of a component live | On the component orderable quantity, through a dilution rule, not on the component dose. |
+| Dose count | Defined as at least one in the dilution rule, with no maximum. The dilution limits on the component orderable quantities keep the composition safe, so the count need not be one while the user composes. The dose quantity stays a range until the slider or a dose pick sets it; a partial dose is the orderable divided into more than one dose. |
 | Rate and time | Stay ranges after the move; the user picks one of them in the administration row. Every move gives the time its constraints back, also when the time was solved before the move because the user picked the rate; the user then picks the rate again. A time held to the solved time leaves the rate one value at exactly that time when the time sits on its minimum, as after a reset, and most percentages do not fit it. No command sets the time itself; the user settles it through the rate. |
 | Composition during a partial dose | Locked in the TPN view until the dose is back at 100%. At 100% the existing component steps change the composition correctly; below 100% a step is not verified. The processor's component picks stay as they are. |
 | Command | Reuse `SetOrderableDoseQuantityPerc`; its processor case gets a new step. |
@@ -243,10 +243,10 @@ One rule for the TPN generic, with:
 | `DoseUnit` | `mL` |
 | `MinQtyAdj` (orderable and components) | empty: a minimum per kg on a dose forbids every partial dose |
 | `MaxQtyAdj` (orderable) | optional, as a ceiling |
-| Component dose limits | none: the component limits go to the solution rules |
+| Component dose limits | none: the component limits go to the dilution rules |
 | Substance dose limits | no minimum per administration, for the same reason |
 
-### SolutionRules sheet
+### DilutionRules sheet
 
 For the same generic, form, route and dose type, one row per component and one per substance
 limit:
@@ -256,28 +256,32 @@ limit:
 | `Component` | the component name, for example `NaCl 3%` | empty |
 | `Substance` | empty | the substance name, for example `natrium` |
 | `Unit` | `mL` | the substance unit, for example `mmol` |
-| `MinQtyAdj`, `MaxQtyAdj` | the range per kg, for example `10` and `25`; equal for a fixed amount, for example `6` and `6` | optional |
+| `MinQtyPerKg`, `MaxQtyPerKg` | the range per kg, for example `10` and `25`; equal for a fixed amount, for example `6` and `6` | optional |
 | `MinConc`, `MaxConc` | empty | the concentration limits, for example max `0.5` |
 | `Div` | empty, see below | |
 | `MinPerc`, `MaxPerc` | empty and `1`, so the dose count is at least one | |
 
-`Div` stays empty until #1288 settles what it means for the orderable. A solution rule's `Div`
+`Div` stays empty until #1288 settles what it means for the orderable. A dilution rule's `Div`
 becomes the medication's `Div`. With it set, the orderable dose quantity steps by 1/`Div`. With `Div`
 empty, the orderable and its dose quantity step by the coarsest `Divisible` of the products, 1 mL
 for the TPN products. Either way the percentage has steps to pick from.
 
-`Medication.addSolution` turns `MinPerc`/`MaxPerc` into the dose count as 1 divided by the
-fraction, the minimum from `MaxPerc` and the maximum from `MinPerc`, so `MaxPerc` holds `1` for a
-dose count of at least one and `MinPerc` stays empty. A dose count defined as exactly one forbids
-every partial dose.
+`DilutionRule.doseCountRange`, which `Medication.addDilutionRule` uses, turns `MinPerc`/`MaxPerc`
+into the dose count as 1 divided by the fraction, the minimum from `MaxPerc` and the maximum from
+`MinPerc`, so `MaxPerc` `1` with `MinPerc` empty gives a dose count of at least one. Without
+either fraction the order builder sets the dose count to exactly one. The percentage step sets the
+dose count back to at least one, so the slider also gives a partial dose when the rule defines the
+dose count as exactly one. Both settings work with the slider: with `MinPerc` empty the dose stays
+a range while the user composes, with `MinPerc` `1` the dose is the whole orderable until the
+slider moves.
 
 Every component needs a component row, the filler too (for example `gluc 10%` at `65` to `80`
 mL/kg): a component without one has no upper bound, the orderable quantity then never becomes one
 value, and the step has nothing to work with.
 
-`PrescriptionRule.filter` multiplies `MinQtyAdj`/`MaxQtyAdj` by the patient's weight;
-`Medication.addSolution` attaches the limit to the component with the matching name, and the order
-builder sets it as the minimum and maximum of the component orderable quantity. So the patient's
+`PrescriptionRule.filter` multiplies `MinQtyPerKg`/`MaxQtyPerKg` by the patient's weight;
+`Medication.addDilutionRule` attaches the limit to the component with the matching name, from the
+first row for that component only (#1787), and the order builder sets it as the minimum and maximum of the component orderable quantity. So the patient's
 weight is required.
 
 ### Set by the order builder
@@ -290,7 +294,7 @@ weight is required.
 ## Open questions
 
 1. **`MinPerc`/`MaxPerc`** (settled). The columns hold the fraction of the preparation that makes up
-   one dose, not a percentage. `Medication.addSolution` takes 1 divided by the fraction as the dose
+   one dose, not a percentage. `DilutionRule.doseCountRange` takes 1 divided by the fraction as the dose
    count: the dose count minimum is 1 / `MaxPerc` and the dose count maximum is 1 / `MinPerc`. The
    column names stay; their documentation says a fraction.
 2. **Component picks in the processor** (settled: no change). The increase and decrease of a
@@ -300,8 +304,11 @@ weight is required.
    `morfCont`, `tpn`, `tpnComplete`): it puts one to four variables outside their constraints,
    because that step lets values go outside them on purpose. It is not needed for TPN either: on a
    composed TPN a pick cannot change the composition, and the steps already reset the dose count.
-3. **The live sheets.** Whether the live TPN rules already put the component limits in the solution
-   rules, and leave the dose minimums empty, is not yet checked.
+3. **The live sheets.** [Plan 1598](1598-tpn-dose-rules-without-limits.md#what-the-sheets-hold)
+   checked production: the electrolyte and glucose mixture is configured as above. Samenstelling B
+   to E keep the component limits in the dilution rules, but their dose rules also set a component
+   maximum (plan 1598, step 6) and no component minimum. Whether the orderable has a dose minimum is
+   not yet checked.
 
 ## Confidence
 
@@ -317,7 +324,7 @@ its constraints, also after the user picked the rate and with a dose and a rate 
    before every component is set.
 2. **Contract and server** (done): the wire case, the domain command, the mapper, and the mapper test.
 3. **Client**: the message, the stepper, the trail helpers, the slot fields and the slider.
-4. **Rules**: the TPN dose and solution rules on the sheets, as configured above.
+4. **Rules**: the TPN dose and dilution rules on the sheets, as configured above.
 
 Steps 1 and 2 can be one pull request; step 3 follows; step 4 is a sheet change.
 

@@ -1,17 +1,11 @@
 // Tool script: builds the ZIndex cache files and the demo cache files.
 //
 // The cache files (data/cache/*.cache) hold every product, ATC group, dose rule and
-// substance of the G-Standaard. The demo files (data/cache/*.demo) hold the products,
-// ATC groups and dose rules of the generic products in the demo GPK list, and every
-// substance. The demo GPK list is the fixed list below, which the test scenarios use,
-// together with every medication that has a dilution rule in the DilutionRules sheet.
-//
-// A DilutionRules row names a medication by Generic, Form and Route. The Formulary
-// sheet maps a Generic to GPKs. A GPK is used when the generic product in the cache
-// has the route of the rule and, when the rule names a form, has that form as well.
-// A Formulary row with a GPKODE that is not a number, such as "NaCl 0,9%" or
-// "gluc 5%", is a parenteral product defined in the sheet itself and needs no
-// G-Standaard product, so the solutions of a rule need no GPK either.
+// substance of the G-Standaard. The demo files (data/cache/*.demo) hold every substance
+// and a part of the rest: the products and ATC groups of the medications that the dose
+// rules and solution rules of the spreadsheet use, and the G-Standaard dose rules of
+// the test scenario and solution rule medications only, which keeps the files small
+// enough for the repository.
 //
 // Needs a build (dotnet run build) and the G-Standaard files in data/zindex.
 // Run from this directory:
@@ -23,7 +17,8 @@
 //   dotnet fsi CreateCache.fsx --test    runs only the tests
 //
 // The spreadsheet is the one in GENPRES_URL_ID, or the default spreadsheet below
-// when that variable is not set.
+// when that variable is not set. Set GENPRES_URL_ID to the production spreadsheet so
+// that the demo files hold the products of the production dose rules.
 
 
 #I __SOURCE_DIRECTORY__
@@ -43,8 +38,8 @@ open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
 
-/// The spreadsheet with the DilutionRules and Formulary sheets, used when GENPRES_URL_ID is not set.
-let defaultUrlId = "1StESB1RJTOiLOglvGeziC784JQwPkc3Sm98wrjId6rI"
+/// The spreadsheet with the SolutionRules, DoseRules, Formulary and Routes sheets, used when GENPRES_URL_ID is not set.
+let defaultUrlId = ""
 
 
 /// The spreadsheet id from GENPRES_URL_ID, or the default spreadsheet when the variable is not set.
@@ -54,8 +49,8 @@ let dataUrlId () =
     | _ -> defaultUrlId
 
 
-/// A medication named by a row of the DilutionRules sheet.
-type DilutionMedication =
+/// A medication named by a row of the SolutionRules sheet.
+type SolutionMedication =
     {
         /// The generic name, as in the Generic column.
         Generic: string
@@ -76,7 +71,43 @@ type FormularyGpk =
     }
 
 
-/// The form and the routes of a generic product in the cache.
+/// The products that a row of the DoseRules sheet selects. After parsing a row has at most
+/// one of HPKs and GPKs: HPKs when the HPKs column is not empty, else the GPKs column.
+type DoseRuleSelector =
+    {
+        /// The Component column, or the Generic column when the Component is empty.
+        Component: string
+        /// The route of administration from the Route column.
+        RuleRoute: string
+        /// The generic product codes from the GPKs column.
+        Gpks: int[]
+        /// The trade product codes from the HPKs column.
+        Hpks: int[]
+    }
+
+
+/// A row of the Routes sheet.
+type RouteMapping =
+    {
+        /// The G-Standaard route from the ZIndex column.
+        ZIndex: string
+        /// The short Dutch route from the ShortDutch column.
+        ShortDutch: string
+    }
+
+
+/// A key by which a DoseRules row selects a generic product.
+[<RequireQualifiedAccess>]
+type SelectionKey =
+    /// A trade product code.
+    | Hpk of int
+    /// A generic product code.
+    | Gpk of int
+    /// A canonical product name on a G-Standaard route.
+    | NameRoute of string * string
+
+
+/// The form, the routes, the name and the trade products of a generic product in the cache.
 type CacheProduct =
     {
         /// The generic product code.
@@ -85,6 +116,10 @@ type CacheProduct =
         ProductForm: string
         /// The routes of administration.
         Routes: string[]
+        /// The G-Standaard name of the generic product.
+        GStandName: string
+        /// The codes of the trade products of the generic product.
+        TradeProducts: int[]
     }
 
 
@@ -105,8 +140,8 @@ module SheetData =
             )
 
 
-    /// The distinct medications in the DilutionRules sheet, without the rows that have no Generic.
-    let parseDilutionMedications data =
+    /// The distinct medications in the SolutionRules sheet, without the rows that have no Generic.
+    let parseSolutionMedications data =
         data
         |> mapRows (fun get ->
             {
@@ -128,6 +163,160 @@ module SheetData =
             |> Option.map (fun gpk -> { Gpk = gpk; Name = get "Generic" })
         )
         |> Array.choose id
+
+
+    /// The codes in a cell separated by ";", without the parts that are not a number.
+    let parseCodes s =
+        s
+        |> String.splitAt ';'
+        |> Array.map String.trim
+        |> Array.choose Int32.tryParse
+        |> Array.distinct
+
+
+    /// The distinct product selectors of the DoseRules sheet, without the rows that select nothing.
+    let parseDoseRuleSelectors data =
+        data
+        |> mapRows (fun get ->
+            let hpks = get "HPKs" |> parseCodes
+
+            {
+                Component =
+                    match get "Component" with
+                    | c when c |> String.isNullOrWhiteSpace -> get "Generic"
+                    | c -> c
+                RuleRoute = get "Route"
+                Gpks = if hpks |> Array.isEmpty then get "GPKs" |> parseCodes else [||]
+                Hpks = hpks
+            }
+        )
+        |> Array.filter (fun s -> s.Component |> String.notEmpty || s.Gpks.Length > 0 || s.Hpks.Length > 0)
+        |> Array.distinct
+
+
+    /// The rows of the Routes sheet.
+    let parseRouteMappings data =
+        data
+        |> mapRows (fun get ->
+            {
+                ZIndex = get "ZIndex"
+                ShortDutch = get "ShortDutch"
+            }
+        )
+
+
+    /// The product name of each GPK with a Formulary row: the AltName, else the GStand name, else the
+    /// Generic. An AltName that is the Generic of a parenteral or enteral row is not used. The AltName
+    /// column may be absent from the sheet.
+    let parseProductNames (data: string[][]) =
+        let hasAltName = data |> Array.tryHead |> Option.exists (Array.contains "AltName")
+
+        let rows =
+            data
+            |> mapRows (fun get ->
+                {|
+                    Gpk = get "GPKODE" |> Int32.tryParse
+                    Type = get "Type"
+                    Generic = get "Generic"
+                    GStand = get "GStand"
+                    AltName = if hasAltName then get "AltName" else ""
+                |}
+            )
+
+        let virtualNames =
+            rows
+            |> Array.filter (fun r -> r.Type = "parenteral" || r.Type = "enteral")
+            |> Array.map (_.Generic >> String.toLower)
+            |> Set.ofArray
+
+        let notEmpty s =
+            if s |> String.isNullOrWhiteSpace then None else Some s
+
+        rows
+        |> Array.choose (fun r ->
+            r.Gpk
+            |> Option.map (fun gpk ->
+                let name =
+                    r.AltName
+                    |> notEmpty
+                    |> Option.filter (fun n -> virtualNames |> Set.contains (n |> String.toLower) |> not)
+                    |> Option.defaultWith (fun () ->
+                        r.GStand |> notEmpty |> Option.defaultValue r.Generic |> String.toLower
+                    )
+
+                gpk, name
+            )
+        )
+        |> Map.ofArray
+
+
+module DoseRuleSelection =
+
+    /// A name without "/", "+", "(", ")", surrounding white space and case, as GenFORM compares product names.
+    let canon s =
+        s
+        |> String.replace "/" ""
+        |> String.replace "+" ""
+        |> String.replace "(" ""
+        |> String.replace ")" ""
+        |> String.trim
+        |> String.toLower
+
+
+    /// The G-Standaard route of a route by its G-Standaard or its short Dutch name, case insensitive.
+    let mapRoute mappings route =
+        if route |> String.isNullOrWhiteSpace then
+            None
+        else
+            let route = route |> String.trim
+
+            mappings
+            |> Array.tryFind (fun m ->
+                m.ZIndex |> String.equalsCapInsens route || m.ShortDutch |> String.equalsCapInsens route
+            )
+            |> Option.map _.ZIndex
+
+
+    /// The keys that a selector selects by: its HPKs, else its GPKs, else its canonical component
+    /// name on its G-Standaard route. A selector whose route does not map has no keys.
+    let selectorKeys mappings sel =
+        if sel.Hpks |> Array.isEmpty |> not then
+            sel.Hpks |> Array.map SelectionKey.Hpk
+        elif sel.Gpks |> Array.isEmpty |> not then
+            sel.Gpks |> Array.map SelectionKey.Gpk
+        else
+            sel.RuleRoute
+            |> mapRoute mappings
+            |> Option.map (fun route -> SelectionKey.NameRoute(sel.Component |> canon, route))
+            |> Option.toArray
+
+
+    /// The keys that a cache product is selected by: its GPK, its trade products, and its canonical
+    /// product name on each of its G-Standaard routes.
+    let productKeys mappings (productNames: Map<int, string>) prod =
+        let name =
+            productNames |> Map.tryFind prod.Id |> Option.defaultValue prod.GStandName |> canon
+
+        [|
+            SelectionKey.Gpk prod.Id
+            yield! prod.TradeProducts |> Array.map SelectionKey.Hpk
+            yield!
+                prod.Routes
+                |> Array.choose (mapRoute mappings)
+                |> Array.map (fun route -> SelectionKey.NameRoute(name, route))
+        |]
+
+
+    /// The distinct, sorted GPKs of the cache products that one of the selectors selects.
+    let selectGpks mappings productNames products selectors =
+        let keys = selectors |> Array.collect (selectorKeys mappings) |> Set.ofArray
+
+        products
+        |> Seq.filter (productKeys mappings productNames >> Array.exists keys.Contains)
+        |> Seq.map _.Id
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.toArray
 
 
 module DemoSelection =
@@ -174,9 +363,9 @@ module DemoSelection =
         |> Array.map fst
 
 
-    /// The fixed GPKs and the dilution rule GPKs together, distinct and sorted.
-    let demoGpks fixedGpks dilutionGpks =
-        dilutionGpks
+    /// The fixed GPKs and the solution rule GPKs together, distinct and sorted.
+    let demoGpks fixedGpks solutionGpks =
+        solutionGpks
         |> Array.toList
         |> List.append fixedGpks
         |> List.distinct
@@ -494,7 +683,7 @@ let scenarioGpks =
 
 
 let tests =
-    let dilutionRules =
+    let solutionRules =
         [|
             [| "Generic"; "Form"; "Route"; "Diluents" |]
             [| "morfine"; ""; "INTRAVENEUS"; "NaCl 0,9%|gluc 5%" |]
@@ -513,18 +702,62 @@ let tests =
             [| "NaCl 0,9%"; "parenteral"; "NaCl 0,9%" |]
         |]
 
+    let product id form routes name hpks =
+        {
+            Id = id
+            ProductForm = form
+            Routes = routes
+            GStandName = name
+            TradeProducts = hpks
+        }
+
     let products =
         [
-            { Id = 1; ProductForm = "INJECTIEVLOEISTOF"; Routes = [| "INTRAVENEUS"; "SUBCUTAAN" |] }
-            { Id = 2; ProductForm = "DRANK"; Routes = [| "ORAAL" |] }
-            { Id = 3; ProductForm = "INJECTIEVLOEISTOF"; Routes = [| "INTRAVENEUS" |] }
-            { Id = 4; ProductForm = "TABLET"; Routes = [| "INTRAVENEUS" |] }
+            product 1 "INJECTIEVLOEISTOF" [| "INTRAVENEUS"; "SUBCUTAAN" |] "morfine" [| 11 |]
+            product 2 "DRANK" [| "ORAAL" |] "morfine" [| 21 |]
+            product 3 "INJECTIEVLOEISTOF" [| "INTRAVENEUS" |] "dexamethason" [| 31 |]
+            product 4 "TABLET" [| "INTRAVENEUS" |] "dexamethason" [| 41 |]
+            product 5 "TABLET" [| "ORAAL" |] "amoxicilline/clavulaanzuur" [| 51 |]
+            product 6 "INFUSIEVLOEISTOF" [| "INTRAVENEUS" |] "natriumchloride" [| 61 |]
         ]
         |> List.map (fun p -> p.Id, p)
         |> Map.ofList
 
-    let meds = dilutionRules |> SheetData.parseDilutionMedications
+    let meds = solutionRules |> SheetData.parseSolutionMedications
     let gpks = formulary |> SheetData.parseFormularyGpks
+
+    let doseRules =
+        [|
+            [| "Generic"; "Route"; "GPKs"; "HPKs"; "Component" |]
+            [| "morfine"; "iv"; ""; ""; "" |]
+            [| "morfine"; "iv"; ""; ""; "" |]
+            [| "dexamethason"; "INTRAVENEUS"; "4;x"; ""; "" |]
+            [| "dexamethason"; "oraal"; "3"; "21"; "" |]
+            [| "co-amoxiclav"; "oraal"; ""; ""; "Amoxicilline/Clavulaanzuur" |]
+            [| "doxapram"; "iv"; ""; ""; "" |]
+            [| ""; ""; ""; ""; "" |]
+        |]
+
+    let routes =
+        [|
+            [| "ZIndex"; "ShortDutch" |]
+            [| "INTRAVENEUS"; "iv" |]
+            [| "ORAAL"; "oraal" |]
+        |]
+
+    let productFormulary =
+        [|
+            [| "GPKODE"; "Type"; "Generic"; "GStand"; "AltName" |]
+            [| "6"; "medication"; "NaCl"; ""; "NaCl 0,9%" |]
+            [| "NaCl 0,9%"; "parenteral"; "NaCl 0,9%"; ""; "" |]
+            [| "3"; "medication"; "Dexamethason"; "dexamethason"; "" |]
+            [| "1"; "medication"; "Morfine"; ""; "" |]
+            [| "2"; "medication"; "Morfine"; ""; "morfine drank" |]
+        |]
+
+    let selectors = doseRules |> SheetData.parseDoseRuleSelectors
+    let mappings = routes |> SheetData.parseRouteMappings
+    let productNames = productFormulary |> SheetData.parseProductNames
 
     testList "CreateCache" [
         testList "SheetData" [
@@ -536,7 +769,7 @@ let tests =
 
             test "an empty sheet gives no rows" {
                 [||]
-                |> SheetData.parseDilutionMedications
+                |> SheetData.parseSolutionMedications
                 |> Expect.isEmpty "no medications"
             }
 
@@ -545,6 +778,7 @@ let tests =
                 |> Array.map _.Gpk
                 |> Expect.equal "only the numeric GPKs" [| 1; 2; 3; 4 |]
             }
+
         ]
 
         testList "DemoSelection" [
@@ -583,6 +817,67 @@ let tests =
                 |> Expect.equal "union" [ 1; 2; 3 ]
             }
         ]
+
+        testList "DoseRuleSelection" [
+            test "dose rule selectors are distinct and the rows that select nothing are skipped" {
+                selectors
+                |> Array.map _.Component
+                |> Expect.equal
+                    "morfine once, no empty row"
+                    [|
+                        "morfine"
+                        "dexamethason"
+                        "dexamethason"
+                        "Amoxicilline/Clavulaanzuur"
+                        "doxapram"
+                    |]
+            }
+
+            test "a GPKs cell keeps only the numbers" {
+                selectors[1].Gpks |> Expect.equal "x is not a GPK" [| 4 |]
+            }
+
+            test "a row with HPKs drops its GPKs" {
+                selectors[2]
+                |> fun s -> s.Gpks, s.Hpks
+                |> Expect.equal "HPKs before GPKs" ([||], [| 21 |])
+            }
+
+            test "the product name is the AltName, else the GStand name, else the Generic" {
+                productNames
+                |> Map.toList
+                |> Expect.equal
+                    "an AltName of a parenteral product is not used"
+                    [ 1, "morfine"; 2, "morfine drank"; 3, "dexamethason"; 6, "nacl" ]
+            }
+
+            test "a route maps by its short Dutch name, case insensitive" {
+                "IV"
+                |> DoseRuleSelection.mapRoute mappings
+                |> Expect.equal "intraveneus" (Some "INTRAVENEUS")
+            }
+
+            test "the dose rules select by name and route, by GPK and by HPK" {
+                selectors
+                |> DoseRuleSelection.selectGpks mappings productNames products.Values
+                |> Expect.equal
+                    "morfine iv by name, 4 by GPK, 2 by HPK, 5 by component name"
+                    [| 1; 2; 4; 5 |]
+            }
+
+            test "a product name that is an AltName is not selected by its G-Standaard name" {
+                [|
+                    {
+                        Component = "natriumchloride"
+                        RuleRoute = "iv"
+                        Gpks = [||]
+                        Hpks = [||]
+                    }
+                |]
+                |> DoseRuleSelection.selectGpks mappings productNames products.Values
+                |> Expect.isEmpty "the product name of 6 is nacl"
+            }
+        ]
     ]
 
 
@@ -615,6 +910,12 @@ module Build =
                 Id = gp.Id
                 ProductForm = gp.Form
                 Routes = gp.Route
+                GStandName = gp.Name
+                TradeProducts =
+                    gp.PrescriptionProducts
+                    |> Array.collect _.TradeProducts
+                    |> Array.map _.Id
+                    |> Array.distinct
             }
         )
         |> Array.distinctBy _.Id
@@ -622,16 +923,16 @@ module Build =
         |> Map.ofArray
 
 
-    /// The GPKs of the medication with a dilution rule, after printing the medications without a GPK.
-    let dilutionRuleGpks () =
+    /// The GPKs of the medication with a solution rule, after printing the medications without a GPK.
+    let solutionRuleGpks () =
         let urlId = dataUrlId ()
 
         match
-            Web.GoogleSheets.getCsvDataFromSheetSync urlId "DilutionRules",
+            Web.GoogleSheets.getCsvDataFromSheetSync urlId "SolutionRules",
             Web.GoogleSheets.getCsvDataFromSheetSync urlId "Formulary"
         with
         | Ok rules, Ok formulary ->
-            let meds = rules |> SheetData.parseDilutionMedications
+            let meds = rules |> SheetData.parseSolutionMedications
             let gpks = formulary |> SheetData.parseFormularyGpks
             let products = cacheProducts ()
 
@@ -644,21 +945,41 @@ module Build =
         | _, Error e -> invalidOp $"Cannot read the spreadsheet %s{urlId}: %A{e}"
 
 
-    /// Deletes the demo files and builds them for the given GPKs.
+    /// The GPKs of the cache products that a DoseRules row selects.
+    let doseRuleGpks () =
+        let urlId = dataUrlId ()
+        let read = Web.GoogleSheets.getCsvDataFromSheetSync urlId
+
+        match read "Formulary", read "DoseRules", read "Routes" with
+        | Ok formulary, Ok rules, Ok routes ->
+            rules
+            |> SheetData.parseDoseRuleSelectors
+            |> DoseRuleSelection.selectGpks
+                (routes |> SheetData.parseRouteMappings)
+                (formulary |> SheetData.parseProductNames)
+                (cacheProducts ()).Values
+        | Error e, _, _
+        | _, Error e, _
+        | _, _, Error e -> invalidOp $"Cannot read the spreadsheet %s{urlId}: %A{e}"
+
+
+    /// Deletes the demo files and builds the product and group files for the product GPKs and the
+    /// rule file for the rule GPKs.
     /// Calls the loaders that are not memoized, because the memoized ones keep the cache data of this session.
-    let createDemo gpks =
+    let createDemo productGpks ruleGpks =
         setProd false
         Json.clearCache true
 
-        printfn $"Creating the demo files for %i{gpks |> List.length} GPKs ..."
+        printfn $"Creating the product and group demo files for %i{productGpks |> List.length} GPKs ..."
         // the memoized get with a GPK list not used before reads the demo setting and creates the demo file
-        GenPresProduct.get gpks |> ignore
+        GenPresProduct.get productGpks |> ignore
 
-        GenPresProduct.getGPKS gpks
+        GenPresProduct.getGPKS productGpks
         |> ATCGroup.parse
         |> Json.cache (FilePath.groupCache true)
 
-        DoseRule._get gpks |> ignore
+        printfn $"Creating the rule demo file for %i{ruleGpks |> List.length} GPKs ..."
+        DoseRule._get ruleGpks |> ignore
         Substance._get () |> ignore
 
 
@@ -676,9 +997,13 @@ else
     if buildCache then Build.createCache ()
 
     if buildDemo then
-        let dilutionGpks = Build.dilutionRuleGpks ()
-        printfn $"Found %i{dilutionGpks.Length} GPKs with a dilution rule"
+        let solutionGpks = Build.solutionRuleGpks ()
+        printfn $"Found %i{solutionGpks.Length} GPKs with a solution rule"
 
-        dilutionGpks
-        |> DemoSelection.demoGpks scenarioGpks
-        |> Build.createDemo
+        let doseRuleGpks = Build.doseRuleGpks ()
+        printfn $"Found %i{doseRuleGpks.Length} GPKs selected by a dose rule"
+
+        let ruleGpks = solutionGpks |> DemoSelection.demoGpks scenarioGpks
+        let productGpks = doseRuleGpks |> DemoSelection.demoGpks ruleGpks
+
+        Build.createDemo productGpks ruleGpks

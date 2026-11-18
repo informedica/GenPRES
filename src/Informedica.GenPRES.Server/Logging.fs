@@ -15,7 +15,7 @@ open Serilog.Events
 open Serilog.Formatting
 
 
-// Server-specific logging message types and helpers
+/// The log messages of the server and the functions that log and render them.
 module ServerLogging =
 
     module Logging = Informedica.Logging.Lib.Logging
@@ -61,9 +61,8 @@ let getRecommendedLogPath (componentName: string option) =
     Path.Combine(logDir, fileName)
 
 
-/// Prunes old log files in `path`'s directory before a Serilog file sink is created there. Runs
-/// once per LoggerType actually used per process (SerilogLogging.buildLogger calls this once, at
-/// sink construction), not once per request as the AgentLogging-backed version did.
+/// Deletes the oldest .log files in the directory of path when it holds more than MAX_LOG_FILES.
+/// Runs once per logger type, when its file sink is built.
 let private pruneLogDirectory (path: string) =
     let dirAgent = FileDirectoryAgent.create ()
 
@@ -136,10 +135,8 @@ let loggingLevel =
     )
 
 
-/// Turns a Serilog ILogger into the domain-facing Logger record. The whole Event crosses as one
-/// scalar property: the thread that logs stores a reference and enqueues, and the text is
-/// rendered by the sink's formatter on the sink's own thread. That is safe because an Event and
-/// every message under it is immutable.
+/// Wraps a Serilog logger as a Logger record. Each Event is passed as one scalar property and
+/// rendered later on the thread of the sink; this is safe because an Event and its message are immutable.
 module SerilogBridge =
 
     /// The name of the one property a log event from the bridge carries.
@@ -173,11 +170,10 @@ module SerilogBridge =
         | _ -> None
 
 
-/// What a sink writes for a log event. Rendering happens here, on the sink's thread.
+/// Formats log events for the sinks. Formatting runs on the thread of the sink.
 module EventFormat =
 
-    /// The text of a message: the order, solver and formulary renderings the log analysis reads,
-    /// and the server's own messages.
+    /// Renders an order, solver, GenFORM or server message as text; any other message as "cannot format".
     let formatMessage: IMessage -> string =
         MessageFormatter.create
             [
@@ -189,12 +185,9 @@ module EventFormat =
                 typeof<ServerLogging.Message>, ServerLogging.formatMessage
             ]
 
-    /// The text and the type name of what a log event holds, rendered once however many sinks
-    /// ask for it: rendering is the expensive part of logging, a few milliseconds for a solver
-    /// event, and the file and the console both need the text. The text is kept as long as the
-    /// Event itself is alive and no longer. A formatter that throws still yields a line saying
-    /// so: Serilog drops an event whose formatter throws, and on this stream a dropped event is
-    /// a lost one.
+    /// Renders the text and the message type name of a log event once for all sinks, because rendering
+    /// a solver event takes milliseconds. The text is cached as long as the Event is alive. A formatter
+    /// that throws gives a line saying so, because Serilog would silently drop the event.
     type Renderer(format: IMessage -> string) =
 
         let texts = Runtime.CompilerServices.ConditionalWeakTable<Event, Lazy<string * string>>()
@@ -213,10 +206,9 @@ module EventFormat =
             | None -> logEvent.RenderMessage(), "LogEvent"
             | Some ev -> texts.GetValue(ev, renderEvent).Value
 
-    /// One compact JSON object per physical line: the time, the level, the type of the message
-    /// and its text. A line feed inside the text is escaped, so one event is always one line,
-    /// and `jq` reads the file as it is. An event whose text is blank writes nothing: the order
-    /// and solver renderings return a blank for the events they leave out on purpose.
+    /// Writes each event as one JSON line with the time, the level, the message type and the text.
+    /// Line feeds in the text are escaped, so one event is one line. An event with a blank text writes
+    /// nothing; the order and solver formatters return a blank for the events they skip.
     type JsonLines(renderer: Renderer) =
 
         interface ITextFormatter with
@@ -258,14 +250,12 @@ module EventFormat =
                     output.WriteLine text
 
 
-/// One Serilog sink per LoggerType, built lazily so a LoggerType that never logs never creates
-/// a sink or a file. Both Console and File sinks are always active - Console for the terminal a
-/// developer is watching, File for the persistent record.
+/// Builds one Serilog logger per LoggerType, lazily, so an unused logger type creates no file.
+/// Each logger writes to a file, the record, and to the console, for the developer.
 module SerilogLogging =
 
-    /// The logger that writes to the file at `path`. Each sink sits behind its own queue and
-    /// thread, so the thread that logs only enqueues, and a slow terminal can stall neither the
-    /// file nor a request.
+    /// Builds a logger that writes to the file at path and to the console. Each sink has its own queue
+    /// and thread, so a slow console stalls neither the file nor a request.
     let buildLoggerAt (path: string) (level: Level) : Serilog.Core.Logger =
         // one renderer for both sinks, so that an event is rendered once
         let renderer = EventFormat.Renderer EventFormat.formatMessage
@@ -274,9 +264,8 @@ module SerilogLogging =
             .MinimumLevel.Is(level |> SerilogBridge.toSerilogLevel)
             .Destructure.AsScalar<Event>()
             // The file is the record and must not lose an event, so a full queue blocks the
-            // caller instead of dropping. The queue is large, which makes that rare: the agent
-            // logger this replaced queued without a bound and never blocked. The price is
-            // memory: a stalled disk can hold this many events, each with the order it is about.
+            // caller instead of dropping. The large queue makes that rare, at the cost of memory:
+            // a stalled disk can hold 100,000 events in memory.
             .WriteTo.Async(
                 (fun a -> a.File(EventFormat.JsonLines renderer, path) |> ignore),
                 bufferSize = 100_000,
@@ -308,14 +297,13 @@ module SerilogLogging =
                 (lazyLogger.Value |> fst :> IDisposable).Dispose()
 
 
-/// Built once, at the fixed startup level; `None` when GENPRES_LOG is unset. Every call site
-/// reads through this, never through `SerilogLogging.buildAll` directly, so there is exactly
-/// one map - and one set of files - per process.
+/// The loggers of the process, built once at the start-up level; None when GENPRES_LOG is unset or
+/// not one of d, i, w or e. All callers use this value, so a process has one set of log files.
 let serilogLoggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>> option =
     loggingLevel |> Option.map SerilogLogging.buildAll
 
 
-/// `Logging.noOp` when GENPRES_LOG is unset; otherwise the Serilog-backed Logger for that type.
+/// Returns the Serilog logger for the logger type, or the no-op logger when logging is off.
 let getLogger (loggerType: LoggerType) : Logger =
     match serilogLoggers with
     | None -> Informedica.Logging.Lib.Logging.noOp

@@ -1,9 +1,8 @@
 namespace Components
 
 
-/// A field to search a list by text: what is typed narrows the list as it is typed, and the
-/// cross empties it. It holds no list and knows no matching; it tells the caller the text and
-/// the caller decides what matches.
+/// A text field to search a list. It passes every change of the text to the caller, which decides
+/// what matches; the clear button empties the text.
 module SearchField =
 
 
@@ -12,7 +11,7 @@ module SearchField =
     open Feliz
 
 
-    /// The field: its label, the text in it, what typing does, and whether it can be used.
+    /// The label, the text, the change handler, and whether the field is disabled.
     type Props =
         {|
             label: string

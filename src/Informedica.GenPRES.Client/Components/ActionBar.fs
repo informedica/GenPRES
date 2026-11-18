@@ -1,11 +1,8 @@
 namespace Components
 
 
-/// The buttons a page or a dialog ends in, placed by what they do rather than by hand: the
-/// action that completes the task is the prominent one and goes on the right; an action that
-/// discards or steps back is secondary and goes on the left; an action that destroys is set
-/// apart from both. Every button is bounded, never full-width, so it is not where you click
-/// by default.
+/// The row of action buttons at the end of a page or a dialog, placed by kind: primary actions on
+/// the right, destructive and secondary actions on the left. Every button is as wide as its label.
 module ActionBar =
 
 
@@ -13,13 +10,12 @@ module ActionBar =
     open Feliz
 
 
-    /// What an action does to the task, which decides how and where its button is drawn.
+    /// The kind of an action, which sets the style and the place of its button.
     [<RequireQualifiedAccess>]
     type Kind =
         /// Completes the task: OK, submit, sign, add to the plan. Contained, on the right.
         | Primary
-        /// Discards or steps back without completing: reset, cancel, close. Outlined, on the
-        /// left.
+        /// Does not complete the task: reset, cancel, close, edit. Outlined, on the left.
         | Secondary
         /// Removes something that exists: delete, remove from the plan. Text in the error
         /// colour, on the left and apart from the secondary actions.
@@ -51,9 +47,8 @@ module ActionBar =
         | Kind.Destructive -> "error"
 
 
-    /// One action as a button, drawn by its kind. Bounded: it is as wide as its label. A click
-    /// leaves the focus where it is, so a field being typed in is not left by it: its blur would
-    /// otherwise start a request before the click, and the action would come while it runs.
+    /// Renders an action as a button styled by its kind. A mouse press does not move the focus,
+    /// so a field being edited does not blur and start a request before the click arrives.
     [<JSX.Component>]
     let ActionButton (props: Action) =
         let onClick = fun _ -> props.onClick ()
@@ -77,8 +72,8 @@ module ActionBar =
         """
 
 
-    // the full width, so the bar has room to put the primary action on the right wherever it
-    // sits: a lone child of a flex container such as CardActions does not stretch by itself
+    // Full width, so the primary actions can sit on the right; a lone child of a flex container
+    // such as CardActions does not stretch by itself.
     let private barSx =
         {|
             display = "flex"

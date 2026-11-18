@@ -3,22 +3,16 @@ namespace ServerApi
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// The order context mapper: the contract model to the domain's Dto and back. The Dto is the
-/// plan context's, since the contract model carries the id, the category and the intake the
-/// plan gave the context.
+/// Maps an order context of the contract to the plan context Dto of GenORDER and back.
 module OrderContextMapper =
 
-    /// The marked-up text the domain holds, from the items the client shows: bold between #,
-    /// italic between |, the rest as it is. The markup has no escape, on this side or in
-    /// Mappers.parseTextItem: a # or | inside an item's text is not representable. That
-    /// never arises, since the client authors no item; every item is what the parser cut from
-    /// the domain's text, so none holds a delimiter, and on those render is the parser's
-    /// inverse. A domain text that needs a literal delimiter is the markup grammar's to solve,
-    /// in the printer that writes it.
+    /// Writes text items as marked-up text: bold between # and italic between |. The markup has
+    /// no escape, so an item cannot contain # or |. The items come from Mappers.parseTextItem,
+    /// so they never do.
     module TextItem =
 
         let render (items: TextItem[]) =
@@ -76,8 +70,7 @@ module OrderContextMapper =
         dt |> Mappers.mapFromSharedDoseTypeToOrderDoseType |> DoseTypeDto.toString
 
 
-    /// The Dto's dose type string as the contract model's case; the Dto writes what it reads,
-    /// so a string it does not read is a dose type that is none.
+    /// Maps a dose type string to a dose type. An unknown string gives NoDoseType.
     let doseTypeBack (s: string) =
         s
         |> DoseTypeDto.fromString
@@ -85,7 +78,7 @@ module OrderContextMapper =
         |> Mappers.mapFromOrderDoseTypeToSharedDoseType
 
 
-    /// The component selection as the Dto stores it: none when no selection is made.
+    /// Maps a component selection to the Dto. All components gives None.
     let componentSelection =
         function
         | ComponentSelection.AllComponents -> None
@@ -122,9 +115,8 @@ module OrderContextMapper =
             }
 
 
-    /// The Dto's block as the contract model's: the kind as the Dto writes it, the text parsed
-    /// into items. A kind the Dto does not write throws, since showing it as valid would hide a
-    /// signal.
+    /// Maps a text block Dto to a text block. Throws InvalidOperationException for an unknown
+    /// kind, because showing the block as valid would hide a warning.
     let textBlockBack (dto: TextBlockDto.Dto) : TextBlock =
         let items = dto.Text |> Mappers.parseTextItem
 
@@ -183,8 +175,8 @@ module OrderContextMapper =
         }
 
 
-    /// A scenario with its order as the domain's Dto, numbered by its place, the text blocks
-    /// as marked-up text. Total: an order that cannot be created is fromDto's to report.
+    /// Maps a scenario to the scenario Dto with number no. The order is not checked here;
+    /// OrderScenario.Dto.fromDto returns OrderNotCreated for an invalid order.
     let scenario no (sc: OrderScenario) : ScenarioDto.Dto =
         {
             No = no
@@ -248,7 +240,7 @@ module OrderContextMapper =
              |> Option.bind Patient.accessBack)
 
 
-    /// The totals as the domain's Dto: each line as marked-up text, an empty one as none.
+    /// Maps the totals to the Dto. An empty line gives None.
     let totals (t: Totals) : TotalsDto.Dto =
         let line (items: TextItem[]) =
             if items |> Array.isEmpty then
@@ -301,16 +293,15 @@ module OrderContextMapper =
         }
 
 
-    /// Total: the contract model's order context as the plan context's Dto, nothing dropped,
-    /// the argumentation and the link as written.
-    let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
+    /// Maps an order context to the plan context Dto. The weight and height get the date today.
+    let ofModel today (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
             Category = ctx.Category |> Category.toDomain |> OrderCategoryDto.toString
             Context =
                 {
                     Filter = ctx.Filter |> filter
-                    Patient = ctx.Patient |> Patient.ofModel
+                    PatientData = ctx.PatientData |> Patient.ofModel today
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
@@ -319,9 +310,8 @@ module OrderContextMapper =
         }
 
 
-    /// The plan context's Dto as the contract model's order context, built from the Dto alone;
-    /// the demo flag is the server's. A category string the Dto does not write shows as a medication;
-    /// the argumentation and the link are the Dto's, each none when the Dto has none.
+    /// Maps a plan context Dto to an order context with the demo flag of the server. An unknown
+    /// category gives Medication.
     let toModel (demo: bool) (dto: PlanContextDto.Dto) : OrderContext =
         {
             Id = dto.Id
@@ -332,7 +322,7 @@ module OrderContextMapper =
                 |> Category.ofDomain
             DemoVersion = demo
             Filter = dto.Context.Filter |> filterBack
-            Patient = dto.Context.Patient |> Patient.toModel
+            PatientData = dto.Context.PatientData |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
             Totals = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation
@@ -340,16 +330,14 @@ module OrderContextMapper =
         }
 
 
-    /// The command verb from the wire as the domain's command over a context: the table the
-    /// order context service keeps today, moved here so that the port receives the domain
-    /// command.
+    /// Maps an order view command of the contract to an order context command of GenORDER.
     module Command =
 
         module Domain = Informedica.GenOrder.Lib.OrderContext
         module Ctx = Informedica.GenPRES.Shared.Models.OrderContext
 
 
-        /// The domain's filter field for the wire's.
+        /// Maps a filter field to GenORDER.
         let field (f: Ctx.FilterField) =
             match f with
             | Ctx.Indication -> FilterField.Indication
@@ -359,10 +347,8 @@ module OrderContextMapper =
             | Ctx.DoseType -> FilterField.DoseType
 
 
-        /// The property commands for a wire target: the one that sets its nth value and the one
-        /// that recalculates it; None for a field that is never recalculated: the frequency, the
-        /// orderable dose quantity and rate, a component quantity and an item's concentration in its
-        /// component.
+        /// Returns the command that sets the nth value of a target and the command that
+        /// recalculates it. The second is None for a value that is never recalculated.
         let propertyCommands (t: Ctx.Target) =
             match t with
             | Ctx.Target.Schedule ScheduleProperty.Frequency -> SetNthScheduleFrequency, None
@@ -394,7 +380,7 @@ module OrderContextMapper =
                     (fun n -> SetNthItemOrderableQuantity(c, i, n)), Some(ReCalcItemOrderableQuantity(c, i))
 
 
-        /// The domain's source of a seed for the wire's.
+        /// Maps a seed source to GenORDER.
         let seedSource (source: SeedSource) =
             match source with
             | SeedSource.Url -> Informedica.GenOrder.Lib.Types.SeedSource.Url
@@ -404,7 +390,9 @@ module OrderContextMapper =
             | SeedSource.Reload -> Informedica.GenOrder.Lib.Types.SeedSource.Reload
 
 
-        /// The command verb over a context of this category as the domain's command.
+        /// Maps an order view command to the GenORDER command for an order context of the
+        /// category. Throws ArgumentException for SetArgumentationProperty, which the server
+        /// handles itself.
         let toDomain
             category
             (cmd: Informedica.GenPRES.Shared.Api.OrderViewCommand)
@@ -507,7 +495,7 @@ module OrderContextMapper =
                 invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
-    /// The server's words for a link the plan refuses, naming the main order.
+    /// Returns the message for a link error.
     let linkWords =
         function
         | LinkError.NoSuchMainOrder main -> $"The main order %s{main} is not in the plan"
@@ -516,18 +504,17 @@ module OrderContextMapper =
         | LinkError.MainOrderRequired -> "This order is only prescribed with its main order"
 
 
-    /// The server's words for a reason the contract model is no plan context. Only the
-    /// patient's can come from the client's panel; the rest name a Dto from elsewhere.
+    /// Returns the message for a Dto error.
     let words =
         function
-        | DtoError.Patient e -> Patient.words e
+        | DtoError.PatientData s -> s
+        | DtoError.PatientDataNotEnough e -> e |> Patient.notEnoughMessage
         | DtoError.OrderNotCreated m -> $"De order kon niet worden gemaakt: %s{m}"
         | DtoError.UnknownDoseType s -> $"Onbekend doseertype: %s{s}"
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
         | DtoError.Unreadable m -> $"Onleesbare tekst: %s{m}"
-        | DtoError.EhrData m -> $"Onleesbare EPD-gegevens: %s{m}"
         | DtoError.NotANumber(p, s) -> $"Geen getal in %s{p}: %s{s}"
         | DtoError.UnknownUnit(p, u) -> $"Onbekende eenheid in %s{p}: %s{u}"
         | DtoError.WrongUnit(p, r) -> $"Verkeerde eenheid in %s{p}: %s{r}"

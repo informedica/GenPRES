@@ -28,7 +28,7 @@ module PickPolicy =
         | At of int
         /// The field emptied.
         | Cleared
-        /// A value the options do not hold: a bug, which sends nothing.
+        /// A value that is not in the options: a bug, which sends nothing.
         | NotOffered
 
 
@@ -39,7 +39,7 @@ module PickPolicy =
             Disabled: bool
             /// The key shown as chosen.
             Selected: string option
-            /// Whether the field offers the cross that clears it.
+            /// Whether the field shows a clear button.
             CanClear: bool
         }
 
@@ -62,7 +62,7 @@ module PickPolicy =
                 CanClear = false
             }
         | options ->
-            // a chosen key the options no longer hold is not shown as chosen
+            // A chosen key that is no longer in the options is not shown as chosen.
             let selected = pick.Chosen |> Option.filter (fun k -> options |> Array.contains k)
 
             {
@@ -76,7 +76,7 @@ module PickPolicy =
     let acceptsChange (pick: Pick) = (offer pick).Disabled |> not
 
 
-    /// Where the value picked lies in the options; an emptied field is cleared.
+    /// Returns the position of the picked value in the options; Cleared when nothing is picked.
     let position (options: 'a[]) (picked: 'a option) =
         match picked with
         | None -> Position.Cleared
@@ -86,8 +86,8 @@ module PickPolicy =
             | None -> Position.NotOffered
 
 
-    /// The command of a pick, built from the position of the value in the options, or from none for a field
-    /// emptied; none for a value the options do not hold.
+    /// Builds the command of a pick from the position of the value in the options, or from None for an
+    /// emptied field. Returns None for a value that is not in the options.
     let command toCommand options picked =
         match position options picked with
         | Position.At n -> Some(toCommand (Some n))
@@ -95,8 +95,8 @@ module PickPolicy =
         | Position.NotOffered -> None
 
 
-    /// The command of a pick in a filter field: the position of the value in the options, or a clear of the
-    /// field emptied; none for a value the options do not hold.
+    /// Returns the command of a filter field pick: set the value at its position, or clear the field when
+    /// emptied. Returns None for a value that is not in the options.
     let filterCommand field options picked =
         let toCommand n =
             match n with
@@ -106,8 +106,8 @@ module PickPolicy =
         command toCommand options picked
 
 
-    /// The command of a diluent pick: the position of the diluent in the options, or a clear of the diluent
-    /// emptied; none for a diluent the options do not hold.
+    /// Returns the command of a diluent pick: set the diluent at its position, or clear the diluent when
+    /// emptied. Returns None for a diluent that is not in the options.
     let diluentCommand options picked =
         let toCommand n =
             match n with

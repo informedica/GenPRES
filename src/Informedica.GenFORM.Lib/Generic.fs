@@ -15,6 +15,5 @@ module Generic =
     let toString gen = gen.Label |> GenericLabel.toString
 
 
-    /// The base generic substance name (no form/brand qualifier), for external
-    /// lookups such as the G-Standaard. See [[GenericLabel.genericName]].
+    /// Returns the generic substance name without form or brand, used for lookups such as the G-Standaard.
     let genericName gen = gen.Label |> GenericLabel.genericName

@@ -1,9 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
 
-/// Helper functions to
-/// facilitate the use of the
-/// Informedica.GenSolver.Lib
+/// Functions that map order equations to GenSOLVER equations and solve them.
 module Solver =
 
     open Informedica.GenSolver.Lib.Types
@@ -18,10 +16,7 @@ module Solver =
     module Api = Informedica.GenSolver.Lib.Api
 
 
-    /// <summary>
-    /// Map a list of OrderEquations to a list of Equations
-    /// </summary>
-    /// <param name="eqs">The list of OrderEquations</param>
+    /// Maps order equations to solver equations. Every variable in the result accepts only values above zero.
     let mapToSolverEqs eqs =
         eqs
         |> List.map (fun eq ->
@@ -32,15 +27,8 @@ module Solver =
         |> List.map Equation.nonZeroOrNegative
 
 
-    /// <summary>
-    /// Map a list of Equations to a list of OrderEquations
-    /// using a list of original OrderEquations
-    /// </summary>
-    /// <param name="eqs">The original list of OrderEquations</param>
-    /// <param name="ordEqs">The list of Equations</param>
-    /// <returns>
-    /// The new list of OrderEquations
-    /// </returns>
+    /// Returns the order equations ordEqs with each variable replaced by the solver variable with the same name
+    /// from the solver equations eqs. Throws when a variable name is missing from eqs.
     let mapToOrderEqs ordEqs eqs =
         let vars = eqs |> List.collect Equation.toVars
 
@@ -55,9 +43,9 @@ module Solver =
         )
 
 
-    /// Shorthand for Api.solveAll true
+    /// Solves the equations on the minimum, increment and maximum of each variable only.
     let solveMinMax = Api.solveAll true
 
 
-    /// Shorthand for Api.solveAll false
+    /// Solves the equations on the value sets as well as on the minimum, increment and maximum.
     let solve = Api.solveAll false

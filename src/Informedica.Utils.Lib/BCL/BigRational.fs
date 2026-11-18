@@ -108,6 +108,19 @@ module BigRational =
     let toDecimal = toFloat >> decimal
 
 
+    /// Convert a bigrational to a string
+    let toString v = (v |> id).ToString()
+
+
+    /// The text that the format function makes of the decimal of a BigRational.
+    /// A value beyond the range of a decimal is written as its fraction.
+    let formatDecimal format br =
+        try
+            br |> toDecimal |> format
+        with :? OverflowException ->
+            br |> toString
+
+
     /// Get the denominator of a BigRational
     let denominator (br: BigRational) = br.Denominator
 
@@ -119,10 +132,6 @@ module BigRational =
     //----------------------------------------------------------------------------
     // String functions
     //----------------------------------------------------------------------------
-
-
-    /// Convert a bigrational to a string
-    let toString v = (v |> id).ToString()
 
 
     /// Convert an optional BigRational to a string.

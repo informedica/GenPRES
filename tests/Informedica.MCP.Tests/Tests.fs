@@ -10,6 +10,10 @@ module Tests =
     open Expecto.Flip
     open Serilog.Events
     open Serilog.Formatting
+
+
+    /// The date of every weight and height in these tests.
+    let today = DateTime(2026, 1, 1)
     open Serilog.Parsing
     open Informedica.Logging.Lib
     open Informedica.MCP.Lib
@@ -175,7 +179,7 @@ module Tests =
 
                     test "createOrderContext refuses before touching the provider when the input is no patient" {
                         { emptyInput with AgeMonths = None }
-                        |> createOrderContext unusedProvider
+                        |> createOrderContext today unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
 
@@ -189,7 +193,7 @@ module Tests =
                             WeightKg = Some 12.0
                             HeightCm = None
                         }
-                        |> getFilterOptions unusedProvider
+                        |> getFilterOptions today unusedProvider
                         |> Expect.isError "should refuse without building the options"
                     }
 
@@ -198,7 +202,7 @@ module Tests =
                             AgeMonths = None
                             HeightCm = Some 86.0
                         }
-                        |> getOrderScenarios unusedProvider
+                        |> getOrderScenarios today unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
                 ]
@@ -243,6 +247,7 @@ module Tests =
         open Informedica.GenOrder.Lib
         open Informedica.MCP.Lib.GenOrderTools
 
+        /// The fixed date of every weight and height in these tests.
         /// The departments the tests prescribe for: two named by rules, the default among them.
         let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
 
@@ -269,7 +274,7 @@ module Tests =
                 member _.GetEnteralFeeding() = raise (NotImplementedException())
                 member _.GetProducts() = raise (NotImplementedException())
                 member _.GetDoseRules() = raise (NotImplementedException())
-                member _.GetDilutionRules() = raise (NotImplementedException())
+                member _.GetSolutionRules() = raise (NotImplementedException())
                 member _.GetRenalRules() = raise (NotImplementedException())
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
@@ -300,7 +305,7 @@ module Tests =
                 member _.GetEnteralFeeding() = raise (NotImplementedException())
                 member _.GetProducts() = raise (NotImplementedException())
                 member _.GetDoseRules() = [||]
-                member _.GetDilutionRules() = [||]
+                member _.GetSolutionRules() = [||]
                 member _.GetRenalRules() = [||]
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
@@ -401,7 +406,7 @@ module Tests =
                     test "the checked department is the one the patient is built with" {
                         { measured with Department = Some "neo" }
                         |> checkDepartment departments
-                        |> Result.map (buildPatient departmentsOnly >> Patient.getDepartment)
+                        |> Result.map (buildPatient today departmentsOnly >> Patient.getDepartment)
                         |> Expect.equal "NEO on the patient" (Ok(Some "NEO"))
                     }
 
@@ -410,14 +415,14 @@ module Tests =
                         // the domain's refusal, not the department's, which proves the guard
                         // let the department through and the patient was built with it
                         { measured with Department = Some "neo" }
-                        |> evaluateOrderContext emptyRules
+                        |> evaluateOrderContext today emptyRules
                         |> Result.mapError (fun msg -> msg.Contains "Unknown department")
                         |> Expect.equal "refused for lack of rules, not for the department" (Error false)
                     }
 
                     test "evaluateOrderContext gives the reason of the refusal" {
                         measured
-                        |> evaluateOrderContext emptyRules
+                        |> evaluateOrderContext today emptyRules
                         |> Result.mapError _.StartsWith("Failed to evaluate order context: no dose rule")
                         |> Expect.equal "the reason of the refusal" (Error true)
                     }
@@ -433,7 +438,7 @@ module Tests =
 
                         let filter =
                             input
-                            |> buildPatient departmentsOnly
+                            |> buildPatient today departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
                             |> applyFilters input
                             |> _.Filter
@@ -447,7 +452,7 @@ module Tests =
                     test "applyFilters leaves out the filters the input does not name" {
                         let ctx =
                             measured
-                            |> buildPatient departmentsOnly
+                            |> buildPatient today departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
 
                         let filter = ctx |> applyFilters { measured with Generic = None } |> _.Filter
@@ -470,14 +475,14 @@ module Tests =
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
-                        |> getFilterOptions emptyRules
+                        |> getFilterOptions today emptyRules
                         |> Result.map (fun o -> o.Generics, o.Routes, o.Indications, o.Forms, o.DoseTypes)
                         |> Expect.equal "the options, all empty" (Ok([||], [||], [||], [||], [||]))
                     }
 
                     test "evaluateOrderContext refuses an unknown department before reading any rule" {
                         { measured with Department = Some "PICU" }
-                        |> evaluateOrderContext departmentsOnly
+                        |> evaluateOrderContext today departmentsOnly
                         |> Expect.isError "should refuse without evaluating"
                     }
 
@@ -487,7 +492,7 @@ module Tests =
                             HeightCm = None
                             Department = Some "PICU"
                         }
-                        |> evaluateOrderContext unusedProvider
+                        |> evaluateOrderContext today unusedProvider
                         |> Result.mapError (fun msg -> msg.Contains "HeightCm")
                         |> Expect.equal "the patient, not the department" (Error true)
                     }
@@ -498,8 +503,25 @@ module Tests =
 
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
-        open Informedica.GenOrder.Lib.Patient.Optics
+        open Informedica.GenOrder.Lib.Patient.AgeParts
         open Informedica.MCP.Lib.GenOrderTools
+
+        module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+        module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+        module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+        module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+
+        /// The fixed date of every weight and height in these tests.
+
+        let private weightMeasured (pat: PatientData) = pat.Weight |> CoreWeight.isMeasured
+
+        let private heightMeasured (pat: PatientData) = pat.Height |> CoreHeight.isMeasured
+
+        let private kg = CoreWeightValue.weightInKg >> Some
+
+        let private gram = CoreWeightValue.weightInGram >> Some
+
+        let private cm = CoreHeightValue.heightInCm >> Some
 
         /// A provider that answers the given normal-value rows and the departments and nothing
         /// else: an evaluation that reaches a rule raises, so a refusal proves the guard ran first.
@@ -526,7 +548,7 @@ module Tests =
                 member _.GetEnteralFeeding() = raise (NotImplementedException())
                 member _.GetProducts() = raise (NotImplementedException())
                 member _.GetDoseRules() = raise (NotImplementedException())
-                member _.GetDilutionRules() = raise (NotImplementedException())
+                member _.GetSolutionRules() = raise (NotImplementedException())
                 member _.GetRenalRules() = raise (NotImplementedException())
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
@@ -563,21 +585,25 @@ module Tests =
                 "the estimate at the MCP host"
                 [
                     test "an age and a sex alone build a patient with the weight and height the client shows" {
-                        let pat = ageAlone |> buildPatient tablesOnly
+                        let pat = ageAlone |> buildPatient today tablesOnly
 
-                        (pat |> Patient.getWeight, pat |> Patient.getHeight, pat.WeightMeasured, pat.HeightMeasured)
+                        (pat |> Patient.getWeight,
+                         pat |> Patient.getHeight,
+                         pat |> weightMeasured,
+                         pat |> heightMeasured)
                         |> Expect.equal
                             "twelve kilograms, 87 centimetres, estimated"
-                            (Some(Gram 12000), Some(Centimeter 87), false, false)
+                            (gram 12000m, cm 87m, false, false)
                     }
 
                     test "a measure given stays measured, the other estimated" {
-                        let pat = { ageAlone with WeightKg = Some 14.0 } |> buildPatient tablesOnly
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> buildPatient today tablesOnly
 
-                        (pat |> Patient.getWeight, pat.WeightMeasured, pat |> Patient.getHeight, pat.HeightMeasured)
-                        |> Expect.equal
-                            "fourteen measured, 87 estimated"
-                            (Some(Gram 14000), true, Some(Centimeter 87), false)
+                        (pat |> Patient.getWeight,
+                         pat |> weightMeasured,
+                         pat |> Patient.getHeight,
+                         pat |> heightMeasured)
+                        |> Expect.equal "fourteen measured, 87 estimated" (kg 14m, true, cm 87m, false)
                     }
 
                     test "both measures given, nothing is estimated" {
@@ -586,53 +612,56 @@ module Tests =
                                 WeightKg = Some 14.0
                                 HeightCm = Some 90.0
                             }
-                            |> buildPatient tablesOnly
+                            |> buildPatient today tablesOnly
 
-                        (pat.WeightMeasured, pat.HeightMeasured) |> Expect.equal "measured" (true, true)
+                        (pat |> weightMeasured, pat |> heightMeasured)
+                        |> Expect.equal "measured" (true, true)
                     }
 
                     test "no sex: the estimate is the average of the two, as the client's" {
                         { ageAlone with Sex = None }
-                        |> buildPatient tablesOnly
+                        |> buildPatient today tablesOnly
                         |> Patient.getWeight
-                        |> Expect.equal "eleven and a half kilograms" (Some(Gram 11500))
+                        |> Expect.equal "eleven and a half kilograms" (gram 11500m)
                     }
 
                     test "without an age nothing is estimated" {
-                        let pat = { ageAlone with AgeMonths = None } |> buildPatient tablesOnly
+                        let pat = { ageAlone with AgeMonths = None } |> buildPatient today tablesOnly
 
-                        (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
+                        (pat |> Patient.getWeight, pat |> Patient.getHeight)
+                        |> Expect.equal "none" (None, None)
                     }
 
                     test "a child's age alone while the tables are not loaded is refused, naming the weight" {
                         ageAlone
-                        |> evaluateOrderContext noTables
+                        |> evaluateOrderContext today noTables
                         |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg" ]))
                     }
 
                     test "a child with a weight and no height while the tables are not loaded passes the check" {
                         { ageAlone with WeightKg = Some 14.0 }
-                        |> validPatient noTables
+                        |> validPatient today noTables
                         |> Result.isOk
                         |> Expect.isTrue "passes"
                     }
 
                     test "an adult without a weight and a height while the tables are not loaded passes the check" {
                         { ageAlone with AgeMonths = Some(40.0 * 12.0) }
-                        |> validPatient noTables
+                        |> validPatient today noTables
                         |> Result.isOk
                         |> Expect.isTrue "passes"
                     }
 
                     test "an adult of 40 gets no estimate" {
-                        let pat = { ageAlone with AgeMonths = Some(40.0 * 12.0) } |> buildPatient tablesOnly
+                        let pat = { ageAlone with AgeMonths = Some(40.0 * 12.0) } |> buildPatient today tablesOnly
 
-                        (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
+                        (pat |> Patient.getWeight, pat |> Patient.getHeight)
+                        |> Expect.equal "none" (None, None)
                     }
 
                     test "the tables loaded without a row for the sex are refused the same way" {
                         { ageAlone with Sex = Some "female" }
-                        |> evaluateOrderContext boysOnly
+                        |> evaluateOrderContext today boysOnly
                         |> Result.mapError (fun m -> m.Contains "hold no row")
                         |> Expect.equal "named as a missing row too" (Error true)
                     }
@@ -702,8 +731,16 @@ module Tests =
                     test "a medication without its diluent is not an empty success" {
                         Refused(1, Refusal.NoDiluent)
                         |> refusedAsError
-                        |> Result.mapError _.Contains("no diluent")
-                        |> Expect.equal "names the diluent" (Error true)
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
+                    }
+
+                    test "the undiluted reason does not say a diluent is missing" {
+                        let reason = refusalReason Refusal.NoDiluent
+
+                        [ "diluent"; "formulary"; "solution rule"; "must be diluted" ]
+                        |> List.filter reason.Contains
+                        |> Expect.isEmpty "no missing-diluent framing"
                     }
 
                     test "a medication without its diluent is an error through the tool path" {
@@ -718,9 +755,9 @@ module Tests =
                             Route = None
                             Form = None
                         }
-                        |> evaluateOrderContext (UndilutedVancomycin())
-                        |> Result.mapError _.Contains("no diluent")
-                        |> Expect.equal "names the diluent" (Error true)
+                        |> evaluateOrderContext today (UndilutedVancomycin())
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
                     }
                 ]
 

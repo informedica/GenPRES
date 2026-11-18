@@ -95,14 +95,14 @@ module SigningPolicy =
 
 
     /// The warning before the PIN, with the name of the patient being signed for if there is one.
-    let ehrMovedOnSentence (tr: Terms -> string) (who: NameAndBirthDate option) =
+    let ehrMovedOnSentence (tr: Terms -> string) (who: PatientIdentity option) =
         match who with
         | Some who -> tr Terms.``Signing Ehr Moved On`` |> TermText.fill [ who.Name ]
         | None -> tr Terms.``Signing Ehr Moved On Unnamed``
 
 
-    /// The warning before the PIN that names the orders of the plan not calculated on the current
-    /// patient data; none when every order is.
+    /// Returns the warning before the PIN that names the plan orders not calculated on the current patient
+    /// data; None when all orders are calculated on it.
     let notRecalculatedSentence (tr: Terms -> string) (plan: OrderPlan) =
         match
             Informedica.GenPRES.Shared.Models.OrderPlan.orders plan
@@ -122,7 +122,7 @@ module SigningPolicy =
         |> TermText.fill [ string head.No; head.By.DisplayName ]
 
 
-    /// One line of the data notice: what the plan holds beside what the EHR holds.
+    /// One line of the data notice: the plan value beside the EHR value.
     type NoticeRow =
         {
             Label: Terms
@@ -131,9 +131,9 @@ module SigningPolicy =
         }
 
 
-    /// The lines of the data notice: every field that differs. The age and the mark as an adult are
-    /// left out, since the EHR holds neither. An unverified notice has no lines.
-    let noticeRows (tr: Terms -> string) (patient: Patient) (notice: DataNotice) =
+    /// Returns the lines of the data notice, one for every field that differs. The age and the adult mark
+    /// are left out, because the EHR has neither. An unverified notice has no lines.
+    let noticeRows (tr: Terms -> string) (patient: PatientData) (notice: DataNotice) =
         let text value show = value |> Option.map show |> Option.defaultValue "-"
 
         let row label held ehr show =
@@ -149,8 +149,8 @@ module SigningPolicy =
 
         let height (c: int<cm>) = $"%i{int c} cm"
 
-        // a measured value, else the estimate; the kind counts as a difference, since taking the
-        // EHR's data can turn an estimate into a measurement of the same value
+        // A measured value, else the estimate. Whether it is measured counts as a difference, because
+        // taking the EHR data can turn an estimate into a measurement of the same value.
         let measure measured estimated =
             measured
             |> Option.map (fun v -> v, true)
@@ -179,7 +179,7 @@ module SigningPolicy =
                 |> List.map (PatientText.accessText (tr Terms.``Patient Enteral Tube``))
                 |> String.concat ", "
 
-        match notice.Data with
+        match notice.PatientData with
         | None -> []
         | Some ehr ->
             [
@@ -204,7 +204,7 @@ module SigningPolicy =
                     Terms.``Patient Renal Function``
                     patient.RenalFunction
                     ehr.RenalFunction
-                    RenalFunctionText.renalToOption
+                    (RenalFunctionText.term >> tr)
                 row Terms.``Patient Department`` patient.Department ehr.Department id
             ]
             |> List.choose id
@@ -212,7 +212,7 @@ module SigningPolicy =
 
     /// The sentence of the data notice: the EHR's data differ, or could not be verified.
     let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
-        match notice.Data with
+        match notice.PatientData with
         | Some _ -> tr Terms.``Signing Data Changed``
         | None -> tr Terms.``Signing Data Unverified``
 

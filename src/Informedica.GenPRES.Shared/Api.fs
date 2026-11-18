@@ -7,9 +7,9 @@ module Api =
     open Types
 
 
-    /// The commands of the order view, which the order context being worked on and the plan both
-    /// take: the selection, the reset, and the stepping of the frequency, the dose quantity, the
-    /// dose rate and a component quantity.
+    /// The commands that change an order context, both for a single order context and for an order
+    /// context in the plan. They select options and scenarios, set, step or recalculate values,
+    /// reset the scenario and write the argumentation.
     [<RequireQualifiedAccess>]
     type OrderViewCommand =
         | ResetOrderScenario
@@ -25,7 +25,7 @@ module Api =
         | SetMinOrderableDoseQuantityProperty
         | SetMaxOrderableDoseQuantityProperty
         | SetMedianOrderableDoseQuantityProperty
-        /// The dose quantity at a percentage of its range.
+        /// Sets the dose quantity to a percentage of its range.
         | SetOrderableDoseQuantityPercProperty of perc: int
         // DoseRate property commands (ntimes = number of times to adjust, useCalc = use calculated increment)
         | DecreaseOrderableDoseRateProperty of ntimes: int * useCalc: bool
@@ -33,28 +33,29 @@ module Api =
         | SetMinOrderableDoseRateProperty
         | SetMaxOrderableDoseRateProperty
         | SetMedianOrderableDoseRateProperty
-        // Component Quantity property commands (cmp = component, ntimes = number of times to adjust, useCalc = use calculated increment)
+        // Component quantity property commands (cmp = component, ntimes = number of times to adjust,
+        // useCalc = use calculated increment)
         | DecreaseComponentOrderableQuantityProperty of cmp: string * ntimes: int * useCalc: bool
         | IncreaseComponentOrderableQuantityProperty of cmp: string * ntimes: int * useCalc: bool
         | SetMinComponentOrderableQuantityProperty of cmp: string
         | SetMaxComponentOrderableQuantityProperty of cmp: string
         | SetMedianComponentOrderableQuantityProperty of cmp: string
-        /// A filter field set to its nth option, counted from 0.
+        /// Sets a filter field to its nth option, counted from 0.
         | SetNthFilterProperty of field: Models.OrderContext.FilterField * nth: int
-        /// A filter field emptied, with the choices below it.
+        /// Clears a filter field and the filter choices that come after it.
         | ClearFilterProperty of field: Models.OrderContext.FilterField
-        /// The whole filter emptied.
+        /// Clears the whole filter.
         | ClearAllFilterProperty
-        /// The diluent set to its nth option, counted from 0.
+        /// Sets the diluent to its nth option, counted from 0.
         | SetNthDiluentProperty of nth: int
         | ClearDiluentProperty
-        /// The components at these positions of the options, counted from 0.
+        /// Sets the components to the options at these positions, counted from 0.
         | SetNthComponentsProperty of nth: int[]
-        /// The nth scenario, counted from 0, selected with its form.
+        /// Selects the nth scenario, counted from 0, and sets the filter form to its form.
         | SelectNthOrderScenario of nth: int
-        /// A schedule value set to its nth value, counted from 0.
+        /// Sets a schedule property to its nth value, counted from 0.
         | SetNthScheduleProperty of property: ScheduleProperty * nth: int
-        /// A schedule value recalculated.
+        /// Recalculates a schedule property.
         | ReCalcScheduleProperty of property: ScheduleProperty
         | SetNthOrderableProperty of property: OrderableProperty * nth: int
         | ReCalcOrderableProperty of property: OrderableProperty
@@ -62,10 +63,10 @@ module Api =
         | ReCalcComponentProperty of cmp: string * property: ComponentProperty
         | SetNthItemProperty of cmp: string * itm: string * property: ItemProperty * nth: int
         | ReCalcItemProperty of cmp: string * itm: string * property: ItemProperty
-        /// The argumentation the user writes for a deviation from the rules.
+        /// Sets the argumentation the user writes for a deviation from the rules.
         | SetArgumentationProperty of text: string
-        /// The filter's choices set from outside its own fields, by name, with the rule of their
-        /// source.
+        /// Sets the filter choices by name from outside the filter, such as from the url or a
+        /// medication list. The source decides how the choices are written.
         | SeedFilter of
             source: SeedSource *
             indication: string option *
@@ -74,9 +75,8 @@ module Api =
             form: string option *
             doseType: DoseType option
 
-    /// Every computing request: the command and the OpenedToken the Session holds.
-    /// `None` where there is none to send: no Session, an anonymous one, or a client acting
-    /// before its first token arrived.
+    /// A computing request: the command and the OpenedToken of the session. Opened is None when there
+    /// is no session, the session is anonymous or the client has not yet received its first token.
     type Request<'cmd> =
         {
             Opened: OpenedToken option
@@ -84,8 +84,8 @@ module Api =
         }
 
 
-    /// Every computing reply: the answer, and what the Session is told with it (the record
-    /// moved on, or the Session ended).
+    /// A computing reply: the response and an optional notice for the session, either a newer
+    /// version of the record or the end of the session.
     type Reply<'resp> =
         {
             Response: 'resp
@@ -95,10 +95,9 @@ module Api =
 
     module OrderViewCommand =
 
-        /// Whether the command changes the choices or the scenario of the context, so that the answer
-        /// carries the linked orders offered again; a value step keeps the scenario, so the answer carries
-        /// no offers. Both sides read it: the server computes the offers only for these commands, and the
-        /// client keeps the offers it holds for every other answer.
+        /// True when the command changes the filter choices or the scenario, so the answer carries the
+        /// linked orders again. The server computes linked orders only for these commands. For any other
+        /// command the client goes on using the linked orders of the previous answer.
         let offersLinked =
             function
             | OrderViewCommand.SetNthFilterProperty _
@@ -142,7 +141,7 @@ module Api =
             | OrderViewCommand.SetArgumentationProperty _ -> false
 
 
-        /// For the log: the command alone, never the context.
+        /// Returns the command as text for the log, without the context.
         let toString (cmd: OrderViewCommand, _: OrderContext) =
             match cmd with
             | OrderViewCommand.ResetOrderScenario -> "ResetOrderScenario"
@@ -194,7 +193,7 @@ module Api =
             | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
                 $"SetNthItemProperty cmp={cmp} itm={itm} %A{prop} nth=%i{n}"
             | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop) -> $"ReCalcItemProperty cmp={cmp} itm={itm} %A{prop}"
-            // never the text: it is the clinician's and stays out of the log
+            // The argumentation text is clinical content and stays out of the log.
             | OrderViewCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
             | OrderViewCommand.SeedFilter(source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
@@ -202,10 +201,9 @@ module Api =
         module Ctx = Models.OrderContext
 
 
-        /// The client's preview of a command while its request is under way: the context as the
-        /// command changes it; the context as it is when the command leaves it, as an index past the
-        /// values does, or a recalculation, whose field keeps its value until the answer. The
-        /// domain's answer replaces it.
+        /// Returns the context as the client expects it after the command, to show while the request runs.
+        /// Returns the context unchanged for a step, a reset, a recalculation or a value list without
+        /// values. Returns an error for an index past the options. The server answer replaces the preview.
         let preview (cmd: OrderViewCommand) (ctx: OrderContext) =
             let setNth target n =
                 ctx |> Ctx.setNth target n |> Result.map (Option.defaultValue ctx)
@@ -228,65 +226,63 @@ module Api =
             | _ -> Ok ctx
 
 
-    /// The order context command family, for the order context still being worked on: a command of
-    /// the order view over that context. New patient data have no case of their own: they empty the
-    /// context, which goes out as a clear of all filters over the empty context for the new patient.
-    /// The family has a single case and stays a union, so that every API member takes a named
-    /// command family, as the patient and launch families with their single case do, and a new
-    /// command over this context can be added as a case.
+    /// A command on an order context that is not in the plan. New patient data have no case: the client
+    /// sends ClearAllFilterProperty on an empty context with the new patient data. The type is a union
+    /// with one case so that every API function takes a named command type and a new command can be
+    /// added as a case.
     [<RequireQualifiedAccess>]
     type OrderContextCommand =
-        /// A command of the order view over the context as held.
+        /// Runs an order view command on the order context sent with it.
         | Command of OrderViewCommand * OrderContext
 
 
     module OrderContextCommand =
 
-        /// For the log: the command alone, never the context nor the patient.
+        /// Returns the command as text for the log, without the context or the patient data.
         let toString (OrderContextCommand.Command(cmd, ctx)) = OrderViewCommand.toString (cmd, ctx)
 
 
-    /// The patient command family: a patient change on the panel, answered with the patient made
-    /// complete.
+    /// Sends the patient data edited on the panel. The server answers with the patient data
+    /// completed with the estimates.
     [<RequireQualifiedAccess>]
-    type PatientCommand =
-        /// The patient as the panel changed it.
-        | ChangePatient of patient: Patient
+    type PatientDataCommand =
+        /// The patient data as edited on the panel.
+        | ChangePatientData of patientData: PatientData
 
 
-    module PatientCommand =
+    module PatientDataCommand =
 
-        /// For the log: the command alone, never the patient.
-        let toString (cmd: PatientCommand) =
+        /// Returns the command name for the log, without the patient data.
+        let toString (cmd: PatientDataCommand) =
             match cmd with
-            | PatientCommand.ChangePatient _ -> "ChangePatient"
+            | PatientDataCommand.ChangePatientData _ -> "ChangePatientData"
 
 
-    /// The launch command family. Cut from the session family at the authentication boundary:
-    /// a launch command arrives without a cookie. Room to grow: the identity callback.
+    /// The launch commands. A launch command arrives without a session cookie, so it is a separate
+    /// type from the session commands.
     [<RequireQualifiedAccess>]
     type LaunchCommand =
-        // idempotent per public key: a repeat from the same browser is answered as the first
-        // was; sets the session cookie on Opened
+        // Idempotent per public key: a repeat from the same browser gets the same answer as the first.
+        // Sets the session cookie when the answer is Opened.
         | PresentLaunch of Launch * PublicKey
 
 
-    /// The session command family, from the open Session on: always cookie-authenticated.
+    /// The session commands. They are authenticated by the session cookie.
     [<RequireQualifiedAccess>]
     type SessionCommand =
-        // the Session of this browser, if any (reload, IdP return)
+        // Returns the session of this browser, if any, after a reload or a return from the identity
+        // provider.
         | GetSession
-        // explicit close with the token of the tab; removes the cookie, unless the token is not the
-        // Session's own, so that a tab left behind cannot close the Session of another tab
+        // Closes the session with the token of the tab and removes the cookie. A token that is not the
+        // token of the session closes nothing, so an old tab cannot close the session of another tab.
         | CloseSession of OpenedToken option
-        // the confirmation code from the mail and the chosen PIN, for the attempt the
-        // enrolment cookie names
+        // Sends the confirmation code from the mail and the chosen PIN for the enrolment that the
+        // enrolment cookie names.
         | SupplyPin of code: string * pin: string
-        // the version named becomes what the Session opened with, which lifts the block on
-        // signing when it is the head; answered with the Session as it then is,
-        // `SessionResp None` where there is no Session, no User or no Patient
+        // Opens the session on the named version, which allows signing again when it is the latest
+        // version. Returns the session, or SessionResp None when there is no session, user or patient.
         | OpenVersion of id: string * OpenedToken option
-        // the EHR read again, with a fresh OpenedToken; answered as OpenVersion is
+        // Reads the EHR again and issues a new OpenedToken. Returns the same answer as OpenVersion.
         | Refresh of OpenedToken option
 
 
@@ -294,28 +290,29 @@ module Api =
     type SessionResponse =
         | SessionResp of SessionOpened option
         | SessionClosed
-        // the server ended the Session the cookie named, and deleted the cookie
+        // The server ended the session that the cookie names and deleted the cookie.
         | SessionEnded of SessionEnding
-        // the launch waits on a PIN; answered to GetSession while the attempt stands
+        // The launch waits for a PIN. GetSession returns this while the enrolment is open.
         | EnrolmentPending of EnrolmentPending
         | PinRefused of PinRefusal
-        // the token of the command is not the Session's own: nothing changed, the cookie stays
+        // The token of the command is not the token of the session. Nothing changed and the cookie
+        // stays.
         | InactiveTab
 
 
-    /// The signing command family: always cookie-authenticated, like the session family.
+    /// The signing commands. They are authenticated by the session cookie, like the session commands.
     [<RequireQualifiedAccess>]
     type SigningCommand =
-        // the plan as shown, the OpenedToken the Session holds, and the token of the data
-        // notice the User accepted, if one was told
+        // Asks for a signing challenge for the plan as shown, with the OpenedToken of the session and
+        // the token of the data notice the user accepted, if one was shown.
         | RequestSignChallenge of OrderPlan * OpenedToken * dataNotice: string option
-        // the signature: the challenge comes back with the PIN
+        // Submits the signature: the challenge together with the PIN.
         | Submit of Submission
 
 
     module LaunchCommand =
 
-        /// For the log. Never the Launch or the key: the Launch is a secret, the key is long.
+        /// Returns the command name for the log, without the Launch, which is a secret, or the long key.
         let toString cmd =
             match cmd with
             | LaunchCommand.PresentLaunch _ -> "PresentLaunch"
@@ -327,7 +324,7 @@ module Api =
             match cmd with
             | SessionCommand.GetSession -> "GetSession"
             | SessionCommand.CloseSession _ -> "CloseSession"
-            // never the code or the PIN
+            // The code and the PIN stay out of the log.
             | SessionCommand.SupplyPin _ -> "SupplyPin"
             | SessionCommand.OpenVersion _ -> "OpenVersion"
             | SessionCommand.Refresh _ -> "Refresh"
@@ -335,24 +332,24 @@ module Api =
 
     module SigningCommand =
 
-        /// For the log. Never the plan (long) or the PIN.
+        /// Returns the command name for the log, without the plan, which is long, or the PIN.
         let toString cmd =
             match cmd with
             | SigningCommand.RequestSignChallenge _ -> "RequestSignChallenge"
             | SigningCommand.Submit _ -> "Submit"
 
 
-    /// The admin command family: the password once, then the token it bought. Never
-    /// cookie-authenticated, and never behind the formulary being loaded, so a failed load can
-    /// be retried from the settings page.
+    /// The admin commands. ValidatePassword returns a token and the other commands need that token.
+    /// They need no cookie and work before the formulary is loaded, so a failed load can be retried
+    /// from the settings page.
     [<RequireQualifiedAccess>]
     type AdminCommand =
-        // answered with a token when the password is the server's; with nothing when the
-        // server has no password
+        // Returns a token when the password matches the server password. Returns isValid false when
+        // the server has no password.
         | ValidatePassword of password: string
         | ListLogFiles of token: string
         | AnalyzeLogFile of token: string * fileName: string
-        // reloads everything the resource provider holds
+        // Reloads all the resources of the resource provider.
         | ReloadResources of token: string
 
 
@@ -367,7 +364,8 @@ module Api =
 
     module AdminCommand =
 
-        /// For the log. Never the password or the token; the file name is not a secret.
+        /// Returns the command for the log, without the password or the token. The file name is logged
+        /// because it is not a secret.
         let toString cmd =
             match cmd with
             | AdminCommand.ValidatePassword _ -> "ValidatePassword"
@@ -376,26 +374,26 @@ module Api =
             | AdminCommand.ReloadResources _ -> "ReloadResources"
 
 
-    /// The interaction family: the drug names of the interaction source, and a check over the
-    /// drugs of a plan.
+    /// The interaction commands: check the interactions between the medications of a plan, or get the
+    /// medication names of the interaction source.
     [<RequireQualifiedAccess>]
     type InteractionCommand =
         | CheckInteractions of string list
-        // from the interaction source, not the formulary: served while the formulary is not loaded
+        // Reads the interaction source, not the formulary, so it works while the formulary is not loaded.
         | GetDrugNames
 
 
     /// The patient and the order contexts whose orders are counted in the totals; the plan is not changed.
     type TotalsQuery =
         {
-            Patient: Patient
+            PatientData: PatientData
             OrderContexts: OrderContext[]
         }
 
 
     module TotalsQuery =
 
-        /// For the log: the number of contexts, never the contexts.
+        /// Returns the number of contexts for the log, without the contexts.
         let toString (query: TotalsQuery) = $"TotalsQuery %i{query.OrderContexts.Length}"
 
 
@@ -407,41 +405,41 @@ module Api =
 
     module InteractionCommand =
 
-        /// For the log: never the drug list.
+        /// Returns the command name for the log, without the medication names.
         let toString cmd =
             match cmd with
             | InteractionCommand.CheckInteractions _ -> "CheckInteractions"
             | InteractionCommand.GetDrugNames -> "GetDrugNames"
 
 
-    /// The plan command family: the order plan, nutrition included.
+    /// The commands on the order plan, nutrition included.
     [<RequireQualifiedAccess>]
     type OrderPlanCommand =
-        // the patient updated: the plan recalculated for the patient the patient command answered;
-        // the patient of each context in it stays the one it was evaluated for
-        | UpdatePatient of Patient * OrderPlan
-        // the contexts the rows keep, by id: the totals recalculated over them
+        // Recalculates the plan for the patient data that the patient data command returned. Each
+        // order context keeps the patient data it was evaluated for.
+        | UpdatePatientData of PatientData * OrderPlan
+        // Limits the rows to the contexts with these ids and recalculates the totals over them.
         | FilterRows of ids: string[] * OrderPlan
-        // an order-context command evaluated over the context named, in that context's own
-        // patient, its order following
+        // Evaluates an order view command on the plan context with this id, for the patient data of
+        // that context, and updates the order of that context.
         | EvaluateContext of OrderPlan * contextId: string * OrderViewCommand * OrderContext
-        // an order context evaluated elsewhere, narrowed to one scenario, into the plan as it is, with
-        // the linked orders to add with it, each linked to it by the server; when one of them is refused,
-        // none of them enters the plan
+        // Adds an order context evaluated outside the plan, narrowed to one scenario, with its linked
+        // orders. The server links each linked order to the context. When one of them is refused,
+        // none of them enters the plan.
         | AddOrderContext of OrderPlan * OrderContext * linked: OrderContext[]
-        // the contexts named removed, every kind, each with the contexts linked to it
+        // Removes the contexts with these ids, of every category, each with the contexts linked to it.
         | RemoveOrderContexts of OrderPlan * ids: string[]
-        // the signed version as it was, nothing evaluated: the contexts as given, their orders
-        // derived; the patient with no contexts is the empty plan
-        | Open of Patient * OrderContext[]
+        // Opens a signed version as it was, without evaluation: the contexts as given, with their
+        // orders derived from them. Patient data without contexts give an empty plan.
+        | Open of PatientData * OrderContext[]
 
 
     module OrderPlanCommand =
 
-        /// For the log: never the plan.
+        /// Returns the command for the log, without the plan.
         let toString cmd =
             match cmd with
-            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.UpdatePatientData _ -> "UpdatePatientData"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.EvaluateContext(_, _, ctxCmd, _) -> $"EvaluateContext {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
@@ -449,7 +447,7 @@ module Api =
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
 
-    /// Defines how routes are generated on server and mapped from the client
+    /// Returns the route of an API function, /api/typeName/method, for both server and client.
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
 
@@ -458,7 +456,8 @@ module Api =
         {
             // GENPRES_LANG: the UI language until the url or the User chooses one
             Language: Localization.Locales
-            // not GENPRES_PROD: demo data, shown as the title suffix
+            // True when the server does not run in production (GENPRES_PROD): it uses demo data and the
+            // title shows a demo suffix.
             IsDemo: bool
             // the departments the loaded rules name; empty until the resources are loaded
             Departments: string[]
@@ -467,26 +466,27 @@ module Api =
         }
 
 
-    /// A type that specifies the communication protocol between client and server
-    /// to learn more read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
+    /// The protocol between client and server, one function per use case.
+    /// See https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html.
     type IServerApi =
         {
-            // one member per use case, each on the same envelope
-            // the context evaluated, or refused with why; the error channel is for failures
+            // Each computing function takes a Request and returns a Reply.
+            // Returns the evaluated or the refused context. The Error result is only for failures.
             processOrderContext: Request<OrderContextCommand> -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
-            // a patient change, answered with the patient made complete
-            processPatient: Request<PatientCommand> -> Async<Result<Reply<Patient>, string[]>>
+            // Takes the patient data edited on the panel and returns the completed patient data.
+            processPatientData: Request<PatientDataCommand> -> Async<Result<Reply<PatientData>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
-            // the one plan, nutrition included
+            // Runs a command on the order plan, nutrition included.
             processOrderPlan: Request<OrderPlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
-            // the totals over the orders asked for, the plan left as it is
+            // Returns the totals over the orders of the query, without changing the plan.
             processTotals: Request<TotalsQuery> -> Async<Result<Reply<Totals>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>
-            // no envelope: an admin request has no OpenedToken to send and no notice to receive
+            // Takes no Request and returns no Reply: an admin request has no OpenedToken to send and no
+            // notice to receive.
             processAdmin: AdminCommand -> Async<Result<AdminResponse, string[]>>
             getSettings: unit -> Async<ServerSettings>
             testApi: unit -> Async<string>

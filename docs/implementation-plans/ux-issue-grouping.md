@@ -8,8 +8,9 @@ The eleven umbrella issues were filed from this index on 2026-09-24:
 [#981](https://github.com/informedica/GenPRES/issues/981) for G0 and
 [#982](https://github.com/informedica/GenPRES/issues/982) to
 [#991](https://github.com/informedica/GenPRES/issues/991) for G1 to G10. Each group's members are
-sub-issues of its umbrella. Four umbrellas are built and closed: #981 and #982 on 2026-09-25,
-then #984 and #986 on 2026-09-28. Member status in the tables below is as of 2026-09-28.
+sub-issues of its umbrella. Five umbrellas are built and closed: #981 and #982 on 2026-09-25,
+then #984 and #986 on 2026-09-28, and #988 on 2026-11-11. Member status in the tables below is as
+of 2026-09-28, for G7 as of 2026-11-11.
 
 The index has no issue number of its own, because it is not a plan for one issue; each per-group
 plan is named after its umbrella.
@@ -411,9 +412,9 @@ locked.
 
 | Issue | Milestone | Status |
 |---|---|---|
-| #495 | M4 | open |
-| #504 | M4 | open: Figma design linked on the issue; layout slice planned in [504-nutrition-component-rows.md](504-nutrition-component-rows.md) |
-| #506 | post-MVP | open |
+| #495 | M4 | done: each nutrition slot ends in a bar with Reset and Voorschrijven, closed 2026-11-10 |
+| #504 | M4 | done: [504-nutrition-component-rows.md](504-nutrition-component-rows.md), [504-tpn-intake-percentage.md](504-tpn-intake-percentage.md) and the glucose strength in the diluent select (PR #1773), closed 2026-11-11; the configuration conflicts went to #1598 |
+| #506 | post-MVP | done: two feedings in the plan, feeds as sheet data, by #1612, closed 2026-11-11; a free-text feed is not built |
 
 **Cause.**
 
@@ -618,7 +619,7 @@ on a design come last:
 4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
    built, closed 2026-09-28;
 5. G6, [987-the-order-plan.md](987-the-order-plan.md): built, closed 2026-09-29;
-6. G7;
+6. G7, the plans named in its table: built, closed 2026-11-11;
 7. G2;
 8. G10, whose plan opens with the (a)/(b) decision of #518, so it may end as a closing note
    rather than a build;

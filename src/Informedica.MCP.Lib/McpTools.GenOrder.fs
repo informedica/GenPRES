@@ -7,12 +7,18 @@ open Informedica.GenForm.Lib.Resources
 open Informedica.GenOrder.Lib
 open Informedica.Utils.Lib.BCL
 
-open Patient.Optics
+open Patient.AgeParts
 
 
 /// Input/output types and tool handler functions for GenORDER MCP tools.
 /// All tools are read-only and delegate to GenOrder.Lib API functions.
 module GenOrderTools =
+
+    module CoreEstimates = Informedica.GenCore.Lib.Patients.Estimates
+    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
 
     // ── Tool input types ────────────────────────────────────────────────────
@@ -49,7 +55,7 @@ module GenOrderTools =
             Form: string option
         }
 
-    type DilutionRulesForContextInput =
+    type SolutionRulesForContextInput =
         {
             Generic: string option
             Form: string option
@@ -95,58 +101,44 @@ module GenOrderTools =
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
+    /// Reads a gender from a string. Any string other than male or female is an unknown gender.
     let parseGender (s: string) =
         match s.ToLowerInvariant() with
-        | "male" -> Some Gender.Male
-        | "female" -> Some Gender.Female
-        | _ -> None
+        | "male" -> CoreGender.Male
+        | "female" -> CoreGender.Female
+        | _ -> CoreGender.UnknownGender
 
 
-    /// The measure a caller left out, estimated by GenCORE from the age and the sex it gave, the
-    /// estimate the server gives; a measure given stays measured. Without an age there is nothing
-    /// to estimate from, and without the tables nothing to estimate with: the patient stays as
-    /// built.
-    let estimated normalValues (input: CreateOrderContextInput) (pat: Patient.Patient) =
-        match normalValues, input.AgeMonths, input.WeightKg, input.HeightCm with
-        | _, _, Some _, Some _
-        | None, _, _, _
-        | _, None, _, _ -> pat
-        | Some tables, Some months, _, _ ->
-            let gender =
-                match input.Sex |> Option.map _.ToLowerInvariant() with
-                | Some "male" -> Informedica.GenCore.Lib.Patients.Male
-                | Some "female" -> Informedica.GenCore.Lib.Patients.Female
-                | _ -> Informedica.GenCore.Lib.Patients.UnknownGender
+    /// Estimates a weight or height that the caller did not give, from the age and the gender,
+    /// dated today. A value the caller gave stays measured. Nothing is estimated without an age or
+    /// without the normal-value tables.
+    let estimated today normalValues (input: CreateOrderContextInput) (patientData: PatientData) =
+        match normalValues, input.WeightKg, input.HeightCm with
+        | _, Some _, Some _
+        | None, _, _ -> patientData
+        | Some tables, _, _ ->
+            let est = CoreEstimates.ofAge tables patientData.Gender patientData.Age None
 
-            let age =
-                Informedica.GenCore.Lib.Patients.AgeValue.create
-                    None
-                    (months
-                     |> Math.Round
-                     |> int
-                     |> Informedica.GenCore.Lib.Conversions.monthFromInt
-                     |> Some)
-                    None
-                    None
+            let weight =
+                est.Weight
+                |> Option.map (fun e -> decimal e.Mean |> CoreWeightValue.weightInGram)
 
-            let est = Informedica.GenCore.Lib.Patients.Estimates.ofAge tables gender (Some age) None
-            let weight = est.Weight |> Option.map (fun e -> decimal e.Mean / 1000m |> Kilogram)
-            let height = est.Height |> Option.map (fun e -> int e.Mean |> Centimeter)
+            let height = est.Height |> Option.map (fun e -> decimal e.Mean |> CoreHeightValue.heightInCm)
 
-            let pat =
+            let patientData =
                 match input.WeightKg, weight with
-                | None, Some w -> { (pat |> Patient.setWeight (Some w)) with WeightMeasured = false }
-                | _ -> pat
+                | None, Some _ -> patientData |> Patient.setEstimatedWeight today weight
+                | _ -> patientData
 
             match input.HeightCm, height with
-            | None, Some h -> { (pat |> Patient.setHeight (Some h)) with HeightMeasured = false }
-            | _ -> pat
+            | None, Some _ -> patientData |> Patient.setEstimatedHeight today height
+            | _ -> patientData
 
 
-    /// The patient built from the input, the department as given, and what the caller left out
-    /// of the weight and the height estimated from the age.
-    let buildPatient (provider: IResourceProvider) (input: CreateOrderContextInput) : Patient.Patient =
-        let pat = Patient.patient
+    /// Builds the patient data from the tool input. A weight or height that is missing is
+    /// estimated from the age. Every weight and height is dated today.
+    let buildPatient today (provider: IResourceProvider) (input: CreateOrderContextInput) =
+        let pat = PatientData.unknown
 
         let pat =
             match input.AgeMonths with
@@ -155,22 +147,22 @@ module GenOrderTools =
 
         let pat =
             match input.WeightKg with
-            | Some w -> pat |> Patient.setWeight (decimal w |> Kilogram |> Some)
+            | Some w -> pat |> Patient.setWeight today (decimal w |> CoreWeightValue.weightInKg |> Some)
             | None -> pat
 
         let pat =
             match input.HeightCm with
-            | Some h -> pat |> Patient.setHeight (int h |> Centimeter |> Some)
+            | Some h -> pat |> Patient.setHeight today (decimal h |> CoreHeightValue.heightInCm |> Some)
             | None -> pat
 
         let pat =
-            match input.Sex |> Option.bind parseGender with
-            | Some g -> pat |> Patient.setGender g
+            match input.Sex with
+            | Some s -> pat |> Patient.setGender (parseGender s)
             | None -> pat
 
         pat
         |> Patient.setDepartment input.Department
-        |> estimated (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueTables) input
+        |> estimated today (provider.Get Keys.normalValueTables) input
 
 
     // ── Tool handler functions ──────────────────────────────────────────────
@@ -178,14 +170,14 @@ module GenOrderTools =
     /// The filter options for a patient already built and checked, so a caller that has just validated one
     /// (createOrderContext) asks for the options of the same patient, without a second check. The patient
     /// fields of the input are not read.
-    let filterOptionsFor provider patient (input: FilterOptionsInput) : FilterOptionsOutput =
+    let filterOptionsFor provider patientData (input: FilterOptionsInput) : FilterOptionsOutput =
         let filter =
             { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                Patient = patient
+                PatientData = patientData
             }
 
         let opts =
@@ -225,15 +217,15 @@ module GenOrderTools =
         )
 
 
-    let getDilutionRulesForContext (provider: IResourceProvider) (input: DilutionRulesForContextInput) =
-        Formulary.getDilutionRules provider input.Generic input.Form input.Route
-        |> Array.map (fun dilRule ->
+    let getSolutionRulesForContext (provider: IResourceProvider) (input: SolutionRulesForContextInput) =
+        Formulary.getSolutionRules provider input.Generic input.Form input.Route
+        |> Array.map (fun solRule ->
             {|
-                Generic = dilRule.Generic
-                Form = dilRule.Form
-                Route = dilRule.Route
-                DiluentCount = dilRule.Diluents |> Array.length
-                Diluents = dilRule.Diluents |> Array.map _.Generic
+                Generic = solRule.Generic
+                Form = solRule.Form
+                Route = solRule.Route
+                DiluentCount = solRule.Diluents |> Array.length
+                Diluents = solRule.Diluents |> Array.map _.Generic
             |}
         )
 
@@ -303,15 +295,16 @@ module GenOrderTools =
     /// child without a weight, so the caller is told to give it. Returns the input with the department as
     /// the rules spell it, next to the patient built from it.
     let validPatient
+        today
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
-        : Result<CreateOrderContextInput * Patient.Patient, string>
+        : Result<CreateOrderContextInput * PatientData, string>
         =
         input
         |> requireAgeOrMeasures
         |> Result.bind (fun () -> input |> checkDepartment (provider.GetDepartments()))
         |> Result.bind (fun input ->
-            let patient = buildPatient provider input
+            let patient = buildPatient today provider input
 
             // the estimate can leave the weight blank, the tables not loaded or without a row for
             // the age and sex; for a child the rules would then answer nothing, so the caller is told
@@ -325,6 +318,7 @@ module GenOrderTools =
     /// The filter options for the patient of the input, refused when the input is no patient
     /// (see validPatient). The tool wrapper of filterOptionsFor.
     let getFilterOptions
+        today
         (provider: IResourceProvider)
         (input: FilterOptionsInput)
         : Result<FilterOptionsOutput, string>
@@ -340,7 +334,7 @@ module GenOrderTools =
             Route = input.Route
             Form = input.Form
         }
-        |> validPatient provider
+        |> validPatient today provider
         |> Result.map (fun (_, patient) -> filterOptionsFor provider patient input)
 
 
@@ -366,7 +360,8 @@ module GenOrderTools =
             "dose rules cover the picks and the patient, and each needs a weight, or a weight and a height, "
             + "the patient does not have"
         | Refusal.NoDiluent ->
-            "each medication must be diluted to meet its dilution rule, and the formulary has no diluent for it"
+            "each medication is given undiluted, and its concentration limit allows none of its product "
+            + "concentrations"
         | Refusal.NotSolved -> "the order cannot be solved"
         | Refusal.NoAdjustedDose -> "the order has no dose per kg or per m2"
 
@@ -387,11 +382,12 @@ module GenOrderTools =
     /// The patient is checked by validPatient; shared by createOrderContext and getOrderScenarios so the
     /// guards and the patient/filter/evaluate pipeline exist in exactly one place.
     let evaluateOrderContext
+        today
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
         : Result<OrderContext, string>
         =
-        match validPatient provider input with
+        match validPatient today provider input with
         | Error e -> Error e
         | Ok(input, patient) ->
             let ctx = OrderContext.create OrderLogging.noOp provider patient |> applyFilters input
@@ -405,17 +401,18 @@ module GenOrderTools =
 
 
     let createOrderContext
+        today
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
         : Result<OrderContextSummaryOutput, string>
         =
         input
-        |> evaluateOrderContext provider
+        |> evaluateOrderContext today provider
         |> Result.map (fun result ->
             let filterOpts =
                 filterOptionsFor
                     provider
-                    result.Patient
+                    result.PatientData
                     {
                         Generic = result.Filter.Generic
                         Indication = result.Filter.Indication
@@ -440,12 +437,13 @@ module GenOrderTools =
 
 
     let getOrderScenarios
+        today
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
         : Result<OrderScenarioOutput[], string>
         =
         input
-        |> evaluateOrderContext provider
+        |> evaluateOrderContext today provider
         |> Result.map (fun result ->
             result.Scenarios
             |> Array.mapi (fun i sc ->

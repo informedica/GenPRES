@@ -1,18 +1,18 @@
 namespace Informedica.GenOrder.Lib
 
 
-/// Which variables of an order a set of kept variables determines. A product equation
+/// Finds which variables of an order a set of given variables determines. A product equation
 /// y = x1 * x2 * .. is linear in the logarithms of its variables, so elimination over the exponents
-/// finds every variable the kept variables fix, also when only several equations together fix it; a
-/// sum fixes its last open term. Only a kept variable that holds one value fixes others.
+/// finds every variable the given variables fix, also when only several equations together fix it.
+/// A sum fixes its last unknown term. Only a given variable with a single value fixes others.
 module Determination =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.GenSolver.Lib
 
 
-    /// The equations of an order: a product equation as exponents, y +1 and every x -1, and a sum
-    /// equation as y and the xs, each variable by name.
+    /// The equations of an order by variable name: a product equation as exponents, +1 for y and -1
+    /// for every x, and a sum equation as y and the xs.
     type Model =
         {
             /// The variables of the equations.
@@ -103,9 +103,9 @@ module Determination =
         rows[.. r - 1] |> Array.toList
 
 
-    /// The variables the known variables determine: an equation row that keeps one open variable
-    /// after the elimination fixes that variable, and a sum with one open term fixes that term; to a
-    /// fixpoint.
+    /// Returns the variables the known variables determine, repeated until nothing changes. An
+    /// equation row with one unknown variable left after the elimination fixes that variable, and a
+    /// sum with one unknown term fixes that term.
     let closure m known =
         let rec loop known =
             let byRows =
@@ -135,8 +135,8 @@ module Determination =
         loop (known + m.Constants |> Set.intersect m.Names)
 
 
-    /// The variables of the equations of an order that the kept variables holding one value do not
-    /// determine. A kept variable is never undetermined, also when it holds more than one value.
+    /// Returns the variables of the order equations that the given variables with a single value do
+    /// not determine. A given variable is never undetermined, also when it has more than one value.
     let undeterminedBy kept ord =
         let m = ord |> ofOrder
 

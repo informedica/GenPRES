@@ -44,9 +44,9 @@ module Fixture =
 
     let rule products : GenForm.PrescriptionRule =
         {
-            Patient = Filter.doseFilter.Patient
+            PatientData = Filter.doseFilter.PatientData
             DoseRule = doseRule products
-            DilutionRules = [||]
+            SolutionRules = [||]
             RenalRules = [||]
         }
 

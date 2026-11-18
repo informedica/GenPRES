@@ -2024,18 +2024,6 @@ module Variable =
 
 
         /// <summary>
-        /// Set the nearest value in a <c>ValueRange</c> to vu.
-        /// </summary>
-        /// <param name="vu">The ValueUnit (value)</param>
-        /// <param name="vr">The ValueRange</param>
-        /// <returns>The <c>ValueRange</c> with the nearest value to vu</returns>
-        let setNearestValue vu vr =
-            match vr |> getValSet with
-            | None -> vr
-            | Some vs -> vs |> ValueSet.map (ValueUnit.setNearestValue vu) |> ValSet
-
-
-        /// <summary>
         /// Checks whether a value is in a <c>ValueRange</c>.
         /// </summary>
         /// <param name="vu">The ValueUnit (value)</param>
@@ -3474,14 +3462,6 @@ module Variable =
     /// </summary>
     let convertToUnit unit var =
         { var with Values = var.Values |> ValueRange.convertToUnit unit }
-
-    /// <summary>
-    /// Set the nearest value of a Variable
-    /// </summary>
-    /// <param name="vu">The ValueUnit to set the nearest value to</param>
-    /// <param name="var">The Variable to set the nearest value for</param>
-    let setNearestValue vu var =
-        { var with Values = var.Values |> ValueRange.setNearestValue vu }
 
 
     /// The number of values of a variable: of its value set, or of its min, increment and max when

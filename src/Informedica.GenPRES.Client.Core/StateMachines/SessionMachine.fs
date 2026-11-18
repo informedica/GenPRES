@@ -8,13 +8,12 @@ module SessionMachine =
     open Informedica.GenPRES.Shared.Types
 
 
-    /// What the pages read of the SessionState: the session's phase combined with the request under
-    /// way.
+    /// The session state as the pages see it: the phase combined with the request under way.
     [<RequireQualifiedAccess>]
     type SessionView =
         /// No session.
         | Anonymous
-        /// The launch is being presented; this attempt.
+        /// The launch is being presented to the server, at this attempt number.
         | Launching of attempt: int
         /// The session is being read again after a reload or a login.
         | Resuming
@@ -30,16 +29,16 @@ module SessionMachine =
         | ServerUnreachable
         /// The server ended the session.
         | Ended of SessionEnding
-        /// The launch waits on a PIN, with the last refusal of the form if any.
+        /// The launch waits for a PIN, with the last PIN refusal if any.
         | Enrolling of EnrolmentPending * refusal: PinRefusal option
         /// The PIN is being sent.
         | SupplyingPin of EnrolmentPending
-        /// The enrolment failed; only a new launch goes on.
+        /// The enrolment failed; only a new launch can open a session.
         | EnrolmentFailed of PinRefusal
 
 
-    /// What the session lane does once nothing is out any more, after the url moved on past the
-    /// session.
+    /// What the session machine does after the url brought something new, once no request is under
+    /// way any more.
     [<RequireQualifiedAccess>]
     type SessionFollow =
         /// Stay anonymous: the url's patient or medication is used without a session.
@@ -62,52 +61,51 @@ module SessionMachine =
         /// The server ended the session and said so once; the user continues anonymously or
         /// launches again.
         | Ended of SessionEnding
-        /// The launch waits on a PIN. A cookie holds the attempt; the gate shows the form, with the
-        /// last refusal if any.
+        /// The launch waits for a PIN. A cookie holds the enrolment attempt; the gate shows the PIN form,
+        /// with the last refusal if any.
         | Enrolling of EnrolmentPending * refusal: PinRefusal option
         /// The enrolment failed: the code was void or expired, or another patient became active in
-        /// MainEHR. Only a new launch goes on.
+        /// MainEHR. Only a new launch can open a session.
         | EnrolmentFailed of PinRefusal
-        /// The url brought a patient, a medication or a launch. The session is left: a request still
-        /// out runs to its end without reaching the lanes, and then the lane does what follows.
+        /// The url brought a patient, a medication or a launch, so the session is left. A request still
+        /// under way runs to its end without effect on the lanes; then the machine does what follows.
         | UrlMovedOn of SessionFollow
 
 
-    /// The one request under way.
+    /// The request under way; there is at most one at a time.
     [<RequireQualifiedAccess>]
     type SessionRequest =
-        /// The launch is presented; this attempt.
+        /// The launch is being presented, at this attempt number.
         | PresentingLaunch of attempt: int
-        /// The session read again, after a reload or a login.
+        /// The session is being read again, after a reload or a login.
         | Resuming
-        /// The session closing.
+        /// The session is closing.
         | Closing
-        /// The PIN being sent.
+        /// The PIN is being sent.
         | SupplyingPin
 
 
-    /// A refresh or an open of a version under way. It is beside the request under way, not one of
-    /// them, since a workbench or plan request meanwhile still carries the token of the open session.
+    /// A patient refresh or an open of a signed plan version under way. It is tracked apart from
+    /// SessionRequest because the session stays open meanwhile, and other requests still use its token.
     [<RequireQualifiedAccess>]
     type SessionReopening =
-        /// The EHR read again and the latest version reopened.
+        /// The patient data are being read again from the EHR.
         | RefreshPatient
-        /// The version with this id opened.
+        /// The signed plan version with this id is being opened.
         | OpenSignedPlan of id: string
 
 
-    /// Everything the session machine holds, hidden from the pages, which read a SessionView of it
-    /// instead.
+    /// The private state of the session machine; the pages read it through SessionState.view.
     type SessionState =
         private
             {
                 /// The session itself.
                 Phase: SessionPhase
-                /// The one request under way, if any.
+                /// The request under way, if any.
                 InFlight: SessionRequest option
                 /// The refresh or the open under way, if any; only while the session is open.
                 Reopening: SessionReopening option
-                /// The launch and its key, kept while it can still be presented again: during a
+                /// The launch and its key while the launch can still be presented again: during a
                 /// presentation, after the server was unreachable, or after a refusal worth retrying.
                 Presentation: (Launch * PublicKey) option
                 /// The newest order plan version, when the open session is on an older one; only
@@ -129,7 +127,7 @@ module SessionMachine =
         | Enrolling of EnrolmentPending
 
 
-    /// What SupplyPin answered.
+    /// The server's answer to a supplied PIN.
     [<RequireQualifiedAccess>]
     type PinOutcome =
         /// The session opened.
@@ -141,8 +139,8 @@ module SessionMachine =
     /// What moves the session machine.
     [<RequireQualifiedAccess>]
     type SessionMsg =
-        /// Present the launch, with the key pair made once per page load. With a session open or a
-        /// request out, it is presented once those are left, as for a launch url.
+        /// Present the launch with the public key made once per page load. With a session open or a
+        /// request under way, the launch is presented after those are left.
         | PresentLaunch of Launch * PublicKey
         /// The server's answer to a presentation; Error is a transport failure.
         | LaunchOutcome of Launch * PublicKey * Result<LaunchOutcome, string>
@@ -160,8 +158,8 @@ module SessionMachine =
         | LaunchRefused of LaunchRefusal
         /// Continue without a session.
         | ContinueAnonymous
-        /// The url brought a patient, a medication or a launch: the lane leaves the session. A launch
-        /// comes after, by PresentLaunch.
+        /// The url brought a patient, a medication or a launch, so the session is left. A launch from
+        /// the url follows as a separate PresentLaunch.
         | UrlMovedOn
         /// Close the session.
         | CloseSession
@@ -171,28 +169,28 @@ module SessionMachine =
         | CloseFailed of reason: string
         /// A signing answer said the server ended the session at the wrong-PIN limit.
         | SignatureEndedSession of SessionEnding
-        /// A signature renewed the token. The patient after the signature comes with it, and the
-        /// version signed, the last signed order plan from now on, with the identity it names,
-        /// which the session is for from now on.
-        | SignatureRenewedToken of OpenedToken * Patient * SignedOrderPlan
-        /// Open the version a notice named; it becomes the version the session opened with.
+        /// A signature renewed the session token. It comes with the patient data as signed and the
+        /// signed plan version, which becomes the latest signed version of the session; the session
+        /// takes the patient identity that version names.
+        | SignatureRenewedToken of OpenedToken * PatientData * SignedOrderPlan
+        /// Open the signed plan version with this id; the session then works on that version.
         | OpenSignedPlan of id: string
-        /// The answer to OpenSignedPlan: the session as it now is, None when there was nothing to open,
-        /// or a transport failure. The token the request started from lets the answer land only on
-        /// the session that asked.
+        /// The answer to OpenSignedPlan: the opened session, None when there was nothing to open, or
+        /// Error for a transport failure. The token sent with the request makes the answer apply only
+        /// to the session that asked.
         | SignedPlanOpened of from: OpenedToken option * Result<SessionOpened option, string>
-        /// Read the EHR again: the patient read goes to the panel, and the plan and the workbench
-        /// follow it as after any change of data.
+        /// Read the patient data again from the EHR. The new data go to the patient panel, and the plan
+        /// and the workbench update as after any patient data update.
         | RefreshPatient
-        /// The answer to RefreshPatient, as for SignedPlanOpened, with the patient read again.
+        /// The answer to RefreshPatient, with the same token check as SignedPlanOpened.
         | PatientRefreshed of from: OpenedToken option * Result<SessionOpened option, string>
-        /// What a reply said besides its answer: a newer version exists, or the server ended the
-        /// session. The token the request started from guards it, as for SignedPlanOpened.
+        /// A notice that came with a server reply: a newer plan version exists, or the server ended the
+        /// session. It has the same token check as SignedPlanOpened.
         | NoticeReceived of from: OpenedToken option * RecordNotice
         /// A signature was refused because a newer version exists; this is the version to offer.
         | SignatureBlocked of OrderPlanHead
-        /// A session command was refused: another tab holds the session. The token the request
-        /// started from guards it, as for SignedPlanOpened.
+        /// A session command was refused because another browser tab has the session. It has the
+        /// same token check as SignedPlanOpened.
         | InactiveTab of from: OpenedToken option
 
 
@@ -210,15 +208,15 @@ module SessionMachine =
         /// Go to the url the server redirected to.
         | GoToIdentityProvider of url: string
         /// Set the patient data, so everything derived from it reloads.
-        | SetPatientData of Patient option
+        | SetPatientData of PatientData option
         /// Give the patient data read from the EHR by a refresh to the patient machine.
-        | SetPatientDataRead of Patient option
-        /// Give the patient of a version opened to the patient machine, for its age alone.
-        | TakeAge of Patient option
+        | SetPatientDataRead of PatientData option
+        /// Give the patient data of an opened version to the patient machine, which takes only the age.
+        | TakeAge of PatientData option
         /// Keep this private key and remove the others.
         | KeepBrowserKey of thumbprint: string
-        /// The orders of the version the session opened with go into the cart; the patient reaches the
-        /// plan machine a message later, so the plan machine keeps the orders until it has the patient.
+        /// Load the orders of the signed plan version into the cart. The patient data reach the plan
+        /// machine one message later, so the plan machine waits with the orders until it has them.
         | LoadSignedPlan of SignedOrderPlan
         /// Ask the server to open the version; the token comes back in SignedPlanOpened.
         | CallOpenSignedPlan of id: string * from: OpenedToken option
@@ -234,21 +232,20 @@ module SessionMachine =
         | Alert of Alert.Alert
 
 
-    /// The newest version the session was told about, so the user is told once per version and the
-    /// bar can offer it. It goes when that version is opened or the session ends.
+    /// Tracks the newest plan version the server reported, so the user is told once per version and
+    /// the bar can offer it. It is cleared when that version is opened or the session ends.
     module NewerPlan =
 
-        /// The version to keep after a notice, and whether the notice is news. Versions are compared
-        /// by number, not by arrival, since replies can land out of order: only a newer version is
-        /// news and replaces the kept one.
+        /// Returns the newer of the current and the reported version, and true when the reported
+        /// version is newer. Versions are compared by number, because replies can arrive out of order.
         let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
             match current with
             | Some kept when kept.No >= head.No -> current, false
             | _ -> Some head, true
 
 
-        /// The version to keep after a version was opened: none, unless the kept one is newer than
-        /// the one opened.
+        /// Returns the version to offer after a version was opened: None, unless the current version
+        /// is newer than the opened one.
         let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =
             match current with
             | Some kept when kept.No > head.No -> current
@@ -286,7 +283,7 @@ module SessionMachine =
             }
 
 
-        /// The launch presented, at this attempt; no session meanwhile.
+        /// The launch being presented at this attempt number, with no session.
         let launching (launch: Launch) (key: PublicKey) (attempt: int) =
             {
                 Phase = SessionPhase.Anonymous
@@ -297,7 +294,7 @@ module SessionMachine =
             }
 
 
-        /// The session read again after a reload or a login.
+        /// The session being read again after a reload or a login.
         let resuming =
             {
                 Phase = SessionPhase.Anonymous
@@ -319,7 +316,7 @@ module SessionMachine =
             }
 
 
-        /// The session closing; the newer version to offer goes with it.
+        /// The session closing; the newer version on offer is cleared.
         let closing (session: SessionOpened) =
             {
                 Phase = SessionPhase.Open session
@@ -407,8 +404,8 @@ module SessionMachine =
             }
 
 
-        /// No session, the close out, and what follows once it has answered. The url moved on past
-        /// the session: the close carries the cookie, and its answer sends nothing.
+        /// The state after the url brought something new: no session, a close under way, and what to
+        /// do once the close answers. The close lets the server delete the cookie.
         let leaving (following: SessionFollow) =
             {
                 Phase = SessionPhase.UrlMovedOn following
@@ -439,8 +436,7 @@ module SessionMachine =
 
 
         /// Whether a request is under way whose answer can change what the pages show. After the url
-        /// moved on with nothing to follow, none can: whatever is still out ends without reaching
-        /// the lanes, and the lane stays anonymous.
+        /// brought something new with nothing to follow, no answer can: the session stays anonymous.
         let changing (state: SessionState) =
             match state.Phase with
             | SessionPhase.UrlMovedOn SessionFollow.Anonymous -> false
@@ -451,9 +447,9 @@ module SessionMachine =
         let reopening (state: SessionState) = state.Reopening
 
 
-        /// What the pages read: the request when it can show on its own, else the phase. A refusal
-        /// with a launch kept is LaunchRetryable. After the url moved on the lane reads as anonymous, or as
-        /// launching when a launch follows, whatever is still out.
+        /// Returns the view the pages read: the request under way when it has its own view, else the
+        /// phase. A refusal with a stored launch shows as LaunchRetryable. After the url brought
+        /// something new, the view is Anonymous, or Launching when a launch follows.
         let view (state: SessionState) : SessionView =
             match state.Phase, state.InFlight, state.Presentation with
             | SessionPhase.UrlMovedOn SessionFollow.Anonymous, _, _ -> SessionView.Anonymous
@@ -473,12 +469,13 @@ module SessionMachine =
             | SessionPhase.EnrolmentFailed refusal, _, _ -> SessionView.EnrolmentFailed refusal
 
 
-        /// The state and effects of a session that just opened: set the patient, keep this session's
-        /// key, and load the orders of its version into the cart.
+        /// Returns the state and effects for a session that just opened: set the patient data, keep the
+        /// browser key of the session if it has one, and load the orders of its signed version into the
+        /// cart when it has a patient context and a version.
         let onOpened (session: SessionOpened) =
             opened session None,
             [
-                SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.Patient)
+                SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.PatientData)
                 match session.KeyThumbprint with
                 | Some thumbprint -> SessionEffect.KeepBrowserKey thumbprint
                 | None -> ()
@@ -493,19 +490,20 @@ module SessionMachine =
             launching launch key 1, [ SessionEffect.CallPresentLaunch(launch, key) ]
 
 
-        /// What follows a lane the url moved on past, now that nothing is out: anonymous, or the
-        /// launch presented.
+        /// Starts what follows once the url brought something new and no request is under way: stay
+        /// anonymous, or present the launch.
         let follow following =
             match following with
             | SessionFollow.Anonymous -> anonymous, []
             | SessionFollow.Launch(launch, key) -> present launch key
 
 
-        /// The lane left for what follows. A launch or a PIN out stays out, since its answer sets the
-        /// cookie that only a close sent after it can delete; a close out stays out. Whatever else is
-        /// open or out is closed now, and its answer finds no request. With nothing out and no
-        /// session open a launch to follow is presented at once; otherwise the close goes, for the
-        /// session the cookie may still hold. The newest url decides what follows.
+        /// Leaves the session because the url brought something new. A launch or PIN request under way
+        /// is left to finish, because its answer sets a cookie that only a later close can delete; a
+        /// close under way is also left to finish. An open session is closed now, and the answer to a
+        /// resume under way is ignored. With no request under way and no open session, a launch to
+        /// follow is presented at once; otherwise a close is sent for a session the cookie may still
+        /// hold. The newest url decides what follows.
         let moveOn following (state: SessionState) =
             match state.Phase, state.InFlight, following with
             | _, Some(SessionRequest.PresentingLaunch _ | SessionRequest.SupplyingPin), _ ->
@@ -517,15 +515,15 @@ module SessionMachine =
             | _ -> leaving following, [ SessionEffect.CallCloseSession None ]
 
 
-        /// The next state and effects for a message. Every new state is built through a constructor,
-        /// so a launch kept to present again never outlives the state it belongs to.
+        /// Returns the next state and effects for a message. Most new states are built through a
+        /// constructor, so a stored launch does not outlive the state it belongs to.
         let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
             match msg, state.Phase, state.InFlight with
-            // the url moved on past the session, with nothing to follow
+            // the url brought something new, with nothing to follow
             | SessionMsg.UrlMovedOn, _, _ -> moveOn SessionFollow.Anonymous state
-            // the answers the lane still waits on after the url moved on. A launch or a PIN that
-            // opens a session closes it again, since the cookie it set must go; any other end of the
-            // request leads to what follows. Nothing reaches the lanes
+            // answers that arrive after the url brought something new. A launch or PIN answer that
+            // opens a session closes that session again, because its cookie must be deleted; any
+            // other answer starts what follows. No answer reaches the lanes
             | SessionMsg.LaunchOutcome(launch, key, result),
               SessionPhase.UrlMovedOn next,
               Some(SessionRequest.PresentingLaunch _) when state.Presentation = Some(launch, key) ->
@@ -540,9 +538,9 @@ module SessionMachine =
             | SessionMsg.SessionClosed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
             | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
 
-            // the same launch again while it is presented, after the url moved on: the presentation
-            // under way is the launch the url brings, so the lane takes its outcome as at any launch.
-            // Presenting it again would fail, since the server takes a launch once
+            // the url brings the launch that is already being presented: the machine takes the
+            // outcome of that presentation as for any launch. Presenting it again would fail,
+            // because the server accepts a launch only once
             | SessionMsg.PresentLaunch(launch, _), SessionPhase.UrlMovedOn _, Some(SessionRequest.PresentingLaunch _) when
                 state.Presentation |> Option.exists (fun (current, _) -> current = launch)
                 ->
@@ -552,9 +550,9 @@ module SessionMachine =
                 state.Presentation |> Option.exists (fun (current, _) -> current = launch)
                 ->
                 state, []
-            // any other launch is presented once nothing is out, as a launch url is: an open session or
-            // a request out is left first, and the server's close deletes the cookie before the
-            // launch's answer sets the new one
+            // any other launch is presented once no request is under way: an open session or a request
+            // under way is left first, and the close deletes the old cookie before the launch answer
+            // sets the new one
             | SessionMsg.PresentLaunch(launch, key), _, _ -> moveOn (SessionFollow.Launch(launch, key)) state
 
             // an outcome lands only on the presentation that sent it
@@ -609,7 +607,7 @@ module SessionMachine =
                 anonymous, [ SessionEffect.SetPatientData None ]
             | SessionMsg.ContinueAnonymous, _, _ -> state, []
 
-            // the form is sent once at a time; the answer lands only on the request in flight
+            // one PIN request at a time; the answer applies only to the request under way
             | SessionMsg.SupplyPin(code, pin), SessionPhase.Enrolling(pending, _), None ->
                 supplyingPin pending, [ SessionEffect.CallSupplyPin(code, pin) ]
             | SessionMsg.SupplyPin _, _, _ -> state, []
@@ -637,15 +635,15 @@ module SessionMachine =
                 closing session, [ SessionEffect.CallCloseSession session.OpenedToken ]
             | SessionMsg.CloseSession, _, _ -> state, []
 
-            // the patient leaves with the session. SessionClosed lands only on a close under way, so a late
-            // close never touches a newer session
+            // closing the session clears the patient data. SessionClosed applies only to a close under
+            // way, so a late answer never affects a newer session
             | SessionMsg.SessionClosed, _, Some SessionRequest.Closing ->
                 anonymous, [ SessionEffect.SetPatientData None ]
             | SessionMsg.SessionClosed, _, _ -> state, []
 
             // a close that never reached the server closed nothing: the session stays open with its
-            // patient, and the user is told. A late failure, of a close a newer session has replaced,
-            // falls to the closing arm and tells nothing
+            // patient, and the user is told. A late failure, after a newer session replaced the close,
+            // falls to the last case and tells nothing
             | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing ->
                 opened session None, [ SessionEffect.Alert Alert.Alert.CloseFailed ]
             | SessionMsg.CloseFailed _, _, _ -> state, []
@@ -656,9 +654,9 @@ module SessionMachine =
                 ended ending, [ SessionEffect.CallCloseSession None ]
             | SessionMsg.SignatureEndedSession _, _, _ -> state, []
 
-            // the new token for the next signature, the version signed as the session's head, and the
-            // patient and identity the signed version names, into the session's patient context and
-            // to the panel. A session without a patient context signs nothing, so there is none to fill
+            // the session takes the new token and the signed version as its latest version; its patient
+            // context takes the patient data and identity of the signed version, and the patient data
+            // go to the panel. A session without a patient context cannot sign, so it has none to update
             | SessionMsg.SignatureRenewedToken(token, patient, signed), SessionPhase.Open session, None ->
                 let renewed =
                     { session with
@@ -668,8 +666,8 @@ module SessionMachine =
                             session.PatientContext
                             |> Option.map (fun c ->
                                 { c with
-                                    Patient = Some patient
-                                    Identity = signed.Identity
+                                    PatientData = Some patient
+                                    PatientIdentity = signed.PatientIdentity
                                 }
                             )
                     }
@@ -684,20 +682,20 @@ module SessionMachine =
                 [ SessionEffect.CallOpenSignedPlan(id, session.OpenedToken) ]
             | SessionMsg.OpenSignedPlan _, _, _ -> state, []
 
-            // the session with the version opened: its orders go into the cart; the patient takes the age
-            // alone. The answer lands only on the open session that still holds the token the
-            // request started from; nothing to open, or a failure, leaves the session as it was
+            // the version opened: its orders go into the cart and the patient machine takes only the
+            // age. The answer applies only to the open session that still has the token sent with the
+            // request; nothing to open or a failure leaves the session as it was
             | SessionMsg.SignedPlanOpened(from, Ok(Some session)), SessionPhase.Open current, None when
                 current.OpenedToken = from
                 ->
                 match session.PatientContext, session.Head with
-                // the version is open: told once; a newer version told meanwhile stays on offer
+                // tell the user once; a newer version reported meanwhile stays on offer
                 | Some _, Some head ->
                     opened session (NewerPlan.opened state.NewerPlan head.Head),
                     [
-                        // the version first: it waits for the patient the age gives
+                        // load the version first: the plan machine waits with it for the patient data
                         SessionEffect.LoadSignedPlan head
-                        SessionEffect.TakeAge(session.PatientContext |> Option.bind _.Patient)
+                        SessionEffect.TakeAge(session.PatientContext |> Option.bind _.PatientData)
                         SessionEffect.TellSignedPlanOpened head.Head
                     ]
                 | _ -> opened session state.NewerPlan, []
@@ -712,15 +710,15 @@ module SessionMachine =
                 [ SessionEffect.CallRefreshPatient session.OpenedToken ]
             | SessionMsg.RefreshPatient, _, _ -> state, []
 
-            // the session refreshed: the patient read again goes to the panel, which the plan and the
-            // workbench follow as after any edit; the plan keeps its new and changed orders. The same
-            // guard as SignedPlanOpened
+            // the refreshed patient data go to the patient machine; the plan and the workbench update
+            // as after any patient data update, and the plan keeps its new and changed orders. Same
+            // token check as SignedPlanOpened
             | SessionMsg.PatientRefreshed(from, Ok(Some session)), SessionPhase.Open current, None when
                 current.OpenedToken = from
                 ->
                 opened session state.NewerPlan,
                 [
-                    SessionEffect.SetPatientDataRead(session.PatientContext |> Option.bind _.Patient)
+                    SessionEffect.SetPatientDataRead(session.PatientContext |> Option.bind _.PatientData)
                 ]
             // the user asked for the refresh, so a refresh that did not happen is told
             | SessionMsg.PatientRefreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
@@ -729,11 +727,11 @@ module SessionMachine =
                 { state with Reopening = None }, [ SessionEffect.TellPatientRefreshFailed ]
             | SessionMsg.PatientRefreshed _, _, _ -> { state with Reopening = None }, []
 
-            // a notice counts only when its request started from the token the open session holds now,
-            // as for SignedPlanOpened; the next request repeats what still holds
+            // a notice applies only when its request was sent with the current token of the open
+            // session; the next reply repeats a notice that still applies
             | SessionMsg.NoticeReceived(from, notice), SessionPhase.Open current, None when current.OpenedToken = from ->
                 match notice with
-                // kept, and told once per version
+                // store the newest version and tell the user once per version
                 | RecordNotice.NewerVersion head ->
                     let kept, news = NewerPlan.receive state.NewerPlan head
 
@@ -742,24 +740,25 @@ module SessionMachine =
                          [ SessionEffect.TellNewerSignedPlan head ]
                      else
                          [])
-                // a refresh or an open under way mints the token itself, so a reply to a request
-                // sent before it says nothing about another tab; the lanes do the same for a signature
+                // a refresh or an open under way makes a new token itself, so an inactive-tab notice on
+                // a reply to an older request does not mean another tab; the lanes do the same for a
+                // signature
                 | RecordNotice.Ended SessionEnding.InactiveTab when state.Reopening.IsSome -> state, []
-                // the session is the other tab's: the gate says so, and nothing closes it
+                // another tab has the session: the gate says so, and the session is not closed
                 | RecordNotice.Ended SessionEnding.InactiveTab -> ended SessionEnding.InactiveTab, []
                 // the server ended the session: the gate says why and the close tells the server
                 | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession None ]
             | SessionMsg.NoticeReceived _, _, _ -> state, []
 
-            // a close refused on the way out leaves what follows to go on; anywhere else the gate
-            // says that another tab holds the session
+            // a close refused after the url brought something new still starts what follows;
+            // elsewhere the gate says that another tab has the session
             | SessionMsg.InactiveTab _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
             | SessionMsg.InactiveTab from, SessionPhase.Open current, _ when current.OpenedToken = from ->
                 ended SessionEnding.InactiveTab, []
             | SessionMsg.InactiveTab _, _, _ -> state, []
 
-            // a signature refused for a newer version: the version is kept for the bar, not told
-            // again, since the refusal said it
+            // a signature refused for a newer version: store the version for the bar without telling
+            // the user again, because the refusal already did
             | SessionMsg.SignatureBlocked head, SessionPhase.Open _, None ->
                 { state with NewerPlan = NewerPlan.receive state.NewerPlan head |> fst }, []
             | SessionMsg.SignatureBlocked _, _, _ -> state, []
