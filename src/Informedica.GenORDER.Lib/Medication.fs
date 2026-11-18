@@ -7,22 +7,18 @@ module Medication =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
-    // Re-open the GenOrder types so the local domain types (notably
-    // ProductComponent) take precedence over the GenForm types brought in by
-    // `open Informedica.GenForm.Lib`. GenForm renamed its product `Product`
-    // type to `ProductComponent`, which would otherwise shadow ours.
+    // Opened after GenForm, so ProductComponent is the GenOrder type and not the GenForm type.
     open Informedica.GenOrder.Lib.Types
-    // ...then open GenUnits so its `Unit`/`Time` cases win again over the
-    // GenOrder `Time` order-variable type (GenUnits defines no ProductComponent).
+    // Opened after the GenOrder types, so the Unit and Time cases of GenUnits shadow the GenOrder Time type.
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
-    /// Unit validation helpers for deterministic field parsing
+    /// Checks that the unit of a dose limit field has the adjust unit and the time unit the field needs.
     module UnitValidation =
 
-        /// Check if a unit is an adjust unit (Weight - kg, or BSA - m2)
+        /// Whether a unit is or contains a weight or body surface area unit.
         let rec private isAdjustUnitType (u: Unit) =
             match u with
             | Weight _ -> true
@@ -31,7 +27,7 @@ module Medication =
             | _ -> false
 
 
-        /// Check if a unit is a time unit
+        /// Whether a unit is or contains a time unit.
         let rec private isTimeUnitType (u: Unit) =
             match u with
             | Time _ -> true
@@ -39,29 +35,23 @@ module Medication =
             | _ -> false
 
 
-        /// Check if a unit has an adjust component in denominator (kg or m2)
-        /// by checking if the right side of a Per operation contains Weight or BSA
+        /// Whether a unit has a weight or body surface area unit in the denominator of a Per.
         let rec hasAdjustUnit (u: Unit) =
             match u with
-            | CombiUnit(ul, OpPer, ur) ->
-                // Check if denominator (right side) contains adjust unit
-                isAdjustUnitType ur || hasAdjustUnit ul
+            | CombiUnit(ul, OpPer, ur) -> isAdjustUnitType ur || hasAdjustUnit ul
             | CombiUnit(ul, _, ur) -> hasAdjustUnit ul || hasAdjustUnit ur
             | _ -> false
 
 
-        /// Check if a unit has a time component in denominator
-        /// by checking if the right side of a Per operation contains Time
+        /// Whether a unit has a time unit in the denominator of a Per.
         let rec hasTimeUnit (u: Unit) =
             match u with
-            | CombiUnit(ul, OpPer, ur) ->
-                // Check if denominator (right side) contains time unit
-                isTimeUnitType ur || hasTimeUnit ul
+            | CombiUnit(ul, OpPer, ur) -> isTimeUnitType ur || hasTimeUnit ul
             | CombiUnit(ul, _, ur) -> hasTimeUnit ul || hasTimeUnit ur
             | _ -> false
 
 
-        /// Validate that unit matches Quantity field pattern: no adjust, no time
+        /// Checks that a Quantity unit has no adjust unit and no time unit, or returns the error text.
         let validateQuantityUnit (u: Unit) =
             if hasAdjustUnit u then
                 Error "Quantity cannot have adjust unit"
@@ -71,7 +61,7 @@ module Medication =
                 Ok()
 
 
-        /// Validate that unit matches QuantityAdjust field pattern: has adjust, no time
+        /// Checks that a QuantityAdjust unit has an adjust unit and no time unit, or returns the error text.
         let validateQuantityAdjustUnit (u: Unit) =
             if not (hasAdjustUnit u) then
                 Error "QuantityAdjust must have adjust unit (kg/m2)"
@@ -81,7 +71,7 @@ module Medication =
                 Ok()
 
 
-        /// Validate that unit matches PerTime field pattern: no adjust, has time
+        /// Checks that a PerTime unit has no adjust unit and has a time unit, or returns the error text.
         let validatePerTimeUnit (u: Unit) =
             if hasAdjustUnit u then
                 Error "PerTime cannot have adjust unit"
@@ -91,7 +81,7 @@ module Medication =
                 Ok()
 
 
-        /// Validate that unit matches PerTimeAdjust field pattern: has adjust and time
+        /// Checks that a PerTimeAdjust unit has an adjust unit and a time unit, or returns the error text.
         let validatePerTimeAdjustUnit (u: Unit) =
             if not (hasAdjustUnit u) then
                 Error "PerTimeAdjust must have adjust unit (kg/m2)"
@@ -101,7 +91,7 @@ module Medication =
                 Ok()
 
 
-        /// Validate that unit matches Rate field pattern: no adjust, has time
+        /// Checks that a Rate unit has no adjust unit and has a time unit, or returns the error text.
         let validateRateUnit (u: Unit) =
             if hasAdjustUnit u then
                 Error "Rate cannot have adjust unit"
@@ -111,7 +101,7 @@ module Medication =
                 Ok()
 
 
-        /// Validate that unit matches RateAdjust field pattern: has adjust and time
+        /// Checks that a RateAdjust unit has an adjust unit and a time unit, or returns the error text.
         let validateRateAdjustUnit (u: Unit) =
             if not (hasAdjustUnit u) then
                 Error "RateAdjust must have adjust unit (kg/m2)"
@@ -203,7 +193,6 @@ module Medication =
             Quantities = None
             Route = ""
             OrderType = AnyOrder
-            //AdjustUnit = None
             Frequencies = None
             Time = MinMax.empty
             Dose = None
@@ -213,10 +202,10 @@ module Medication =
         }
 
 
-    /// The medication as a serializable shape: the shape of its text and its schema. Absent is
-    /// null or an empty array; a number is its text; a limit gets its target from where it sits.
-    /// The Dto classes allow null, unlike the order's, so that the serializer leaves an absent
-    /// field out of the text.
+    /// The serializable shape of a medication, used for the medication text and its schema. A missing value is
+    /// null or an empty array, and a number is written as its exact text. A limit has no target field; the
+    /// target follows from where the limit is placed. The Dto classes allow null, so the serializer can leave
+    /// a missing field out of the text.
     module Dto =
 
         open FsToolkit.ErrorHandling
@@ -244,7 +233,7 @@ module Medication =
             member val Max: LimitDto = null with get, set
 
 
-        /// A dose limit; its target is where it sits.
+        /// A dose limit. Its target follows from where it is placed: the medication, a component or a substance.
         [<AllowNullLiteral>]
         type DoseLimitDto() =
             member val DoseUnit: string = null with get, set
@@ -257,7 +246,7 @@ module Medication =
             member val RateAdjust: MinMaxDto = null with get, set
 
 
-        /// A dilution limit; its target is where it sits, its products are the solution rule's.
+        /// A dilution limit. Its target follows from where it is placed; it reads back without products.
         [<AllowNullLiteral>]
         type DilutionLimitDto() =
             member val Quantity: MinMaxDto = null with get, set
@@ -328,9 +317,8 @@ module Medication =
         let numberOptToText br = br |> Option.map BigRational.toStringExact |> Option.toObj
 
 
-        /// A unit from its text, or None. The parser raises a FormatException for an unknown
-        /// unit group, as in mg[Banana], and for a factor of 0, as in 0 IU/ml, and returns None
-        /// for the rest it cannot read.
+        /// Parses a unit from its text, or returns None. A FormatException of the parser, for an unknown unit
+        /// group as in mg[Banana] or a factor of 0 as in 0 IU/ml, also gives None.
         let tryParseUnit s =
             try
                 s |> UnitsParse.fromString
@@ -338,8 +326,8 @@ module Medication =
                 None
 
 
-        /// A unit in English short without its group, or with the group when the short form
-        /// does not parse back to the same unit.
+        /// Writes a unit in English short form without its group, or with the group when the form without the
+        /// group does not parse back to the same unit.
         let unitToString u =
             let s = u |> Units.toStringEngShortWithoutGroup
 
@@ -436,7 +424,7 @@ module Medication =
             )
 
 
-        /// The Dto of a medication; total.
+        /// Maps a medication to its Dto. This never fails.
         let toDto (med: Medication) =
             Dto(
                 Id = (med.Id |> DtoResult.blankToNull),
@@ -492,7 +480,7 @@ module Medication =
         let valueOptFromDto path (dto: ValueDto) =
             if isNull dto then
                 Ok None
-            // the empty value, of a placeholder product, is written without numbers or a unit
+            // The empty value of a placeholder product is written without numbers and without a unit.
             else if
                 dto.Value |> DtoResult.orEmpty |> Array.isEmpty
                 && dto.Unit |> String.isNullOrWhiteSpace
@@ -526,7 +514,8 @@ module Medication =
                 }
 
 
-        /// A range of a dose limit whose units pass the check of its field.
+        /// Reads the range of a dose limit field and checks its units with check. Returns a WrongUnit error for
+        /// every distinct failure.
         let doseRangeFromDto check path dto =
             dto
             |> minMaxFromDto path
@@ -627,7 +616,7 @@ module Medication =
 
         let productFromDto path (dto: ProductDto) =
             validation {
-                // a placeholder product, made when no product matches, has no id
+                // A placeholder product, made when no product matches, has no id.
                 let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
                 and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
 
@@ -663,7 +652,8 @@ module Medication =
             }
 
 
-        /// The products, each refused that cannot be made of the substances.
+        /// Checks that every product can be made of the substances. Returns a NotMadeOf error for every product
+        /// that cannot.
         let madeOfSubstances path substances products =
             products
             |> List.mapi (fun i p ->
@@ -683,7 +673,7 @@ module Medication =
             let products =
                 dto.Products
                 |> Nested.items $"%s{path}.Products" productFromDto
-                // the products can only be checked against substances that were read
+                // The products are checked only when the substances read without errors.
                 |> Result.bind (fun ps ->
                     match substances with
                     | Ok sis -> ps |> madeOfSubstances path sis
@@ -722,7 +712,7 @@ module Medication =
                 | None -> Error [ DtoError.UnknownOrderType(path, s) ]
 
 
-        /// The medication of a Dto, or every error of it, each with its path.
+        /// Reads a medication from its Dto. Returns every error, each with the path of its field.
         let fromDto (dto: Dto) =
             validation {
                 let! orderType = dto.OrderType |> DtoResult.orBlank |> orderTypeFromDto "OrderType"
@@ -761,14 +751,9 @@ module Medication =
     let substanceItem = SubstanceItem.item
 
 
-    /// <summary>
-    /// Create a ProductComponent from a list of Products.
-    /// DoseLimits are used to set the Dose for the ProductComponent.
-    /// If noSubst is true, the substances will not be added to the ProductComponent.
-    /// The freqUnit is used to set the TimeUnit for the Frequencies.
-    /// </summary>
-    /// <param name="logger">The logger</param>
-    /// <param name="limits">The ComponentLimits for the ProductComponent</param>
+    /// Creates a product component for every component limit, with its dose limit, products and substances.
+    /// The values of a list in more than one unit group keep only the largest group, with a warning. A product
+    /// that cannot be made of the substances of the component is left out.
     let createComponents logger (limits: ComponentLimit[]) =
 
         let filterByUnitGroup (context: string) (vus: ValueUnit[]) =
@@ -800,7 +785,7 @@ module Medication =
 
         limits
         |> Array.map (fun lim ->
-            // the component quantity rule, shared with the products below
+            // The quantity 1 mL, used for the component and for the form quantities of its products.
             let oneMl = 1N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
 
             let qts =
@@ -914,17 +899,13 @@ module Medication =
                     )
                     |> Array.toList
             }
-            // a product whose strength the unit group filter left out of its item can never be made
+            // A product whose strength the unit group filter left out of its substance can never be made.
             |> fun pc -> { pc with Products = pc.Products |> List.filter (ProductComponent.madeOf pc.Substances) }
         )
         |> Array.toList
 
 
-    /// <summary>
-    /// Set the DilutionLimits for a list of SubstanceItems.
-    /// </summary>
-    /// <param name="dls">The DilutionLimits to set</param>
-    /// <param name="items">The SubstanceItems to set the DilutionLimits for</param>
+    /// Sets on each substance item the dilution limit whose target is that substance.
     let setDilutionLimit (dls: DilutionLimit[]) (items: SubstanceItem list) =
         items
         |> List.map (fun item ->
@@ -941,7 +922,10 @@ module Medication =
         )
 
 
-    /// Add an optional solution rule to a medication order
+    /// Applies a solution rule, when there is one, to a medication. The medication gets the drip rate as a dose
+    /// rate in mL, the volumes, the Div and the dose count of the rule, and a component for the first diluent.
+    /// Each substance and component gets its dilution limit. When the weight is known, an empty component
+    /// quantity limit takes the adjusted quantity limit times the weight in kg.
     let addSolutionRule logger (patientData: PatientData) solRule med =
         match solRule with
         | None -> med
@@ -1020,7 +1004,8 @@ module Medication =
             }
 
 
-    /// Create a Medication Order from patient information and dose rules
+    /// Creates a medication from the patient data, the adjust unit, the dose limit, a dose rule and an optional
+    /// solution rule. Without a solution rule the dose count is 1.
     let create logger (patientData: PatientData) au dose (dr: DoseRule) (solRule: SolutionRule option) =
         { template with
             Id = Guid.NewGuid().ToString()
@@ -1032,7 +1017,7 @@ module Medication =
             Route = dr.Route
             DoseCount =
                 if solRule.IsSome then
-                    MinMax.empty // Note: dose count will be set in the addSolutionRule
+                    MinMax.empty // addSolutionRule sets the dose count
                 else
                     // No solution rule, set it to 1
                     let u = Units.Count.times |> Some
@@ -1052,16 +1037,12 @@ module Medication =
                     patientData |> CorePatientData.weightInKg
                 else
                     patientData |> CorePatientData.bodySurfaceArea
-        //AdjustUnit = Some au
         }
         |> addSolutionRule logger patientData solRule
 
 
-    /// <summary>
-    /// Create medication order templates from a PrescriptionRule
-    /// </summary>
-    /// <param name="logger">The logger instance for logging medication creation events</param>
-    /// <param name="pr">The PrescriptionRule to use</param>
+    /// Creates a medication for every solution rule of the prescription rule, or one medication when it has no
+    /// solution rules, and logs each medication. The adjust unit is kg when the dose rule gives none.
     let fromRule logger (pr: PrescriptionRule) =
         let au = pr.DoseRule.AdjustUnit |> Option.defaultValue Units.Weight.kiloGram
 
@@ -1081,12 +1062,10 @@ module Medication =
         meds
 
 
-    /// The concentrations of a substance that its dilution limit allows, judged by the
-    /// bounds withItemDilution sets: inclusive, and a limit of one value allows that value only.
-    /// A substance with no concentrations or no concentration limit keeps what it has, and so does
-    /// one whose concentrations are in a unit group the limit cannot be compared with (a molar
-    /// concentration against a mass limit): the bounds are compared on base values, so those would
-    /// compare as numbers and give a wrong answer.
+    /// Returns the concentrations of a substance that its dilution concentration limit allows, with the bounds
+    /// that withItemDilution sets. A substance without concentrations or without a concentration limit keeps
+    /// its concentrations. So does a substance with concentrations in another unit group than the limit, such
+    /// as a molar concentration against a mass limit, because the bounds are compared on base values.
     let concentrationsWithinDilutionLimit (si: SubstanceItem) =
         match si.Concentrations, si.Dilution with
         | Some vu, Some dilutionLimit when dilutionLimit.Concentration <> MinMax.empty ->
@@ -1108,9 +1087,9 @@ module Medication =
         | _ -> si.Concentrations
 
 
-    /// The substances of a medication given undiluted whose dilution limit allows none of
-    /// the concentrations its product has. Only a medication with one component is given
-    /// undiluted; with more, the orderable concentration is the solver's to find.
+    /// Returns the substances of a medication given undiluted whose dilution limit allows none of the product
+    /// concentrations. Only a medication with one component is given undiluted; with more components the
+    /// solver calculates the orderable concentration.
     let undilutedOutsideDilutionLimit (med: Medication) =
         match med.Components with
         | [ pc ] ->
@@ -1129,13 +1108,13 @@ module Medication =
         && meds |> Array.forall (undilutedOutsideDilutionLimit >> List.isEmpty >> not)
 
 
-    /// An Order built from a Medication: the shape first, then one pass per constraint
-    /// concern, each pass pure and each leaving the rest of the order alone.
+    /// Builds an Order from a Medication: first the shape, then one pure pass for each kind of constraint.
+    /// Each pass changes only its own part of the order.
     module OrderBuilder =
 
 
-        /// The schedule an order type asks for. An order that is neither prescribed nor
-        /// administered has no schedule to build, and no order either.
+        /// Creates the empty schedule for the order type of the medication. Raises a NotSupportedException for
+        /// AnyOrder and ProcessOrder, which have no schedule.
         let scheduleOf (med: Medication) =
             match med.OrderType with
             | OnceOrder -> Order.Schedule.once NoUnit NoUnit
@@ -1150,14 +1129,14 @@ module Medication =
                 |> raise
 
 
-        /// The empty order an order type asks for: its schedule, its id, its name and its
-        /// route, and no component yet. The start is the caller's, in UTC.
+        /// Creates an empty order for the medication with its schedule, id, name and route, without components.
+        /// The caller gives the start in UTC.
         let newOrder (start: DateTime) (med: Medication) =
             med |> scheduleOf |> Order.createNew start med.Id med.Name <| med.Route
 
 
-        /// The components of the medication and their items, as shape alone: every order
-        /// variable is the empty one its name gives it, and no constraint is set here.
+        /// Adds the components of the medication and their items to the order, with empty order variables and
+        /// no constraints.
         let withComponents (med: Medication) (ord: Order) =
             let components =
                 med.Components
@@ -1175,10 +1154,9 @@ module Medication =
             { ord with Orderable = { ord.Orderable with Components = components } }
 
 
-        /// Walk the medication and the order together. Both lists came from the same
-        /// medication in the shape pass, so they pair up by position; a mismatch means the
-        /// shape pass changed and the build should stop rather than quietly constrain the
-        /// wrong item.
+        /// Applies f to every substance item of the medication and the order item at the same position. Both
+        /// lists come from the same medication, so List.zip raises an exception on a length mismatch, which
+        /// stops the build rather than constrain the wrong item.
         let mapItems f (med: Medication) (ord: Order) =
             let components =
                 List.zip med.Components ord.Orderable.Components
@@ -1189,7 +1167,7 @@ module Medication =
             { ord with Orderable = { ord.Orderable with Components = components } }
 
 
-        /// A single value in a unit, or nothing when there is no unit to give it.
+        /// Returns a single value in a unit, or None when the unit is NoUnit.
         let singleOrNone u br =
             if u = NoUnit then
                 None
@@ -1197,8 +1175,8 @@ module Medication =
                 br |> ValueUnit.singleWithUnit u |> Some
 
 
-        /// What a dilution limit asks of an item: how much of it the orderable may hold, and in
-        /// what concentration.
+        /// Sets the dilution limit on an item: the minimum and maximum of the orderable quantity and of the
+        /// orderable concentration.
         let withItemDilution (dilutionLimit: DilutionLimit) (itm: Types.Item) =
             { itm with
                 OrderableQuantity =
@@ -1216,10 +1194,9 @@ module Medication =
             }
 
 
-        /// What a dilution limit asks of a component: how much of it the orderable may hold, and
-        /// what fraction of the whole orderable it may be. A component that is the only component
-        /// of the medication is left without the fraction, because the component is the whole
-        /// orderable.
+        /// Sets the dilution limit on a component: the values, minimum and maximum of the orderable quantity, and
+        /// the minimum and maximum of the orderable concentration. The only component of a medication gets no
+        /// orderable concentration limit, because that component is the whole orderable.
         let withComponentDilutionLimit single (dilutionLimit: DilutionLimit) (cmp: Types.Component) =
             let con f = OrderVariable.mapConstraints f
 
@@ -1243,10 +1220,9 @@ module Medication =
             }
 
 
-        /// The quantities and concentrations the products give an item. With one component
-        /// the orderable is the component, so the concentration in the one is the
-        /// concentration in the other, and only the concentrations the dilution limit allows
-        /// are offered: nothing dilutes the product to bring another within the limit.
+        /// Sets the component quantities and concentrations of the substance on an item, then its dilution limit.
+        /// With one component the orderable is the component, so the orderable concentration gets only the
+        /// concentrations that the dilution limit allows: nothing dilutes the product.
         let withItemQtyConc (med: Medication) (si: SubstanceItem) (itm: Types.Item) =
             let single = med.Components |> List.length = 1
             let setVals vu =
@@ -1270,7 +1246,8 @@ module Medication =
                 | Some dilutionLimit -> itm |> withItemDilution dilutionLimit
 
 
-        /// What the dose rule allows of the substance, in the terms the order type doses in.
+        /// Sets the dose limit of the substance on the item dose: the rate for a continuous order, the quantity
+        /// and the dose per time for a once or discontinuous order, and both for a once timed or timed order.
         let withItemDose (med: Medication) (si: SubstanceItem) (itm: Types.Item) =
             let con f = OrderVariable.mapConstraints f
 
@@ -1334,7 +1311,7 @@ module Medication =
             |> mapItems (fun _ si itm -> itm |> withItemQtyConc med si |> withItemDose med si) med
 
 
-        /// The unit the orderable is measured in: the one the first component is measured in.
+        /// Returns the unit of the orderable, which is the unit of the quantities of the first component.
         let orderableUnit (med: Medication) =
             med.Components
             |> List.tryHead
@@ -1379,7 +1356,7 @@ module Medication =
             |> Option.filter (fun step -> pc.Quantities |> Option.forall (ValueUnit.eqsGroup step))
 
 
-        /// Walk the medication's components and the order's together.
+        /// Applies f to every component of the medication and the order component at the same position.
         let mapComponents f (med: Medication) (ord: Order) =
             { ord with
                 Orderable =
@@ -1391,9 +1368,9 @@ module Medication =
             }
 
 
-        /// How much of a component the orderable holds, and in what concentration. A
-        /// component can never be more than all of the orderable, and where it is the only
-        /// one it is all of it.
+        /// Sets the component quantities, the step of the orderable quantity and an orderable concentration of
+        /// at most 1 on a component; the only component gets exactly 1 and the step on its dose quantity. Then
+        /// sets the dilution limit of the component.
         let withComponentQtyConc (med: Medication) (pc: ProductComponent) (cmp: Types.Component) =
             let single = med.Components |> List.length = 1
             let incr = med |> componentDivisibility pc
@@ -1436,8 +1413,8 @@ module Medication =
                 | Some dilutionLimit -> cmp |> withComponentDilutionLimit single dilutionLimit
 
 
-        /// What the dose rule allows of the component. Where it allows nothing, the dose
-        /// quantity still gets a unit, so that it can be added up with the others.
+        /// Sets the dose limit of the component on its dose, by order type as withItemDose does. A dose quantity
+        /// without a limit still gets a unit, so that it can be added up with the others.
         let withComponentDose (med: Medication) (pc: ProductComponent) (cmp: Types.Component) =
             let con f = OrderVariable.mapConstraints f
 
@@ -1512,7 +1489,7 @@ module Medication =
             |> mapComponents (fun pc cmp -> cmp |> withComponentQtyConc med pc |> withComponentDose med pc) med
 
 
-        /// Several values in a unit, or nothing when there is no unit to give them.
+        /// Returns the values in a unit, or None when the unit is NoUnit.
         let valuesOrNone u brs =
             if u = NoUnit then
                 None
@@ -1529,9 +1506,9 @@ module Medication =
                 | _ -> None
 
 
-        /// How much of the orderable is given, and how often it is counted. A medication that
-        /// names its quantities takes those; one that does not keeps its minimum quantity, or takes
-        /// anything above nothing when it has no minimum.
+        /// Sets the dose count and the orderable quantity of the medication on the orderable. The orderable
+        /// quantity gets the quantities of the medication when it has them, otherwise a minimum above zero, and
+        /// then the quantity range of the medication.
         let withOrderableQuantity (med: Medication) (ord: Order) =
             let zero = med |> orderableUnit |> Option.bind (fun u -> 0N |> singleOrNone u)
             let con f = OrderVariable.mapConstraints f
@@ -1556,9 +1533,9 @@ module Medication =
             }
 
 
-        /// What the dose rule allows of the orderable as a whole. Where it allows nothing, a
-        /// dose quantity and a dose per time still get a unit, so that they can take part in
-        /// the sums.
+        /// Sets the dose limit of the medication on the orderable dose, by order type. A medication with one
+        /// component and no dose limit of its own uses the dose limit of that component. A dose quantity and a
+        /// dose per time without a limit still get a unit, so that they can take part in the sums.
         let withOrderableDose (med: Medication) (ord: Order) =
             let ou = med |> orderableUnit
             let rateUnit = ou |> Option.map (ValueUnit.per Units.Time.hour)
@@ -1572,8 +1549,7 @@ module Medication =
                         dos.Rate
                         |> OrderVariable.Rate.apply (
                             con (fun cs ->
-                                // an infusion rate steps by a tenth unless something says
-                                // otherwise
+                                // The infusion rate has a step of 1/10 of the orderable unit per hour.
                                 cs
                                 |> OrderVariable.Constraints.setIncr (
                                     rateUnit |> Option.bind (fun ru -> [| 1N / 10N |] |> valuesOrNone ru)
@@ -1659,8 +1635,8 @@ module Medication =
                         | _ -> dos.PerTimeAdjust
                 }
 
-            // a timed order is taken to be a solution: what is not given a value is stepped by
-            // the coarsest step the products allow
+            // A timed order is a solution: a dose quantity or orderable quantity without values gets the
+            // coarsest step the products allow.
             let timed (orb: Orderable) =
                 let stepUnlessValued cs =
                     if cs.Values |> Option.isSome then
@@ -1708,8 +1684,8 @@ module Medication =
             ord |> withOrderableQuantity med |> withOrderableDose med
 
 
-        /// How often the order is given and how long an administration takes. A schedule only
-        /// carries what its kind has: a once order has neither, a continuous one no frequency.
+        /// Sets the frequencies and the administration time of the medication on the schedule. A once order has
+        /// neither, and a continuous order has no frequency.
         let withPrescription (med: Medication) (ord: Order) =
             let con f = OrderVariable.mapConstraints f
 
@@ -1734,8 +1710,7 @@ module Medication =
                 |> OrderVariable.Time.apply (
                     con (fun cs ->
                         cs
-                        // a lower bound the medication does not give leaves the one the empty
-                        // order variable was built with, which is nothing below nothing
+                        // Without a minimum time in the medication, the minimum of the empty order variable stays.
                         |> fun cs ->
                             match med.Time.Min with
                             | None -> cs
@@ -1761,8 +1736,8 @@ module Medication =
             }
 
 
-        /// What the dose is adjusted to: the patient's weight or body surface. A weight is
-        /// bounded by what a patient can weigh, so that a typo cannot pass for a dose.
+        /// Sets the adjust value of the medication, the weight or body surface area of the patient, on the order.
+        /// A weight is bounded between 0.2 and 150 in its unit, so that a typing error cannot pass for a dose.
         let withAdjustment (med: Medication) (ord: Order) =
             let bounds cs =
                 match med.Adjust with
@@ -1786,8 +1761,8 @@ module Medication =
             }
 
 
-        /// The order count as a defined constraint: exactly 1 on Once and OnceTimed, else whole and
-        /// at least 1. It is structural and comes from no rule.
+        /// Sets the order count: exactly 1 for a once or once timed order, otherwise a whole number of at least 1.
+        /// No rule sets the order count.
         let withOrderCount (med: Medication) (ord: Order) =
             let one = ValueUnit.oneCount |> Some
 
@@ -1806,9 +1781,8 @@ module Medication =
             }
 
 
-        /// The dose count set to 1 in its defined constraints when the rules give it no constraints, as
-        /// a solution rule without a minimum and a maximum dose fraction does. A count is created above 0,
-        /// which counts as no constraint. Dose count constraints the rules give are kept as they are.
+        /// Sets the dose count to 1 when the rules give it no constraints, as for a solution rule without a
+        /// minimum and a maximum dose fraction. A count is created above 0, which is not a constraint.
         let withDoseCount (ord: Order) =
             if
                 ord.Orderable.DoseCount
@@ -1828,8 +1802,8 @@ module Medication =
                 }
 
 
-        /// Build an Order from a Medication: the shape, and then every constraint. The start
-        /// is the caller's, in UTC.
+        /// Builds an Order from a Medication: the shape, and then every constraint. The caller gives the start
+        /// in UTC.
         let build (start: DateTime) (med: Medication) =
             med
             |> newOrder start
@@ -1856,11 +1830,10 @@ module Medication =
         | _ -> cs
 
 
-    /// Build an Order from a Medication, or say why it could not be built. The start is the
-    /// caller's, in UTC. A medication given undiluted at a concentration its dilution limit
-    /// forbids is not built: there is no diluent to bring it within the limit, so no order of
-    /// it can be prescribed. A medication with components in different unit groups is not built
-    /// either, because the components add up to the orderable.
+    /// Builds an Order from a Medication, or returns OrderCouldNotBeCreated with the reason. The caller gives the
+    /// start in UTC. A medication given undiluted at a concentration that its dilution limit does not allow is
+    /// refused, because no diluent can bring it within the limit. A medication with components in different
+    /// unit groups is refused, because the components add up to the orderable.
     let toOrder (start: DateTime) (med: Medication) : Result<Order, Exceptions.Message> =
         let refuse msg =
             msg |> InvalidOperationException :> exn
@@ -1890,10 +1863,8 @@ module Medication =
             |> refuse
 
 
-    /// Convert a Medication to an Order Dto, for the callers that still want one, chiefly the
-    /// totals; it goes when they take an Order instead. A medication that cannot be ordered
-    /// raises here, with the exception that said why, since those callers have nowhere to put
-    /// a failure; toOrder gives them the same failure as a value.
+    /// Converts a Medication to an Order Dto. Raises the exception with the reason when the medication cannot
+    /// be ordered; toOrder returns the same failure as a value.
     let toOrderDto (start: DateTime) (med: Medication) =
         match med |> toOrder start with
         | Ok ord -> ord |> Order.Dto.toDto

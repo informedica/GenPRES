@@ -17,7 +17,7 @@ module Totals =
     type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
 
 
-    /// No totals: what a plan and a context start with, before an evaluation computes them.
+    /// Totals with every value None, for a plan or a context before an evaluation calculates the totals.
     let empty: Totals =
         {
             Volume = None
@@ -77,7 +77,7 @@ module Totals =
             |> Option.defaultValue var
 
 
-    /// Get the volume
+    /// Returns the volume of a dose in mL per time unit, or None when the dose has no volume.
     let getVolume tu pres (dose: Dose) =
         // TODO this is maybe too simplistic
         if
@@ -131,9 +131,9 @@ module Totals =
             )
 
 
-    /// The gestational age the Totals rows are chosen by, from the age in days and the gestational
-    /// age given: the one given, or term when it may be left out. None when the gestational age is
-    /// needed and not given, as GenCORE sets the need from the age.
+    /// Returns the gestational age that selects the Totals rows: the given gestational age, or term when
+    /// GenCORE does not require a gestational age for the age. Returns None when the gestational age is
+    /// required and not given.
     let gestAgeOrTerm age gestAge =
         match gestAge with
         | Some ga -> Some ga
@@ -144,7 +144,7 @@ module Totals =
             | CoreNeed.NoGestationalAge -> CoreAgeWeeksDays.term |> CoreAgeWeeksDays.toValueUnit |> Some
 
 
-    /// The bounds of a row in a unit: from the minimum, below the maximum.
+    /// Creates a MinMax in a unit with an inclusive minimum and an exclusive maximum.
     let fromTupleInclExcl =
         MinMax.fromTuple Informedica.GenCore.Lib.Ranges.Inclusive Informedica.GenCore.Lib.Ranges.Exclusive
 
@@ -155,11 +155,11 @@ module Totals =
         |> List.forall Option.isNone
 
 
-    /// Whether a Totals row applies to a patient with this age, weight and gestational age. An age or
-    /// weight that is not known does not limit the rows. A preterm patient matches no row without
-    /// gestational age bounds, unless the row has no patient bounds at all, as the dose rules do.
+    /// Whether a Totals row applies to a patient with this age, weight and gestational age. An unknown age
+    /// or weight does not limit the rows. A preterm patient matches a row only when the row has gestational
+    /// age bounds or no patient bounds at all, the same as for the dose rules.
     let appliesTo age wght gestAge (t: Informedica.GenForm.Lib.Types.Data.TotalsData) =
-        // MinMax.inRange fails a missing value against bounds; a missing age or weight passes here
+        // MinMax.inRange returns false for a missing value, so a missing age or weight passes here.
         let within u bounds vu =
             vu
             |> Option.map (Some >> MinMax.inRange (bounds |> fromTupleInclExcl (Some u)))
@@ -175,8 +175,9 @@ module Totals =
             || gestAge |> CoreAgeWeeksDays.isPretermValue |> not)
 
 
-    /// The totals of the orders, against the Totals rows for the age, weight and gestational age of
-    /// the patient. No totals when the gestational age is needed and not given.
+    /// Calculates the totals of the orders per kg and per time unit, with the norm of the Totals row that
+    /// applies to the age, weight and gestational age of the patient. Every total is None without a weight,
+    /// or when the gestational age is required and not given.
     let getTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) age wght gestAge ords =
         match gestAgeOrTerm age gestAge with
         | None -> empty
@@ -236,7 +237,7 @@ module Totals =
             }
 
 
-    /// The serializable shape of the totals: the same string option fields, its own type.
+    /// The serializable shape of the totals, with the same string option fields.
     module Dto =
 
         type Dto =
@@ -283,8 +284,8 @@ module Totals =
             }
 
 
-        /// A field copy; every Dto is totals. A null root is missing; the guard is spelled
-        /// out here since this file compiles before the Dto helpers.
+        /// Copies the fields of the Dto. A Dto that is null after JSON deserialization gives
+        /// DtoError.Missing "Totals"; the null check is written out because this file compiles before Dtos.fs.
         let fromDto (dto: Dto) : Result<Totals, DtoError list> =
             if isNull (box dto) then
                 Error [ DtoError.Missing "Totals" ]

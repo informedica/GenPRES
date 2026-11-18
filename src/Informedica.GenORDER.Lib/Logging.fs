@@ -7,47 +7,43 @@ module Logging =
     open Types.Logging
 
 
-    /// Log a solver event with a specific level
+    /// Logs an order event at the given level.
     let logMessage level (logger: Logger) (evt: Events.Event) = evt |> OrderEventMessage |> Logging.logWith level logger
 
 
-    /// Log an informative solver event
+    /// Logs an order event at the informative level.
     let logInfo logger evt = logMessage Level.Informative logger evt
 
 
-    /// Log a warning solver event
+    /// Logs an order event at the warning level.
     let logWarning logger evt = logMessage Level.Warning logger evt
 
 
-    /// Log a debug solver event
+    /// Logs an order event at the debug level.
     let logDebug logger evt = logMessage Level.Debug logger evt
 
 
-    /// Log a solver exception as an error
+    /// Logs an order exception as an error.
     let logError (logger: Logger) (msg: Exceptions.Message) = msg |> OrderException |> Logging.logError logger
 
 
-    /// Ignore logger for backward compatibility
+    /// A logger that does nothing.
     let noOp = Logging.noOp
 
 
-    /// Log an order event built lazily at the given level: the thunk (and any
-    /// expensive work inside it, e.g. a console table) runs only if the logger
-    /// would actually consume a message at that level.
+    /// Logs the order event that mk returns at the given level. Calls mk only when the logger is enabled for that
+    /// level, so expensive work such as a console table is skipped otherwise.
     let logMessageLazy level (logger: Logger) (mk: unit -> Events.Event) =
         Logging.logLazy level logger (fun () -> mk () |> OrderEventMessage :> IMessage)
 
 
-    /// Log an order event built lazily: the thunk (and any expensive work inside
-    /// it) runs only if the logger would consume an informative message.
+    /// Logs the order event that mk returns at the informative level. Calls mk only when that level is enabled.
     let logInfoLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Informative logger mk
 
 
-    /// Log an order event built lazily: the thunk runs only if the logger would
-    /// consume a warning message.
+    /// Logs the order event that mk returns at the warning level. Calls mk only when that level is enabled.
     let logWarningLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Warning logger mk
 
 
-    /// Log an order event built lazily: the thunk runs only if the logger would
-    /// consume a debug message.
+    /// Logs the order event that mk returns at the debug level. Calls mk only when that level is enabled.
     let logDebugLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Debug logger mk
