@@ -284,6 +284,9 @@ type PatientData =
         /// gestational age, set by PatientData.determineGestationalAndPostMenstrualAge. None without a
         /// gestational age or an age, and from 1 year.
         PostMenstrualAge: AgeWeeksDays option
+        /// The body surface area of the calculation weight and height, set by
+        /// PatientData.calculateBodySurfaceArea. None without both.
+        BodySurfaceArea: decimal<bsa> option
         /// The accesses of the patient; empty when none is known.
         Access: Access list
         /// The renal function; none when not known.
@@ -2049,6 +2052,7 @@ module PatientData =
             Height = hght
             GestationalAge = gest
             PostMenstrualAge = None
+            BodySurfaceArea = None
             Access = []
             RenalFunction = None
         }
@@ -2056,16 +2060,6 @@ module PatientData =
 
     /// The patient data with nothing known.
     let unknown = create Department.unknown [||] UnknownGender None Weight.unknown Height.unknown None
-
-
-    /// Creates patient data with the age at the start of an age type, and the normal weight and height of
-    /// that age type for a gender as estimates at a date.
-    let fromAgeType gend dt at =
-        { unknown with
-            Age = at |> AgeValue.fromAgeType |> Some
-            Weight = Weight.fromAgeType gend dt at
-            Height = Height.fromAgeType gend dt at
-        }
 
 
     /// The age as a time value in days; none without an age.
@@ -2108,12 +2102,25 @@ module PatientData =
         | _ -> None
 
 
-    /// Returns the body surface area in m2 by the Du Bois formula, rounded to 2 decimals; None without a
-    /// calculation weight and height.
-    let bodySurfaceArea dat =
-        dat
-        |> calcBsa (fun _ -> BSA.calcDuBois (Some 2))
-        |> Option.map Measures.fromDecimalM2
+    /// Sets the body surface area by the Du Bois formula, rounded to 2 significant digits. The body surface area
+    /// is None without a calculation weight and height.
+    let calculateBodySurfaceArea dat =
+        { dat with BodySurfaceArea = dat |> calcBsa (fun _ -> BSA.calcDuBois (Some 2)) }
+
+
+    /// Returns the body surface area in m2 that is set on the patient data.
+    let bodySurfaceArea (dat: PatientData) = dat.BodySurfaceArea |> Option.map Measures.fromDecimalM2
+
+
+    /// Creates patient data with the age at the start of an age type, and the normal weight and height of
+    /// that age type for a gender as estimates at a date.
+    let fromAgeType gend dt at =
+        { unknown with
+            Age = at |> AgeValue.fromAgeType |> Some
+            Weight = Weight.fromAgeType gend dt at
+            Height = Height.fromAgeType gend dt at
+        }
+        |> calculateBodySurfaceArea
 
 
     /// True for a patient marked as an adult who is younger than 16 years.
@@ -2175,6 +2182,8 @@ module PatientData =
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
             /// Written by toDto for readers of the Dto; fromDto calculates the post-menstrual age instead.
             member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
+            /// Written by toDto for readers of the Dto; fromDto calculates the body surface area instead.
+            member val BodySurfaceArea: decimal option = None with get, set
             member val Access: string[] = [||] with get, set
             member val RenalFunction: string option = None with get, set
 
@@ -2190,8 +2199,9 @@ module PatientData =
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// Validates a Dto as patient data and calculates the ages; the post-menstrual age of the Dto is not
-        /// read. A weight or height dated after today is an error.
+        /// Validates a Dto as patient data and calculates the ages and the body surface area; the
+        /// post-menstrual age and the body surface area of the Dto are not read. A weight or height dated
+        /// after today is an error.
         let fromDto today (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.fromString
@@ -2221,6 +2231,7 @@ module PatientData =
                         RenalFunction = renal
                     }
                     |> determineGestationalAndPostMenstrualAge
+                    |> calculateBodySurfaceArea
             }
 
 
@@ -2238,6 +2249,7 @@ module PatientData =
             dto.Height <- dat.Height |> Height.Dto.toDto
             dto.GestationalAge <- dat.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
             dto.PostMenstrualAge <- dat.PostMenstrualAge |> Option.map AgeWeeksDays.Dto.toDto
+            dto.BodySurfaceArea <- dat.BodySurfaceArea |> Option.map decimal
             dto.Access <- dat.Access |> List.map Access.toString |> List.toArray
             dto.RenalFunction <- dat.RenalFunction |> Option.map RenalFunction.toString
 
@@ -2296,14 +2308,19 @@ module Patient =
 
     /// Sets the ages of a patient at a date. An identified patient gets the age from the birth date; an
     /// anonymous patient keeps the entered age. Then the gestational age is removed from 1 year or without an
-    /// age, and the post-menstrual age is calculated.
+    /// age, and the post-menstrual age and the body surface area are calculated.
     let atDate dt pat =
         let dat =
             match pat.Identity with
             | Some idn -> { pat.Data with Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
             | None -> pat.Data
 
-        { pat with Data = dat |> PatientData.determineGestationalAndPostMenstrualAge }
+        { pat with
+            Data =
+                dat
+                |> PatientData.determineGestationalAndPostMenstrualAge
+                |> PatientData.calculateBodySurfaceArea
+        }
 
 
     /// Creates a patient from an identity and patient data, with the ages set at a date.

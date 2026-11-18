@@ -388,6 +388,16 @@ let estimateTests =
                 |> Expect.equal "twelve kilograms, 87 centimetres, estimated" (Some 12N, Some 87N, false, false)
             }
 
+            test "the estimates give the body surface area of the estimated weight and height" {
+                PatientData.unknown
+                |> Patient.setAge [ Years 2 ]
+                |> Patient.setGender CoreGender.Male
+                |> ServerApi.Patient.estimated readAt tables
+                |> _.BodySurfaceArea
+                |> Option.map decimal
+                |> Expect.equal "twelve kilograms and 87 centimetres" (Some 0.53m)
+            }
+
             test "a measured weight is untouched, the height estimated beside it" {
                 let pat =
                     PatientData.unknown
@@ -451,7 +461,7 @@ let estimateTests =
             test "an identified patient keeps the age, gestational age and post-menstrual age the projection gives" {
                 let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
 
-                // the gestational age known, so its post-menstrual age calculated, and no measurement
+                // A patient with a gestational age, the ages as GenCORE determines them, and no weight or height.
                 let premature =
                     { ehr with
                         Data =
@@ -461,7 +471,7 @@ let estimateTests =
                                 Weight = CoreWeight.unknown
                                 Height = CoreHeight.unknown
                             }
-                            |> CorePatientData.calculatePostMenstrualAge
+                            |> CorePatientData.determineGestationalAndPostMenstrualAge
                     }
 
                 let port = ServerApi.StubEhrPatient.port

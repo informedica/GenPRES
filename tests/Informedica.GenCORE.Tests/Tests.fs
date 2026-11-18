@@ -862,8 +862,9 @@ module Tests =
 
             let withHeight calc dat : PatientData = { dat with Height = Height.create [] None (Some calc) }
 
-            /// Patient data with an age, a measured weight, an estimated height, both ages of a
-            /// neonate, a location, a department, the mark as an adult, an access and a renal function.
+            /// Patient data with an age, a measured weight, an estimated height, their body surface area,
+            /// both ages of a neonate, a location, a department, the mark as an adult, an access and a renal
+            /// function.
             let complete =
                 { PatientData.create
                       (Department.pediatricICU "ICK")
@@ -879,6 +880,7 @@ module Tests =
                     Access = [ CVL; EnteralTube ]
                     RenalFunction = Some(EGFR From10To30)
                 }
+                |> PatientData.calculateBodySurfaceArea
 
             let identified =
                 BirthDate.create 2016<year> 3<month> 15<day>
@@ -1233,7 +1235,7 @@ module Tests =
                                         }
 
                                         test
-                                            "the body surface area is the Du Bois area of the weight and the height, rounded to 2 decimals" {
+                                            "the body surface area is the Du Bois area of the weight and the height, rounded to 2 significant digits" {
                                             let expected =
                                                 Calculations.BSA.calcDuBois (Some 2) 32m<kg> 140m<cm>
                                                 |> decimal
@@ -1247,8 +1249,26 @@ module Tests =
                                         test "there is no body surface area without a height" {
                                             PatientData.unknown
                                             |> withWeight (Measured weight)
+                                            |> PatientData.calculateBodySurfaceArea
                                             |> PatientData.bodySurfaceArea
                                             |> Expect.isNone "a weight alone"
+                                        }
+
+                                        test "the body surface area is the one set, not calculated again" {
+                                            { complete with BodySurfaceArea = Some 1m<bsa> }
+                                            |> PatientData.bodySurfaceArea
+                                            |> Expect.equal "the value set" (Some(single Units.BSA.m2 1m))
+                                        }
+
+                                        test
+                                            "patient data of an age type has the body surface area of its normal values" {
+                                            let dat = Adult |> PatientData.fromAgeType Male measuredOn
+
+                                            dat.BodySurfaceArea
+                                            |> Expect.equal
+                                                "the normal weight and height"
+                                                (dat
+                                                 |> PatientData.calcBsa (fun _ -> Calculations.BSA.calcDuBois (Some 2)))
                                         }
                                     ]
 
@@ -1393,6 +1413,26 @@ module Tests =
                                                 ]
                                         }
 
+                                        test "the body surface area is calculated, not read as stored" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.BodySurfaceArea <- Some 9m
+
+                                            dto
+                                            |> PatientData.Dto.fromDto readAt
+                                            |> Result.map _.BodySurfaceArea
+                                            |> Expect.equal "32 kg and 140 cm" (Ok complete.BodySurfaceArea)
+                                        }
+
+                                        test "a Dto without a weight has no body surface area" {
+                                            let dto = complete |> PatientData.Dto.toDto
+                                            dto.Weight.Calculation <- None
+
+                                            dto
+                                            |> PatientData.Dto.fromDto readAt
+                                            |> Result.map _.BodySurfaceArea
+                                            |> Expect.equal "none" (Ok None)
+                                        }
+
                                         test "a Dto whose access a serializer left null reads without an access" {
                                             let dto = PatientData.unknown |> PatientData.Dto.toDto
                                             dto.Access <- null
@@ -1413,6 +1453,14 @@ module Tests =
                                     |> Patient.create None
                                     |> Patient.BSA.calcDuBois
                                     |> Expect.isSome "measured weight, estimated height"
+                                }
+
+                                test "a patient at a date has the body surface area of its weight and height" {
+                                    { complete with BodySurfaceArea = None }
+                                    |> Patient.create None
+                                    |> Patient.atDate readAt
+                                    |> _.Data.BodySurfaceArea
+                                    |> Expect.equal "32 kg and 140 cm" complete.BodySurfaceArea
                                 }
 
                                 test "a patient reads back from its Dto, identified or anonymous" {

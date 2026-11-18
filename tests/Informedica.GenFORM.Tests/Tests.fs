@@ -2147,7 +2147,7 @@ module Tests =
         /// Sets the age in days.
         let withAgeInDays days (pat: PatientData) = { pat with Age = days * 1<day> |> AgeValue.fromDays |> Some }
 
-        /// Sets the weight in kg. The source is Measured or Estimated.
+        /// Sets the weight in kg and calculates the body surface area again. The source is Measured or Estimated.
         let withWeightFrom source kg (pat: PatientData) =
             let weight =
                 kg
@@ -2156,6 +2156,7 @@ module Tests =
                 |> WeightAtDate.create measuredOn
 
             { pat with Weight = Weight.create [] None [] (Some(source weight)) }
+            |> PatientData.calculateBodySurfaceArea
 
         /// Sets a measured weight in kg.
         let withWeightInKg kg = withWeightFrom Measured kg
@@ -2163,7 +2164,7 @@ module Tests =
         /// Sets an estimated weight in kg.
         let withEstimatedWeightInKg kg = withWeightFrom Estimated kg
 
-        /// Sets the height in cm. The source is Measured or Estimated.
+        /// Sets the height in cm and calculates the body surface area again. The source is Measured or Estimated.
         let withHeightFrom source cm (pat: PatientData) =
             let height =
                 cm
@@ -2172,6 +2173,7 @@ module Tests =
                 |> HeightAtDate.create measuredOn
 
             { pat with Height = Height.create [] None (Some(source height)) }
+            |> PatientData.calculateBodySurfaceArea
 
         /// Sets a measured height in cm.
         let withHeightInCm cm = withHeightFrom Measured cm

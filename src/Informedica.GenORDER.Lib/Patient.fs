@@ -97,7 +97,7 @@ module Patient =
 
 
     /// Sets the weight used for calculation, with its date. The source says whether the weight is
-    /// measured or estimated. None removes the weight.
+    /// measured or estimated. None removes the weight. The body surface area is calculated again.
     let setWeightFrom source date wght (p: PatientData) =
         { p with
             Weight =
@@ -105,6 +105,7 @@ module Patient =
                 |> Option.map (CoreWeightAtDate.create date >> source)
                 |> CoreWeight.create [] None []
         }
+        |> CorePatientData.calculateBodySurfaceArea
 
 
     /// Sets a weight that was measured on a date.
@@ -121,7 +122,7 @@ module Patient =
 
 
     /// Sets the height used for calculation, with its date. The source says whether the height is
-    /// measured or estimated. None removes the height.
+    /// measured or estimated. None removes the height. The body surface area is calculated again.
     let setHeightFrom source date hght (p: PatientData) =
         { p with
             Height =
@@ -129,6 +130,7 @@ module Patient =
                 |> Option.map (CoreHeightAtDate.create date >> source)
                 |> CoreHeight.create [] None
         }
+        |> CorePatientData.calculateBodySurfaceArea
 
 
     /// Sets a height that was measured on a date.

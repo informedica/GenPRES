@@ -481,6 +481,10 @@ let tests =
                         |> Option.bind weightInKg
                         |> Expect.isNone "a new age, no old estimate"
 
+                        shown tomorrow
+                        |> Option.bind CorePatientData.bodySurfaceArea
+                        |> Expect.isNone "no weight, no body surface area"
+
                         (shown tomorrow |> Option.bind CorePatientData.heightInCm, signed |> CorePatientData.heightInCm)
                         |> fun (shownHeight, signedHeight) ->
                             shownHeight |> Expect.equal "the measured height stays" signedHeight

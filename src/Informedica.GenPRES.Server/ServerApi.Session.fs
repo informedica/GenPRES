@@ -761,6 +761,7 @@ module Session =
                 Weight.Calculation = aged.Weight.Calculation |> measured
                 Height.Calculation = aged.Height.Calculation |> measured
             }
+            |> CorePatientData.calculateBodySurfaceArea
 
 
     /// The patient data a Session shows on the local date. After a signing, the data of the signed
