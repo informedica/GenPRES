@@ -54,7 +54,8 @@ signing challenge and the submission. See #1884.
   and uses the date for nothing else. The GenORDER setters `setWeightFrom` and `setHeightFrom`
   (`GenORDER.Lib/Patient.fs:101`, `:126`) take a date, and so do `setWeight`, `setEstimatedWeight`,
   `setHeight` and `setEstimatedHeight` (`:112`, `:116`, `:137`, `:141`), which pass it on. MCP calls
-  these four with today (`MCP.Lib/McpTools.GenOrder.fs:130-155`); the tests pass a fixed date.
+  these four with today (`MCP.Lib/McpTools.GenOrder.fs:130-155`); the tests pass a fixed date. Step 2
+  deletes these setters.
 
 A request does not say which mode the patient is in: the identity is on the session, not on the
 patient data of a request. Each code path does know its source.
@@ -166,10 +167,20 @@ Each step is one pull request within the limit of 200 changed source lines.
    (`:906`, `:1002`, `:1217`, `:1292`, `:2117`, `:2275`) set estimates without a date and lose their
    date parameter (decision 3); their callers are the GenCORE tests and `Scripts/Scripts.fsx`. The
    GenCORE tests follow.
-2. **GenORDER and MCP.** `setWeightFrom` and `setHeightFrom` set an undated value and lose their date
-   parameter, and so do `setWeight`, `setEstimatedWeight`, `setHeight` and `setEstimatedHeight`. In MCP,
-   `buildPatient` (`MCP.Lib/McpTools.GenOrder.fs:140`) and `estimated` (`:115`) pass their date only to
-   these setters, so they lose it too, and the comments "dated today" go. The test helpers follow.
+2. **GenORDER and MCP: patient data only through the Dto.** Delete the setters of the GenORDER
+   `Patient` module (`GenORDER.Lib/Patient.fs`): `setAge` (`:89`), `setGestAge` (`:144`), `withPMAge`
+   (`:85`), `setWeightFrom` (`:101`), `setWeight` (`:112`), `setEstimatedWeight` (`:116`),
+   `setHeightFrom` (`:126`), `setHeight` (`:137`), `setEstimatedHeight` (`:141`), `setGender` (`:75`)
+   and `setDepartment` (`:154`). A setter changes patient data by a record update, so it has to
+   calculate the derived values again itself; through the Dto, `PatientData.Dto.fromDto` calculates
+   them. This is step 3 of #1885, which was closed after its step 1 although the setters were still
+   there. The getters stay; they cannot make a value stale. In `src/` only MCP calls the setters: MCP
+   `buildPatient` (`MCP.Lib/McpTools.GenOrder.fs:140`) and `estimated` (`:115`) build a patient data Dto
+   from their input, with undated values (step 1), and read it with `PatientData.Dto.fromDto`; the
+   comments "dated today" go. The tests that call the setters build the Dto the same way, about 80
+   calls: in GenORDER `SamplePatients`, `OrderPlanTests`, `Tests`, `PlanOnDataTests`,
+   `StrictPreparationTests` and `RuleCheckTests`, and in the server `MappersPatientTests` and
+   `NutritionRuleSetsTests`.
 3. **Server.** `ofModel` sets undated values, and `estimated` sets undated estimates (decision 3), so
    the patient data of a data notice has undated estimates too; the comment of `estimating` loses
    "dated today". Remove `challengeDate`, its port member and adapters, the branch in `SigningCommand`
