@@ -48,12 +48,82 @@ let tests =
                 ]
 
             testList
+                "Math.getPrecision"
+                [
+                    // the float, the number of significant digits and the expected number of decimals
+                    for f, n, exp in
+                        [
+                            0.0666, 2, 3
+                            0.0666, 3, 4
+                            6.6666, 2, 1
+                            6.6666, 3, 2
+                            66.666, 1, 0
+                            0.6666, 1, 1
+                            1., 3, 2
+                            0.1, 1, 1
+                            0.001, 2, 4
+                            1000., 2, 0
+                            0.00012, 2, 5
+                            // written with an exponent under .NET
+                            0.0000666, 2, 6
+                            0.00001, 1, 5
+                            // written with an exponent in the browser too
+                            0.0000001234, 3, 9
+                            1e-10, 2, 11
+                            // a large float is written with an exponent as well
+                            1e21, 3, 0
+                            1.5e22, 3, 0
+                            0., 3, 3
+                            6.6666, -1, 0
+                        ] do
+                        test $"%g{f} with %i{n} significant digits needs %i{exp} decimals" {
+                            f |> Math.getPrecision n |> Expect.equal "the number of decimals" exp
+                        }
+
+                    for f in [ infinity; -infinity; nan ] do
+                        test $"%f{f} with 3 significant digits gives 3 and does not throw" {
+                            f |> Math.getPrecision 3 |> Expect.equal "the number of digits asked for" 3
+                        }
+
+                    // each power of ten, and the values just below and above it
+                    for k in -15 .. 20 do
+                        for text in [ $"1e%i{k}"; $"9.999999e%i{k}"; $"1.000001e%i{k}"; $"5e%i{k}" ] do
+                            test $"%s{text} with 1 significant digit needs %i{max 0 -k} decimals" {
+                                text
+                                |> float
+                                |> Math.getPrecision 1
+                                |> Expect.equal "the number of decimals" (max 0 -k)
+                            }
+
+                    testPropertyWithConfig
+                        config
+                        "the float gives the same number of decimals as the same value as a decimal"
+                    <| fun (whole: int) (decimals: byte) (n: byte) ->
+                        let d, n = decimal whole / pown 10m (int decimals % 13), int n % 10
+
+                        d |> float |> Math.getPrecision n = (d |> Decimal.getPrecision n)
+
+                    testPropertyWithConfig config "getPrecision does not throw for any float"
+                    <| fun (f: float) (n: int) ->
+                        f |> Math.getPrecision n |> ignore
+                        true
+                ]
+
+            testList
                 "Math.fixPrecision"
                 [
                     test "the float 3000000000.6 with 3 significant digits keeps its whole part" {
                         3000000000.6
                         |> Math.fixPrecision 3
                         |> Expect.equal "the whole number" 3000000001.
+                    }
+
+                    test "the float 0.0000666 with 2 significant digits rounds to 0.000067" {
+                        0.0000666 |> Math.fixPrecision 2 |> Expect.equal "the rounded value" 0.000067
+                    }
+
+                    test "a negative precision leaves the float as it is" {
+                        12.3456789 |> Math.fixPrecision -1 |> Expect.equal "unchanged" 12.3456789
                     }
 
                     test "the float -0.1 with 0 significant digits is zero, without a minus sign" {
