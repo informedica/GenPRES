@@ -1,5 +1,5 @@
 ---
-last_commit_released: ad762bbfa3ec1069c2d876523d6d934ad543c18c
+last_commit_released: 719d8833e62f8c96678df9397d124b63792da4e0
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,26 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.57 - 2026-11-18
+
+### 🐞 Bug Fixes
+
+* *(api)* Calculate the float precision ([f8c39e7c](https://github.com/informedica/GenPRES/commit/f8c39e7c698356e29fd6730a0687d6fbb8a76665))
+* *(api)* Correct the precision at a power of ten ([9a406d8a](https://github.com/informedica/GenPRES/commit/9a406d8a940bedfa63996657297d3e841acd8a23))
+* *(gencore)* Give an infinite eGFR no band ([f7f0c9b7](https://github.com/informedica/GenPRES/commit/f7f0c9b75a70ecda9fcc696f6cf874873da681c8))
+* *(gencore)* Refuse a birth date in the future ([7271b95e](https://github.com/informedica/GenPRES/commit/7271b95e6b5b1d689c1106034d81e79c6ecfadfc))
+* *(genorder)* Step up from the increment ([49dc9287](https://github.com/informedica/GenPRES/commit/49dc9287c923e116a1fe04265e464df34fe33a6b))
+* *(genorder)* Return the norm dose itself ([d93d94df](https://github.com/informedica/GenPRES/commit/d93d94df177250c8d5abd5e96df3450e71ce8f6d))
+* *(genorder)* Print a norm or range beyond a decimal ([14909087](https://github.com/informedica/GenPRES/commit/14909087a9c7cea3e8980252aa28a1d3c3d7faa8))
+* *(genunits)* Print a value beyond a decimal ([6925ef51](https://github.com/informedica/GenPRES/commit/6925ef51beb7a257662fc52feb359dadf722a62a))
+* *(server)* Return the patient error of a formulary request ([6fe46aa0](https://github.com/informedica/GenPRES/commit/6fe46aa061bdc03a53be6d2e793ed57c03a764b8))
+* *(server)* Sign a plan on the date of its challenge ([0fb13eb9](https://github.com/informedica/GenPRES/commit/0fb13eb905234a0320f055d3e0fc4b78900a8603))
+* *(server)* Give GENPRES_DEBUG the default 0 ([9b654d8e](https://github.com/informedica/GenPRES/commit/9b654d8ef86173be821d7175ddd9d1225ab04d50))
+* *(utils)* Keep digits in Dutch number format ([4868e1e3](https://github.com/informedica/GenPRES/commit/4868e1e35dad73a8de944ffff93bb95d8bcd2a54))
+* *(utils)* Print large numbers and full decimals ([a41c8b4e](https://github.com/informedica/GenPRES/commit/a41c8b4e7363000e03d657dfaf6f408c53497894))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/ad762bbfa3ec1069c2d876523d6d934ad543c18c..719d8833e62f8c96678df9397d124b63792da4e0)</small></strong>
 
 ## 0.1.2-alpha.56 - 2026-11-13
 
