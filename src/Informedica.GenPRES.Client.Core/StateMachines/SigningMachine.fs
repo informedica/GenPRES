@@ -21,14 +21,15 @@ module SigningMachine =
     type SigningPhase =
         /// Not signing.
         | Idle
-        /// The EHR's data differ; the user takes them, keeps the plan's or cancels.
+        /// The patient data in the EHR differ from the plan; the user takes the EHR data, keeps the plan
+        /// data or cancels.
         | DataChanged of OrderPlan * DataNotice
         /// The dialog asks for the PIN over this plan, under the server's challenge, with the last
         /// refusal if any.
         | AskingPin of challenge: string * OrderPlan * SigningRefusal option
 
 
-    /// The one request under way.
+    /// The request under way; there is at most one at a time.
     [<RequireQualifiedAccess>]
     type SigningRequest =
         /// The challenge asked over the plan, under a request id, with the notice token when the user
@@ -36,13 +37,12 @@ module SigningMachine =
         | Challenge of OrderPlan * notice: string option * request: string
         /// The submission, under its key.
         | Submission of key: string
-        /// The submission, under its key, after the Session ended meanwhile: its answer ends the
-        /// signature with the outcome told.
+        /// The submission, under its key, after the session ended; its answer ends the signature and
+        /// tells the user the outcome.
         | SubmissionAfterSessionEnd of key: string
 
 
-    /// Everything the signing machine holds, hidden from the dialog, which reads a SigningView of it
-    /// instead.
+    /// The private state of the signing machine; the dialog reads it through SigningState.view.
     type SigningState =
         private
             {
@@ -68,7 +68,8 @@ module SigningMachine =
         | Idle
         /// The dialog is closed while the challenge is asked.
         | RequestingChallenge
-        /// The EHR's data differ; the user takes them, keeps the plan's or cancels.
+        /// The patient data in the EHR differ from the plan; the user takes the EHR data, keeps the plan
+        /// data or cancels.
         | DataChanged of OrderPlan * DataNotice
         /// The PIN is asked over the plan, with the last refusal if any.
         | AskingPin of OrderPlan * SigningRefusal option
@@ -84,9 +85,9 @@ module SigningMachine =
         | Sign of OrderPlan * differences: (OrderContext * PlanDifferencePolicy.Difference)[] * request: string
         /// The answer to the challenge request with this id; Error is a transport failure.
         | ChallengeAnswered of request: string * Result<SigningResponse, string>
-        /// The EHR's data are taken: the signature ends and the Session reads the EHR again, so that
-        /// the orders follow the new data before the prescriber signs. An unverified notice has nothing
-        /// to take.
+        /// Take the EHR data: the signature ends and the session reads the EHR again, so the orders
+        /// update to the new data before the prescriber signs. A notice without patient data has
+        /// nothing to take and is ignored.
         | TakeEhrData
         /// The plan's data are kept, and the plan is signed as it is.
         | KeepPlanData
@@ -96,8 +97,8 @@ module SigningMachine =
         | Cancel
         /// The answer to the submission under this key; Error is a transport failure.
         | SubmitAnswered of key: string * Result<SigningResponse, string>
-        /// The Session is no longer open: the signature ends, unless a submission is out, whose
-        /// outcome is still told when its answer lands.
+        /// The session is no longer open: the signature ends, unless a submission is under way; its
+        /// outcome is still told when the answer arrives.
         | SessionEnded
 
 
@@ -108,9 +109,8 @@ module SigningMachine =
         | CallChallenge of OrderPlan * notice: string option * request: string
         /// Submit the signature with the session's token; the answer names the key.
         | CallSubmit of OrderPlan * challenge: string * pin: string * key: string
-        /// Renew the session after the signature: the new token, the patient as signed, and the
-        /// version signed, with the identity it names, which the EHR may have changed in the data the
-        /// user accepted.
+        /// Renew the session after the signature with the new token, the patient data as signed and the
+        /// signed plan version, which names the patient identity.
         | RenewSessionToken of OpenedToken * PatientData * SignedOrderPlan
         /// End the session: the server ended it at the wrong-PIN limit.
         | EndSession of SessionEnding
@@ -183,7 +183,7 @@ module SigningMachine =
             }
 
 
-        /// The submission under way after the Session ended, under its key.
+        /// The submission under way after the session ended, under its key.
         let submittingAfterSessionEnd (challenge: string) (plan: OrderPlan) (key: string) =
             { submitting challenge plan key with InFlight = Some(SigningRequest.SubmissionAfterSessionEnd key) }
 
@@ -224,9 +224,9 @@ module SigningMachine =
             [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
 
 
-        /// What is told of a submission's answer that lands after the Session ended: its outcome only,
-        /// since there is no Session to renew or end. A challenge or a data notice is never an answer
-        /// to a submission, so neither tells anything.
+        /// Returns the effects for a submission answer that arrives after the session ended: only the
+        /// outcome is told, because there is no session to renew or end. A challenge or a data notice
+        /// is not a valid answer to a submission and tells nothing.
         let outcome (result: Result<SigningResponse, string>) =
             match result with
             | Ok(SigningResponse.Submitted(signed, _, _)) -> [ SigningEffect.TellSigned signed ]
@@ -285,14 +285,14 @@ module SigningMachine =
                 submitting challenge plan key, [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
             | SigningMsg.ConfirmPin _, _, _ -> state, []
 
-            // a submission in flight cannot be cancelled; anything else is dropped with the dialog, and
-            // the answer to a challenge asked then lands nowhere
+            // a submission in flight cannot be cancelled; anything else ends with the dialog, and a
+            // later answer to a challenge is ignored
             | SigningMsg.Cancel, _, Some(SigningRequest.Submission _)
             | SigningMsg.Cancel, _, Some(SigningRequest.SubmissionAfterSessionEnd _) -> state, []
             | SigningMsg.Cancel, _, _ -> idle, []
 
-            // after the Session ended, the answer to the submission ends the signature with its
-            // outcome told
+            // after the session ended, the answer to the submission ends the signature and tells the
+            // outcome
             | SigningMsg.SubmitAnswered(answered, result), _, Some(SigningRequest.SubmissionAfterSessionEnd key) when
                 answered = key
                 ->
@@ -335,17 +335,18 @@ module SigningMachine =
               Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
             | SigningMsg.SubmitAnswered _, _, _ -> state, []
 
-            // the submission out keeps waiting for its answer, which is all that is left of the
-            // signature; anything else ends with the Session, and an answer then lands nowhere
+            // a submission under way still waits for its answer, which is all that is left of the
+            // signature; anything else ends with the session, and a later answer is ignored
             | SigningMsg.SessionEnded, SigningPhase.AskingPin(challenge, plan, _), Some(SigningRequest.Submission key) ->
                 submittingAfterSessionEnd challenge plan key, []
             | SigningMsg.SessionEnded, _, Some(SigningRequest.SubmissionAfterSessionEnd _) -> state, []
             | SigningMsg.SessionEnded, _, _ -> idle, []
 
 
-        /// The next state and effects for a message, the differences carried along: taken from the
-        /// sign that starts a signature, kept while it is under way, and dropped when it ends. What
-        /// the challenge said about the EHR stays while the PIN is asked, also after a wrong PIN.
+        /// Returns the next state and effects for a message, with the differences: they are taken from
+        /// the Sign message that starts a signature, stay while it is under way, and are cleared when it
+        /// ends. Whether the patient is no longer active in the EHR stays known while the PIN is asked,
+        /// also after a wrong PIN.
         let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
             let next, effects = step msg state
 

@@ -2,16 +2,16 @@ namespace ServerApi
 
 open FsToolkit.ErrorHandling
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Api
 
 
-/// The plan member: the one plan, nutrition included, over the plan port.
+/// Handles a command on an order plan.
 module OrderPlanCommand =
 
-    /// Reads the order plan of the contract on today's date. Returns the messages when it is
-    /// invalid. An argumentation that is too long is refused first.
+    /// Reads an order plan on the date today. Returns the messages for an argumentation that is
+    /// too long or an invalid plan.
     let parsePlan today (plan: OrderPlan) : Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]> =
         plan.OrderContexts
         |> OrderContextService.Argumentation.checkAll
@@ -23,7 +23,7 @@ module OrderPlanCommand =
         )
 
 
-    /// The contexts parsed, all of them or the first refusal.
+    /// Reads the order contexts. Returns the messages of the first invalid one.
     let parseContexts today (contexts: OrderContext[]) : Result<PlanContext[], string[]> =
         contexts |> Array.traverseResultM (OrderContextService.parse today)
 
@@ -35,7 +35,7 @@ module OrderPlanCommand =
         | _, Error e -> Error e
 
 
-    /// The port asked over what parsed, else the refusal; the answer mapped out.
+    /// Runs the port function on a parsed value and maps the result. Returns the parse error.
     let private answerWith map parsed run =
         match parsed with
         | Error e -> async { return Error e }
@@ -46,8 +46,7 @@ module OrderPlanCommand =
             }
 
 
-    /// The port asked over what parsed, else the refusal; the plan answered mapped out with the
-    /// environment's demo flag.
+    /// Runs the port function on a parsed value and maps the returned plan to the contract.
     let private answer (env: AppEnv) parsed run =
         answerWith (Informedica.GenOrder.Lib.OrderPlan.Dto.toDto >> OrderPlanMapper.toModel env.demo) parsed run
 
@@ -57,14 +56,12 @@ module OrderPlanCommand =
         Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan (env.today ()) plan) run)
 
 
-    /// The plan as it is, its totals recalculated over its orders.
+    /// Recalculates the totals of the plan.
     let recalculate (env: AppEnv) (plan: OrderPlan) = plan |> overPlan env env.orderPlan.recalculate
 
 
-    /// The plan's patient and that of every context it carries, and the context's where a
-    /// command carries one, made at the inbound boundary; the plan and the context parsed into
-    /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's
-    /// demo flag. A draft that is none, or a plan the domain does not read, is refused.
+    /// Runs a command on an order plan. Returns the messages for invalid patient data or an
+    /// invalid plan.
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         let today = env.today ()
 

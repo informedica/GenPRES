@@ -534,7 +534,8 @@ module Patient =
         :: (plan.OrderContexts |> Array.map _.PatientData |> Array.toList)
 
 
-    /// Keeps a contract patient read from the platform only when it passes the check.
+    /// Keeps a contract patient read from the EHR only when it is an adult, has an age, or has a measured
+    /// weight and height.
     let reading (dto: PatientData option) = dto |> Option.filter (PatientData.validate >> Result.isOk)
 
 

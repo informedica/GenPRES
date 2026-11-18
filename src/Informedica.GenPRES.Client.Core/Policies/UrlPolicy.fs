@@ -1,21 +1,21 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides what a change of the url does. A url with a patient, a medication or a launch starts
-/// the patient, the workbench, the plan and the signing over, and leaves a launched Session, so
-/// the two never mix; a url with only a page, a language or a disclaimer changes those alone.
+/// Decides what a url change does. A url with a patient, a medication or a launch starts the patient,
+/// workbench, plan and signing over, and ends a launched Session, so the two never mix. A url with only
+/// a page, a language or a disclaimer changes only those.
 module UrlPolicy =
 
     open Informedica.GenPRES.Client.Core.Helpers
 
 
-    /// The url the app shows, and the newer url the question waits on.
+    /// The url the app shows, and a newer url that waits for the user's answer.
     [<RequireQualifiedAccess>]
     type UrlState =
         /// The url the app shows.
         | Shown of string list
-        /// The url the app shows, and the newer url with a patient, a medication or a launch that
-        /// waits for the answer to whether the launched Session, or the new and changed orders, may
-        /// go, as segments and as read when it came.
+        /// The url the app shows, and a newer url with a patient, a medication or a launch, as segments
+        /// and as parsed parts. The newer url waits until the user confirms that the launched Session,
+        /// or the new and changed orders, may be discarded.
         | Asked of shown: string list * asked: string list * Url.UrlParts
 
 
@@ -29,32 +29,32 @@ module UrlPolicy =
             | UrlState.Asked(sl, _, _) -> sl
 
 
-        /// The url the question waits on, if it is open.
+        /// The newer url that waits for an answer, if any.
         let asked url =
             match url with
             | UrlState.Asked(_, sl, _) -> Some sl
             | _ -> None
 
 
-        /// What the url the question waits on carries, if it is open.
+        /// The parsed parts of the newer url that waits for an answer, if any.
         let askedUrl url =
             match url with
             | UrlState.Asked(_, _, parts) -> Some parts
             | _ -> None
 
 
-        /// The question opened on this url, as segments and as read, over the url the app shows.
+        /// Opens the question for this url, given as segments and parsed parts; the shown url stays.
         let ask asked parts url = UrlState.Asked(shown url, asked, parts)
 
 
-        /// The question closed; the url the app shows stays.
+        /// Closes the question; the shown url stays.
         let close url =
             match url with
             | UrlState.Asked(sl, _, _) -> UrlState.Shown sl
             | _ -> url
 
 
-    /// What a url change is, against the url the app shows.
+    /// What a url change is, compared to the url the app shows.
     [<RequireQualifiedAccess>]
     type UrlChange =
         /// The url the app already shows: a url put back, or nothing changed.
@@ -74,7 +74,7 @@ module UrlPolicy =
         | Ignore
         /// Put the url the app shows back in the address bar.
         | PutBack
-        /// Ask first whether the launched Session, or the new and changed orders, may go.
+        /// Ask first whether the launched Session, or the new and changed orders, may be discarded.
         | Ask
         /// Start over on the url.
         | StartOver
@@ -91,9 +91,9 @@ module UrlPolicy =
         )
 
 
-    /// What the url change is: unchanged when the url is the one shown, and otherwise by whether it
-    /// carries a patient, a medication or a launch. The page load applies its url itself, so the router's
-    /// first report, of that same url, is unchanged too.
+    /// Classifies a url change: Unchanged when the url is the shown url, otherwise by whether it carries a
+    /// patient, a medication or a launch. The page load applies its own url, so the first router report of
+    /// that url is also Unchanged.
     let change url sl seeds =
         match url with
         | UrlState.Shown current
@@ -102,11 +102,11 @@ module UrlPolicy =
         | _ -> UrlChange.PageOnly
 
 
-    /// What to do with the url change. A signature under way puts any change back, without a
-    /// question: whether the plan was signed must be seen before leaving. A page alone is put back
-    /// while anything that holds the menu is out, so that no page is shown whose data is still
-    /// changing, and applied otherwise. A patient, a medication or a launch starts over, whatever
-    /// is out, after asking when it leaves a launched Session or there is work that is not signed.
+    /// Decides what to do with a url change. During a signature any change is put back without a question,
+    /// because the user must see whether the plan was signed. A page-only change is put back while a request
+    /// that disables the menu is pending, so no page shows data that is still changing; otherwise it is
+    /// applied. A patient, a medication or a launch starts over, even with pending requests, after asking
+    /// when it ends a launched Session or there is unsigned work.
     let action change signingUnderWay anyOut unsignedWork launched =
         match change with
         | UrlChange.Unchanged -> UrlAction.Ignore

@@ -4,12 +4,10 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// carries out the effects.
 ///
 /// Four invariants:
-/// - one request is in flight at a time: the pages are disabled while it is, so nothing but the
-///   response and the patient cleared reaches the machine meanwhile;
-/// - a response lands only on the request it names, so an older response never replaces a newer
-///   plan;
-/// - the patient cleared drops the request in flight, and its response lands nowhere;
-/// - a failed change leaves the plan as it was, so the next action is the retry.
+/// - only one request runs at a time; the pages are disabled meanwhile;
+/// - a response is used only when its request id matches, so an older response never replaces a newer plan;
+/// - clearing the patient drops the request in progress, and its response is ignored;
+/// - a failed change leaves the plan unchanged, so the user can retry.
 module OrderPlanMachine =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -20,37 +18,36 @@ module OrderPlanMachine =
     open PlanWorkPolicy
 
 
-    /// The plan itself; a request under way is in the InFlight field of the state.
+    /// The plan; a request in progress is in the InFlight field of the state.
     [<RequireQualifiedAccess>]
     type OrderPlanCart =
-        /// No patient data. The session's version, the patient it was signed on and its contexts, is
-        /// stored here and opened with the first patient data, since the version arrives first.
+        /// No patient data. The signed version of the session, with its patient data and contexts, waits here
+        /// and opens with the first patient data, because the version arrives first.
         | NoPatientData of signedVersion: (PatientData * OrderContext[]) option
-        /// The plan of the last response, which a failed change goes back to. While an open is under way, this
-        /// is the empty plan on the current patient, and the version travels in the request.
+        /// The plan from the last response, which a failed change returns to. While a version opens, this is
+        /// the empty plan for the current patient, and the version is in the request.
         | Opened of PatientData * OrderPlan
 
 
-    /// What a page wants of the plan, never the plan it was shown: the machine builds the wire
-    /// command over the plan it holds.
+    /// A change a page asks for. It does not carry a plan; the machine builds the command from its own plan.
     [<RequireQualifiedAccess>]
     type OrderPlanChange =
-        /// The workbench or a nutrition slot narrowed to a single scenario, into the plan with the linked orders
-        /// turned on, each narrowed to the scenario turned on.
+        /// Adds a context from the workbench or a nutrition slot, narrowed to a single scenario, with the
+        /// selected linked orders, each narrowed to its selected scenario.
         | Add of OrderContext * linked: OrderContext[]
-        /// The contexts with these ids removed.
+        /// Removes the contexts with these ids.
         | Remove of ids: string[]
-        /// The contexts the rows keep, by id; the totals follow.
+        /// Shows only the rows of the contexts with these ids; the totals follow the rows.
         | FilterRows of ids: string[]
-        /// A command from the order dialog into the plan's context with this id.
+        /// Applies an order dialog command to the context with this id.
         | OrderDialogCommand of contextId: string * OrderViewCommand
 
 
     /// Functions over OrderPlanChange.
     module OrderPlanChange =
 
-        /// The wire command for the change over the plan given; None for a context the plan no
-        /// longer holds, and for a locked one, whatever page the command comes from.
+        /// Builds the plan command for the change. An order dialog command gives None when the context is not
+        /// in the plan or is locked.
         let command (tp: OrderPlan) (change: OrderPlanChange) =
             match change with
             | OrderPlanChange.Add(ctx, linked) -> Some(OrderPlanCommand.AddOrderContext(tp, ctx, linked))
@@ -63,94 +60,92 @@ module OrderPlanMachine =
                 |> Option.map (fun ctx -> OrderPlanCommand.EvaluateContext(tp, id, cmd, ctx))
 
 
-    /// Everything the order plan machine holds, hidden from the pages, which read an OrderPlanView of
-    /// it instead.
+    /// The state of the order plan machine. It is private; the pages read an OrderPlanView instead.
     type OrderPlanState =
         private
             {
-                /// The plan itself.
+                /// The plan.
                 Cart: OrderPlanCart
-                /// The command under way and the request id its response must name.
+                /// The command in progress and the request id its response must match.
                 InFlight: (OrderPlanCommand * string) option
                 /// The id of the context the dialog shows.
                 Selected: string option
-                /// Whether the plan changed since the version last opened or signed; the leave-page
-                /// guard reads it.
+                /// Whether the plan changed since the version last opened or signed; the leave-page guard
+                /// reads it.
                 Work: PlanWork
-                /// The contexts of the version last opened or signed; an order is new or changed
+                /// The contexts of the version last opened or signed; new and changed orders are compared
                 /// against these.
                 Opened: OrderContext[]
-                /// Whether the patient data update under way follows a version opened, which gives no summary:
-                /// the version opened is told, the orders show their notes and the sign dialog the changes.
+                /// Whether the patient data update in progress follows an opened version. Such an update shows
+                /// no summary; the orders show their notes and the sign dialog shows the changes.
                 Following: bool
-                /// The state before a recalculation from the dialog, put back when its list closes
-                /// without a pick; None while the recalculation list is closed.
+                /// The state before a recalculation from the dialog, restored when the recalculation list
+                /// closes without a selection; None while the list is closed.
                 BeforeRecalculation: OrderPlanState option
             }
 
 
-    /// What moves the order plan machine. A message that starts a request carries its request id, so
-    /// the response can name it.
+    /// A message to the order plan machine. A message that starts a request carries the request id, so the
+    /// response can be matched to it.
     [<RequireQualifiedAccess>]
     type OrderPlanMsg =
-        /// The patient data set, changed or cleared; the plan follows.
+        /// The patient data is set, updated or cleared; the plan is recalculated for it.
         | PatientDataChanged of PatientData option * request: string
-        /// The version the session opened with; it replaces the plan and any request.
+        /// The signed version the session opened with. It replaces the plan when no request is in progress.
         | OpenSignedPlan of SignedOrderPlan * request: string
-        /// What a page wants of the plan, built over the plan in the cart.
+        /// A change from a page, applied to the current plan.
         | Change of OrderPlanChange * request: string
-        /// The response to the request with this id; Error is a failure of the server or the call.
+        /// The response to the request with this id; Error when the server or the call failed.
         | Answered of request: string * Result<OrderPlan, string[]>
-        /// The context the dialog shows, by id.
+        /// Selects the context the dialog shows, by id.
         | SelectContext of string option
-        /// The list of a recalculation closed without a pick: the plan before the recalculation is put
-        /// back, with whether it had changed since the version last opened or signed, and the response to
-        /// the recalculation is dropped.
+        /// The recalculation list closed without a selection. Restores the state before the recalculation,
+        /// so the response to the recalculation is ignored.
         | RestoreField
-        /// The plan was signed; it took no change meanwhile, so it is the version signed.
+        /// The plan was signed; it had no change meanwhile, so it equals the signed version.
         | Signed
 
 
-    /// What the App carries out for the order plan machine.
+    /// An effect the App carries out for the order plan machine.
     [<RequireQualifiedAccess>]
     type OrderPlanEffect =
-        /// Send the plan command under this request id.
+        /// Sends the plan command with this request id.
         | CallPlan of OrderPlanCommand * request: string
-        /// Check the medications for interactions; fewer than two clears the warnings.
+        /// Checks the medications for interactions; fewer than two clears the warnings.
         | CheckInteractions of string list
-        /// Tell the user what went wrong.
+        /// Shows these errors to the user.
         | TellError of string[]
-        /// The response the plan waited for landed; an error it raised can go.
+        /// The awaited response arrived, so an earlier error can be closed.
         | TellAnswered
-        /// The orders follow new patient data; tell the prescriber in one summary.
+        /// The orders were recalculated for new patient data; shows the prescriber one summary.
         | TellPatientDataChanged of Alert.PatientDataSummary
-        /// The plan could not follow the patient data, so the same data can be given again.
+        /// The plan could not be recalculated for the patient data, so the same data can be sent again.
         | PatientDataNotFollowed
-        /// An order prescribed landed in the plan, so the context it came from can be emptied: the
-        /// nutrition slot with the id, or the workbench without one.
+        /// An order was added to the plan, so its source can be cleared: the nutrition slot with this id, or
+        /// the workbench when None.
         | OrderAdded of slotId: string option
 
 
-    /// What the pages read of the OrderPlanState. Pages render Settled and Changing alike, so the
-    /// screen stays filled during a request. The dialog steps from either; other commands are built
-    /// from Settled only.
+    /// The view of the order plan state for the pages. Pages render Settled and Changing the same way, so the
+    /// screen stays filled during a request. The dialog works in both; other commands are sent from Settled
+    /// only.
     [<RequireQualifiedAccess>]
     type OrderPlanView =
         /// No patient data, so no plan.
         | NoPatientData
-        /// The plan of the last response, with the context the dialog shows.
+        /// The plan from the last response, with the context the dialog shows.
         | Settled of OrderPlan * selected: string option
-        /// A change under way, with the plan shown meanwhile: for a patient data update or a row filter
-        /// the plan sent as the command changes it, so the rows chosen show at once; otherwise the plan
-        /// in the cart.
+        /// A change in progress, with the plan to show meanwhile. For a patient data update or a row filter,
+        /// this is the sent plan with the change applied, so the selected rows show at once; otherwise the
+        /// current plan.
         | Changing of OrderPlan * selected: string option
 
 
     /// Functions over OrderPlanView.
     module OrderPlanView =
 
-        /// Whether the plan holds the order with this id, so the prescribe button is not offered
-        /// again. A context's own id is not the order's.
+        /// Whether the plan has an order with this order id, so the prescribe button is not offered again.
+        /// The id is compared with order ids, not context ids.
         let hasOrder orderId view =
             match view with
             | OrderPlanView.Settled(tp, _)
@@ -161,7 +156,7 @@ module OrderPlanMachine =
     /// The constructors and the transition of the order plan machine.
     module OrderPlanState =
 
-        /// No patient data, nothing under way.
+        /// The state with no patient data and no request.
         let noPatientData =
             {
                 Cart = OrderPlanCart.NoPatientData None
@@ -174,13 +169,13 @@ module OrderPlanMachine =
             }
 
 
-        /// No patient data yet, with the session's version stored for the first patient data: the patient
-        /// it was signed on and its contexts.
+        /// The state with no patient data and the signed version of the session, its patient data and
+        /// contexts, waiting for the first patient data.
         let withSignedVersion signedOn contexts =
             { noPatientData with Cart = OrderPlanCart.NoPatientData(Some(signedOn, contexts)) }
 
 
-        /// An open under way, with the empty plan shown; the contexts travel in the request.
+        /// The state while a version opens: the empty plan is shown and the contexts are in the request.
         let opening pat contexts request =
             { noPatientData with
                 Cart = OrderPlanCart.Opened(pat, OrderPlan.create pat [||])
@@ -188,7 +183,7 @@ module OrderPlanMachine =
             }
 
 
-        /// The plan of an opened version, nothing under way.
+        /// The state with the plan of an opened version and no request.
         let settled pat tp selected =
             { noPatientData with
                 Cart = OrderPlanCart.Opened(pat, tp)
@@ -197,25 +192,25 @@ module OrderPlanMachine =
             }
 
 
-        /// A change under way over the plan of an opened version, which a failure goes back to.
+        /// The state with a change in progress on the plan of an opened version; a failure returns to that
+        /// plan.
         let changing pat tp selected sent request = { settled pat tp selected with InFlight = Some(sent, request) }
 
 
-        /// The state with whether the plan changed since the version last opened or signed.
+        /// Sets whether the plan changed since the version last opened or signed.
         let withWork work (state: OrderPlanState) = { state with Work = work }
 
 
-        /// Whether the plan changed since the version last opened or signed.
+        /// Returns whether the plan changed since the version last opened or signed.
         let work state = state.Work
 
 
-        /// The state with the contexts of the version last opened or signed.
+        /// Sets the contexts of the version last opened or signed.
         let withOpened opened (state: OrderPlanState) = { state with Opened = opened }
 
 
-        /// The work after a patient data update landed: orders the data changed are a change in the plan, and
-        /// a plan equal to the version last opened or signed, after a weight corrected back, has nothing
-        /// to sign.
+        /// Returns the work after a patient data update: Changed when orders differ from the version last
+        /// opened or signed, else AsSigned, for example after a weight is corrected back.
         let workAfterUpdate opened tp =
             if PlanDifferencePolicy.differences opened tp |> Array.isEmpty then
                 PlanWork.AsSigned
@@ -223,8 +218,8 @@ module OrderPlanMachine =
                 PlanWork.Changed
 
 
-        /// The patient the plan is on once a command has landed: a patient data update takes its patient only now,
-        /// with the orders calculated on it, and a version the patient it was signed on.
+        /// Returns the patient data of the plan after a response. A patient data update gives the updated data,
+        /// an opened version gives its signed patient data, and other commands keep the current data.
         let landedOn sent pat =
             match sent with
             | OrderPlanCommand.UpdatePatientData(updated, _)
@@ -232,42 +227,42 @@ module OrderPlanMachine =
             | _ -> pat
 
 
-        /// The current patient a version that landed must follow; none for a version on that patient
-        /// and for any other command.
+        /// Returns the current patient data when an opened version was signed with other patient data, so the
+        /// plan must be updated to it; None otherwise.
         let toFollow sent current =
             match sent with
             | OrderPlanCommand.Open(signedOn, _) when signedOn <> current -> Some current
             | _ -> None
 
 
-        /// The order contexts of the plan new, changed or removed since the version last opened or
-        /// signed, as the sign dialog lists them; the plan is the one the dialog shows.
+        /// Returns the order contexts of the plan that are new, changed or removed since the version last
+        /// opened or signed, as the sign dialog lists them.
         let differences plan state = PlanDifferencePolicy.differences state.Opened plan
 
 
-        /// The plan, if there is patient data; the empty plan while an open runs.
+        /// Returns the plan when there is patient data; the empty plan while a version opens.
         let plan state =
             match state.Cart with
             | OrderPlanCart.NoPatientData _ -> None
             | OrderPlanCart.Opened(_, tp) -> Some tp
 
 
-        /// The patient the plan is for, if any.
+        /// Returns the patient data of the plan, if any.
         let patient state =
             match state.Cart with
             | OrderPlanCart.NoPatientData _ -> None
             | OrderPlanCart.Opened(pat, _) -> Some pat
 
 
-        /// The selection of the dialog, only while its context is in the plan.
+        /// Returns the dialog selection when its context is in the plan, else None.
         let selectionIn (tp: OrderPlan) selected =
             selected
             |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
 
 
-        /// The plan shown while a change is under way: for a patient data update or a row filter the
-        /// plan sent as the command changes it, so the rows chosen show at once; otherwise the plan in
-        /// the cart.
+        /// Returns the plan to show while a change is in progress. For a patient data update or a row filter,
+        /// this is the sent plan with the change applied, so the selected rows show at once; otherwise the
+        /// current plan.
         let meanwhile tp sent =
             match sent with
             | OrderPlanCommand.UpdatePatientData(pat, sent) -> { sent with PatientData = pat }
@@ -275,7 +270,7 @@ module OrderPlanMachine =
             | _ -> tp
 
 
-        /// What the pages read.
+        /// Returns the view the pages read.
         let view state =
             match state.Cart, state.InFlight with
             | OrderPlanCart.NoPatientData _, _ -> OrderPlanView.NoPatientData
@@ -283,27 +278,25 @@ module OrderPlanMachine =
             | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
-        /// The id of the context an add under way sends: the slot id for a nutrition slot prescribed, the empty
-        /// id for the workbench. None while no add is under way.
+        /// Returns the context id of the add in progress: the slot id for a nutrition slot, the empty id for
+        /// the workbench. None when no add is in progress.
         let adding state =
             match state.InFlight with
             | Some(OrderPlanCommand.AddOrderContext(_, ctx, _), _) -> Some ctx.Id
             | _ -> None
 
 
-        /// The request id the state waits on; None while no request is under way.
+        /// Returns the request id in progress; None when no request runs.
         let inFlightRequest state = state.InFlight |> Option.map snd
 
 
-        /// Whether the recalculation list is open, with the state before the recalculation to put back
-        /// when the list closes without a pick.
+        /// Whether the recalculation list is open, which means a state to restore is stored.
         let isRecalculating state = state.BeforeRecalculation.IsSome
 
 
-        /// Whether the plan waits for the response to the request: a change sent under the request and
-        /// without a response yet. Right after a change, this says whether the change went out. A response
-        /// to a request the patient cleared or a start-over has since dropped is not awaited, and the
-        /// machine drops it.
+        /// Whether the request with this id is in progress. Right after a change, this tells whether the
+        /// change was sent. A request dropped by clearing the patient or by a restore is not awaited, and its
+        /// response is ignored.
         let awaits request state =
             match state.InFlight with
             | Some(_, underWay) -> underWay = request
@@ -318,40 +311,38 @@ module OrderPlanMachine =
             |> Array.toList
 
 
-        /// The check of the medications in the plan for interactions, always asked, so a plan down to a
+        /// Returns the interaction check for the medications in the plan. It is always sent, so a plan with a
         /// single medication clears the old warnings.
         let interactions tp = medicationNames tp |> OrderPlanEffect.CheckInteractions
 
 
-        /// The next state and effects for a message.
+        /// Returns the next state and effects for a message.
         ///
-        /// While a request is under way only a response, a selection, a restore, the signature and the
-        /// patient cleared reach the plan. Every other message comes only with nothing under way, since
-        /// the pages that send it are disabled; with a request out it falls to the closing arm, which
-        /// leaves the state as it is.
+        /// While a request is in progress, only a response, a selection, a restore, a signature and clearing
+        /// the patient change the state. Any other message then changes nothing; the pages that send it are
+        /// disabled.
         ///
-        /// The dialog closes on a patient data update, a version opened and a row filter. After a response
-        /// the dialog keeps its selection only while the context selected is in the plan.
+        /// The dialog closes on a patient data update, an opened version and a row filter. After a response,
+        /// the dialog keeps its selection only when the selected context is in the plan.
         ///
-        /// A recalculation stores the state before it, which the response carries along and a restore puts
-        /// back; any other message closes the recalculation list. The state before the recalculation has
-        /// nothing under way, so after a restore the response to the recalculation finds no request to land
-        /// on.
+        /// A recalculation stores the state before it, and a restore brings that state back. Most other
+        /// messages close the recalculation list. The stored state has no request, so after a restore the
+        /// response to the recalculation is ignored.
         let transition msg state =
-            // the one place a request goes out
+            // Sends a request; the only place a request is sent.
             let send cmd request state =
                 { state with InFlight = Some(cmd, request) }, [ OrderPlanEffect.CallPlan(cmd, request) ]
 
-            // the state to put back when the list of a recalculation from the order dialog closes without a
-            // pick; None for any other change, which closes the recalculation list
+            // The state to restore when the list of a recalculation from the order dialog closes without a
+            // selection; None for any other change, which closes the recalculation list.
             let beforeRecalculation change =
                 match change with
                 | OrderPlanChange.OrderDialogCommand(_, cmd) when IntentPolicy.isReCalc cmd ->
                     Some { state with BeforeRecalculation = None }
                 | _ -> None
 
-            // a change from a page, built over the plan in the cart; the one place a command counts as a
-            // change to the plan. Nothing for a context that is gone
+            // Sends a change from a page and updates the work for the command; the only place that does so.
+            // Does nothing when the command cannot be built, for example for a removed context.
             let change change tp request beforeRecalculation state =
                 match OrderPlanChange.command tp change with
                 | Some cmd ->
@@ -370,9 +361,9 @@ module OrderPlanMachine =
                         }
                 | None -> { state with BeforeRecalculation = None }, []
 
-            // the version opened on the patient it was signed on, so that it stays the base of the
-            // differences; the empty plan is shown on the current patient while the version travels in
-            // the request. The dialog and the recalculation list closed
+            // Opens the version with its signed patient data, so it stays the base of the differences.
+            // Meanwhile the empty plan for the current patient is shown. Closes the dialog and the
+            // recalculation list.
             let opening pat signedOn contexts request state =
                 send
                     (OrderPlanCommand.Open(signedOn, contexts))
@@ -384,8 +375,8 @@ module OrderPlanMachine =
                     }
 
             match msg, state.Cart, state.InFlight with
-            // only a response to the request under way lands, for the patient in the cart; an open that
-            // landed is the version opened, and a failed change leaves the plan as it was
+            // Only the response to the request in progress is used. A successful open sets the opened version;
+            // a failed change leaves the plan unchanged.
             | OrderPlanMsg.Answered(request, result), OrderPlanCart.Opened(pat, before), Some(sent, underWay) when
                 underWay = request
                 ->
@@ -422,14 +413,13 @@ module OrderPlanMachine =
 
                     let effects =
                         [
-                            // a patient data update can bring a new order, from a nutrition context restarted;
-                            // with the same medications no check is asked, so its response does not replace the
-                            // summary
+                            // A patient data update can add an order from a restarted nutrition context. With the
+                            // same medications no check is sent, so its alert does not replace the summary.
                             if not patientUpdate || not sameMedications then
                                 interactions tp
                             OrderPlanEffect.TellAnswered
                             match sent with
-                            // the workbench's context always goes with the empty id, a slot's with its slot id
+                            // The workbench context has the empty id; a nutrition slot context has its slot id.
                             | OrderPlanCommand.AddOrderContext(_, ctx, _) ->
                                 OrderPlanEffect.OrderAdded(if ctx.Id = "" then None else Some ctx.Id)
                             | _ -> ()
@@ -450,7 +440,8 @@ module OrderPlanMachine =
 
                     match follow with
                     | Some current ->
-                        // under the id of the open, whose response has landed: the state makes no ids
+                        // Reuses the request id of the open, whose response is done; this state does not
+                        // create ids.
                         let state, call = state |> send (OrderPlanCommand.UpdatePatientData(current, tp)) request
                         { state with Following = true }, effects @ call
                     | None -> state, effects
@@ -458,14 +449,14 @@ module OrderPlanMachine =
                     state,
                     [
                         OrderPlanEffect.TellError errs
-                        // nothing landed, so the same data can be given again
+                        // The update failed, so the same data can be sent again.
                         if patientUpdate then
                             OrderPlanEffect.PatientDataNotFollowed
                     ]
             | OrderPlanMsg.Answered _, _, _ -> state, []
 
-            // the selection needs no request, and closes the recalculation list; nothing can be
-            // selected until the plan is open
+            // A selection sends no request and closes the recalculation list. Nothing can be selected until
+            // the plan is open.
             | OrderPlanMsg.SelectContext _, OrderPlanCart.Opened _, Some(OrderPlanCommand.Open _, _)
             | OrderPlanMsg.SelectContext _, OrderPlanCart.NoPatientData _, _ ->
                 { state with BeforeRecalculation = None }, []
@@ -480,19 +471,18 @@ module OrderPlanMachine =
                 | Some before -> before, []
                 | None -> state, []
 
-            // the patient cleared reaches every state and drops the request out; no patient data leaves
-            // nothing unsigned
+            // Clearing the patient works in every state and drops the request in progress. Without patient
+            // data nothing is unsigned.
             | OrderPlanMsg.PatientDataChanged(None, _), _, _ -> noPatientData, []
-            // the first patient data: the stored version, or an empty plan, is opened
+            // The first patient data opens the stored version, or an empty plan.
             | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.NoPatientData signedVersion, None ->
                 let signedOn, contexts = signedVersion |> Option.defaultValue (pat, [||])
                 opening pat signedOn contexts request state
-            // the same data given again is no change
+            // The same data again changes nothing.
             | OrderPlanMsg.PatientDataChanged(Some pat, _), OrderPlanCart.Opened(before, _), None when before = pat ->
                 state, []
-            // the plan in the cart is recalculated for the patient data updated; the cart keeps the
-            // patient before the update until the response, so the same data given again after a failure
-            // is sent again
+            // Recalculates the plan for the updated patient data. The plan keeps the earlier patient data
+            // until the response, so the same data given again after a failure is sent again.
             | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.Opened(_, tp), None ->
                 send
                     (OrderPlanCommand.UpdatePatientData(pat, tp))
@@ -502,9 +492,8 @@ module OrderPlanMachine =
                         BeforeRecalculation = None
                     }
 
-            // the signed version replaces the plan, which then holds nothing unsigned; it is stored until
-            // the next patient data, so that one request goes out at a time and it opens on the current
-            // patient data
+            // The signed version replaces the plan, which then has nothing unsigned. The version waits for the
+            // next patient data, so only one request runs at a time and it opens with the current data.
             | OrderPlanMsg.OpenSignedPlan(head, _), _, None ->
                 { state with
                     Cart = OrderPlanCart.NoPatientData(Some(head.PatientData, head.OrderContexts))
@@ -515,11 +504,11 @@ module OrderPlanMachine =
                 },
                 []
 
-            // a change from a page; a recalculation from the order dialog stores the state before it
+            // A change from a page; a recalculation from the order dialog stores the state before it.
             | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None ->
                 change c tp request (beforeRecalculation c) state
 
-            // the plan is the version just signed
+            // The plan equals the signed version.
             | OrderPlanMsg.Signed, cart, _ ->
                 let opened =
                     match cart with
@@ -533,6 +522,6 @@ module OrderPlanMachine =
                 },
                 []
 
-            // the closing arm: nothing else comes, since the pages that send it are disabled, and
-            // there is nothing to change without patient data
+            // Any other message changes nothing: the pages that send it are disabled during a request, and
+            // without patient data there is nothing to change.
             | _ -> state, []

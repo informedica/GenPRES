@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides what the prescriber is told at a change of patient data: how many orders followed, and
-/// how many of them ask for attention.
+/// Decides what the prescriber is told after a patient data update: how many orders were updated, and
+/// how many of them need attention.
 module PatientDataSummaryPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -18,8 +18,8 @@ module PatientDataSummaryPolicy =
         || sc.Order |> ArgumentationPolicy.marked
 
 
-    /// The summary for the plan answered to a request: only for an update of the patient of a plan
-    /// with orders, since without orders there is nothing to report.
+    /// Returns the summary for the plan returned after a patient data update, when the plan has orders;
+    /// None otherwise.
     let summaryOf (sent: OrderPlanCommand) (tp: OrderPlan) =
         match sent with
         | OrderPlanCommand.UpdatePatientData _ ->

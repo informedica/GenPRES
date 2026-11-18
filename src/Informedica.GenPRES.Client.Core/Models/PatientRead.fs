@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// What the client reads from a patient: the age in years and the weight in kg the lists are
-/// calculated for, and the values the panel's fields show.
+/// Reads values from patient data: the gestational age parts, the renal function option, the age in
+/// years and the weight in kg.
 module PatientRead =
 
     open Informedica.GenPRES.Shared

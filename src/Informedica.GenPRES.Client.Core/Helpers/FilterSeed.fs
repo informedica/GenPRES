@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Helpers
 
 
-/// The filter seed: a filter's choices set from outside its own fields, and the command that
-/// sends it.
+/// Filter choices set from outside the filter fields, and the command that sends them to the server.
 module FilterSeed =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -12,8 +11,8 @@ module FilterSeed =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// A filter's choices set from outside its own fields, by name, with where they come from: the
-    /// server applies them with the rule of their source.
+    /// Filter choices set from outside the filter fields, such as from a url or a medication list. The
+    /// server applies them by the rule of their source.
     type FilterSeed =
         {
             /// Where the choices come from: the url, a medication list, a page, or a reload.
@@ -31,8 +30,8 @@ module FilterSeed =
         OrderViewCommand.SeedFilter(seed.Source, seed.Indication, seed.Generic, seed.Route, seed.Form, seed.DoseType)
 
 
-    /// The seed of an item chosen on a medication list: its generic, and its indication, route and
-    /// dose type where the list gives one.
+    /// Creates the seed for an item chosen on a medication list. An empty indication, route or dose type
+    /// gives None.
     let ofListItem generic indication route doseType =
         let given s = if s = "" then None else Some s
 

@@ -10,8 +10,8 @@ module PatientText =
     open Informedica.GenPRES.Shared.Types.PatientData
 
 
-    /// The English of the patient terms, used when the sheet has no row for a term or has not
-    /// loaded. Any other term shows the English of the renal function terms, or its name.
+    /// Returns the English text of a patient term, used when the sheet has no translation or has not
+    /// loaded. Passes any other term to RenalFunctionText.english.
     let english term =
         match term with
         | Terms.``Patient Male`` -> "Male"
@@ -38,7 +38,7 @@ module PatientText =
         | _ -> RenalFunctionText.english term
 
 
-    /// The text of a term in the language: the sheet's translation, else the English.
+    /// Returns the translation of a term from the sheet, or the English text when there is none.
     let text terms lang term =
         LocalizationText.getTerm terms lang term |> Option.defaultValue (english term)
 
@@ -107,8 +107,8 @@ module PatientText =
         | None, Some w, None, Some h -> BodySurfaceArea.calcDuBois w h |> Some
 
 
-    /// The word for the patient's gender and age group: an adult by the Shared adult test, the
-    /// mark as an adult included.
+    /// Returns the translated word for the gender and age group, such as Boy or Female. Uses isAdult,
+    /// which takes the adult mark into account.
     let genderWord tr (pat: PatientData) =
         let adult = pat |> isAdult
 
@@ -127,7 +127,7 @@ module PatientText =
     let kilograms (g: int<gram>) = float g / 1000.
 
 
-    /// A weight in kg, as the patient line shows it.
+    /// Formats a weight in grams as a text in kg, as the patient line shows it.
     let weightText g = $"%s{g |> kilograms |> Math.fixPrecision 3 |> string} kg"
 
 
@@ -135,7 +135,7 @@ module PatientText =
     let heightText (h: int<cm>) = $"%s{float h |> Math.fixPrecision 3 |> string} cm"
 
 
-    /// An access device as the patient panel labels it, with the translated word for a tube.
+    /// Returns the label of an access device: CVL, PVL or the given word for an enteral tube.
     let accessText tube access =
         match access with
         | CVL -> "CVL"
@@ -143,9 +143,9 @@ module PatientText =
         | EnteralTube -> tube
 
 
-    /// The estimated weight or height as the summary shows it. Without a measured value: the word for an
-    /// estimate, the estimate and, when both are known, the P3 - P97 range. Otherwise the word for an
-    /// estimate followed by the range, or by the estimate when the range is not known.
+    /// Formats the estimated weight or height for the summary. Without a measured value it gives the
+    /// estimate and the P3 - P97 range when known. Otherwise it gives the range, or the estimate when the
+    /// range is unknown. Returns None when there is neither.
     let estimateText estimatedWord toNumber unit measured estimated p3 p97 =
         let number v = v |> toNumber |> Math.fixPrecision 3 |> string
 

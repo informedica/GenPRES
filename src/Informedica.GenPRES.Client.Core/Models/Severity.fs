@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// How far what is shown stands from what the rules allow: nothing, a note, a warning, an
-/// alert. The cases are declared from lowest to highest, so the highest of a set is their
-/// maximum. Level and TextBlock carry it on the wire; the Severity module converts.
+/// How far a value is from what the rules allow, from Normal to Alert. The cases are ordered from
+/// lowest to highest, so max gives the highest. The wire carries a severity as a Level or a TextBlock.
 [<RequireQualifiedAccess>]
 type Severity =
     | Normal
@@ -11,7 +10,7 @@ type Severity =
     | Alert
 
 
-/// Conversions between the one severity and the two shapes the wire carries it in.
+/// Converts a severity to and from the Level and TextBlock types of the wire.
 [<RequireQualifiedAccess>]
 module Severity =
 
@@ -19,7 +18,7 @@ module Severity =
     open Informedica.GenPRES.Shared.Types
 
 
-    /// The severity an order variable carries.
+    /// Returns the severity of the level of an order variable.
     let ofLevel (level: Level) =
         match level with
         | IsNormal -> Severity.Normal
@@ -46,7 +45,7 @@ module Severity =
         | Alert _ -> Severity.Alert
 
 
-    /// The text a text block carries, whatever its severity.
+    /// Returns the text items of a text block of any severity.
     let items (block: TextBlock) =
         match block with
         | Valid items
@@ -55,7 +54,7 @@ module Severity =
         | Alert items -> items
 
 
-    /// The text block of a severity over some text.
+    /// Wraps text items in the text block of a severity.
     let withItems (severity: Severity) (items: TextItem[]) =
         match severity with
         | Severity.Normal -> Valid items
@@ -64,7 +63,7 @@ module Severity =
         | Severity.Alert -> Alert items
 
 
-    /// The highest of some severities; nothing raised when there are none.
+    /// Returns the highest severity, or Normal when there are none.
     let highest (severities: Severity seq) = severities |> Seq.fold max Severity.Normal
 
 
@@ -72,9 +71,9 @@ module Severity =
     let ofTextBlocks (blocks: TextBlock[]) = blocks |> Seq.map ofTextBlock |> highest
 
 
-    /// The highest severity among rows of text blocks; an empty row counts as nothing raised.
+    /// Returns the highest severity in rows of text blocks, or Normal when there are none.
     let ofTextBlockRows (rows: TextBlock[][]) = rows |> Seq.collect (Seq.map ofTextBlock) |> highest
 
 
-    /// Whether a severity is anything above normal: what gets a mark.
+    /// Whether a severity is above Normal, so the value gets a mark.
     let isRaised (severity: Severity) = severity <> Severity.Normal

@@ -1,6 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.Models
 
-/// What the pages call an order context.
+/// The name a page shows for an order context.
 module OrderContextText =
 
     open Informedica.GenPRES.Shared
@@ -8,16 +8,17 @@ module OrderContextText =
     open Informedica.GenPRES.Shared.Models
 
 
-    /// What a page calls the context: the category's name for a nutrition order, the
-    /// generic for a medication, nothing before a generic is chosen.
+    /// Returns the name of the nutrition category for a nutrition order, the generic for a medication
+    /// order, or an empty string when no generic is chosen.
     let label (ctx: OrderContext) =
         match ctx.Category with
         | OrderCategory.Nutrition category -> NutritionCategory.label category
         | OrderCategory.Medication -> ctx.Filter.Generic |> Option.defaultValue ""
 
 
-    /// What a page calls an offer: its generic with the dose text of its dose type, which tells it from its
-    /// main order of the same generic; the generic alone for a dose type without a text.
+    /// Returns the generic with the text of the dose type, which tells the order apart from the main order of
+    /// the same generic. Returns the generic alone when the dose type has no text, and the label when no
+    /// generic is chosen.
     let offerName (ctx: OrderContext) =
         match ctx.Filter.Generic, ctx.Filter.DoseType |> Option.bind DoseTypeText.text with
         | Some generic, Some text -> $"%s{generic} (%s{text})"

@@ -1,17 +1,17 @@
 namespace ServerApi
 
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// The session mapper: a signed order plan as the record's version and back, a data notice's
-/// patient, and what the client keeps of an open Session from the parts the state will hold.
+/// Maps signed order plans, data notices and open sessions between the contract and the server.
 module SessionMapper =
 
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
-    /// The signer of a version. A version does not store the role: only a Prescriber signs.
+    /// Maps a user to the signer of a version. The role is not stored, because only a prescriber
+    /// signs.
     let signer (user: UserContext) : Signer =
         {
             UserId = user.UserId
@@ -27,9 +27,8 @@ module SessionMapper =
         }
 
 
-    /// Maps a signed order plan from the client to a version, read on the date today. Returns the
-    /// errors when the order plan is invalid. The client sends no filter, no totals and no EHR
-    /// data, so the version has none.
+    /// Maps a signed order plan to a version on the date today. Returns the errors of an invalid
+    /// order plan.
     let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
         ({
             PatientData = signed.PatientData |> Patient.ofModel today
@@ -54,8 +53,7 @@ module SessionMapper =
         )
 
 
-    /// The identity on the wire, beside the id the context carries: the name and the birthdate
-    /// as three integers.
+    /// Maps a patient identity to the contract: the name and the birth date.
     let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : PatientIdentity =
         {
             Name = id.Name
@@ -65,7 +63,7 @@ module SessionMapper =
         }
 
 
-    /// The signed order plan the client gets for a version, with the identity of the patient.
+    /// Maps a version to a signed order plan with the patient identity.
     let toSigned
         (demo: bool)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
@@ -91,7 +89,7 @@ module SessionMapper =
         }
 
 
-    /// The patient data of a data notice as a Dto, dated today.
+    /// Maps the patient data of a data notice to a Dto on the date today.
     let noticeData today (notice: DataNotice) = notice.PatientData |> Option.map (Patient.ofModel today)
 
 
@@ -102,9 +100,7 @@ module SessionMapper =
         }
 
 
-    /// Maps an open Session to what the client keeps: the signed order plan when it can be read,
-    /// the identity of the patient, and the patient data from sessionPatientData. Every order
-    /// context gets the demo flag.
+    /// Maps an open session to the session the client opens.
     let toOpened (demo: bool) sessionPatientData (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User

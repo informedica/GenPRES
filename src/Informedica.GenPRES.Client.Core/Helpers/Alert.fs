@@ -1,7 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.Helpers
 
-/// What the snackbar can show: one case per sentence, the severity it is shown with, and the
-/// English of the alert terms; the client translates them.
+/// The alerts the snackbar shows, with their severity and the English text of the alert terms.
 module Alert =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -17,7 +16,7 @@ module Alert =
         | Success
 
 
-    /// What the summary at a change of patient data says of the orders in the plan.
+    /// The order counts in the summary after a patient data update.
     type PatientDataSummary =
         {
             /// The orders in the plan.
@@ -30,27 +29,27 @@ module Alert =
     /// A sentence the snackbar shows.
     [<RequireQualifiedAccess>]
     type Alert =
-        /// The drug names of the interactions page did not load, after three tries.
+        /// The medication names of the interactions page did not load after three tries.
         | DrugNamesNotLoaded
-        /// The interactions checked found this many.
+        /// The interaction check found this number of interactions.
         | InteractionsFound of int
         /// The server did not take the admin password.
         | InvalidPassword
-        /// The close of the session never reached the server; the session stays open.
+        /// The request to close the session did not reach the server; the session stays open.
         | CloseFailed
-        /// The PIN never reached the server; the form comes back as it was.
+        /// The PIN did not reach the server; the form shows again as it was.
         | PinNotSent
         /// A request failed; the error banner says what the server answered.
         | RequestFailed
-        /// A medication was chosen without a patient, and dropped.
+        /// A medication was chosen without a patient and is not used.
         | NoPatientForMedication
-        /// A launch url came while a signature was under way, and was not opened.
+        /// A launch url arrived during signing and was not opened.
         | LaunchNotOpened
-        /// The patient change failed, with the first error the server gave; none when the server
-        /// gave no error text.
-        | PatientChangeFailed of string option
-        /// The workbench failed, with the first error the server gave; none when the server gave no
+        /// A patient request failed, with the first server error, or None when the server gave no
         /// error text.
+        | PatientChangeFailed of string option
+        /// A request of the workbench or a slot failed, with the first server error, or None when the
+        /// server gave no error text.
         | WorkbenchFailed of string option
         /// The signature did not reach the server.
         | SigningSendFailed
@@ -58,7 +57,7 @@ module Alert =
         | OrderPlanSigned of SignedOrderPlan
         /// The signature was refused.
         | SigningRefused of SigningRefusal
-        /// The signed order plan asked for is open.
+        /// The requested signed order plan is opened.
         | SignedPlanOpened of OrderPlanHead
         /// A newer signed order plan exists.
         | NewerSignedPlan of OrderPlanHead
@@ -95,8 +94,8 @@ module Alert =
         | Alert.SignedPlanOpened _ -> Severity.Success
 
 
-    /// The English of the alert terms, used when the sheet has no row for a term or has not
-    /// loaded. Any other term shows its name.
+    /// Returns the English text of an alert term, used when the sheet has no translation or has not
+    /// loaded. Returns the name of any other term.
     let english term =
         match term with
         | Terms.``Alert Interaction Names Not Loaded`` ->

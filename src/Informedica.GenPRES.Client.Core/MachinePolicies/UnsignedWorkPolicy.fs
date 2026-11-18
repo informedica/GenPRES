@@ -15,14 +15,14 @@ module UnsignedWorkPolicy =
         workbench |> Option.exists (fun ctx -> ctx.Filter.Generic.IsSome)
 
 
-    /// Whether a nutrition slot is narrowed to one order, picked or not, which leaving the page would lose.
+    /// Whether a nutrition slot is narrowed to a single order, which leaving the page would lose.
     let slotNarrowed slots =
         slots
         |> List.exists (Informedica.GenPRES.Shared.Models.OrderContext.contribution >> Option.isSome)
 
 
-    /// Whether the workbench or a nutrition slot holds work: a medication picked on the workbench or a
-    /// nutrition slot narrowed to one order.
+    /// Whether the workbench or a nutrition slot has unsigned work: a medication picked on the workbench or
+    /// a nutrition slot narrowed to a single order.
     let unsignedOrderWork workbench slots = medicationPicked workbench || slotNarrowed slots
 
 

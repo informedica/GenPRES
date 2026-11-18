@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides per intent case, a command of the order view, whether it is allowed on the order shown.
-/// It reads only the wire order: the values a variable holds, its defined constraints and the
-/// dose type the schedule flags give.
+/// Decides whether an order view command is allowed on the shown order. It reads only the wire order:
+/// the values of a variable, its defined constraints, and the dose type from the schedule flags.
 module IntentPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -10,15 +9,15 @@ module IntentPolicy =
     open Informedica.GenPRES.Shared.Models.OrderContext
 
 
-    /// The number of values an order variable holds; 0 for a range or nothing.
+    /// The number of values of an order variable; 0 for a range or no values.
     let valuesOf (ovar: OrderVariable) =
         ovar.Variable.Vals
         |> Option.map (_.Value >> Array.length)
         |> Option.defaultValue 0
 
 
-    /// Whether the rules constrain an order variable. Constraints that are empty, or a minimum of
-    /// zero alone, which only says the value is above zero, do not count.
+    /// Whether the rules constrain an order variable. Empty constraints, or only an exclusive minimum of
+    /// zero, do not count.
     let hasConstraints (ovar: OrderVariable) =
         let c = ovar.DefinedConstraints
 
@@ -96,11 +95,10 @@ module IntentPolicy =
         ord.Orderable.Components |> Array.tryFind (fun c -> c.Name = name)
 
 
-    /// Whether a recalculation of the target is allowed on the order: the target holds one value
-    /// and the target is a field a recalculation can recalculate on the order's dose type. An item
-    /// dose also needs a component dose the rules constrain. The basic variables, the frequency,
-    /// the orderable dose quantity and rate and a component quantity, are stepped or selected,
-    /// never recalculated, and neither is the orderable quantity or a component's adjusted dose.
+    /// Whether a recalculation of the target is allowed on the order. The target must have a single value
+    /// and be the schedule time or an item dose that the dose type allows. An item dose also needs a
+    /// component whose dose the rules constrain. The frequency and the orderable and component properties
+    /// are stepped or selected, never recalculated.
     let isReCalcAllowed target (ord: Order) =
         let holdsOne = ord |> Target.tryGet target |> Option.exists (fun ovar -> valuesOf ovar = 1)
 
@@ -130,6 +128,6 @@ module IntentPolicy =
         | _ -> None
 
 
-    /// Whether the command is a recalculation, after which a list closed without a pick puts the
-    /// state before it back.
+    /// Whether the command is a recalculation. Closing its list without a pick restores the previous
+    /// state.
     let isReCalc cmd = cmd |> reCalcTarget |> Option.isSome

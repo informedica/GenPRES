@@ -1,12 +1,12 @@
 namespace Informedica.GenPRES.Client.Core.Helpers
 
-/// The context as an order command changes it, shown while the command's request is under way.
+/// Shows the order context as a command will change it while the request runs.
 module CommandPreview =
 
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The context as the command changes it; the context itself when the command cannot change it.
+    /// Returns the context as the command changes it, or the unchanged context when the preview fails.
     let shown cmd ctx =
         match OrderViewCommand.preview cmd ctx with
         | Ok changed -> changed

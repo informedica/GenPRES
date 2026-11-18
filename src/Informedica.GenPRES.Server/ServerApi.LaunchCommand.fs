@@ -7,9 +7,8 @@ module LaunchCommand =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The presentation of a Launch over the session port. The session id goes into the cookie
-    /// and nowhere else; a refusal is a value. A server exception is not a refusal: it propagates,
-    /// Fable.Remoting answers 500 and the client's transport-error path retries.
+    /// Presents a launch and writes the session id only to the cookie. A server exception is
+    /// not caught, so the client gets a 500 and retries.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cmd: LaunchCommand) =
         async {
             match cmd with
@@ -22,15 +21,13 @@ module LaunchCommand =
                     stateCookie.write state
                     return LaunchOutcome.RedirectTo url
                 | LaunchResult.Refused refusal -> return LaunchOutcome.Refused refusal
-                // a retry of a launch that suspended: the browser holds the attempt already, the
-                // app tells it at the next GetSession
+                // A retried launch that waits for a PIN: the next GetSession returns the enrolment.
                 | LaunchResult.Enrolling _ -> return LaunchOutcome.RedirectTo Session.openedUrl
         }
 
 
-    /// The callback over the session port: the browser is back from the IdentityProvider.
-    /// Answers where it goes next; the session cookie is set when a Session opened, the
-    /// enrolment cookie when the launch suspended at the PIN question.
+    /// Handles the return from the identity provider and returns the redirect. Writes the session
+    /// cookie when a session opens, or the enrolment cookie when a PIN is needed.
     let processCallback
         (env: AppEnv)
         (cookie: SessionCookie)
@@ -44,9 +41,7 @@ module LaunchCommand =
                 cookie.write id
                 return redirect
             | CallbackResult.Enrolling(attempt, redirect, until) ->
-                // the new launch replaces whatever Session this browser still held, as an open
-                // would, and a Session replaced in its own browser is not told of its ending;
-                // left in place, its cookie would hide the enrolment at the next GetSession
+                // Closes the previous session of this browser; its cookie would hide the enrolment.
                 match cookie.read () with
                 | Some id -> do! env.session.close id
                 | None -> ()
