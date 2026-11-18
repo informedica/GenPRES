@@ -1180,30 +1180,6 @@ module ValueUnit =
     let valueCount = getValue >> Array.length
 
 
-    /// <summary>
-    /// Set vu2 to the single value in vu2 nearest to the single value in vu1.
-    /// </summary>
-    /// <remarks>
-    /// Returns vu2 UNCHANGED when vu1 does not hold exactly one value, or when
-    /// vu1's value lies entirely above or below vu2's range (i.e. greater than
-    /// all of vu2 or smaller than all of vu2): there is no nearest-clamp in
-    /// that case.
-    /// </remarks>
-    let setNearestValue vu1 vu2 =
-        if vu1 |> valueCount <> 1 then
-            vu2
-        else if cmp (>) vu1 vu2 || cmp (<) vu1 vu2 then
-            vu2
-        else
-            let vu1 = vu1 |> getBaseValue |> Array.head
-            let vs2 = vu2 |> getBaseValue
-            // find the nearest value in vs2 to vu1
-            vs2
-            |> Array.map (fun v -> (v, v - vu1 |> BigRational.Abs))
-            |> Array.minBy snd
-            |> fun (v, _) -> setSingleValue v vu2 |> toUnit
-
-
     let pickNearestHigherElseLower (target: ValueUnit) (candidates: ValueUnit) =
         if candidates |> isEmpty then
             candidates
