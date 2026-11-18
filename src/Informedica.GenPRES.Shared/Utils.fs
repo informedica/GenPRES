@@ -48,18 +48,6 @@ module String =
     /// Returns the string unchanged. Callers use it to fix the type of a value to string for inference.
     let get = apply id
 
-    /// Counts how many times the character c repeats at the start of the string t.
-    /// Returns 0 for a null or empty string.
-    let countFirstChar c t =
-        let _, count =
-            if t |> isNullOrEmpty then
-                (false, 0)
-            else
-                t
-                |> Seq.fold (fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec)) (true, 0)
-
-        count
-
     /// True when the string s2 contains the string s1.
     let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
 
@@ -102,34 +90,32 @@ module Math =
 
     /// Returns the number of decimals that shows f with at least n significant digits.
     /// For example, 0.0666 |> getPrecision 2 = 3 and 6.6666 |> getPrecision 2 = 1.
-    /// A negative n counts as 0. Returns n when f is zero.
-    let getPrecision n f = // ToDo fix infinity case
-        let n = if n < 0 then 0 else n
+    /// A negative n counts as 0. Returns n when f is zero, infinite or not a number.
+    let getPrecision n f =
+        let n = max n 0
 
-        if f = 0. || n = 0 then
+        if f = 0. || n = 0 || Double.IsInfinity f || Double.IsNaN f then
             n
         else
-            let s = (f |> abs |> string).Split([| '.' |])
+            // The base-10 logarithm, rounded down, is the place of the first significant digit:
+            // 0 for 6.6, 1 for 66 and -2 for 0.066.
+            let first = f |> abs |> log10 |> floor |> int
+            // The logarithm of a float just below a power of ten rounds up to that power.
+            // The power of ten is read from text, because that gives the exact float.
+            let first = if float $"1e%i{first}" > abs f then first - 1 else first
 
-            // calculate number of remaining decimal digits (after '.')
-            let p = n - (if s[0] = "0" then 0 else s[0].Length)
-
-            let p = if p < 0 then 0 else p
-
-            if s[0] <> "0" then
-                p
-            else
-                // Adds the zeros after the decimal point that come before the first non-zero digit.
-                let c = (s[1] |> String.countFirstChar '0')
-                c + p
+            max 0 (n - 1 - first)
 
     /// Rounds f to the number of decimals that shows at least n significant digits.
     /// For example, 0.0666 |> fixPrecision 2 = 0.067 and 6.6666 |> fixPrecision 2 = 6.7.
-    /// A negative n counts as 0. The number of decimals is at most 15, because Math.Round takes at
-    /// most 15 decimals for a float.
+    /// Returns f unchanged when n is negative. The number of decimals is at most 15, because
+    /// Math.Round takes at most 15 decimals for a float.
     let fixPrecision n (f: float) =
-        // Adding zero turns a negative zero into zero, so that it does not print as "-0".
-        Math.Round(f, f |> getPrecision n |> min 15) + 0.
+        if n < 0 then
+            f
+        else
+            // Adding zero turns a negative zero into zero, so that it does not print as "-0".
+            Math.Round(f, f |> getPrecision n |> min 15) + 0.
 
 
 module List =
@@ -167,25 +153,20 @@ module Decimal =
         if d = 0m || n = 0 then
             n
         else
-            let absF = abs d
-            let s = absF.ToString("G", CultureInfo.InvariantCulture)
+            // The text is made with string and not with the "G" format, because in the browser
+            // that format drops the zeros at the end of a whole number: 1000 becomes "1".
+            // The text of a decimal has no exponent.
+            let parts = (d |> abs |> string).Split('.')
+            let leftPart = parts[0]
+            let p = n - (if leftPart = "0" then 0 else leftPart.Length)
+            let p = if p < 0 then 0 else p
 
-            if s.Contains "E" then
-                let eIndex = s.IndexOf("E") + 2
-                let h = int s[eIndex..]
-                h + n - 1
+            if leftPart <> "0" then
+                p
             else
-                let parts = s.Split('.')
-                let leftPart = parts[0]
-                let p = n - (if leftPart = "0" then 0 else leftPart.Length)
-                let p = if p < 0 then 0 else p
-
-                if leftPart <> "0" then
-                    p
-                else
-                    let rightPart = parts[1]
-                    let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
-                    zeroCount + p
+                let rightPart = parts[1]
+                let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
+                zeroCount + p
 
 
     /// Returns the number of decimals that d is rounded to for n significant digits.
