@@ -156,7 +156,6 @@ Decided by the maintainer on 2026-11-18.
 
 ## Open points
 
-
 - The client never sends or receives a date for the weight or the height. Nothing on the client
   changes.
 - The canonical form of a parsed plan changes, so a signing challenge made before the change does not
@@ -165,18 +164,20 @@ Decided by the maintainer on 2026-11-18.
 ## Confidence
 
 Medium. The readers of the date are few and known. The size of the test changes is the main risk:
-about 50 lines in the tests build a dated weight or height, or call a setter or a `fromAgeType`
-function, and about 200 lines when the uses of the helpers are counted. Most changes go through a few
-helpers: `SamplePatients` in GenORDER, `TestPatient` in GenFORM, and the fixtures of the GenCORE and
-server tests.
+about 80 calls of the GenORDER setters in the tests (step 2), the GenFORM `TestPatient` helpers and
+the test cases they can no longer build (step 1, decision 5), and the GenCORE tests that build dated
+values or call a `fromAgeType` function.
 
 ## Steps
 
 Each step is one pull request within the limit of 200 changed source lines.
 
 1. **GenCORE.** `Date: DateTime option` in `WeightAtDate` and `HeightAtDate` (decision 1) and their
-   Dtos. `WeightAtDate.Dto.fromDto` and `HeightAtDate.Dto.fromDto` check a date against the read date
-   only when there is one; the shared `notAfterValidator` stays as it is for the birth date.
+   Dtos. `WeightAtDate.create` and `HeightAtDate.create` keep their date parameter, for a value from the
+   EHR; a value without a date gets its own constructor. The callers outside GenCORE, in GenORDER, MCP
+   and the server, then build unchanged until steps 2 and 3. `WeightAtDate.Dto.fromDto` and
+   `HeightAtDate.Dto.fromDto` check a date against the read date only when there is one; the shared
+   `notAfterValidator` stays as it is for the birth date.
    `WeightAtDate.toString` and `HeightAtDate.toString` print an undated value without a date, and
    `Weight.toString` and `Height.toString` sort the lists with it. The six `fromAgeType` functions
    (`:906`, `:1002`, `:1217`, `:1292`, `:2117`, `:2275`) set estimates without a date and lose their
@@ -203,14 +204,13 @@ Each step is one pull request within the limit of 200 changed source lines.
    `Session.signedPatientDataAt` (`Server/ServerApi.Session.fs:751`) change the patient data through the
    Dto instead of a record update with `calculateBodySurfaceArea`: they write the Dto, set or remove
    the calculation weight and height on it, and read it back with `PatientData.Dto.fromDto`, raising
-   `invalidOp` when it refuses the Dto (decision 4). The
-   `CoreSource` alias of `Session` (`:414`) then has no use and goes. Remove `challengeDate`, its port member and adapters, the branch in `SigningCommand`
-   that reads a submission on the date of its challenge, and their tests. Delete
+   `invalidOp` when it refuses the Dto (decision 4). The `CoreSource` alias of `Session` (`:414`) then
+   has no use and goes. Remove `challengeDate`, its port member and adapters, the branch in
+   `SigningCommand` that reads a submission on the date of its challenge, and their tests. Delete
    `SessionMapper.noticeData` (`Server/ServerApi.Mappers.Session.fs:93`): the server only sends a data
    notice, and only tests call it (`MappersOrderPlanTests.fs:186`, `:191`); that test keeps checking
-   `SessionMapper.notice`. Update the fixture
-   `order_plan_v16.json` (decision 2). The stub EHR keeps its measurement dates, and the comparison of
-   EHR readings does not change.
+   `SessionMapper.notice`. Update the fixture `order_plan_v16.json` (decision 2). The stub EHR keeps its
+   measurement dates, and the comparison of EHR readings does not change.
 
 ## Verification
 
