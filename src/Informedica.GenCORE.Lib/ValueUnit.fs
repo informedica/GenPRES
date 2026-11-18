@@ -45,8 +45,8 @@ module ValueUnit =
         let toIntDay = toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.dayFromInt Units.Time.day "day"
 
 
-        /// The single value of a time value in whole days, rounded down. Raises an
-        /// ArgumentException for a value that is not a time.
+        /// Converts a time value to whole days, rounded toward zero, and returns the first value.
+        /// Raises an ArgumentException for a value that is not a time.
         let toSingleIntDay vu =
             vu
             |> toIntDay

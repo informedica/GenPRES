@@ -34,8 +34,8 @@ module Validus =
             Validator.create msg rule
 
 
-        /// A date that is given and is not after a calendar date; the time of day of either date is
-        /// not looked at. A date left at its initial value is not given.
+        /// Validates that a date is set and is not after today. Only the dates are compared, not the time of day.
+        /// DateTime.MinValue counts as a date that is not set.
         let notAfterValidator (today: DateTime) =
             let rule (dt: DateTime) = dt <> DateTime.MinValue && dt.Date <= today.Date
 
