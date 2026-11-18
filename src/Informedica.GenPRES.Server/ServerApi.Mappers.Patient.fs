@@ -141,6 +141,8 @@ module Age =
 /// minimum data is checked.
 module Patient =
 
+    open Validus
+
     module Lib = Informedica.GenForm.Lib.Types
     module LibRenal = Informedica.GenForm.Lib.RenalFunction
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
@@ -241,8 +243,8 @@ module Patient =
 
 
     /// Maps the contract patient to the GenCORE Dto of patient data. Nothing is checked. A measured
-    /// weight or height is used when there is one, otherwise the estimate. Both get the date today.
-    let ofModel today (model: PatientData) =
+    /// weight or height is used when there is one, otherwise the estimate. Neither has a date.
+    let ofModel (model: PatientData) =
         let dto = CorePatientData.Dto.dto ()
 
         let weeksDays = Age.weeksDays >> CoreAgeWeeksDays.Dto.toDto
@@ -271,7 +273,7 @@ module Patient =
                 int
                 >> decimal
                 >> CoreWeightValue.weightInGram
-                >> CoreWeightAtDate.create (Some today)
+                >> CoreWeightAtDate.undated
                 >> source model.Weight.Measured.IsSome
             )
             |> CoreWeight.create [] None []
@@ -284,7 +286,7 @@ module Patient =
                 int
                 >> decimal
                 >> CoreHeightValue.heightInCm
-                >> CoreHeightAtDate.create (Some today)
+                >> CoreHeightAtDate.undated
                 >> source model.Height.Measured.IsSome
             )
             |> CoreHeight.create [] None
@@ -416,9 +418,9 @@ module Patient =
     /// when a value is invalid or the data is not enough to select rules.
     let toCore today model =
         model
-        |> ofModel today
+        |> ofModel
         |> CorePatientData.Dto.fromDto today
-        |> Result.mapError (Validus.ValidationErrors.toList >> List.toArray)
+        |> Result.mapError (ValidationErrors.toList >> List.toArray)
         |> Result.bind (
             CorePatientData.checkMinimumData
             >> Result.mapError (notEnoughMessage >> Array.singleton)
@@ -429,7 +431,7 @@ module Patient =
     /// None when the patient data is invalid or has no weight and height.
     let bodySurfaceArea today model =
         model
-        |> ofModel today
+        |> ofModel
         |> CorePatientData.Dto.fromDto today
         |> Result.toOption
         |> Option.bind _.BodySurfaceArea
@@ -480,9 +482,21 @@ module Patient =
         }
 
 
-    /// Adds the weight and height estimates of GenCORE to patient data, dated today. A measured
+    /// Reads a patient data Dto that the server wrote from valid patient data. Raises an
+    /// InvalidOperationException when GenCORE refuses it: that is a bug, not invalid input.
+    let fromOwnDto today dto =
+        dto
+        |> CorePatientData.Dto.fromDto today
+        |> Result.defaultWith (fun errs ->
+            let msgs = errs |> ValidationErrors.toList |> String.concat "; "
+            invalidOp $"GenCORE refuses patient data that the server wrote: %s{msgs}"
+        )
+
+
+    /// Adds the weight and height estimates of GenCORE to patient data, without a date. A measured
     /// weight or height is kept as it is, with its date and its measurements. The patient data is
-    /// returned unchanged when the estimate fails.
+    /// returned unchanged when the estimate fails. Raises an InvalidOperationException when GenCORE
+    /// refuses the Dto.
     let estimated today tables (pat: CorePatientData) =
         pat
         |> ofPatientData
@@ -491,25 +505,21 @@ module Patient =
         // Only the estimated values are taken over. The contract has no diagnoses, no kind of
         // department and no measurement lists, so the rest of the mapped data is incomplete.
         |> Result.map (fun est ->
-            { pat with
-                Weight =
-                    if pat.Weight |> CoreWeight.isMeasured then
-                        pat.Weight
-                    else
-                        { pat.Weight with Calculation = est.Weight.Calculation }
-                Height =
-                    if pat.Height |> CoreHeight.isMeasured then
-                        pat.Height
-                    else
-                        { pat.Height with Calculation = est.Height.Calculation }
-            }
-            |> CorePatientData.calculateBodySurfaceArea
+            let dto = pat |> CorePatientData.Dto.toDto
+
+            if not (pat.Weight |> CoreWeight.isMeasured) then
+                dto.Weight <- { pat.Weight with Calculation = est.Weight.Calculation } |> CoreWeight.Dto.toDto
+
+            if not (pat.Height |> CoreHeight.isMeasured) then
+                dto.Height <- { pat.Height with Calculation = est.Height.Calculation } |> CoreHeight.Dto.toDto
+
+            dto |> fromOwnDto today
         )
         |> Result.defaultValue pat
 
 
-    /// Wraps the EHR port so that the patient data it reads gets weight and height estimates, dated
-    /// today. Nothing is estimated while the normal-value tables are not loaded.
+    /// Wraps the EHR port so that the patient data it reads gets weight and height estimates. Nothing
+    /// is estimated while the normal-value tables are not loaded.
     let estimating today normalValues (port: EhrPatientPort) : EhrPatientPort =
         { port with
             patientData =

@@ -396,8 +396,6 @@ type SessionPort =
         dropEnrolment: string -> Async<unit>
         // Issues a signing challenge for the plan as shown, for the session the cookie names.
         challenge: string -> GenOrder.OrderPlan * OpenedToken * string option -> Async<SigningOutcome>
-        // Returns the local date of the open challenge of the session; None without a challenge.
-        challengeDate: string -> Async<DateTime option>
         // Submits the signature for the session the cookie names.
         submit: string -> Signature -> Async<SigningOutcome>
         // Called on every calculation request: marks the session the cookie names as seen and tells whether the

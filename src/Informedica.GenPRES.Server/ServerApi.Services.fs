@@ -383,7 +383,7 @@ module OrderContextService =
         |> Argumentation.check
         |> Result.bind (fun _ ->
             ctx
-            |> OrderContextMapper.ofModel today
+            |> OrderContextMapper.ofModel
             |> PlanContext.Dto.fromDto today
             |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
         )

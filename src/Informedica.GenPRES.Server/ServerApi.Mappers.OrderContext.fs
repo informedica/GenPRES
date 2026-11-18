@@ -293,15 +293,15 @@ module OrderContextMapper =
         }
 
 
-    /// Maps an order context to the plan context Dto. The weight and height get the date today.
-    let ofModel today (ctx: OrderContext) : PlanContextDto.Dto =
+    /// Maps an order context to the plan context Dto.
+    let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
             Category = ctx.Category |> Category.toDomain |> OrderCategoryDto.toString
             Context =
                 {
                     Filter = ctx.Filter |> filter
-                    PatientData = ctx.PatientData |> Patient.ofModel today
+                    PatientData = ctx.PatientData |> Patient.ofModel
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }

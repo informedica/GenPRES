@@ -100,9 +100,9 @@ module LinkFixtures =
 
     let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
         {
-            PatientData = context.PatientData |> ServerApi.Patient.ofModel readAt
+            PatientData = context.PatientData |> ServerApi.Patient.ofModel
             Filtered = [||]
-            Contexts = contexts |> Array.map (OrderContextMapper.ofModel readAt)
+            Contexts = contexts |> Array.map OrderContextMapper.ofModel
             Totals = Totals.empty |> Totals.Dto.toDto
         }
 
@@ -114,18 +114,18 @@ let tests =
         [
             test "L3: to the Dto and back is the identity, the demo flag the server's" {
                 context
-                |> OrderContextMapper.ofModel readAt
+                |> OrderContextMapper.ofModel
                 |> OrderContextMapper.toModel false
                 |> Expect.equal "the same context" context
 
-                (context |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel true).DemoVersion
+                (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel true).DemoVersion
                 |> Expect.isTrue "demo as the server says"
             }
 
             for link in [ Some "c-0"; None ] do
                 test $"the link %A{link} goes to the Dto and back" {
                     let linked = { context with LinkedTo = link }
-                    let dto = linked |> OrderContextMapper.ofModel readAt
+                    let dto = linked |> OrderContextMapper.ofModel
 
                     dto.LinkedTo |> Expect.equal "the Dto carries the link" link
 
@@ -136,7 +136,7 @@ let tests =
 
             test "the domain reads the link the mapper writes in a context" {
                 LinkFixtures.linked
-                |> OrderContextMapper.ofModel readAt
+                |> OrderContextMapper.ofModel
                 |> PlanContext.Dto.fromDto readAt
                 |> Result.map _.LinkedTo
                 |> Expect.equal "the main order's id" (Ok(Some "c-1"))
@@ -226,19 +226,19 @@ let tests =
                 let text = "Sepsis, hogere dosis in overleg met de apotheek"
                 let argued = { context with Argumentation = Some text }
 
-                (argued |> OrderContextMapper.ofModel readAt).Context.Argumentation
+                (argued |> OrderContextMapper.ofModel).Context.Argumentation
                 |> Expect.equal "on the Dto" (Some text)
 
-                (argued |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false).Argumentation
+                (argued |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
                 |> Expect.equal "and back" (Some text)
 
-                (context |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false).Argumentation
+                (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
                 |> Expect.isNone "none stays none"
             }
 
             test "a plan context JSON from before the field, a version 1 row, reads with none" {
                 let json =
-                    (context |> OrderContextMapper.ofModel readAt |> Canonical.serialize)
+                    (context |> OrderContextMapper.ofModel |> Canonical.serialize)
                         .Replace(",\"Argumentation\":null", "")
 
                 json.Contains "Argumentation" |> Expect.isFalse "no such field in the row"
@@ -291,18 +291,18 @@ let tests =
                             |]
                     }
 
-                let back = blank |> OrderContextMapper.ofModel readAt |> OrderContextMapper.toModel false
+                let back = blank |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
 
                 back.Scenarios[0].Prescription
                 |> Expect.equal "the blank ones gone" [| [| Valid [| Bold "240 mg" |] |] |]
 
-                (context |> OrderContextMapper.ofModel readAt).Context.Scenarios
+                (context |> OrderContextMapper.ofModel).Context.Scenarios
                 |> Array.map _.No
                 |> Expect.equal "numbered by place" [| 0 |]
             }
 
             test "the Dto parses: the domain reads what the mapper writes" {
-                match context |> OrderContextMapper.ofModel readAt |> PlanContext.Dto.fromDto readAt with
+                match context |> OrderContextMapper.ofModel |> PlanContext.Dto.fromDto readAt with
                 | Ok pc ->
                     pc.Id |> Expect.equal "id" "c-1"
 

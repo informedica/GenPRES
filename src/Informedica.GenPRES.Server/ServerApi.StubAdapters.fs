@@ -809,9 +809,9 @@ module StubDatabase =
 
 
     /// Makes the session port over a session store. Every request runs under one lock and loads its rows first.
-    /// When a load throws, the state is unchanged: challenge and submit return StoreFailed, challengeDate returns
-    /// None, and the other requests fail. find, seen, openVersion, refresh, challenge and submit first end the
-    /// session when it has been idle too long.
+    /// When a load throws, the state is unchanged: challenge and submit return StoreFailed, and the other
+    /// requests fail. find, seen, openVersion, refresh, challenge and submit first end the session when it has
+    /// been idle too long.
     let makeSessionPortWith
         (store: SessionStore)
         (zone: TimeZoneInfo)
@@ -987,9 +987,6 @@ module StubDatabase =
                                             Session.challenge at newId digest ehrPatients registry.standing sid request
                                         )))
                     }
-            challengeDate =
-                fun sid ->
-                    async { return guarded None (Slice.Session sid) (fun s -> s, Session.challengeDate zone sid s) }
             submit =
                 fun sid signature ->
                     async {

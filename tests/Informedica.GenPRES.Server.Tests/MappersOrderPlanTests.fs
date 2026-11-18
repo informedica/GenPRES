@@ -106,17 +106,17 @@ let tests =
         [
             test "L3: an order plan to the Dto and back is the identity, the demo flag the server's" {
                 plan
-                |> OrderPlanMapper.ofModel readAt
+                |> OrderPlanMapper.ofModel
                 |> OrderPlanMapper.toModel false
                 |> Expect.equal "the same plan" plan
 
-                (plan |> OrderPlanMapper.ofModel readAt |> OrderPlanMapper.toModel true).OrderContexts
+                (plan |> OrderPlanMapper.ofModel |> OrderPlanMapper.toModel true).OrderContexts
                 |> Array.forall _.DemoVersion
                 |> Expect.isTrue "demo on every context"
             }
 
             test "the plan's Dto carries the categories as strings and parses" {
-                let dto = plan |> OrderPlanMapper.ofModel readAt
+                let dto = plan |> OrderPlanMapper.ofModel
 
                 dto.Contexts
                 |> Array.map _.Category
@@ -183,13 +183,11 @@ let tests =
                         Token = "t-1"
                     }
 
-                let data = n |> SessionMapper.noticeData readAt
-                data |> Option.isSome |> Expect.isTrue "a reading"
+                let data = StubEhrPatient.contractPatient |> ServerApi.Patient.ofModel |> Some
                 SessionMapper.notice "t-1" data |> Expect.equal "the same notice" n
 
-                { n with PatientData = None }
-                |> SessionMapper.noticeData readAt
-                |> Expect.equal "unreadable" None
+                SessionMapper.notice "t-1" None
+                |> Expect.equal "none stays none" { n with PatientData = None }
             }
 
             test

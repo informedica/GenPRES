@@ -8,12 +8,12 @@ open Informedica.GenPRES.Shared.Types
 /// Maps an order plan of the contract to the order plan Dto of GenORDER and back.
 module OrderPlanMapper =
 
-    /// Maps an order plan to the Dto. Every weight and height gets the date today.
-    let ofModel today (plan: OrderPlan) : OrderPlan.Dto.Dto =
+    /// Maps an order plan to the Dto.
+    let ofModel (plan: OrderPlan) : OrderPlan.Dto.Dto =
         {
-            PatientData = plan.PatientData |> Patient.ofModel today
+            PatientData = plan.PatientData |> Patient.ofModel
             Filtered = plan.Filtered
-            Contexts = plan.OrderContexts |> Array.map (OrderContextMapper.ofModel today)
+            Contexts = plan.OrderContexts |> Array.map OrderContextMapper.ofModel
             Totals = plan.Totals |> OrderContextMapper.totals
         }
 

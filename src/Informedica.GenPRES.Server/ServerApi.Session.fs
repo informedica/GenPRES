@@ -411,7 +411,8 @@ module Session =
 
     module CorePatient = Informedica.GenCore.Lib.Patients.Patient
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
-    module CoreSource = Informedica.GenCore.Lib.Patients.Source
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
 
 
     /// Returns the word for a refusal in the URL #/session?refused=word, which the client reads with
@@ -747,21 +748,24 @@ module Session =
 
     /// The patient data of a signed version, aged to the local date. When the age changed, the
     /// estimated weight and height are removed, because an estimate is only valid for the age it
-    /// was made for. A measured value stays.
+    /// was made for. A measured value stays. Raises an InvalidOperationException when GenCORE refuses the
+    /// Dto.
     let signedPatientDataAt date whom (patientData: CorePatientData) =
         let aged = patientData |> atBirthDate date whom
-
-        let measured calc = calc |> Option.filter CoreSource.isMeasured
 
         // Compare the ages in days. Two age values with different parts can be the same age.
         if aged |> CorePatientData.ageInDays = (patientData |> CorePatientData.ageInDays) then
             aged
         else
-            { aged with
-                Weight.Calculation = aged.Weight.Calculation |> measured
-                Height.Calculation = aged.Height.Calculation |> measured
-            }
-            |> CorePatientData.calculateBodySurfaceArea
+            let dto = aged |> CorePatientData.Dto.toDto
+
+            if not (aged.Weight |> CoreWeight.isMeasured) then
+                dto.Weight.Calculation <- None
+
+            if not (aged.Height |> CoreHeight.isMeasured) then
+                dto.Height.Calculation <- None
+
+            dto |> Patient.fromOwnDto date
 
 
     /// The patient data a Session shows on the local date. After a signing, the data of the signed
@@ -1558,15 +1562,6 @@ module Session =
                             },
                             SigningOutcome.ChallengeIssued(nonce, moved),
                             seen @ [ WriteChallenge(sid, challenge, now) ]
-
-
-    /// The local date the open challenge of a Session was made on. None when the Session has no
-    /// challenge. A submission reads its plan on this date, so that the weight and the height get
-    /// the same date as at the challenge.
-    let challengeDate (zone: TimeZoneInfo) (sid: string) (state: State) =
-        state.Challenges
-        |> Map.tryFind sid
-        |> Option.map (fun challenge -> challenge.Expiry - challengeLifetime |> LocalDate.ofUtc zone)
 
 
     /// Commits a signature, checked in order: a session with a user and a patient; an answer already
