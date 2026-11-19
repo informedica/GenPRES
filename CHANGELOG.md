@@ -1,5 +1,5 @@
 ---
-last_commit_released: 719d8833e62f8c96678df9397d124b63792da4e0
+last_commit_released: 65c6514502660976a5218fa940e7eea8e6034e84
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,39 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.58 - 2026-11-19
+
+### 🚀 Features
+
+* *(api)* Send the patient data options to the client ([b0c7db5e](https://github.com/informedica/GenPRES/commit/b0c7db5eccaab2c4992ab008ba328b0c81c28064))
+* *(client)* Send each patient panel edit to the server ([319b6b90](https://github.com/informedica/GenPRES/commit/319b6b90ae667e17bd74b5c3816625c73d718da1))
+* *(client)* Take the patient panel lists from the options ([e6d43b42](https://github.com/informedica/GenPRES/commit/e6d43b421bbb8a6601281dfd3cd74dd350c6dfa0))
+* *(gencore)* Make the measurement date optional ([f6c4481b](https://github.com/informedica/GenPRES/commit/f6c4481b3206ef0b7102b11a95c2baf45b0ce24f))
+* *(gencore)* Take the department as a Dto per kind ([bb2f693a](https://github.com/informedica/GenPRES/commit/bb2f693aa47932732e59576fcc56b94782f277c9))
+* *(gencore)* Set the adult mark and gestational age need ([67d031b4](https://github.com/informedica/GenPRES/commit/67d031b49667e990570f0f55fe1efd3fd1fdb984))
+* *(gencore)* Read calculation weights and heights ([6db20965](https://github.com/informedica/GenPRES/commit/6db209657cff929156f0eb92c3c429dd0ce86e93))
+* *(gencore)* Read the eGFR band options ([e7770d2f](https://github.com/informedica/GenPRES/commit/e7770d2f9a89492de94e2a5a873467ad7d744699))
+* *(gencore)* Estimate and offer options in patient data ([14abeb6c](https://github.com/informedica/GenPRES/commit/14abeb6c5f9d4c45355a42dd6fb027d7741d1289))
+* *(gencore)* Round a measured weight and height ([53fd23e4](https://github.com/informedica/GenPRES/commit/53fd23e4949f9295a5db613d64bd66a7def882a5))
+* *(gencore)* Apply a patient data edit to the Dto ([66c4d258](https://github.com/informedica/GenPRES/commit/66c4d2587beabb10abf5e1d3979c03c696d080aa))
+* *(mcp)* Take the age parts and pass the resources ([ff5fcec1](https://github.com/informedica/GenPRES/commit/ff5fcec19d32b904dac2fa13c1429c6447635203))
+* *(server)* Complete the patient data through GenCORE ([344b7e6e](https://github.com/informedica/GenPRES/commit/344b7e6e85e78d889381d7b5ba1b6ad5ea0d05b8))
+* *(server)* Estimate a signed version again when aged ([4ad25181](https://github.com/informedica/GenPRES/commit/4ad251815a40266688f0f77f26ffa8c6afdbfad3))
+
+### 🐞 Bug Fixes
+
+* *(api)* Compare patient data without the options ([f47dcf8a](https://github.com/informedica/GenPRES/commit/f47dcf8a0abf56a8f48c31a582df4306e909e803))
+* *(client)* Leave the options out of the plan-behind check ([7ebf8eb4](https://github.com/informedica/GenPRES/commit/7ebf8eb413a22cd4c608740ab77acac3012dd0bf))
+* *(client)* Treat empty patient data with options as blank ([cb70e480](https://github.com/informedica/GenPRES/commit/cb70e4807c6edec63ac07830cd453418a68e05e3))
+* *(gencore)* Trim department names in the Dto ([b6870cc9](https://github.com/informedica/GenPRES/commit/b6870cc9a54b7a19f115af494b64f3ae4afb3e84))
+* *(gencore)* Refuse calculation values that round to 0 ([1967703e](https://github.com/informedica/GenPRES/commit/1967703e63ea793dc74053f440a48a778baead64))
+* *(gencore)* Compare a measurement by date and value ([8a3be6e3](https://github.com/informedica/GenPRES/commit/8a3be6e3b20e29ef582cdff5c85f8c9483a37de8))
+* *(gencore)* Refuse an unknown renal edit, reset the department ([78d1669f](https://github.com/informedica/GenPRES/commit/78d1669f9937c67fcf34db6cbd9521d4a7fb3971))
+* *(genform)* Compare departments in rule overlap checks alike ([511b1e2c](https://github.com/informedica/GenPRES/commit/511b1e2c2a1928c15c9ebf460b33a72bfa33b3ea))
+* *(genorder)* Limit a timed dose to its interval ([95fad8a8](https://github.com/informedica/GenPRES/commit/95fad8a874d3de0660ac1c3f8d0a35aace82ca06))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/719d8833e62f8c96678df9397d124b63792da4e0..65c6514502660976a5218fa940e7eea8e6034e84)</small></strong>
 
 ## 0.1.2-alpha.57 - 2026-11-18
 
