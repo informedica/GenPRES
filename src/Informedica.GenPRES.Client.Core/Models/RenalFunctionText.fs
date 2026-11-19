@@ -61,10 +61,6 @@ module RenalFunctionText =
         |]
 
 
-    /// The values of the select.
-    let options = renalOptions |> Array.map _.Value
-
-
     /// Returns the select option for a renal function. An eGFR goes to the band that contains its maximum,
     /// or to above 50 when it has no maximum.
     let optionOf renal =
@@ -109,6 +105,9 @@ module RenalFunctionText =
         | term -> $"{term}"
 
 
-    /// Returns each select value with its translated label. optionToRenal reads a value back in any
-    /// language.
-    let labelled tr = renalOptions |> Array.map (fun o -> o.Value, tr o.Term)
+    /// Returns each select value with its translated label, for the eGFR bands and then the dialyses of the
+    /// options. The label is the term the patient summary shows. optionToRenal reads a value back.
+    let ofOptions tr (options: PatientDataOptions) =
+        (options.EGFRBands |> List.map _.RenalFunction) @ options.Dialyses
+        |> List.toArray
+        |> Array.map (fun renal -> renal |> renalToOption, renal |> term |> tr)

@@ -183,14 +183,35 @@ let tests =
                         |> Expect.isTrue "resumed"
                     }
 
-                    test "the start-up ends once the Session and every load have answered" {
-                        let state =
+                    test "the start-up ends once the Session, every load and the patient options have answered" {
+                        let loads =
                             loaded Url.none
                             |> stateOf
                             |> play (
                                 ClientMsg.Lanes(LanesMsg.Session(SessionMsg.Resumed(Ok ResumeResult.NotFound)))
                                 :: everyLoad
                             )
+
+                        // without patient data the patient panel asks for the options
+                        let request =
+                            (stateOf loads).Lanes.Patient
+                            |> PatientState.inFlightRequest
+                            |> Option.defaultWith (fun () -> failtest "no request for the options")
+
+                        let state =
+                            loads
+                            |> stateOf
+                            |> play
+                                [
+                                    ClientMsg.Lanes(
+                                        LanesMsg.Patient(
+                                            PatientMsg.Answered(
+                                                request,
+                                                Ok Informedica.GenPRES.Shared.Models.PatientData.empty
+                                            )
+                                        )
+                                    )
+                                ]
 
                         state
                         |> hasStep (
@@ -582,6 +603,23 @@ let tests =
                         cleared < sent |> Expect.isTrue "the clear before the call"
                     }
 
+                    test "a new patient clears without a call, then sends only the edit" {
+                        let _, effects, _ =
+                            initial Url.none
+                            |> play [ ClientMsg.NewPatient(PatientDataEdit.SetYears(Some 5), "p-1") ]
+
+                        effects
+                        |> List.choose (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, request))) ->
+                                Some request
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(_, _, request))) ->
+                                Some request
+                            | _ -> None
+                        )
+                        |> Expect.equal "the edit only" [ "p-1" ]
+                    }
+
                     test "a new patient withdraws the warnings and asks no page for no patient" {
                         let result =
                             initial Url.none
@@ -675,7 +713,7 @@ let tests =
                         |> Expect.isTrue "sent"
                     }
 
-                    test "a panel reset clears the patient data without a call" {
+                    test "a panel reset clears the patient data and asks with empty patient data for the options" {
                         let _, effects, _ = initial Url.none |> play [ ClientMsg.PanelCleared "p-1" ]
 
                         effects
@@ -689,10 +727,11 @@ let tests =
                         effects
                         |> List.exists (
                             function
-                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient _)) -> true
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(p, "p-1"))) ->
+                                p = Informedica.GenPRES.Shared.Models.PatientData.empty
                             | _ -> false
                         )
-                        |> Expect.isFalse "no call"
+                        |> Expect.isTrue "asked"
                     }
 
                     test "a signature answered is said on the snackbar and told to the plan" {

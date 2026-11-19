@@ -682,6 +682,7 @@ module Trail =
         let msg (msg: PatientMsg) =
             match msg with
             | PatientMsg.Changed(p, request) -> $"Changed %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.Cleared -> "Cleared"
             | PatientMsg.Edited(edit, p, request) ->
                 $"Edited %A{edit} %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"

@@ -467,7 +467,7 @@ let tests =
                     effects
                     |> List.tryPick (
                         function
-                        | LanesEffect.Patient(PatientEffect.CallPatient(_, request)) -> Some request
+                        | LanesEffect.Patient(PatientEffect.CallPatient(p, request)) when p = measured -> Some request
                         | _ -> None
                     )
 
