@@ -16,6 +16,7 @@ module GenOrderTools =
     module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
     module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
     module CoreGender = Informedica.GenCore.Lib.Patients.Gender
@@ -150,17 +151,17 @@ module GenOrderTools =
             age.Days <- input.AgeDays
             dto.Age <- Some age
 
-        let weightDto kg =
-            let w = CoreWeightAtDate.Dto.dto ()
-            w.WeightValue.Weight <- decimal kg
-            w.WeightValue.WeightInKg <- true
-            w
+        let weightDto =
+            decimal
+            >> CoreWeightValue.weightInKg
+            >> CoreWeightAtDate.undated
+            >> CoreWeightAtDate.Dto.toDto
 
-        let heightDto cm =
-            let h = CoreHeightAtDate.Dto.dto ()
-            h.HeightValue.Height <- decimal cm
-            h.HeightValue.HeightInMeter <- false
-            h
+        let heightDto =
+            decimal
+            >> CoreHeightValue.heightInCm
+            >> CoreHeightAtDate.undated
+            >> CoreHeightAtDate.Dto.toDto
 
         dto.Gender <-
             input.Sex

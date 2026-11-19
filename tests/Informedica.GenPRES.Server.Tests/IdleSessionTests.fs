@@ -72,6 +72,7 @@ let portAt (clock: DateTime ref) (initial: Session.State) =
         directory.idp
         directory.registry
         Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.ehrPatients
+        (fun () -> None)
         (StubMail.make ()).port
         initial
 

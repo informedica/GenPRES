@@ -759,6 +759,19 @@ module Tests =
                         |> Expect.equal "12.5 kg measured" (gram 12500m, true)
                     }
 
+                    test "the weight and height given are kept as given, in kg and in cm without a date" {
+                        let pat =
+                            { ageAlone with
+                                WeightKg = Some 12.34
+                                HeightCm = Some 87.5
+                            }
+                            |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat.Weight.Actual |> List.map (fun w -> w.Date, Some w.Weight),
+                         pat.Height.Actual |> List.map (fun h -> h.Date, Some h.Height))
+                        |> Expect.equal "12.34 kg and 87.5 cm" ([ None, kg 12.34m ], [ None, cm 87.5m ])
+                    }
+
                     test "the answer gives the weight GenCORE uses, rounded or estimated" {
                         ({ ageAlone with WeightKg = Some 12.34 }
                          |> EstimateFixtures.patientOf tablesOnly

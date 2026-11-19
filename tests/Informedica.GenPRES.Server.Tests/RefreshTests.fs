@@ -86,7 +86,7 @@ let tests =
                 reads.Value |> Expect.equal "read once" 1
 
                 opened
-                |> Option.bind (Session.sessionPatientData later port)
+                |> Option.bind (Session.sessionPatientData later (fun () -> None) port)
                 |> Expect.equal
                     "the projection at the refresh"
                     (Some(atRefresh.patientData (StubEhrPatient.patient later "p1")))
@@ -98,7 +98,7 @@ let tests =
 
                 let months date (state: Session.State) =
                     state.Sessions["s1"].Opened
-                    |> Session.sessionPatientData date StubEhrPatient.port
+                    |> Session.sessionPatientData date (fun () -> None) StubEhrPatient.port
                     |> Option.bind (Patient.ofPatientData >> _.Age)
                     |> Option.map _.Months
 

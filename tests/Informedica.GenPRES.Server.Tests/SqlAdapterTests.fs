@@ -42,6 +42,7 @@ let portOver (store: StubDatabase.SessionStore) =
             directory.idp
             directory.registry
             StubAdapterTests.StubAdapters.ehrPatients
+            (fun () -> None)
             outbox.port
             seeded
 

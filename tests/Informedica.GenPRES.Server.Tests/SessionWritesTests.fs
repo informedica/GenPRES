@@ -399,6 +399,7 @@ let portOver (store: StubDatabase.SessionStore) =
             d.idp
             d.registry
             StubAdapterTests.StubAdapters.ehrPatients
+            (fun () -> None)
             (StubMail.make ()).port
             seeded
 

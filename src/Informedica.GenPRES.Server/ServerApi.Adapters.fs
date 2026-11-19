@@ -552,6 +552,8 @@ module Adapters =
                     // measured on the local date.
                     (StubEhrPatient.portAt today
                      |> Patient.completing today (patientDataResourcesOf provider))
+                    // the resources GenCORE estimates a signed version again with when its age changed
+                    (patientDataResourcesOf provider)
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (

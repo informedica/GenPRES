@@ -681,6 +681,7 @@ module SessionStubTests =
                 directory.idp
                 directory.registry
                 StubAdapters.ehrPatients
+                (fun () -> None)
                 outbox.port
                 seeded
 
@@ -1039,7 +1040,7 @@ module SessionStubTests =
                             let o = state.Sessions[id].Opened
                             o.PatientId |> Expect.equal "patient id" (Some "no-data")
                             o
-                            |> Session.sessionPatientData t0 StubEhrPatient.port
+                            |> Session.sessionPatientData t0 (fun () -> None) StubEhrPatient.port
                             |> Expect.equal "the signed patient" (Some(parsePatient entered))
 
                             o.Head
@@ -1075,7 +1076,7 @@ module SessionStubTests =
                         match result with
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].Opened
-                            |> Session.sessionPatientData t0 StubAdapters.ehrPatients
+                            |> Session.sessionPatientData t0 (fun () -> None) StubAdapters.ehrPatients
                             |> Expect.equal "the platform's" (Some ehrPatient)
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -1232,7 +1233,7 @@ module SessionStubTests =
                             let o = state.Sessions[id].Opened
                             o.PatientId |> Expect.equal "patient id" (Some "no-data")
                             o
-                            |> Session.sessionPatientData t0 StubEhrPatient.port
+                            |> Session.sessionPatientData t0 (fun () -> None) StubEhrPatient.port
                             |> Expect.equal "no patient data" None
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -1325,6 +1326,7 @@ module SessionStubTests =
                                 d.idp
                                 d.registry
                                 StubAdapters.ehrPatients
+                                (fun () -> None)
                                 (StubMail.make ()).port
                                 seeded
 
@@ -3168,7 +3170,7 @@ module SessionStubTests =
                                 ))
 
                             state.Sessions["s-1"].Opened
-                            |> Session.sessionPatientData t0 StubEhrPatient.port
+                            |> Session.sessionPatientData t0 (fun () -> None) StubEhrPatient.port
                             |> Expect.equal
                                 "the Session's patient is the one signed, at the age of the sign"
                                 (Some(
@@ -3399,7 +3401,7 @@ module SessionStubTests =
                             |> Expect.equal "the Session's patient, for the resume" (Some "no-data")
 
                             state.Sessions["s-1"].Opened
-                            |> Session.sessionPatientData t0 StubEhrPatient.port
+                            |> Session.sessionPatientData t0 (fun () -> None) StubEhrPatient.port
                             |> Expect.equal "the data signed, for the resume" (Some(parsePatient otherData))
                         | other -> failtest $"expected Submitted, got {other}"
                     }
@@ -3430,7 +3432,7 @@ module SessionStubTests =
                             version.Verified |> Expect.isTrue "the reading"
 
                             state.Sessions["s-1"].Opened
-                            |> Session.sessionPatientData t0 StubEhrPatient.port
+                            |> Session.sessionPatientData t0 (fun () -> None) StubEhrPatient.port
                             |> Option.bind PatientData.department
                             |> Expect.equal "the data signed, not the data opened on" otherData.Department
                         | other -> failtest $"expected Submitted, got {other}"
