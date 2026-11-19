@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
 /// Turns a patient panel message into the edit that the server applies to the patient data.
-module PatientDraftPolicy =
+module PatientDataPolicy =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Shared
