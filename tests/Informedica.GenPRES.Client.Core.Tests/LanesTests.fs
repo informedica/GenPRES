@@ -743,6 +743,44 @@ let tests =
                 lanes |> behind |> Expect.isFalse "the plan followed"
             }
 
+            test "a plan on the signed patient data is not behind a panel that only adds the options, and no page waits" {
+                let options =
+                    {
+                        Weights = [| 30000<gram> |]
+                        Heights = [| 130<cm> |]
+                        Years = [ 0<year> ]
+                        Months = [ 0<month> ]
+                        Weeks = [ 0<week> ]
+                        Days = [ 0<day> ]
+                        GestationalWeeks = [ 37<week> ]
+                        GestationalDays = [ 0<day> ]
+                        EGFRBands = []
+                        Dialyses = [ IntermittentHemodialysis ]
+                    }
+
+                // as after a version signed on the panel's values opened: the plan on the signed patient data,
+                // the panel on the session patient data with its options
+                let opened =
+                    { Lanes.initial (Some { measured with Options = Some options }) with
+                        OrderPlan = OrderPlanState.settled measured two None
+                    }
+
+                opened |> behind |> Expect.isFalse "not behind"
+
+                opened
+                |> out
+                |> BusyPolicy.page Page.Page.Prescribe
+                |> Expect.isFalse "the page does not wait"
+            }
+
+            test "a plan on other patient data than the panel, the options aside, is behind" {
+                let heavier = { measured with Weight = { measured.Weight with Measured = Some 40000<gram> } }
+
+                { Lanes.initial (Some heavier) with OrderPlan = OrderPlanState.settled measured two None }
+                |> behind
+                |> Expect.isTrue "behind"
+            }
+
             test "a failed plan update lets the same patient data out again, up to the plan" {
                 let newId = counter ()
                 let changed = { measured with Department = Some "other" }
