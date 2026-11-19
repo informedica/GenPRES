@@ -78,6 +78,7 @@ module Models =
                 Location = None
                 Department = None
                 AdultMark = AdultMark.MarkableAdult false
+                Options = None
             }
 
 
@@ -189,6 +190,11 @@ module Models =
         let selectsRules (pat: PatientData) = pat |> isAdult || pat |> getWeight |> Option.isSome
 
 
+        /// Returns true when two patient data have the same values. The options are left out, because they are the
+        /// values the user picks from and not patient data.
+        let sameValues (a: PatientData) (b: PatientData) = { a with Options = None } = { b with Options = None }
+
+
         let create years months weeks days weight height gw gd gend cvl gfr dep : PatientData option =
             let a =
                 if
@@ -244,6 +250,7 @@ module Models =
                 Location = None
                 Department = dep
                 AdultMark = AdultMark.MarkableAdult false
+                Options = None
             }
             |> Some
 

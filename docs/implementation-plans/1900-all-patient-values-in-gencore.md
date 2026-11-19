@@ -194,8 +194,10 @@ step 10 is client UI code.
      `Patient.ofModel` fills the Dto with plain values, and `toModel` copies the estimates back. `Age.estimates`,
      `Age.gestationalAge`, `Age.postMenstrualAge`, `Age.adultMark`, `Patient.withEstimates`, `estimated`,
      `estimating` and `estimate` go.
-   - **7b. The options reach the contract.** The contract `PatientData` gets the options (decision 6), and
-     `toModel` copies them from `PatientData.Options`.
+   - **7b. The options reach the contract.** The contract `PatientData` gets the options (decision 6), `None`
+     when the server sent none. The options depend only on the resources, so `Patient.withOptions` sets them from
+     the resources where the server answers with patient data: the panel command, the session and the signing
+     answers. Patient data mapped from a Dto, and patient data without the resources, has no options.
    - **7c. MCP.** MCP takes the age parts in place of `AgeMonths`, and `buildPatient` fills the Dto with plain
      values and passes the resources, as the server does.
 8. **One function completes the patient data.** The server and MCP complete the patient data through one shared

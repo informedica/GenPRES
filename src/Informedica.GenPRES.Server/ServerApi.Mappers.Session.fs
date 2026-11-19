@@ -96,8 +96,8 @@ module SessionMapper =
         }
 
 
-    /// Maps an open session to the session the client opens.
-    let toOpened (demo: bool) sessionPatientData (opened: OpenedSession) : SessionOpened =
+    /// Maps an open session to the session the client opens. The patient data gets the options of the resources.
+    let toOpened (demo: bool) resources sessionPatientData (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User
             PatientContext =
@@ -106,7 +106,10 @@ module SessionMapper =
                     {
                         PatientId = id
                         PatientIdentity = opened |> OpenedSession.identity |> Option.map identity
-                        PatientData = opened |> sessionPatientData |> Option.map Patient.ofPatientData
+                        PatientData =
+                            opened
+                            |> sessionPatientData
+                            |> Option.map (Patient.ofPatientData >> Patient.withOptions resources)
                     }
                 )
             OpenedToken = opened.OpenedToken

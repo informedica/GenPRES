@@ -16,7 +16,10 @@ module LaunchCommand =
                 match! env.session.present (launch, key) with
                 | LaunchResult.Opened(id, opened) ->
                     cookie.write id
-                    return LaunchOutcome.Opened(SessionMapper.toOpened env.demo env.session.patientData opened)
+                    return
+                        LaunchOutcome.Opened(
+                            SessionMapper.toOpened env.demo (env.patientDataResources ()) env.session.patientData opened
+                        )
                 | LaunchResult.RedirectTo(url, state) ->
                     stateCookie.write state
                     return LaunchOutcome.RedirectTo url

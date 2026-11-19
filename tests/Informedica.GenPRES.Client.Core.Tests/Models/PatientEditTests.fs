@@ -87,6 +87,26 @@ let fullPatient: PatientData =
         Location = Some "bed 4"
         Department = Some "ICK"
         AdultMark = AdultMark.MarkableAdult true
+        Options =
+            Some
+                {
+                    Weights = [| 12000<gram>; 12500<gram> |]
+                    Heights = [| 90<cm>; 91<cm> |]
+                    Years = [ 0<year>; 2<year> ]
+                    Months = [ 0<month>; 3<month> ]
+                    Weeks = [ 0<week>; 1<week> ]
+                    Days = [ 0<day>; 4<day> ]
+                    GestationalWeeks = [ 32<week> ]
+                    GestationalDays = [ 5<day> ]
+                    EGFRBands =
+                        [
+                            {
+                                RenalFunction = EGFR(Some 30, Some 50)
+                                Text = "30 - 50 mL/min/1,73 m2"
+                            }
+                        ]
+                    Dialyses = [ IntermittentHemodialysis ]
+                }
     }
 
 

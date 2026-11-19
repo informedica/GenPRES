@@ -5,11 +5,12 @@ namespace Informedica.GenPRES.Client.Core.MachinePolicies
 module OutPolicy =
 
     open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Shared.Models
 
 
     /// Whether the orders are based on other patient data than the panel shows while no patient or plan
     /// request is pending, as after a failed update. The orders do not fit the shown data, so nothing
-    /// continues until the plan is updated.
+    /// continues until the plan is updated. The options are not patient data, so they are left out.
     let planBehind patient orderPlan =
         match
             PatientMachine.PatientState.changing patient,
@@ -17,5 +18,5 @@ module OutPolicy =
             OrderPlanMachine.OrderPlanState.patient orderPlan,
             PatientMachine.PatientState.current patient
         with
-        | false, None, Some onPlan, Some shown -> onPlan <> shown
+        | false, None, Some onPlan, Some shown -> not (PatientData.sameValues onPlan shown)
         | _ -> false

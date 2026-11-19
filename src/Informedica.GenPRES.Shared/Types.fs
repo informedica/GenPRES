@@ -82,6 +82,81 @@ module Types =
     type AdultMark = PatientData.AdultMark
     type GestationalAge = PatientData.GestationalAge
 
+    /// The estimated weights and the measured weight of a patient, in gram.
+    type Weight =
+        {
+            EstimatedP3: int<gram> option
+            Estimated: int<gram> option
+            EstimatedP97: int<gram> option
+            Measured: int<gram> option
+        }
+
+
+    /// The estimated heights and the measured height of a patient, in cm.
+    type Height =
+        {
+            EstimatedP3: int<cm> option
+            Estimated: int<cm> option
+            EstimatedP97: int<cm> option
+            Measured: int<cm> option
+        }
+
+
+    type Gender =
+        | Male
+        | Female
+        | UnknownGender
+
+
+    type Access =
+        | CVL
+        | PVL
+        | EnteralTube
+
+
+    type RenalFunction =
+        | EGFR of int option * int option
+        | IntermittentHemodialysis
+        | ContinuousHemodialysis
+        | PeritonealDialysis
+
+
+    /// An eGFR band the user picks from, with the text the user reads.
+    type EGFRBandOption =
+        {
+            /// The renal function of the band, which holds its minimum and maximum eGFR.
+            RenalFunction: RenalFunction
+            /// The text of the band in the rules, which the user reads.
+            Text: string
+        }
+
+
+    /// The values the user picks the patient data from.
+    type PatientDataOptions =
+        {
+            /// The calculation weights in gram.
+            Weights: int<gram>[]
+            /// The calculation heights in cm.
+            Heights: int<cm>[]
+            /// The years of an age.
+            Years: int<year> list
+            /// The months of an age.
+            Months: int<month> list
+            /// The weeks of an age.
+            Weeks: int<week> list
+            /// The days of an age.
+            Days: int<day> list
+            /// The weeks of a gestational age.
+            GestationalWeeks: int<week> list
+            /// The days of a gestational age.
+            GestationalDays: int<day> list
+            /// The eGFR bands, each with its text.
+            EGFRBands: EGFRBandOption list
+            /// The kinds of dialysis.
+            Dialyses: RenalFunction list
+        }
+
+
     /// The patient data the client sends. The data can be incomplete; the server checks it before the
     /// rules use it.
     type PatientData =
@@ -104,42 +179,9 @@ module Types =
             Department: string option
             /// Whether the patient counts as an adult. An adult is matched to the dose rules for adults.
             AdultMark: AdultMark
+            /// The values the user picks the patient data from; None when the server sent no options.
+            Options: PatientDataOptions option
         }
-
-
-    /// The estimated weights and the measured weight of a patient, in gram.
-    and Weight =
-        {
-            EstimatedP3: int<gram> option
-            Estimated: int<gram> option
-            EstimatedP97: int<gram> option
-            Measured: int<gram> option
-        }
-
-    /// The estimated heights and the measured height of a patient, in cm.
-    and Height =
-        {
-            EstimatedP3: int<cm> option
-            Estimated: int<cm> option
-            EstimatedP97: int<cm> option
-            Measured: int<cm> option
-        }
-
-    and Gender =
-        | Male
-        | Female
-        | UnknownGender
-
-    and Access =
-        | CVL
-        | PVL
-        | EnteralTube
-
-    and RenalFunction =
-        | EGFR of int option * int option
-        | IntermittentHemodialysis
-        | ContinuousHemodialysis
-        | PeritonealDialysis
 
 
     type ValueUnit =

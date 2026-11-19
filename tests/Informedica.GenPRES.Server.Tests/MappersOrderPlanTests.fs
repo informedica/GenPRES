@@ -214,7 +214,7 @@ let tests =
                     |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
                     |> Some
 
-                let opened = SessionMapper.toOpened false shown stored
+                let opened = SessionMapper.toOpened false None shown stored
 
                 opened.User |> Expect.equal "user" (Some prescriber)
 
@@ -230,7 +230,7 @@ let tests =
 
                 let identified =
                     { stored with EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient") }
-                    |> SessionMapper.toOpened false shown
+                    |> SessionMapper.toOpened false None shown
 
                 identified.PatientContext
                 |> Option.bind _.PatientIdentity
@@ -269,11 +269,12 @@ let tests =
                             Reason = "json_version 9 is newer than this release knows"
                         }
 
-                (SessionMapper.toOpened false shown { stored with Head = Some unreadable }).Head
+                (SessionMapper.toOpened false None shown { stored with Head = Some unreadable }).Head
                 |> Expect.isNone "an unreadable head cannot be shown"
 
                 SessionMapper.toOpened
                     false
+                    None
                     shown
                     { stored with
                         User = None

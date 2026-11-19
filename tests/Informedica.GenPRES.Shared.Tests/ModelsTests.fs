@@ -151,6 +151,44 @@ let selectsRulesTests =
 
 
 [<Tests>]
+let sameValuesTests =
+    let options =
+        {
+            Weights = [| 12000<gram> |]
+            Heights = [| 90<cm> |]
+            Years = [ 0<year>; 1<year> ]
+            Months = [ 0<month> ]
+            Weeks = [ 0<week> ]
+            Days = [ 0<day> ]
+            GestationalWeeks = [ 37<week> ]
+            GestationalDays = [ 0<day> ]
+            EGFRBands = []
+            Dialyses = [ IntermittentHemodialysis ]
+        }
+
+    let child = { PatientData.empty with Age = years 2 }
+
+    testList
+        "PatientData.sameValues"
+        [
+            test "patient data with and without options have the same values" {
+                PatientData.sameValues child { child with Options = Some options }
+                |> Expect.isTrue "the same values"
+            }
+
+            test "patient data with another age do not have the same values" {
+                PatientData.sameValues
+                    child
+                    { child with
+                        Age = years 3
+                        Options = Some options
+                    }
+                |> Expect.isFalse "another age"
+            }
+        ]
+
+
+[<Tests>]
 let isAdultTests =
     testList
         "Patient.isAdult"
