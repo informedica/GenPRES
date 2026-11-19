@@ -76,6 +76,8 @@ type Department =
     | NeonatalICU of string
     | AdultDepartment of string
     | PediatricDepartment of string
+    /// An outpatient clinic with a name.
+    | OutpatientClinic of string
     /// A department with a name, of a kind that is not known.
     | OtherDepartment of string
     | AnyDepartment
@@ -1477,7 +1479,7 @@ module RenalFunction =
         | _ -> None
 
 
-module rec Department =
+module Department =
 
 
     module Constants =
@@ -1504,10 +1506,13 @@ module rec Department =
         let pediatricDepartment = "Pediatric Department"
 
         [<Literal>]
+        let outpatientClinic = "Outpatient Clinic"
+
+        [<Literal>]
         let otherDepartment = "Department"
 
 
-    let map any unknown fAdultICU fPedICU fNeoICU fAdult fPed fOther =
+    let map any unknown fAdultICU fPedICU fNeoICU fAdult fPed fClinic fOther =
         function
         | AnyDepartment -> any
         | UnknownDepartment -> unknown
@@ -1516,6 +1521,7 @@ module rec Department =
         | NeonatalICU s -> s |> fNeoICU
         | AdultDepartment s -> s |> fAdult
         | PediatricDepartment s -> s |> fPed
+        | OutpatientClinic s -> s |> fClinic
         | OtherDepartment s -> s |> fOther
 
 
@@ -1539,6 +1545,9 @@ module rec Department =
 
     let anyPediatricDepartment = "" |> pediatricDepartment
 
+    /// An outpatient clinic with a name.
+    let outpatientClinic = OutpatientClinic
+
     /// A department with a name, of a kind that is not known.
     let otherDepartment = OtherDepartment
 
@@ -1556,11 +1565,9 @@ module rec Department =
             (sprintf "%s %s" Constants.neonatalICU)
             (sprintf "%s %s" Constants.adultDepartment)
             (sprintf "%s %s" Constants.pediatricDepartment)
+            (sprintf "%s %s" Constants.outpatientClinic)
             (sprintf "%s %s" Constants.otherDepartment)
         >> String.trim
-
-
-    let fromString = Validation.validate "Department" >> Result.map id
 
 
     /// Returns the department name the rules match; None for any department, an unknown department or a
@@ -1568,36 +1575,75 @@ module rec Department =
     let name =
         let named (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
-        map None None named named named named named named
+        map None None named named named named named named named
 
 
-    module Validation =
+    /// The Dto of a department: a name for each kind of department, and a flag for any department.
+    module Dto =
 
         open Validus
-        open Validus.Operators
 
-        /// Removes the kind from the start of a department string and trims the rest, which is the
-        /// department name. The name is empty when the string holds only the kind.
-        let named (kind: string) (s: string) = s.Substring(kind.Length) |> String.trim
+        type Dto() =
+            member val AdultICU: string option = None with get, set
+            member val PediatricICU: string option = None with get, set
+            member val NeonatalICU: string option = None with get, set
+            member val AdultDepartment: string option = None with get, set
+            member val PediatricDepartment: string option = None with get, set
+            member val OutpatientClinic: string option = None with get, set
+            /// The name of a department of a kind that is not known.
+            member val OtherDepartment: string option = None with get, set
+            member val AnyDepartment = false with get, set
 
 
-        let validate =
-            Check.String.equals $"{unknown |> toString}" *| unknown
-            <|> Check.String.equals $"{any |> toString}" *| any
-            <|> Check.String.pattern $"^{Constants.adultICU}"
-                *|* (named Constants.adultICU >> adultICU)
-            <|> Check.String.pattern $"^{Constants.pediatricICU}"
-                *|* (named Constants.pediatricICU >> pediatricICU)
-            <|> Check.String.pattern $"^{Constants.neonatalICU}"
-                *|* (named Constants.neonatalICU >> neonatalICU)
-            <|> Check.String.pattern $"^{Constants.adultDepartment}"
-                *|* (named Constants.adultDepartment >> adultDepartment)
-            <|> Check.String.pattern $"^{Constants.pediatricDepartment}"
-                *|* (named Constants.pediatricDepartment >> pediatricDepartment)
-            // Matched from the start, so "Adult Department X" and "Pediatric Department X" are not read
-            // as a department of unknown kind.
-            <|> Check.String.pattern $"^{Constants.otherDepartment}"
-                *|* (named Constants.otherDepartment >> otherDepartment)
+        let dto () = Dto()
+
+
+        /// Validates a Dto as a department. A name is trimmed, and a name field with a blank name counts as
+        /// not set. No field set is an unknown department; more than one field set is an error.
+        let fromDto (dto: Dto) =
+            let named kind name =
+                name
+                |> Option.map String.trim
+                |> Option.filter String.notEmpty
+                |> Option.map kind
+
+            let departments =
+                [
+                    dto.AdultICU |> named adultICU
+                    dto.PediatricICU |> named pediatricICU
+                    dto.NeonatalICU |> named neonatalICU
+                    dto.AdultDepartment |> named adultDepartment
+                    dto.PediatricDepartment |> named pediatricDepartment
+                    dto.OutpatientClinic |> named outpatientClinic
+                    dto.OtherDepartment |> named otherDepartment
+                    if dto.AnyDepartment then Some any else None
+                ]
+                |> List.choose id
+
+            match departments with
+            | [] -> Ok unknown
+            | [ dep ] -> Ok dep
+            | _ ->
+                ValidationErrors.create "Department" [ "Department has more than one field set" ]
+                |> Error
+
+
+        /// The Dto of a department.
+        let toDto dep =
+            let dto = dto ()
+
+            match dep with
+            | AdultICU s -> dto.AdultICU <- Some s
+            | PediatricICU s -> dto.PediatricICU <- Some s
+            | NeonatalICU s -> dto.NeonatalICU <- Some s
+            | AdultDepartment s -> dto.AdultDepartment <- Some s
+            | PediatricDepartment s -> dto.PediatricDepartment <- Some s
+            | OutpatientClinic s -> dto.OutpatientClinic <- Some s
+            | OtherDepartment s -> dto.OtherDepartment <- Some s
+            | AnyDepartment -> dto.AnyDepartment <- true
+            | UnknownDepartment -> ()
+
+            dto
 
 
 module Gender =
@@ -2210,7 +2256,7 @@ module PatientData =
 
         type Dto() =
             member val Location: string option = None with get, set
-            member val Department: string = "" with get, set
+            member val Department = Department.Dto.dto () with get, set
             member val Diagnoses: string[] = [||] with get, set
             member val Gender = "" with get, set
             member val Age: AgeValue.Dto.Dto option = None with get, set
@@ -2242,7 +2288,7 @@ module PatientData =
         /// after today is an error.
         let fromDto today (dto: Dto) =
             validate {
-                let! dep = dto.Department |> Department.fromString
+                let! dep = dto.Department |> Department.Dto.fromDto
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
                 let! gest = dto.GestationalAge |> Option.traverseResult AgeWeeksDays.Dto.fromDto
 
@@ -2278,7 +2324,7 @@ module PatientData =
             let dto = dto ()
 
             dto.Location <- dat.Location
-            dto.Department <- dat.Department |> Department.toString
+            dto.Department <- dat.Department |> Department.Dto.toDto
             dto.Diagnoses <- dat.Diagnoses
             dto.Gender <- dat.Gender |> Gender.toString
             dto.Age <- dat.Age |> Option.map AgeValue.Dto.toDto

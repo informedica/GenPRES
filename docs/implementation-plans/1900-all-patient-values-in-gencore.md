@@ -103,9 +103,11 @@ Decided by the maintainer on 2026-11-19.
    and the lists of weights and heights the user picks from. GenFORM reads the lists like the rules, from a sheet the
    maintainer provides, with the values as lists of options. `Estimates.ofAge` rounds to these lists, and
    `Estimates.weightSteps` and `heightSteps` go.
-4. **The department has a Dto field per case.** The Dto has an optional string for `AdultICU`, `PediatricICU`,
-   `NeonatalICU`, `AdultDepartment`, `PediatricDepartment` and `OtherDepartment`, and a bool for `AnyDepartment`.
-   No field set is `UnknownDepartment`; more than one field set is a validation error.
+4. **The department has a Dto field per case.** The department gets a case for an outpatient clinic,
+   `OutpatientClinic`, with a name. The Dto has an optional string for `AdultICU`, `PediatricICU`, `NeonatalICU`,
+   `AdultDepartment`, `PediatricDepartment`, `OutpatientClinic` and `OtherDepartment`, and a bool for
+   `AnyDepartment`. A blank name counts as a field that is not set. No field set is `UnknownDepartment`; more than
+   one field set is a validation error.
 5. **The Dto offers the age options, the client picks.** The range checks on the age parts stay. GenCORE defines
    the options next to its validators and the Dto returns them, as the order context filter offers its options:
    years 0 to 120, months 0 to 11, weeks 0 to 4, days 0 to 6, gestational age weeks 20 to 52 and days 0 to 6.
@@ -129,7 +131,8 @@ may each need splitting to stay within the 200-line limit.
 Each step builds and passes its tests on its own. Every step after step 1 is script first, as AGENTS.md describes;
 step 6 is client UI code.
 
-1. **The department Dto fields.** GenCORE: the Dto department per case (decision 4), with `fromDto` and `toDto`.
+1. **The department Dto fields.** GenCORE: the case `OutpatientClinic`, and the Dto department per case
+   (decision 4), with `fromDto` and `toDto`. `Department.fromString` goes.
    The server `Patient.ofModel` writes the name to `OtherDepartment` and `toModel` reads `Department.name`; MCP
    writes `OtherDepartment`. `Patient.department` in the server goes. The stored fixtures change.
 2. **The adult mark and the need for a gestational age.** GenCORE: `AdultMark` replaces `MarkedAdult` on

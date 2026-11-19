@@ -1,6 +1,5 @@
 namespace ServerApi
 
-open Informedica.Utils.Lib.BCL
 // The cases of the contract are used without a prefix. The domain is reached through aliases.
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
@@ -214,14 +213,6 @@ module Patient =
         | Lib.AnyAccess -> None
 
 
-    /// Maps the department name of the contract to a GenCORE department. The contract has no kind
-    /// of department. No name gives an unknown department.
-    let department (name: string option) =
-        match name with
-        | Some s when s |> String.notEmpty -> CoreDepartment.otherDepartment s
-        | _ -> CoreDepartment.unknown
-
-
     /// Maps the access of the contract to GenCORE.
     let coreAccess =
         function
@@ -256,7 +247,7 @@ module Patient =
                 CoreSource.Estimated v
 
         dto.Location <- model.Location
-        dto.Department <- model.Department |> department |> CoreDepartment.toString
+        dto.Department.OtherDepartment <- model.Department
         dto.Gender <- model.Gender |> Age.coreGender |> CoreGender.toString
         dto.Age <- model.Age |> Option.map (Age.ageValue >> CoreAgeValue.Dto.toDto)
         dto.MarkedAdult <- model.AdultMark = AdultMark.MarkableAdult true
@@ -396,7 +387,7 @@ module Patient =
             Location = dto.Location
             Department =
                 dto.Department
-                |> CoreDepartment.fromString
+                |> CoreDepartment.Dto.fromDto
                 |> Result.toOption
                 |> Option.bind CoreDepartment.name
             AdultMark = AdultMark.MarkableAdult dto.MarkedAdult |> Age.adultMark age

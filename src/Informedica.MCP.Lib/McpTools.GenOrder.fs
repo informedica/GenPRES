@@ -23,7 +23,6 @@ module GenOrderTools =
     module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
     module CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
@@ -182,9 +181,7 @@ module GenOrderTools =
         dto.Gender <- gender |> CoreGender.toString
         dto.Weight <- weight |> CoreWeight.create [] None [] |> CoreWeight.Dto.toDto
         dto.Height <- height |> CoreHeight.create [] None |> CoreHeight.Dto.toDto
-
-        input.Department
-        |> Option.iter (fun d -> dto.Department <- d |> CoreDepartment.otherDepartment |> CoreDepartment.toString)
+        dto.Department.OtherDepartment <- input.Department
 
         dto |> readPatientData today
 

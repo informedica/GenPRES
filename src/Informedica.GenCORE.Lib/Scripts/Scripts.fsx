@@ -78,7 +78,7 @@ module PatientScripts =
     Department.pediatricDepartment "WKZ" |> Department.toString
 
 
-    "UMCU" |> Department.adultICU |> Department.toString |> Department.fromString
+    "UMCU" |> Department.adultICU |> Department.Dto.toDto |> Department.Dto.fromDto
 
 
     Calculations.Age.ageToStringNL None None None None
