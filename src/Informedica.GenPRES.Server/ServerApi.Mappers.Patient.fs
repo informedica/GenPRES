@@ -125,6 +125,7 @@ module Patient =
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
     module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+    module CoreEdit = Informedica.GenCore.Lib.Patients.PatientDataEdit
     module Measures = Informedica.GenPRES.Shared.Measures
 
     type CoreAccess = Informedica.GenCore.Lib.Patients.Access
@@ -133,6 +134,8 @@ module Patient =
     type CorePercentiles<'v> = Informedica.GenCore.Lib.Patients.Percentiles<'v>
     type CorePatientDataOptions = Informedica.GenCore.Lib.Patients.PatientDataOptions
     type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
+    type CoreEdit = Informedica.GenCore.Lib.Patients.PatientDataEdit
+    type ContractEdit = Informedica.GenPRES.Shared.Api.PatientDataEdit
 
     /// The message for patient data without an age and without a measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
@@ -401,13 +404,17 @@ module Patient =
         | CoreError.NoAgeOrMeasuredWeightAndHeight -> noPatient
 
 
-    /// Maps the contract patient to GenCORE patient data on today's date, with the resources when they
-    /// are given. Returns the messages when a value is invalid.
-    let toPatientData today resources model =
-        model
-        |> ofModel
+    /// Reads a GenCORE Dto of patient data on today's date, with the resources when they are given.
+    /// Returns the messages when a value is invalid.
+    let readDto today resources dto =
+        dto
         |> CorePatientData.Dto.fromDto today resources
         |> Result.mapError (ValidationErrors.toList >> List.toArray)
+
+
+    /// Maps the contract patient to GenCORE patient data on today's date, with the resources when they
+    /// are given. Returns the messages when a value is invalid.
+    let toPatientData today resources model = model |> ofModel |> readDto today resources
 
 
     /// Maps the contract patient to GenCORE patient data on today's date. Returns the messages
@@ -421,12 +428,48 @@ module Patient =
         )
 
 
+    /// Reads a GenCORE Dto of patient data on today's date with the resources, and maps it to the contract
+    /// patient with the options. Returns the messages when a value is invalid.
+    let completeDto today resources dto =
+        dto
+        |> readDto today resources
+        |> Result.map (ofPatientData >> withOptions resources)
+
+
     /// Completes the contract patient through GenCORE on today's date. Returns the messages when a
     /// value is invalid.
-    let complete today resources model =
+    let complete today resources model = model |> ofModel |> completeDto today resources
+
+
+    /// Maps an edit of the contract to the GenCORE edit.
+    let coreEdit edit =
+        match edit with
+        | ContractEdit.SetYears v -> CoreEdit.SetYears v
+        | ContractEdit.SetMonths v -> CoreEdit.SetMonths v
+        | ContractEdit.SetWeeks v -> CoreEdit.SetWeeks v
+        | ContractEdit.SetDays v -> CoreEdit.SetDays v
+        | ContractEdit.SetGestationalWeeks v -> CoreEdit.SetGestationalWeeks v
+        | ContractEdit.SetGestationalDays v -> CoreEdit.SetGestationalDays v
+        | ContractEdit.SetWeight w -> w |> Option.map (decimal >> CoreWeightValue.weightInGram) |> CoreEdit.SetWeight
+        | ContractEdit.SetHeight h -> h |> Option.map (decimal >> CoreHeightValue.heightInCm) |> CoreEdit.SetHeight
+        | ContractEdit.SetGender g -> g |> Age.coreGender |> CoreEdit.SetGender
+        | ContractEdit.SetRenalFunction rf ->
+            rf
+            |> Option.bind (renalString >> CoreRenal.tryFromString)
+            |> CoreEdit.SetRenalFunction
+        | ContractEdit.SetDepartment name -> CoreEdit.SetDepartment name
+        | ContractEdit.AddAccess a -> a |> coreAccess |> CoreEdit.AddAccess
+        | ContractEdit.RemoveAccess a -> a |> coreAccess |> CoreEdit.RemoveAccess
+        | ContractEdit.SetMarkedAdult marked -> CoreEdit.SetMarkedAdult marked
+
+
+    /// Applies an edit of the panel to the contract patient through GenCORE and completes the result on
+    /// today's date. Returns the messages when a value is invalid.
+    let edit today resources panelEdit model =
         model
-        |> toPatientData today resources
-        |> Result.map (ofPatientData >> withOptions resources)
+        |> ofModel
+        |> CoreEdit.apply (panelEdit |> coreEdit)
+        |> completeDto today resources
 
 
     /// Maps the contract patient to GenCORE patient data and checks that the rules can be looked up:

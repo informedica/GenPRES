@@ -11,14 +11,17 @@ module PatientDataCommand =
     /// it.
     let gate (cmd: PatientDataCommand) =
         match cmd with
-        | PatientDataCommand.ChangePatientData _ -> Gate.RequiresLoaded
+        | PatientDataCommand.ChangePatientData _
+        | PatientDataCommand.EditPatientData _ -> Gate.RequiresLoaded
 
 
-    /// Completes the patient data through GenCORE with the resources. Returns the GenCORE messages
-    /// when a value is invalid.
+    /// Completes the patient data through GenCORE with the resources. For an edit command, GenCORE
+    /// applies the edit first. Returns the GenCORE messages when a value is invalid.
     let processCmd (env: AppEnv) (cmd: PatientDataCommand) =
         async {
             match cmd with
             | PatientDataCommand.ChangePatientData pat ->
                 return pat |> Patient.complete (env.today ()) (env.patientDataResources ())
+            | PatientDataCommand.EditPatientData(edit, pat) ->
+                return pat |> Patient.edit (env.today ()) (env.patientDataResources ()) edit
         }

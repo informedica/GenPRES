@@ -3744,6 +3744,115 @@ module Tests =
                 ]
 
 
+    module PatientDataEditTests =
+
+        /// A patient data Dto with an age in the parts given, and nothing else.
+        let agedDto years days =
+            let dto = PatientData.Dto.dto ()
+            let age = AgeValue.Dto.dto ()
+            age.Years <- years
+            age.Days <- days
+            dto.Age <- Some age
+            dto
+
+
+        let tests =
+            testList
+                "PatientDataEdit"
+                [
+                    test "a part of the age on patient data without an age gives an age with that part" {
+                        (PatientData.Dto.dto ()
+                         |> PatientDataEdit.apply (PatientDataEdit.SetMonths(Some 3)))
+                            .Age
+                        |> Option.map (fun a -> a.Years, a.Months, a.Weeks, a.Days)
+                        |> Expect.equal "3 months" (Some(None, Some 3, None, None))
+                    }
+
+                    test "an empty part of the age on patient data without an age gives no age" {
+                        (PatientData.Dto.dto () |> PatientDataEdit.apply (PatientDataEdit.SetYears None)).Age
+                        |> Expect.isNone "no age"
+                    }
+
+                    test "an empty part of an age counts as 0 and keeps the age" {
+                        (agedDto (Some 5) None |> PatientDataEdit.apply (PatientDataEdit.SetYears None)).Age
+                        |> Option.map _.Years
+                        |> Expect.equal "0 years" (Some(Some 0))
+                    }
+
+                    test "the estimated weight and the measured height stay on the Dto for completing" {
+                        let w = 18m |> WeightValue.weightInKg |> WeightAtDate.undated |> WeightAtDate.Dto.toDto
+                        let h = 110m |> HeightValue.heightInCm |> HeightAtDate.undated |> HeightAtDate.Dto.toDto
+
+                        let dto = agedDto (Some 5) None
+                        dto.Weight.Calculation <- Some w
+                        dto.Weight.CalculationEstimated <- true
+                        dto.Height.Calculation <- Some h
+
+                        let edited = dto |> PatientDataEdit.apply (PatientDataEdit.SetGender Female)
+
+                        (edited.Weight.Calculation |> Option.isSome,
+                         edited.Weight.CalculationEstimated,
+                         edited.Height.Calculation |> Option.isSome)
+                        |> Expect.equal "both kept" (true, true, true)
+                    }
+
+                    test "a measured weight is set without a date, and None clears it" {
+                        let dto =
+                            agedDto (Some 5) None
+                            |> PatientDataEdit.apply (PatientDataEdit.SetWeight(Some(WeightValue.weightInKg 12.34m)))
+
+                        (dto.Weight.Calculation
+                         |> Option.map (fun w -> w.DateTime, w.WeightValue.Weight, w.WeightValue.WeightInKg),
+                         dto.Weight.CalculationEstimated)
+                        |> Expect.equal "12.34 kg measured" (Some(None, 12.34m, true), false)
+
+                        (dto |> PatientDataEdit.apply (PatientDataEdit.SetWeight None)).Weight.Calculation
+                        |> Expect.isNone "cleared"
+                    }
+
+                    test "an access is added and removed, and the same edit twice gives the same result" {
+                        let added =
+                            PatientData.Dto.dto ()
+                            |> PatientDataEdit.apply (PatientDataEdit.AddAccess CVL)
+                            |> PatientDataEdit.apply (PatientDataEdit.AddAccess CVL)
+
+                        added.Access |> Expect.equal "added once" [| "cvl" |]
+
+                        (added
+                         |> PatientDataEdit.apply (PatientDataEdit.RemoveAccess CVL)
+                         |> PatientDataEdit.apply (PatientDataEdit.RemoveAccess CVL))
+                            .Access
+                        |> Expect.isEmpty "removed"
+                    }
+
+                    test "a gestational age is written only when the age needs one, from the term" {
+                        let neonate = agedDto None (Some 3)
+                        neonate.GestationalAgeNeed <- GestationalAgeNeed.RequiredGestationalAge
+
+                        (neonate |> PatientDataEdit.apply (PatientDataEdit.SetGestationalDays(Some 4))).GestationalAge
+                        |> Option.map (fun ga -> ga.Weeks, ga.Days)
+                        |> Expect.equal "37 weeks 4 days" (Some(37, 4))
+
+                        (agedDto (Some 5) None
+                         |> PatientDataEdit.apply (PatientDataEdit.SetGestationalWeeks(Some 30)))
+                            .GestationalAge
+                        |> Expect.isNone "no gestational age at 5 years"
+                    }
+
+                    test "the gender, the renal function, the department and the mark are written as Dto strings" {
+                        let dto =
+                            PatientData.Dto.dto ()
+                            |> PatientDataEdit.apply (PatientDataEdit.SetGender Female)
+                            |> PatientDataEdit.apply (PatientDataEdit.SetRenalFunction(Some PeritonealDialysis))
+                            |> PatientDataEdit.apply (PatientDataEdit.SetDepartment(Some "ICK"))
+                            |> PatientDataEdit.apply (PatientDataEdit.SetMarkedAdult true)
+
+                        (dto.Gender, dto.RenalFunction, dto.Department.OtherDepartment, dto.MarkedAdult)
+                        |> Expect.equal "as edited" ("female", Some "peritoneal-dialysis", Some "ICK", true)
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -3770,6 +3879,7 @@ module Tests =
             EGFRBandOptionsTests.tests
             PatientDataEstimateTests.tests
             RoundMeasuredTests.tests
+            PatientDataEditTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1
