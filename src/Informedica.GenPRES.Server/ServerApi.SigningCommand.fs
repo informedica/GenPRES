@@ -9,21 +9,25 @@ open Informedica.GenPRES.Shared.Api
 /// Handles the signing of an order plan.
 module SigningCommand =
 
-    /// Maps a signing outcome to the response.
-    let toResponse (demo: bool) (outcome: SigningOutcome) =
+    /// Maps a signing outcome to the response. The patient data gets the options of the resources.
+    let toResponse (demo: bool) resources (outcome: SigningOutcome) =
         match outcome with
         | SigningOutcome.ChallengeIssued(nonce, moved) -> SigningResponse.ChallengeIssued(nonce, moved)
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {
-                    PatientData = data |> Option.map ServerApi.Patient.ofPatientData
+                    PatientData =
+                        data
+                        |> Option.map (ServerApi.Patient.ofPatientData >> ServerApi.Patient.withOptions resources)
                     Token = token
                 }
         | SigningOutcome.Submitted(version, whom, token, patient) ->
             SigningResponse.Submitted(
                 version |> SessionMapper.toSigned demo whom,
                 token,
-                patient |> ServerApi.Patient.ofPatientData
+                patient
+                |> ServerApi.Patient.ofPatientData
+                |> ServerApi.Patient.withOptions resources
             )
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
@@ -53,7 +57,7 @@ module SigningCommand =
                         match cmd with
                         | SigningCommand.RequestSignChallenge(_, opened, notice) ->
                             let! outcome = env.session.challenge id (parsed, opened, notice)
-                            return toResponse env.demo outcome
+                            return toResponse env.demo (env.patientDataResources ()) outcome
                         | SigningCommand.Submit submission ->
                             let! outcome =
                                 env.session.submit
@@ -66,5 +70,5 @@ module SigningCommand =
                                         IdemKey = submission.IdemKey
                                     }
 
-                            return toResponse env.demo outcome
+                            return toResponse env.demo (env.patientDataResources ()) outcome
         }

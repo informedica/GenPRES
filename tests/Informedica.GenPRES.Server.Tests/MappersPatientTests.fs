@@ -25,6 +25,8 @@ module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+module CorePatientDataOptions = Informedica.GenCore.Lib.Patients.PatientDataOptions
+module CoreEGFRBandOptions = Informedica.GenCore.Lib.Patients.EGFRBandOptions
 
 type CoreDepartment = Informedica.GenCore.Lib.Patients.Department
 type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
@@ -1109,5 +1111,129 @@ let coreTests =
                 }
                 |> ServerApi.Patient.parse readAt
                 |> Expect.equal "the weight" (Error [| ServerApi.Patient.noWeight |])
+            }
+        ]
+
+
+[<Tests>]
+let optionsTests =
+    // The four bands of the sheet egfr_bands, as the rules spreadsheet has them.
+    let bands =
+        [|
+            [| "MinEGFR"; "MaxEGFR"; "Band" |]
+            [| "50"; ""; "> 50 mL/min/1,73 m2" |]
+            [| "30"; "50"; "30 - 50 mL/min/1,73 m2" |]
+            [| "10"; "30"; "10 - 30 mL/min/1,73 m2" |]
+            [| ""; "10"; "< 10 mL/min/1,73 m2" |]
+        |]
+        |> CoreEGFRBandOptions.ofRows
+        |> fst
+
+    let withBands = { EstimateFixtures.resources with EGFRBandOptions = bands }
+
+    let withResources =
+        withBands
+        |> CorePatientDataOptions.ofResources
+        |> ServerApi.Patient.optionsOfCore
+
+    let withoutResources = CorePatientDataOptions.withoutResources |> ServerApi.Patient.optionsOfCore
+
+    testList
+        "the options of the patient data"
+        [
+            test "the weights and heights of the resources reach the contract in gram and cm" {
+                (withResources.Weights |> Array.take 3,
+                 withResources.Weights |> Array.last,
+                 withResources.Heights |> Array.head,
+                 withResources.Heights |> Array.last)
+                |> Expect.equal
+                    "400, 450, 500 g up to 250 kg, 30 up to 220 cm"
+                    ([| Measures.toGram 400; Measures.toGram 450; Measures.toGram 500 |],
+                     Measures.toGram 250000,
+                     Measures.toCm 30,
+                     Measures.toCm 220)
+            }
+
+            test "the age options are the ranges GenCORE accepts" {
+                (withoutResources.Years |> List.head,
+                 withoutResources.Years |> List.last,
+                 withoutResources.Months,
+                 withoutResources.Weeks,
+                 withoutResources.Days,
+                 withoutResources.GestationalWeeks |> List.head,
+                 withoutResources.GestationalWeeks |> List.last,
+                 withoutResources.GestationalDays)
+                |> Expect.equal
+                    "years 0 to 120, months 0 to 11, weeks 0 to 4, days 0 to 6, gestational weeks 20 to 52"
+                    (Measures.toYear 0,
+                     Measures.toYear 120,
+                     [ 0..11 ] |> List.map Measures.toMonth,
+                     [ 0..4 ] |> List.map Measures.toWeek,
+                     [ 0..6 ] |> List.map Measures.toDay,
+                     Measures.toWeek 20,
+                     Measures.toWeek 52,
+                     [ 0..6 ] |> List.map Measures.toDay)
+            }
+
+            test "an eGFR band becomes its minimum and maximum, with the text of its row" {
+                withResources.EGFRBands
+                |> Expect.equal
+                    "the four bands"
+                    [
+                        {
+                            RenalFunction = EGFR(Some 50, None)
+                            Text = "> 50 mL/min/1,73 m2"
+                        }
+                        {
+                            RenalFunction = EGFR(Some 30, Some 50)
+                            Text = "30 - 50 mL/min/1,73 m2"
+                        }
+                        {
+                            RenalFunction = EGFR(Some 10, Some 30)
+                            Text = "10 - 30 mL/min/1,73 m2"
+                        }
+                        {
+                            RenalFunction = EGFR(None, Some 10)
+                            Text = "< 10 mL/min/1,73 m2"
+                        }
+                    ]
+            }
+
+            test "the three kinds of dialysis reach the contract" {
+                withoutResources.Dialyses
+                |> Expect.equal "the dialyses" [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
+            }
+
+            test "without the resources there are no weights, heights or eGFR bands" {
+                (withoutResources.Weights, withoutResources.Heights, withoutResources.EGFRBands)
+                |> Expect.equal "empty" ([||], [||], [])
+            }
+
+            test "the contract patient completed with the resources carries the options of the resources" {
+                stub
+                |> ServerApi.Patient.complete readAt (Some withBands)
+                |> Result.map _.Options
+                |> Expect.equal "the options" (Ok(Some withResources))
+            }
+
+            test "the options are set from the resources, and None without them" {
+                [ Some withBands; None ]
+                |> List.map (fun resources -> (stub |> ServerApi.Patient.withOptions resources).Options)
+                |> Expect.equal "the options, none" [ Some withResources; None ]
+            }
+
+            test "patient data mapped without the resources gives no options" {
+                PatientData.unknown
+                |> ServerApi.Patient.ofPatientData
+                |> _.Options
+                |> Expect.isNone "none"
+            }
+
+            test "a Dto without options gives no options" {
+                stub
+                |> ServerApi.Patient.ofModel
+                |> ServerApi.Patient.toModel
+                |> _.Options
+                |> Expect.isNone "none"
             }
         ]

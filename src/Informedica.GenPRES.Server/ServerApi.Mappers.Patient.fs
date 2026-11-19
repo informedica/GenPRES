@@ -114,6 +114,7 @@ module Patient =
     module Lib = Informedica.GenForm.Lib.Types
     module LibRenal = Informedica.GenForm.Lib.RenalFunction
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CorePatientDataOptions = Informedica.GenCore.Lib.Patients.PatientDataOptions
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
     module CoreGender = Informedica.GenCore.Lib.Patients.Gender
     module CoreAccess = Informedica.GenCore.Lib.Patients.Access
@@ -128,6 +129,7 @@ module Patient =
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
     type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
     type CorePercentiles<'v> = Informedica.GenCore.Lib.Patients.Percentiles<'v>
+    type CorePatientDataOptions = Informedica.GenCore.Lib.Patients.PatientDataOptions
     type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
 
     /// The message for patient data without an age and without a measured weight and height.
@@ -251,10 +253,34 @@ module Patient =
         | Lib.RenalFunction.PeritonealDialysis -> PeritonealDialysis
 
 
+    /// Maps the GenCORE options to the options of the contract. An eGFR band becomes its minimum and
+    /// maximum.
+    let optionsOfCore (opts: CorePatientDataOptions) =
+        {
+            Weights = opts.Weights |> Array.map (int >> Measures.toGram)
+            Heights = opts.Heights |> Array.map (int >> Measures.toCm)
+            Years = opts.Years |> List.map (int >> Measures.toYear)
+            Months = opts.Months |> List.map (int >> Measures.toMonth)
+            Weeks = opts.Weeks |> List.map (int >> Measures.toWeek)
+            Days = opts.Days |> List.map (int >> Measures.toDay)
+            GestationalWeeks = opts.GestationalWeeks |> List.map (int >> Measures.toWeek)
+            GestationalDays = opts.GestationalDays |> List.map (int >> Measures.toDay)
+            EGFRBands =
+                opts.EGFRBands
+                |> List.map (fun o ->
+                    {
+                        RenalFunction = CoreRenalFunction.EGFR o.Band |> renalOfCore
+                        Text = o.Text
+                    }
+                )
+            Dialyses = opts.Dialyses |> List.map renalOfCore
+        }
+
+
     /// Maps the GenCORE Dto of patient data to the patient of the contract. A string that GenCORE
     /// cannot read is left out. The 3rd percentile, the mean and the 97th percentile come from the
     /// estimates of the Dto; without an estimate, an estimated calculation value is the mean and the
-    /// percentiles are empty.
+    /// percentiles are empty. The Dto has no options, so the options are None.
     let toModel (dto: CorePatientData.Dto.Dto) : PatientData =
         let weeksDays (awd: CoreAgeWeeksDays.Dto.Dto) : AgeWeeksDays =
             {
@@ -354,11 +380,17 @@ module Patient =
                 |> Result.toOption
                 |> Option.bind CoreDepartment.name
             AdultMark = dto.AdultMark |> Age.adultMarkOfCore
+            Options = None
         }
 
 
     /// Maps patient data to the patient of the contract.
     let ofPatientData dat = dat |> CorePatientData.Dto.toDto |> toModel
+
+
+    /// Sets the options of the contract patient from the resources; None without the resources.
+    let withOptions resources (model: PatientData) =
+        { model with Options = resources |> Option.map (CorePatientDataOptions.ofResources >> optionsOfCore) }
 
 
     /// The message for patient data that is not enough to select rules.
@@ -390,7 +422,9 @@ module Patient =
     /// Completes the contract patient through GenCORE on today's date. Returns the messages when a
     /// value is invalid.
     let complete today resources model =
-        model |> toPatientData today resources |> Result.map ofPatientData
+        model
+        |> toPatientData today resources
+        |> Result.map (ofPatientData >> withOptions resources)
 
 
     /// Maps the contract patient to GenCORE patient data and checks that the rules can be looked up:

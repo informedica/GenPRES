@@ -78,6 +78,7 @@ module Models =
                 Location = None
                 Department = None
                 AdultMark = AdultMark.MarkableAdult false
+                Options = None
             }
 
 
@@ -244,6 +245,7 @@ module Models =
                 Location = None
                 Department = dep
                 AdultMark = AdultMark.MarkableAdult false
+                Options = None
             }
             |> Some
 
