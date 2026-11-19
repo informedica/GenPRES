@@ -410,6 +410,40 @@ type PatientDataError =
     | NoAgeOrMeasuredWeightAndHeight
 
 
+/// One change to the patient data: a value set or cleared, or an access added or removed.
+[<RequireQualifiedAccess>]
+type PatientDataEdit =
+    /// The years of the age; None counts as 0 when the patient has an age.
+    | SetYears of int option
+    /// The months of the age; None counts as 0 when the patient has an age.
+    | SetMonths of int option
+    /// The weeks of the age; None counts as 0 when the patient has an age.
+    | SetWeeks of int option
+    /// The days of the age; None counts as 0 when the patient has an age.
+    | SetDays of int option
+    /// The weeks of the gestational age; None is the term of 37 weeks.
+    | SetGestationalWeeks of int option
+    /// The days of the gestational age; None is the days of the term, 0 days.
+    | SetGestationalDays of int option
+    /// The measured weight; None clears it, so the weight is estimated.
+    | SetWeight of WeightValue option
+    /// The measured height; None clears it, so the height is estimated.
+    | SetHeight of HeightValue option
+    /// The gender.
+    | SetGender of Gender
+    /// The renal function; None clears it.
+    | SetRenalFunction of RenalFunction option
+    /// The name of the department; None uses the default.
+    | SetDepartment of string option
+    /// Adds the access; the patient keeps it when the patient already has it.
+    | AddAccess of Access
+    /// Removes the access; nothing changes when the patient does not have it.
+    | RemoveAccess of Access
+    /// The mark of the user that the patient is an adult. It is used only for a patient who can be marked as
+    /// an adult.
+    | SetMarkedAdult of bool
+
+
 /// The patient: the identity of an identified patient and the patient data. An anonymous patient
 /// has no identity.
 type Patient =
@@ -2816,6 +2850,70 @@ module PatientData =
             dto.Estimates <- dat.Estimates
 
             dto
+
+
+/// Applies a change to the patient data Dto.
+module PatientDataEdit =
+
+    /// Writes one part of the age. Patient data without an age stays without one when the value is None.
+    /// When there is an age, None counts as 0, so clearing one part keeps the age.
+    let setAgePart write v (dto: PatientData.Dto.Dto) =
+        match dto.Age, v with
+        | None, None -> ()
+        | age, v ->
+            let age = age |> Option.defaultWith AgeValue.Dto.dto
+            age |> write (v |> Option.defaultValue 0 |> Some)
+            dto.Age <- Some age
+
+
+    /// Writes one part of the gestational age, starting from the term when there is none. A value of None
+    /// writes the same part of the term. Patient data without a gestational age stays without one when the value
+    /// is None. Writes nothing when the age needs no gestational age.
+    let setGestationalPart write termPart v (dto: PatientData.Dto.Dto) =
+        let term () = AgeWeeksDays.term |> AgeWeeksDays.Dto.toDto
+
+        match dto.GestationalAgeNeed, dto.GestationalAge, v with
+        | GestationalAgeNeed.NoGestationalAge, _, _
+        | _, None, None -> ()
+        | _, ga, v ->
+            let ga = ga |> Option.defaultWith term
+            ga |> write (v |> Option.defaultValue (term () |> termPart))
+            dto.GestationalAge <- Some ga
+
+
+    /// Applies the edit to the Dto and returns the same Dto. Completing the Dto with the resources estimates
+    /// the weight and height again for the edited patient data; a measured value stays.
+    let apply edit (dto: PatientData.Dto.Dto) =
+        match edit with
+        | PatientDataEdit.SetYears v -> dto |> setAgePart (fun v age -> age.Years <- v) v
+        | PatientDataEdit.SetMonths v -> dto |> setAgePart (fun v age -> age.Months <- v) v
+        | PatientDataEdit.SetWeeks v -> dto |> setAgePart (fun v age -> age.Weeks <- v) v
+        | PatientDataEdit.SetDays v -> dto |> setAgePart (fun v age -> age.Days <- v) v
+        | PatientDataEdit.SetGestationalWeeks v -> dto |> setGestationalPart (fun v ga -> ga.Weeks <- v) _.Weeks v
+        | PatientDataEdit.SetGestationalDays v -> dto |> setGestationalPart (fun v ga -> ga.Days <- v) _.Days v
+        | PatientDataEdit.SetWeight w ->
+            dto.Weight.Calculation <- w |> Option.map (WeightAtDate.undated >> WeightAtDate.Dto.toDto)
+            dto.Weight.CalculationEstimated <- false
+        | PatientDataEdit.SetHeight h ->
+            dto.Height.Calculation <- h |> Option.map (HeightAtDate.undated >> HeightAtDate.Dto.toDto)
+            dto.Height.CalculationEstimated <- false
+        | PatientDataEdit.SetGender g -> dto.Gender <- g |> Gender.toString
+        | PatientDataEdit.SetRenalFunction rf -> dto.RenalFunction <- rf |> Option.map RenalFunction.toString
+        | PatientDataEdit.SetDepartment name ->
+            // A fresh department Dto, so no department of another kind stays next to the new name.
+            dto.Department <- Department.Dto.dto ()
+            dto.Department.OtherDepartment <- name
+        | PatientDataEdit.AddAccess a ->
+            let s = a |> Access.toString
+
+            if dto.Access |> Array.contains s |> not then
+                dto.Access <- dto.Access |> Array.append [| s |]
+        | PatientDataEdit.RemoveAccess a ->
+            let s = a |> Access.toString
+            dto.Access <- dto.Access |> Array.filter ((<>) s)
+        | PatientDataEdit.SetMarkedAdult marked -> dto.MarkedAdult <- marked
+
+        dto
 
 
 module Patient =

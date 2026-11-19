@@ -242,12 +242,47 @@ module Api =
         let toString (OrderContextCommand.Command(cmd, ctx)) = OrderViewCommand.toString (cmd, ctx)
 
 
+    /// An edit of the patient data that the user makes on the patient panel. GenCORE applies it on the server.
+    [<RequireQualifiedAccess>]
+    type PatientDataEdit =
+        /// The years of the age; None counts as 0 when the patient has an age.
+        | SetYears of int option
+        /// The months of the age; None counts as 0 when the patient has an age.
+        | SetMonths of int option
+        /// The weeks of the age; None counts as 0 when the patient has an age.
+        | SetWeeks of int option
+        /// The days of the age; None counts as 0 when the patient has an age.
+        | SetDays of int option
+        /// The weeks of the gestational age; None is the term of 37 weeks.
+        | SetGestationalWeeks of int option
+        /// The days of the gestational age; None is the days of the term, 0 days.
+        | SetGestationalDays of int option
+        /// The measured weight; None clears it, so the weight is estimated.
+        | SetWeight of int<gram> option
+        /// The measured height; None clears it, so the height is estimated.
+        | SetHeight of int<cm> option
+        /// The gender.
+        | SetGender of Gender
+        /// The renal function; None clears it.
+        | SetRenalFunction of RenalFunction option
+        /// The name of the department; None uses the default.
+        | SetDepartment of string option
+        /// Adds the access; the patient keeps it when the patient already has it.
+        | AddAccess of Access
+        /// Removes the access; nothing changes when the patient does not have it.
+        | RemoveAccess of Access
+        /// The mark of the user that the patient is an adult, for a patient who can be marked as one.
+        | SetMarkedAdult of bool
+
+
     /// Sends the patient data edited on the panel. The server answers with the patient data
     /// completed with the estimates.
     [<RequireQualifiedAccess>]
     type PatientDataCommand =
         /// The patient data as edited on the panel.
         | ChangePatientData of patientData: PatientData
+        /// An edit of the panel and the patient data it applies to.
+        | EditPatientData of PatientDataEdit * patientData: PatientData
 
 
     module PatientDataCommand =
@@ -256,6 +291,7 @@ module Api =
         let toString (cmd: PatientDataCommand) =
             match cmd with
             | PatientDataCommand.ChangePatientData _ -> "ChangePatientData"
+            | PatientDataCommand.EditPatientData _ -> "EditPatientData"
 
 
     /// The launch commands. A launch command arrives without a session cookie, so it is a separate

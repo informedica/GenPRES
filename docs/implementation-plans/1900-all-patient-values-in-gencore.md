@@ -213,12 +213,17 @@ step 10 is client UI code.
    is aged to a new age, the server drops the estimated weight and height and GenCORE estimates them again with the
    resources: `Session.signedPatientDataAt` and `sessionPatientData` take the resources, and the session port gets
    them from the composition root.
-9. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
-   data Dto and returns the completed Dto, as GenORDER applies a filter pick to an order context. Because every
-   value is picked from the options that GenCORE offers, the command cannot fail. `PatientDataCommand` sends the
-   command and the Dto, and `Age.adultMark` and `Age.gestationalAge` go.
-10. **The client reads the options.** The patient form takes every list from the patient data options instead of
-    its own arrays, and waits for the patient data.
+9. **Commands on the patient Dto.** GenCORE `PatientDataEdit` has one case per edit of the patient panel, with typed
+   values, and `PatientDataEdit.apply` applies it to the patient data Dto. Completing the Dto with the resources
+   estimates the weight and height again; clearing a measured value gives the estimate. An access is added or removed
+   with `AddAccess` and `RemoveAccess`, so the same edit sent twice gives the same result. The contract
+   gets its own `PatientDataEdit` and the case `EditPatientData` of the edit and the patient data, next to
+   `ChangePatientData`. The server maps the edit to GenCORE (`Patient.coreEdit`), applies it and completes the
+   result with the resources (`Patient.edit`). The client still sends `ChangePatientData` until step 10.
+10. **The client sends the edits and reads the options.** The patient form sends `EditPatientData` for each edit
+    and takes every list from the patient data options instead of its own arrays, and waits for the patient data.
+    `ChangePatientData`, the client's `PatientEdit` setters and its estimate rule (`PatientDraftPolicy.estimates`
+    and `keepEstimates`) go.
 
 ## Verification
 
