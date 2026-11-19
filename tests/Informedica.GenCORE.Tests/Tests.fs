@@ -3598,6 +3598,8 @@ module Tests =
 
         let cm (v: decimal) = v |> HeightValue.heightInCm |> HeightAtDate.create measuredOn
 
+        let meter (v: decimal) = v |> HeightValue.heightInMeter |> HeightAtDate.create measuredOn
+
         /// Patient data of an adult with a measured calculation weight and height and the given actual weights.
         let patient actualWeights weight height =
             PatientData.create
@@ -3642,6 +3644,41 @@ module Tests =
 
                         (patient [ w ] w (cm 180m) |> PatientData.estimate (Some resources)).Weight.Actual
                         |> Expect.equal "the one exact weight" [ w ]
+                    }
+
+                    test "12.34 kg is not added when Actual holds 12340 gram on the same date" {
+                        let w = 12340 |> decimal |> WeightValue.weightInGram |> WeightAtDate.create measuredOn
+
+                        (patient [ w ] (kg 12.34m) (cm 180m) |> PatientData.estimate (Some resources)).Weight.Actual
+                        |> Expect.equal "the one exact weight" [ w ]
+                    }
+
+                    test "75.6 cm is not added when Actual holds 0.756 meter on the same date" {
+                        let dat =
+                            PatientData.create
+                                Department.unknown
+                                [||]
+                                Male
+                                (Some AgeValue.eighteen)
+                                (Weight.create [] None [] (Some(Measured(kg 12.5m))))
+                                (Height.create [ meter 0.756m ] None (Some(Measured(cm 75.6m))))
+                                None
+                            |> PatientData.estimate (Some resources)
+
+                        dat.Height.Actual |> Expect.equal "the one exact height" [ meter 0.756m ]
+                        dat.Height.Calculation |> Expect.equal "76 cm" (Some(Measured(cm 76m)))
+                    }
+
+                    test "the same weight on another date is added" {
+                        let earlier =
+                            12.34m
+                            |> WeightValue.weightInKg
+                            |> WeightAtDate.create (Some(DateTime(2026, 11, 1)))
+
+                        (patient [ earlier ] (kg 12.34m) (cm 180m)
+                         |> PatientData.estimate (Some resources))
+                            .Weight.Actual
+                        |> Expect.equal "both weights" [ earlier; kg 12.34m ]
                     }
 
                     test "a measured weight that is already on the list is left as it is" {

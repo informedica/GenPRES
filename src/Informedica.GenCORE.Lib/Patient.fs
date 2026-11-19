@@ -2627,18 +2627,25 @@ module PatientData =
 
 
     /// Rounds a measured calculation value to the nearest step and keeps the measurement date. The exact
-    /// measurement is added to the actual values when they do not hold it yet. A value that is not measured, or
-    /// that is already a step, is returned unchanged.
-    let roundMeasured (steps: decimal<'u>[]) valueOf ofStep actual calculation =
+    /// measurement is added to the actual values when none of them has the same date and the same value. A value
+    /// that is not measured, or that is already a step, is returned unchanged.
+    let roundMeasured (steps: decimal<'u>[]) valueOf dateOf ofStep actual calculation =
         match calculation with
         | Some(Measured m) ->
             let v = m |> valueOf
             let step = v |> Estimates.nearestStep steps
 
+            // The values are compared in the unit of the steps, so 12.34 kg and 12340 gram are the same value.
+            let isMeasurement a = (a |> dateOf) = (m |> dateOf) && (a |> valueOf) = v
+
             if step = v then
                 actual, calculation
             else
-                (if actual |> List.contains m then actual else actual @ [ m ]), Some(Measured(m |> ofStep step))
+                (if actual |> List.exists isMeasurement then
+                     actual
+                 else
+                     actual @ [ m ]),
+                Some(Measured(step |> ofStep (m |> dateOf)))
         | _ -> actual, calculation
 
 
@@ -2677,12 +2684,8 @@ module PatientData =
                     (WeightAtDate.SetGet.getWeight
                      >> WeightValue.getWeightInKg
                      >> Conversions.decimalKgToDecimalGram)
-                    (fun step w ->
-                        step
-                        |> decimal
-                        |> WeightValue.weightInGram
-                        |> WeightAtDate.create (w |> WeightAtDate.SetGet.getDate)
-                    )
+                    WeightAtDate.SetGet.getDate
+                    (fun date step -> step |> decimal |> WeightValue.weightInGram |> WeightAtDate.create date)
                     dat.Weight.Actual
 
             let heightActual, heightCalculation =
@@ -2691,12 +2694,8 @@ module PatientData =
                     (res.CalculationWeightsAndHeights.Heights
                      |> Array.map (decimal >> Conversions.cmFromDecimal))
                     (HeightAtDate.SetGet.getHeight >> HeightValue.getHeightCm)
-                    (fun step h ->
-                        step
-                        |> decimal
-                        |> HeightValue.heightInCm
-                        |> HeightAtDate.create (h |> HeightAtDate.SetGet.getDate)
-                    )
+                    HeightAtDate.SetGet.getDate
+                    (fun date step -> step |> decimal |> HeightValue.heightInCm |> HeightAtDate.create date)
                     dat.Height.Actual
 
             { dat with
