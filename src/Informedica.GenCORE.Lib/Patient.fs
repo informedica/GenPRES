@@ -1598,11 +1598,14 @@ module Department =
         let dto () = Dto()
 
 
-        /// Validates a Dto as a department. A name field with a blank name counts as not set. No field set is
-        /// an unknown department; more than one field set is an error.
+        /// Validates a Dto as a department. A name is trimmed, and a name field with a blank name counts as
+        /// not set. No field set is an unknown department; more than one field set is an error.
         let fromDto (dto: Dto) =
             let named kind name =
-                name |> Option.filter (String.isNullOrWhiteSpace >> not) |> Option.map kind
+                name
+                |> Option.map String.trim
+                |> Option.filter String.notEmpty
+                |> Option.map kind
 
             let departments =
                 [

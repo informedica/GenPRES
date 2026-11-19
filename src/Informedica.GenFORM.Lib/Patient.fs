@@ -168,12 +168,12 @@ module PatientCategory =
 
     /// Returns true when a rule applies to the department of a patient. A rule without a department
     /// applies to every patient. A patient without a department matches only those rules; otherwise the
-    /// names must be written the same.
-    let departmentMatches (rule: string option) (patient: string option) =
+    /// names must be equal, apart from capitals and surrounding spaces.
+    let departmentMatches rule patient =
         match rule, patient with
         | None, _ -> true
         | Some _, None -> false
-        | Some rule, Some patient -> rule = patient
+        | Some rule, Some patient -> String.equalsCapInsens rule patient
 
 
     /// Prints an age in days as a string, in its largest unit: days below one week, weeks up to 30

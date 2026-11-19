@@ -4038,13 +4038,13 @@ module Tests =
                                 PatientCategory.departmentMatches (Some "ICK") None |> Expect.isFalse "ICK"
                             }
 
-                            test "a patient with a department matches the rules that name it, written the same way" {
+                            test "a patient with a department matches the rules that name it, apart from capitals" {
                                 PatientCategory.departmentMatches (Some "ICK") (Some "ICK")
                                 |> Expect.isTrue "ICK"
                                 PatientCategory.departmentMatches (Some "ICK") (Some "NEO")
                                 |> Expect.isFalse "NEO"
                                 PatientCategory.departmentMatches (Some "ICK") (Some "ick")
-                                |> Expect.isFalse "ick"
+                                |> Expect.isTrue "ick"
                             }
                         ]
 

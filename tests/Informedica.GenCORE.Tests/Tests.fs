@@ -809,6 +809,15 @@ module Tests =
                             |> Expect.equal "the name" (Ok(Department.otherDepartment "NEO"))
                         }
 
+                        test "a name in the Dto is trimmed, so the rules match it" {
+                            let dto = Department.Dto.dto ()
+                            dto.OtherDepartment <- Some " ICK "
+
+                            dto
+                            |> Department.Dto.fromDto
+                            |> Expect.equal "the trimmed name" (Ok(Department.otherDepartment "ICK"))
+                        }
+
                         test "a Dto with two fields set is refused" {
                             let dto = Department.Dto.dto ()
                             dto.OtherDepartment <- Some "NEO"
