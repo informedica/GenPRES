@@ -212,6 +212,17 @@ type NormalValueTables =
     }
 
 
+/// The weights and the heights the user picks from, each in ascending order. An estimated mean is rounded to the
+/// nearest of them.
+type CalculationWeightsAndHeights =
+    {
+        /// The weights in gram.
+        Weights: int<gram>[]
+        /// The heights in cm.
+        Heights: int<cm>[]
+    }
+
+
 /// The 3rd percentile, the mean and the 97th percentile of a weight or a height: as a table gives
 /// them, or as an estimate.
 type Percentiles<'v> =
@@ -246,6 +257,31 @@ type NormalValueError =
     | NotANumber of sheet: string * row: int * column: string
     /// The row holds a sex that is not M or F.
     | UnknownSex of sheet: string * row: int * sex: string
+
+
+/// An error in the rows of the sheet of the calculation weights or heights. Row numbers count the header as row 1.
+[<RequireQualifiedAccess>]
+type NormalValueSheetError =
+    /// No sheet has this name.
+    | MissingSheet of sheet: string
+    /// The sheet lacks the column of the values.
+    | MissingColumn of sheet: string * column: string
+    /// The row holds a value that is not a positive number.
+    | NotAPositiveNumber of sheet: string * row: int * value: string
+    /// The row holds a positive number that rounds to 0 in whole grams or whole cm.
+    | RoundsToZero of sheet: string * row: int * value: string
+    /// The sheet holds no values.
+    | NoValues of sheet: string
+
+
+/// A problem in the sheet of the calculation weights or heights that the parse corrects. Row numbers count the
+/// header as row 1.
+[<RequireQualifiedAccess>]
+type NormalValueSheetWarning =
+    /// The row holds a value lower than a row above it; the values are sorted.
+    | NotAscending of sheet: string * row: int
+    /// The row holds a value that a row above it already holds; the value is used once.
+    | Duplicate of sheet: string * row: int
 
 
 /// The id, the name and the birth date of an identified patient. Patient.toString never prints the identity.
@@ -1863,23 +1899,6 @@ module Estimates =
         }
 
 
-    /// The weights in gram a mean is rounded to: steps of 50 gram from 400 gram, 100 gram from 2 kg,
-    /// 500 gram from 10.5 kg and 1 kg from 21 kg up to 100 kg.
-    let weightSteps =
-        [|
-            [| 400..50..1950 |]
-            [| 2000..100..10000 |]
-            [| 10500..500..20000 |]
-            [| 21000..1000..100000 |]
-        |]
-        |> Array.concat
-        |> Array.map Conversions.gramFromInt
-
-
-    /// The height steps a mean is rounded to: from 40 to 220 cm.
-    let heightSteps = [| 40..220 |] |> Array.map Conversions.cmFromInt
-
-
     /// Truncates a value to a whole number in its unit.
     let toWhole (v: float<'u>) : int<'u> = v |> float |> int |> LanguagePrimitives.Int32WithMeasure
 
@@ -1946,11 +1965,11 @@ module Estimates =
         }
 
 
-    /// Estimates the weight and height from the tables for a gender, an age and a post-menstrual age;
-    /// none without an age or from 18 years. Uses the neonatal table when it has a row at or above the
-    /// post-menstrual age, otherwise the age table. A weight from the age table has its 3rd and 97th
-    /// percentiles truncated to whole kg.
-    let ofAge tables gender age pma =
+    /// Estimates the weight and height from the tables for a gender, an age and a post-menstrual age, with the
+    /// mean rounded to the nearest calculation weight or height; none without an age or from 18 years. Uses the
+    /// neonatal table when it has a row at or above the post-menstrual age, otherwise the age table. A weight from
+    /// the age table has its 3rd and 97th percentiles truncated to whole kg.
+    let ofAge tables calculationWeightsAndHeights gender age pma =
         match age with
         | None -> none
         | Some age when age >=? AgeValue.eighteen -> none
@@ -1965,25 +1984,28 @@ module Estimates =
 
             let weight =
                 match tables.NeoWeights |> neonatal with
-                | Some pct -> pct |> estimate weightSteps |> Some
+                | Some pct -> pct |> estimate calculationWeightsAndHeights.Weights |> Some
                 | None ->
                     tables.Weights
                     |> nearestPercentiles gender years
                     |> Option.map (fun pct ->
                         {
                             P3 = pct.P3 |> toWhole |> toGram
-                            Mean = pct.Mean * 1000.<gram / kg> |> toWhole |> nearestStep weightSteps
+                            Mean =
+                                pct.Mean * 1000.<gram / kg>
+                                |> toWhole
+                                |> nearestStep calculationWeightsAndHeights.Weights
                             P97 = pct.P97 |> toWhole |> toGram
                         }
                     )
 
             let height =
                 match tables.NeoHeights |> neonatal with
-                | Some pct -> pct |> estimate heightSteps |> Some
+                | Some pct -> pct |> estimate calculationWeightsAndHeights.Heights |> Some
                 | None ->
                     tables.Heights
                     |> nearestPercentiles gender years
-                    |> Option.map (estimate heightSteps)
+                    |> Option.map (estimate calculationWeightsAndHeights.Heights)
 
             {
                 Weight = weight
@@ -1998,19 +2020,19 @@ module NormalValueTables =
 
 
     /// The sheet of the weights by age in years.
-    let weightSheet = "weight"
+    let weightSheet = "norm_weight"
 
 
     /// The sheet of the heights by age in years.
-    let heightSheet = "height"
+    let heightSheet = "norm_height"
 
 
     /// The sheet of the weights of the newborn by post-menstrual age in weeks.
-    let neoWeightSheet = "weight neo"
+    let neoWeightSheet = "norm_weight_neo"
 
 
     /// The sheet of the heights of the newborn by post-menstrual age in weeks.
-    let neoHeightSheet = "height neo"
+    let neoHeightSheet = "norm_height_neo"
 
 
     /// The names of the four normal-value sheets.
@@ -2104,6 +2126,117 @@ module NormalValueTables =
                     NeoWeights = nw
                     NeoHeights = nh
                 }
+        }
+
+
+[<RequireQualifiedAccess>]
+module CalculationWeightsAndHeights =
+
+    open FsToolkit.ErrorHandling
+
+
+    /// The sheet of the calculation weights.
+    let weightSheet = "calc_weight"
+
+
+    /// The column of the calculation weights, in kg.
+    let weightColumn = "WeightKg"
+
+
+    /// The sheet of the calculation heights.
+    let heightSheet = "calc_height"
+
+
+    /// The column of the calculation heights, in cm.
+    let heightColumn = "HeightCm"
+
+
+    /// The names of the two sheets.
+    let sheets = [ weightSheet; heightSheet ]
+
+
+    /// Parses the rows of a sheet, header first, into the numbers of a column with their row numbers, each
+    /// rounded to a whole value by toWhole. A blank cell is skipped. Returns every error in the rows: a number
+    /// that is not positive, a number that rounds to 0, and NoValues when no row holds a value.
+    let parseSheet sheet column (toWhole: float -> int<'u>) rows =
+        let header = rows |> Array.tryHead |> Option.defaultValue [||] |> Array.map String.trim
+
+        match header |> Array.tryFindIndex ((=) column) with
+        | None -> Validation.error (NormalValueSheetError.MissingColumn(sheet, column))
+        | Some i ->
+            let parseRow n (row: string[]) =
+                let cell = if i < row.Length then row[i] |> String.trim else ""
+
+                if cell |> String.isNullOrWhiteSpace then
+                    Ok None
+                else
+                    match cell |> Double.tryParse with
+                    | Some v when v > 0. ->
+                        match v |> toWhole with
+                        | w when int w > 0 -> Ok(Some(n, w))
+                        | _ -> Error [ NormalValueSheetError.RoundsToZero(sheet, n, cell) ]
+                    | _ -> Error [ NormalValueSheetError.NotAPositiveNumber(sheet, n, cell) ]
+
+            rows[1..]
+            |> Array.toList
+            |> List.mapi (fun i row -> parseRow (i + 2) row)
+            |> List.sequenceValidationA
+            |> Validation.map (List.choose id)
+            |> Result.bind (fun values ->
+                match values with
+                | [] -> Validation.error (NormalValueSheetError.NoValues sheet)
+                | _ -> Ok values
+            )
+
+
+    /// Returns the values in ascending order without duplicates, with a warning for each row that holds a value
+    /// lower than a row above it or a value a row above it already holds.
+    let ascending sheet (values: (int * int<'u>) list) =
+        let folder (seen: Set<int<'u>>, warnings) (n, v) =
+            if seen |> Set.contains v then
+                seen, NormalValueSheetWarning.Duplicate(sheet, n) :: warnings
+            elif seen |> Set.exists (fun s -> s > v) then
+                seen |> Set.add v, NormalValueSheetWarning.NotAscending(sheet, n) :: warnings
+            else
+                seen |> Set.add v, warnings
+
+        let seen, warnings = values |> List.fold folder (Set.empty, [])
+        seen |> Set.toArray, warnings |> List.rev
+
+
+    /// Builds the calculation weights and heights from the rows of the two sheets, keyed by sheet name. The
+    /// weights in kg become whole grams, the heights whole cm. Returns every error of both sheets, with
+    /// MissingSheet for a sheet that is not in the map; otherwise the weights and heights with the warnings of
+    /// both sheets.
+    let ofRows (rows: Map<string, string[][]>) =
+        let values sheet column toWhole =
+            match rows |> Map.tryFind sheet with
+            | None -> Validation.error (NormalValueSheetError.MissingSheet sheet)
+            | Some sheetRows -> sheetRows |> parseSheet sheet column toWhole
+
+        let toGram v =
+            v * 1.<kg> * 1000.<gram / kg>
+            |> float
+            |> Math.Round
+            |> int
+            |> Conversions.gramFromInt
+
+        let toCm v =
+            v * 1.<cm> |> float |> Math.Round |> int |> Conversions.cmFromInt
+
+        validation {
+            let! w = values weightSheet weightColumn toGram
+            and! h = values heightSheet heightColumn toCm
+
+            let weights, ww = w |> ascending weightSheet
+            let heights, hw = h |> ascending heightSheet
+
+            return
+                {
+                    Weights = weights
+                    Heights = heights
+                },
+                ww @ hw
         }
 
 

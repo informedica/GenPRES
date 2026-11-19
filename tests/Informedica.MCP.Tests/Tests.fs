@@ -8,6 +8,7 @@ module Tests =
     open System.Text.Json
     open Expecto
     open Expecto.Flip
+    open Informedica.GenCore.Tests
     open Serilog.Events
     open Serilog.Formatting
 
@@ -216,20 +217,20 @@ module Tests =
         let rows: Map<string, string[][]> =
             Map
                 [
-                    "weight",
+                    "norm_weight",
                     [|
                         [| "sex"; "age"; "p3"; "mean"; "p97" |]
                         [| "M"; "2"; "10"; "12"; "14" |]
                         [| "F"; "2"; "9"; "11"; "13" |]
                     |]
-                    "height",
+                    "norm_height",
                     [|
                         [| "sex"; "age"; "p3"; "mean"; "p97" |]
                         [| "M"; "2"; "80"; "87"; "94" |]
                         [| "F"; "2"; "79"; "86"; "93" |]
                     |]
-                    "weight neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
-                    "height neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                    "norm_weight_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                    "norm_height_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
                 ]
 
 
@@ -264,6 +265,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -295,6 +298,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -541,6 +546,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -734,6 +741,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (None: Informedica.GenCore.Lib.Patients.NormalValueTables option) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else

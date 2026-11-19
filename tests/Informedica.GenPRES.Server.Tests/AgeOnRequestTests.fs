@@ -11,6 +11,7 @@ open Informedica.GenPRES.Shared.Api
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
+open Informedica.GenCore.Tests.CalculationWeightsAndHeightsFixture
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
@@ -238,11 +239,11 @@ let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
     }
 
 
-let loaded () = Some tables
+let loaded () = Some(tables, calc)
 
 
 /// The normal values, counting how often they are asked.
-let counting (nv: Informedica.GenCore.Lib.Patients.NormalValueTables option) =
+let counting nv =
     let count = ref 0
 
     let ask () =
@@ -481,7 +482,7 @@ let tests =
 
                     test
                         "a measured patient keeps the measured values, the calculation reads them, and gets the estimate range" {
-                        let ask, count = counting (Some tables)
+                        let ask, count = counting (Some(tables, calc))
                         let pat = StubEhrPatient.contractPatient |> Patient.estimate ask
 
                         (pat.Weight.Measured,
@@ -516,7 +517,7 @@ let tests =
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some empty)
+                        |> Patient.estimate (fun () -> Some(empty, calc))
                         |> Patient.patient
                         |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
@@ -533,7 +534,7 @@ let tests =
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some oneSex)
+                        |> Patient.estimate (fun () -> Some(oneSex, calc))
                         |> Patient.patient
                         |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
@@ -567,7 +568,7 @@ let tests =
                     }
 
                     test "a request other than a patient data update never asks the normal values" {
-                        let ask, count = counting (Some tables)
+                        let ask, count = counting (Some(tables, calc))
                         let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = ageOnly 10 }
 
                         estimatedOver

@@ -13,6 +13,7 @@ open Informedica.GenOrder.Lib.Patient.AgeParts
 open Informedica.GenPRES.Shared.Types
 // the units of an age in GenCORE's measures, after the contract model's
 open Informedica.GenCore.Lib
+open Informedica.GenCore.Tests.CalculationWeightsAndHeightsFixture
 
 
 module Lib = Informedica.GenForm.Lib.Types
@@ -370,20 +371,20 @@ module EstimateFixtures =
     let rows: Map<string, string[][]> =
         Map
             [
-                "weight",
+                "norm_weight",
                 [|
                     [| "sex"; "age"; "p3"; "mean"; "p97" |]
                     [| "M"; "2"; "10"; "12"; "14" |]
                     [| "F"; "2"; "9"; "11"; "13" |]
                 |]
-                "height",
+                "norm_height",
                 [|
                     [| "sex"; "age"; "p3"; "mean"; "p97" |]
                     [| "M"; "2"; "80"; "87"; "94" |]
                     [| "F"; "2"; "79"; "86"; "93" |]
                 |]
-                "weight neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
-                "height neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                "norm_weight_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                "norm_height_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
             ]
 
 
@@ -391,6 +392,10 @@ module EstimateFixtures =
         rows
         |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
         |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
+
+
+    /// The tables with the calculation weights and heights, as the server passes them to an estimate.
+    let normalValues = tables, calc
 
 
 open EstimateFixtures
@@ -406,7 +411,7 @@ let estimateTests =
                     PatientData.unknown
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Male
-                    |> ServerApi.Patient.estimated readAt tables
+                    |> ServerApi.Patient.estimated readAt normalValues
 
                 (pat |> weightKg,
                  pat |> heightCm,
@@ -424,7 +429,7 @@ let estimateTests =
                 PatientData.unknown
                 |> SamplePatients.withAge [ Years 2 ]
                 |> SamplePatients.withGender CoreGender.Male
-                |> ServerApi.Patient.estimated readAt tables
+                |> ServerApi.Patient.estimated readAt normalValues
                 |> _.BodySurfaceArea
                 |> Option.map decimal
                 |> Expect.equal "twelve kilograms and 87 centimetres" (Some 0.53m)
@@ -436,7 +441,7 @@ let estimateTests =
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Male
                     |> SamplePatients.withWeightInKg 20m
-                    |> ServerApi.Patient.estimated readAt tables
+                    |> ServerApi.Patient.estimated readAt normalValues
 
                 (pat |> weightKg,
                  pat.Weight |> CoreWeight.isMeasured,
@@ -454,7 +459,9 @@ let estimateTests =
                 let read = port.patientData noHeight
 
                 let estimated =
-                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData
+                    (port
+                     |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                        .patientData
                         noHeight
 
                 (estimated.Weight, estimated.Height.Calculation.IsSome, estimated.Height |> CoreHeight.isMeasured)
@@ -465,7 +472,10 @@ let estimateTests =
                 let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
                 let port = ServerApi.StubEhrPatient.port
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData ehr
+                (port
+                 |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                    .patientData
+                    ehr
                 |> Expect.equal "as read" (port.patientData ehr)
             }
 
@@ -478,7 +488,7 @@ let estimateTests =
                     }
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Female
-                    |> ServerApi.Patient.estimated readAt tables
+                    |> ServerApi.Patient.estimated readAt normalValues
 
                 (pat |> PatientData.department, pat |> PatientData.gender, pat |> PatientData.access, pat.Diagnoses)
                 |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ], [| "sepsis" |])
@@ -486,7 +496,7 @@ let estimateTests =
 
             test "a reading that is no patient stays as it was" {
                 PatientData.unknown
-                |> ServerApi.Patient.estimated readAt tables
+                |> ServerApi.Patient.estimated readAt normalValues
                 |> Expect.equal "unchanged" PatientData.unknown
             }
 
@@ -509,7 +519,9 @@ let estimateTests =
                 let port = ServerApi.StubEhrPatient.port
                 let projected = port.patientData premature
                 let estimated =
-                    (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData
+                    (port
+                     |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                        .patientData
                         premature
 
                 (estimated.Age,
@@ -533,7 +545,10 @@ let estimateTests =
 
                 let port = ServerApi.StubEhrPatient.port
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some tables)).patientData bare
+                (port
+                 |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                    .patientData
+                    bare
                 |> _.Weight.Calculation.IsSome
                 |> Expect.isTrue "estimated"
 
@@ -619,7 +634,7 @@ let adultTests =
                 adult |> ServerApi.Patient.patient |> Expect.equal "passes" (Ok adult)
 
                 adult
-                |> ServerApi.Patient.estimate (fun () -> Some tables)
+                |> ServerApi.Patient.estimate (fun () -> Some normalValues)
                 |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p |> Patient.getWeight, p |> Patient.getHeight)
                 |> Expect.equal "no weight, no height" (Ok(None, None))
@@ -657,7 +672,7 @@ let adultTests =
 
             test "a child of 2 without measures is estimated and passes" {
                 draft (Some(2 * 365)) false None None
-                |> ServerApi.Patient.estimate (fun () -> Some tables)
+                |> ServerApi.Patient.estimate (fun () -> Some normalValues)
                 |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.Weight.Calculation.IsSome, p.Height.Calculation.IsSome)
                 |> Expect.equal "both estimated" (Ok(true, true))
@@ -798,7 +813,7 @@ let adultTests =
                     |> ServerApi.Patient.parse readAt
                     |> Result.defaultWith (fun _ -> failtest "a patient")
 
-                let estimated = reading |> ServerApi.Patient.estimated readAt tables
+                let estimated = reading |> ServerApi.Patient.estimated readAt normalValues
 
                 (estimated.Weight, estimated.Height, estimated.AdultMark)
                 |> Expect.equal "as read" (reading.Weight, CoreHeight.unknown, CoreAdultMark.Adult)
@@ -889,7 +904,7 @@ let withEstimatesTests =
                                 Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
                             }
                     }
-                    |> ServerApi.Patient.withEstimates tables
+                    |> ServerApi.Patient.withEstimates (tables, calc)
 
                 (model.Weight.EstimatedP3, model.Weight.Estimated, model.Weight.EstimatedP97, model.Height.Estimated)
                 |> Expect.equal

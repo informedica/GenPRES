@@ -9,6 +9,7 @@ module Tests =
     open Expecto.Flip
 
     open Informedica.Utils.Lib.BCL
+    open CalculationWeightsAndHeightsFixture
 
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib
@@ -2923,7 +2924,7 @@ module Tests =
                 "Estimates"
                 [
                     test "a boy of 10 years takes the row of 10 years: the percentiles in whole kg, the mean on a step" {
-                        Estimates.ofAge tables Male (Some(years 10)) None
+                        Estimates.ofAge tables calc Male (Some(years 10)) None
                         |> Expect.equal
                             "25 to 40 kg, 32 kg; 130 to 150 cm, 140 cm"
                             {
@@ -2933,14 +2934,14 @@ module Tests =
                     }
 
                     test "a child without a known gender takes the average of the male and the female row" {
-                        (Estimates.ofAge tables UnknownGender (Some(years 1)) None).Weight
+                        (Estimates.ofAge tables calc UnknownGender (Some(years 1)) None).Weight
                         |> Expect.equal
                             "7.5 to 11.5 kg in whole kg, 9.9 kg"
                             (estimateOf 7000<gram> 9900<gram> 11000<gram>)
                     }
 
                     test "a newborn with a post-menstrual age the neonatal table reaches takes the neonatal row" {
-                        Estimates.ofAge tables Female (Some(days 0)) (Some(awd 40 0))
+                        Estimates.ofAge tables calc Female (Some(days 0)) (Some(awd 40 0))
                         |> Expect.equal
                             "2800 to 4000 g, 3400 g; 47 to 53 cm, 50 cm"
                             {
@@ -2950,19 +2951,20 @@ module Tests =
                     }
 
                     test "past the last week of the neonatal table the age table answers" {
-                        (Estimates.ofAge tables Male (Some(years 1)) (Some(awd 92 0))).Weight
+                        (Estimates.ofAge tables calc Male (Some(years 1)) (Some(awd 92 0))).Weight
                         |> Expect.equal "the row of 1 year" (estimateOf 8000<gram> 10000<gram> 12000<gram>)
                     }
 
                     test "no estimate without an age, from 18 years, or without a row for the gender" {
                         [
-                            Estimates.ofAge tables Male None None
-                            Estimates.ofAge tables Male (Some(years 18)) None
+                            Estimates.ofAge tables calc Male None None
+                            Estimates.ofAge tables calc Male (Some(years 18)) None
                             Estimates.ofAge
                                 { tables with
                                     Weights = []
                                     Heights = []
                                 }
+                                calc
                                 Male
                                 (Some(years 10))
                                 None
@@ -3016,15 +3018,15 @@ module Tests =
 
             Map.ofList
                 [
-                    "weight", weight
-                    "height", height
-                    "weight neo", [| header |]
-                    "height neo", [| header |]
+                    "norm_weight", weight
+                    "norm_height", height
+                    "norm_weight_neo", [| header |]
+                    "norm_height_neo", [| header |]
                 ]
 
         let means (est: Estimates) = est.Weight |> Option.map _.Mean, est.Height |> Option.map _.Mean
 
-        let boy age tables = Estimates.ofAge tables Male (Some age) None
+        let boy age tables = Estimates.ofAge tables calc Male (Some age) None
 
         let sixDays = AgeValue.create None None None (Some 6<day>)
         let tenYears = AgeValue.create (Some 10<year>) None None None
@@ -3052,7 +3054,7 @@ module Tests =
 
                     test "a row is read with its sex and its numbers" {
                         [| header; [| " F "; "1"; "7"; "9.6"; "11" |] |]
-                        |> NormalValueTables.parseSheet "weight"
+                        |> NormalValueTables.parseSheet "norm_weight"
                         |> Expect.equal
                             "a female row of 1 year"
                             (Ok
@@ -3068,7 +3070,7 @@ module Tests =
                     }
 
                     test "a sheet with only its header is an empty table" {
-                        [ "weight"; "height"; "weight neo"; "height neo" ]
+                        [ "norm_weight"; "norm_height"; "norm_weight_neo"; "norm_height_neo" ]
                         |> List.map (fun sheet -> sheet, [| header |])
                         |> Map.ofList
                         |> NormalValueTables.ofRows
@@ -3085,69 +3087,220 @@ module Tests =
 
                     test "a sheet absent from the rows is an error" {
                         rows
-                        |> Map.remove "weight neo"
+                        |> Map.remove "norm_weight_neo"
                         |> NormalValueTables.ofRows
-                        |> Expect.equal "weight neo missing" (Error [ NormalValueError.MissingSheet "weight neo" ])
+                        |> Expect.equal "weight neo missing" (Error [ NormalValueError.MissingSheet "norm_weight_neo" ])
                     }
 
                     test "a row with an age that is not a number is refused, not given to the estimate" {
                         [| header; [| "M"; "NaN"; "7"; "9"; "Infinity" |] |]
-                        |> NormalValueTables.parseSheet "weight"
+                        |> NormalValueTables.parseSheet "norm_weight"
                         |> Expect.equal
                             "age and p97"
                             (Error
                                 [
-                                    NormalValueError.NotANumber("weight", 2, "age")
-                                    NormalValueError.NotANumber("weight", 2, "p97")
+                                    NormalValueError.NotANumber("norm_weight", 2, "age")
+                                    NormalValueError.NotANumber("norm_weight", 2, "p97")
                                 ]
                             : Validation<NormalValue<year, kg> list, _>)
                     }
 
                     test "a sheet without the columns names the missing ones" {
                         [| [| "sex"; "age"; "mean" |] |]
-                        |> NormalValueTables.parseSheet "height"
+                        |> NormalValueTables.parseSheet "norm_height"
                         |> Expect.equal
                             "p3 and p97"
-                            (Error [ NormalValueError.MissingColumns("height", [ "p3"; "p97" ]) ]
+                            (Error [ NormalValueError.MissingColumns("norm_height", [ "p3"; "p97" ]) ]
                             : Validation<NormalValue<year, cm> list, _>)
                     }
 
                     test "a sheet without a header lacks every column" {
                         [||]
-                        |> NormalValueTables.parseSheet "height"
+                        |> NormalValueTables.parseSheet "norm_height"
                         |> Expect.equal
                             "all"
-                            (Error [ NormalValueError.MissingColumns("height", NormalValueTables.requiredColumns) ]
+                            (Error
+                                [
+                                    NormalValueError.MissingColumns("norm_height", NormalValueTables.requiredColumns)
+                                ]
                             : Validation<NormalValue<year, cm> list, _>)
                     }
 
                     test "every error is named by its sheet, row and column, of every sheet" {
                         rows
-                        |> Map.add "weight" [| header; [| "M"; "1"; "x"; "9"; "" |]; [| "B"; "1"; "7"; "9"; "11" |] |]
-                        |> Map.add "height neo" [| [| "sex"; "age" |] |]
+                        |> Map.add
+                            "norm_weight"
+                            [| header; [| "M"; "1"; "x"; "9"; "" |]; [| "B"; "1"; "7"; "9"; "11" |] |]
+                        |> Map.add "norm_height_neo" [| [| "sex"; "age" |] |]
                         |> NormalValueTables.ofRows
                         |> Expect.equal
                             "the errors"
                             (Error
                                 [
-                                    NormalValueError.NotANumber("weight", 2, "p3")
-                                    NormalValueError.NotANumber("weight", 2, "p97")
-                                    NormalValueError.UnknownSex("weight", 3, "B")
-                                    NormalValueError.MissingColumns("height neo", [ "p3"; "mean"; "p97" ])
+                                    NormalValueError.NotANumber("norm_weight", 2, "p3")
+                                    NormalValueError.NotANumber("norm_weight", 2, "p97")
+                                    NormalValueError.UnknownSex("norm_weight", 3, "B")
+                                    NormalValueError.MissingColumns("norm_height_neo", [ "p3"; "mean"; "p97" ])
                                 ])
                     }
 
                     test "a row shorter than the header misses the numbers at its end" {
                         [| header; [| "M"; "1"; "7" |] |]
-                        |> NormalValueTables.parseSheet "weight"
+                        |> NormalValueTables.parseSheet "norm_weight"
                         |> Expect.equal
                             "mean and p97"
                             (Error
                                 [
-                                    NormalValueError.NotANumber("weight", 2, "mean")
-                                    NormalValueError.NotANumber("weight", 2, "p97")
+                                    NormalValueError.NotANumber("norm_weight", 2, "mean")
+                                    NormalValueError.NotANumber("norm_weight", 2, "p97")
                                 ]
                             : Validation<NormalValue<year, kg> list, _>)
+                    }
+                ]
+
+
+    module CalculationWeightsAndHeightsTests =
+
+        let header column = [| column; ""; "" |]
+
+        let sheetOf column values =
+            Array.append [| header column |] (values |> Array.map (fun v -> [| v; ""; "" |]))
+
+        let rowsOf weights heights =
+            Map.empty
+            |> Map.add CalculationWeightsAndHeights.weightSheet (sheetOf "WeightKg" weights)
+            |> Map.add CalculationWeightsAndHeights.heightSheet (sheetOf "HeightCm" heights)
+
+        let grams xs = xs |> Array.map Conversions.gramFromInt
+
+        let cms xs = xs |> Array.map Conversions.cmFromInt
+
+
+        let tests =
+            testList
+                "CalculationWeightsAndHeights"
+                [
+                    test "reads the weights in kg as whole grams and the heights as whole cm" {
+                        rowsOf [| "0.4"; "0.45"; "2.5" |] [| "30"; "31" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Expect.equal
+                            "the weights and heights without warnings"
+                            (Ok(
+                                {
+                                    Weights = grams [| 400; 450; 2500 |]
+                                    Heights = cms [| 30; 31 |]
+                                },
+                                []
+                            ))
+                    }
+
+                    test "skips a blank cell" {
+                        rowsOf [| "1"; ""; "2" |] [| "30" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Result.map (fst >> _.Weights)
+                        |> Expect.equal "two weights" (Ok(grams [| 1000; 2000 |]))
+                    }
+
+                    test "sorts a list out of order and warns with the row" {
+                        rowsOf [| "1" |] [| "30"; "31"; "32"; "22"; "34" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Result.map (fun (calc, warnings) -> calc.Heights, warnings)
+                        |> Expect.equal
+                            "sorted, a warning for row 5"
+                            (Ok(
+                                cms [| 22; 30; 31; 32; 34 |],
+                                [ NormalValueSheetWarning.NotAscending("calc_height", 5) ]
+                            ))
+                    }
+
+                    test "uses a duplicate value once and warns with the row" {
+                        rowsOf [| "1"; "2"; "1" |] [| "30" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Result.map (fun (calc, warnings) -> calc.Weights, warnings)
+                        |> Expect.equal
+                            "once, a warning for row 4"
+                            (Ok(grams [| 1000; 2000 |], [ NormalValueSheetWarning.Duplicate("calc_weight", 4) ]))
+                    }
+
+                    test "a value that is not a positive number is an error with the row" {
+                        rowsOf [| "1"; "abc"; "0"; "-2" |] [| "30" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Expect.equal
+                            "three errors"
+                            (Error
+                                [
+                                    NormalValueSheetError.NotAPositiveNumber("calc_weight", 3, "abc")
+                                    NormalValueSheetError.NotAPositiveNumber("calc_weight", 4, "0")
+                                    NormalValueSheetError.NotAPositiveNumber("calc_weight", 5, "-2")
+                                ])
+                    }
+
+                    testList
+                        "a weight sheet that cannot be read is an error"
+                        [
+                            let heights = sheetOf "HeightCm" [| "30" |]
+                            let withWeights weights =
+                                Map.empty |> Map.add "calc_weight" weights |> Map.add "calc_height" heights
+
+                            for name, rows, error in
+                                [
+                                    "a sheet without values",
+                                    withWeights (sheetOf "WeightKg" [||]),
+                                    NormalValueSheetError.NoValues "calc_weight"
+
+                                    "a sheet without the column",
+                                    withWeights (sheetOf "Weight" [| "1" |]),
+                                    NormalValueSheetError.MissingColumn("calc_weight", "WeightKg")
+
+                                    "a sheet without a header",
+                                    withWeights [||],
+                                    NormalValueSheetError.MissingColumn("calc_weight", "WeightKg")
+
+                                    "a missing sheet",
+                                    Map.empty |> Map.add "calc_height" heights,
+                                    NormalValueSheetError.MissingSheet "calc_weight"
+                                ] do
+                                test name {
+                                    rows
+                                    |> CalculationWeightsAndHeights.ofRows
+                                    |> Expect.equal name (Error [ error ])
+                                }
+                        ]
+
+                    test "a positive value that rounds to 0 is an error with the row" {
+                        rowsOf [| "0.0004" |] [| "0.4" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Expect.equal
+                            "an error per sheet"
+                            (Error
+                                [
+                                    NormalValueSheetError.RoundsToZero("calc_weight", 2, "0.0004")
+                                    NormalValueSheetError.RoundsToZero("calc_height", 2, "0.4")
+                                ])
+                    }
+
+                    test "returns the errors of both sheets" {
+                        rowsOf [| "x" |] [||]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Expect.equal
+                            "an error per sheet"
+                            (Error
+                                [
+                                    NormalValueSheetError.NotAPositiveNumber("calc_weight", 2, "x")
+                                    NormalValueSheetError.NoValues "calc_height"
+                                ])
+                    }
+
+                    test "an estimate is rounded to the nearest calculation weight and height" {
+                        let calc =
+                            {
+                                Weights = grams [| 30000; 33000 |]
+                                Heights = cms [| 139; 145 |]
+                            }
+
+                        Estimates.ofAge EstimatesTests.tables calc Male (Some(EstimatesTests.years 10)) None
+                        |> fun est -> est.Weight |> Option.map _.Mean, est.Height |> Option.map _.Mean
+                        |> Expect.equal "33 kg and 139 cm" (Some 33000<gram>, Some 139<cm>)
                     }
                 ]
 
@@ -3174,6 +3327,7 @@ module Tests =
             GestationalAgeNeedTests.tests
             EstimatesTests.tests
             NormalValueTablesTests.tests
+            CalculationWeightsAndHeightsTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1

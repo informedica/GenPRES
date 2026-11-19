@@ -7,9 +7,13 @@ module Resources =
     open Informedica.Logging.Lib
 
     module CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+    module CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
 
     type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
     type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+    type CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
+    type CoreNormalValueSheetError = Informedica.GenCore.Lib.Patients.NormalValueSheetError
+    type CoreNormalValueSheetWarning = Informedica.GenCore.Lib.Patients.NormalValueSheetWarning
 
     type Data =
         {
@@ -168,6 +172,10 @@ module Resources =
     let ofResult (f: unit -> Result<'T, Message list>) : ResourceLoader =
         fun _ -> f () |> Result.map (fun v -> box v, [])
 
+    /// Makes a loader without dependencies that passes the warnings of its result on.
+    let ofResultWith (f: unit -> Result<'T * Message list, Message list>) : ResourceLoader =
+        fun _ -> f () |> Result.map (fun (v, warnings) -> box v, warnings)
+
     /// Makes a loader that builds a value from other resources, without warnings.
     let derive (f: IResourceResolver -> 'T) : ResourceLoader = fun r -> Ok(box (f r), [])
 
@@ -208,6 +216,38 @@ module Resources =
             match rows |> CoreNormalValueTables.ofRows with
             | Ok tables -> Some tables, []
             | Error errs -> None, errs |> List.map (normalValueErrorText >> Warning)
+
+
+    /// Returns the message text for an error in the rows of the sheet of the calculation weights or heights.
+    let normalValueSheetErrorText err =
+        match err with
+        | CoreNormalValueSheetError.MissingSheet sheet -> $"calculation weights and heights, sheet %s{sheet}: missing"
+        | CoreNormalValueSheetError.MissingColumn(sheet, column) ->
+            $"calculation weights and heights, sheet %s{sheet}: column missing: %s{column}"
+        | CoreNormalValueSheetError.NotAPositiveNumber(sheet, row, value) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' is not a positive number"
+        | CoreNormalValueSheetError.RoundsToZero(sheet, row, value) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' rounds to 0"
+        | CoreNormalValueSheetError.NoValues sheet -> $"calculation weights and heights, sheet %s{sheet}: no values"
+
+
+    /// Returns the message text for a problem in the sheet of the calculation weights or heights that the parse
+    /// corrects.
+    let normalValueSheetWarningText warning =
+        match warning with
+        | CoreNormalValueSheetWarning.NotAscending(sheet, row) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: lower than a row above it, the values are sorted"
+        | CoreNormalValueSheetWarning.Duplicate(sheet, row) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: a value a row above it holds, the value is used once"
+
+
+    /// Parses the calculation weights and heights from the rows with GenCORE. Returns them with a warning for
+    /// each correction, or an error for each problem.
+    let calculationWeightsAndHeightsOf rows =
+        rows
+        |> CoreCalculationWeightsAndHeights.ofRows
+        |> Result.map (fun (calc, warnings) -> calc, warnings |> List.map (normalValueSheetWarningText >> Warning))
+        |> Result.mapError (List.map (fun err -> ErrorMsg(normalValueSheetErrorText err, None)))
 
 
     /// <summary>Makes a loader without dependencies whose failure does not fail the whole load.</summary>
@@ -289,6 +329,9 @@ module Resources =
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         // The normal-value tables GenCORE parses from the rows; None when the rows do not parse.
         let normalValueTables = ResourceKey.create<CoreNormalValueTables option> "normalValueTables"
+        // The weights and heights an estimate is rounded to and the user picks from.
+        let calculationWeightsAndHeights =
+            ResourceKey.create<CoreCalculationWeightsAndHeights> "calculationWeightsAndHeights"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
         // The rows of the RuleSets sheet as written.
@@ -390,11 +433,19 @@ module Resources =
                 ofResultOrDefault
                     "Normal values not loaded"
                     Map.empty
-                    (fun () -> Mapping.getNormalValueRows Mapping.normalValuesUrlId)
+                    (fun () -> Mapping.getSheetRows dataUrlId CoreNormalValueTables.sheets)
 
                 // Rows that do not parse give no normal-value tables and a warning per error, and do not
                 // empty the rules.
                 Keys.normalValueTables.Name, deriveWith (fun r -> r.Get Keys.normalValueRows |> normalValueTablesOf)
+
+                // A calculation weight or height sheet that fails to load or holds an error fails the whole
+                // load, because the estimates and the options need it.
+                Keys.calculationWeightsAndHeights.Name,
+                ofResultWith (fun () ->
+                    Mapping.getSheetRows dataUrlId CoreCalculationWeightsAndHeights.sheets
+                    |> Result.bind calculationWeightsAndHeightsOf
+                )
 
                 // A Totals sheet that fails to load gives no totals and a warning, and does not empty
                 // the other resources.
