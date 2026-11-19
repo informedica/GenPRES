@@ -152,14 +152,17 @@ type GenOrderMcpTools() =
 
 
     [<McpServerTool(Name = "get_order_context_filter_options")>]
-    [<Description("Return available filter options (generics, routes, indications, forms, dose types) for a patient. This is the primary discovery tool: call this first to learn what medications are available. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it. Without either the tool returns an error.")>]
+    [<Description("Return available filter options (generics, routes, indications, forms, dose types) for a patient. This is the primary discovery tool: call this first to learn what medications are available. A patient needs an age, given in parts (ageYears, ageMonths, ageWeeks, ageDays), or both weightKg and heightCm; with an age alone the weight and height are estimated from it. Without either the tool returns an error.")>]
     static member GetFilterOptions
         (
             [<Description("Generic drug name to pre-filter on"); Optional>] generic: string,
             [<Description("Clinical indication to pre-filter on"); Optional>] indication: string,
             [<Description("Administration route to pre-filter on"); Optional>] route: string,
             [<Description("Drug form to pre-filter on"); Optional>] form: string,
-            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient age: the whole years, 0 to 120"); Optional>] ageYears: Nullable<int>,
+            [<Description("Patient age: the months after the whole years, 0 to 11"); Optional>] ageMonths: Nullable<int>,
+            [<Description("Patient age: the weeks after the whole months, 0 to 4"); Optional>] ageWeeks: Nullable<int>,
+            [<Description("Patient age: the days after the whole weeks, 0 to 6"); Optional>] ageDays: Nullable<int>,
             [<Description("Patient body weight in kg"); Optional>] weightKg: Nullable<float>,
             [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
                 Nullable<float>
@@ -171,7 +174,10 @@ type GenOrderMcpTools() =
                 Indication = McpHelpers.optStr indication
                 Route = McpHelpers.optStr route
                 Form = McpHelpers.optStr form
-                AgeMonths = McpHelpers.optFloat ageMonths
+                AgeYears = Option.ofNullable ageYears
+                AgeMonths = Option.ofNullable ageMonths
+                AgeWeeks = Option.ofNullable ageWeeks
+                AgeDays = Option.ofNullable ageDays
                 WeightKg = McpHelpers.optFloat weightKg
                 HeightCm = McpHelpers.optFloat heightCm
             }
@@ -220,10 +226,13 @@ type GenOrderMcpTools() =
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "create_order_context")>]
-    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
+    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. A patient needs an age, given in parts (ageYears, ageMonths, ageWeeks, ageDays), or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member CreateOrderContext
         (
-            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient age: the whole years, 0 to 120"); Optional>] ageYears: Nullable<int>,
+            [<Description("Patient age: the months after the whole years, 0 to 11"); Optional>] ageMonths: Nullable<int>,
+            [<Description("Patient age: the weeks after the whole months, 0 to 4"); Optional>] ageWeeks: Nullable<int>,
+            [<Description("Patient age: the days after the whole weeks, 0 to 6"); Optional>] ageDays: Nullable<int>,
             [<Description("Patient body weight in kg. Estimated from the age when omitted."); Optional>] weightKg:
                 Nullable<float>,
             [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
@@ -239,7 +248,10 @@ type GenOrderMcpTools() =
         =
         let input: GenOrderTools.CreateOrderContextInput =
             {
-                AgeMonths = McpHelpers.optFloat ageMonths
+                AgeYears = Option.ofNullable ageYears
+                AgeMonths = Option.ofNullable ageMonths
+                AgeWeeks = Option.ofNullable ageWeeks
+                AgeDays = Option.ofNullable ageDays
                 WeightKg = McpHelpers.optFloat weightKg
                 HeightCm = McpHelpers.optFloat heightCm
                 Sex = McpHelpers.optStr sex
@@ -254,10 +266,13 @@ type GenOrderMcpTools() =
         |> McpHelpers.toJsonResult
 
     [<McpServerTool(Name = "get_order_scenarios")>]
-    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
+    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. A patient needs an age, given in parts (ageYears, ageMonths, ageWeeks, ageDays), or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member GetOrderScenarios
         (
-            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient age: the whole years, 0 to 120"); Optional>] ageYears: Nullable<int>,
+            [<Description("Patient age: the months after the whole years, 0 to 11"); Optional>] ageMonths: Nullable<int>,
+            [<Description("Patient age: the weeks after the whole months, 0 to 4"); Optional>] ageWeeks: Nullable<int>,
+            [<Description("Patient age: the days after the whole weeks, 0 to 6"); Optional>] ageDays: Nullable<int>,
             [<Description("Patient body weight in kg. Estimated from the age when omitted."); Optional>] weightKg:
                 Nullable<float>,
             [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
@@ -273,7 +288,10 @@ type GenOrderMcpTools() =
         =
         let input: GenOrderTools.CreateOrderContextInput =
             {
-                AgeMonths = McpHelpers.optFloat ageMonths
+                AgeYears = Option.ofNullable ageYears
+                AgeMonths = Option.ofNullable ageMonths
+                AgeWeeks = Option.ofNullable ageWeeks
+                AgeDays = Option.ofNullable ageDays
                 WeightKg = McpHelpers.optFloat weightKg
                 HeightCm = McpHelpers.optFloat heightCm
                 Sex = McpHelpers.optStr sex

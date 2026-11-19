@@ -8,33 +8,29 @@ open Informedica.GenOrder.Lib
 open Informedica.Utils.Lib.BCL
 open Validus
 
-open Patient.AgeParts
-
 
 /// Input/output types and tool handler functions for GenORDER MCP tools.
 /// All tools are read-only and delegate to GenOrder.Lib API functions.
 module GenOrderTools =
 
-    module CoreEstimates = Informedica.GenCore.Lib.Patients.Estimates
-    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
-    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
-    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
-    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
     module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
+    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
     module CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
-    type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
 
 
     // ── Tool input types ────────────────────────────────────────────────────
 
     type CreateOrderContextInput =
         {
-            AgeMonths: float option
+            AgeYears: int option
+            AgeMonths: int option
+            AgeWeeks: int option
+            AgeDays: int option
             WeightKg: float option
             HeightCm: float option
             Sex: string option
@@ -51,7 +47,10 @@ module GenOrderTools =
             Indication: string option
             Route: string option
             Form: string option
-            AgeMonths: float option
+            AgeYears: int option
+            AgeMonths: int option
+            AgeWeeks: int option
+            AgeDays: int option
             WeightKg: float option
             HeightCm: float option
         }
@@ -97,7 +96,10 @@ module GenOrderTools =
 
     type OrderContextSummaryOutput =
         {
-            PatientAgeMonths: float option
+            PatientAgeYears: int option
+            PatientAgeMonths: int option
+            PatientAgeWeeks: int option
+            PatientAgeDays: int option
             PatientWeightKg: float option
             SelectedGeneric: string option
             SelectedRoute: string option
@@ -118,73 +120,75 @@ module GenOrderTools =
         | _ -> CoreGender.UnknownGender
 
 
-    /// Reads patient data from a Dto on a date. Returns the GenCORE messages when a value is invalid.
-    let readPatientData today dto =
+    /// Reads patient data from a Dto on a date, with the resources when they are given. Returns the GenCORE
+    /// messages when a value is invalid.
+    let readPatientData today resources dto =
         dto
-        |> CorePatientData.Dto.fromDto today None
+        |> CorePatientData.Dto.fromDto today resources
         |> Result.mapError (fun errs ->
             let msgs = errs |> ValidationErrors.toList |> String.concat "; "
             $"The patient data is not valid: %s{msgs}"
         )
 
 
-    /// Estimates the weight and the height from the age and the gender, rounded to the calculation weights and
-    /// heights. Returns None for both without an age or without the normal-value tables.
-    let estimated normalValues calculationWeightsAndHeights gender age =
-        match normalValues with
-        | None -> None, None
-        | Some tables ->
-            let est = CoreEstimates.ofAge tables calculationWeightsAndHeights gender age None
-
-            est.Weight
-            |> Option.map (fun e -> decimal e.Mean |> CoreWeightValue.weightInGram),
-            est.Height |> Option.map (fun e -> decimal e.Mean |> CoreHeightValue.heightInCm)
+    /// Whether the input gives any part of an age.
+    let hasAge (input: CreateOrderContextInput) =
+        [ input.AgeYears; input.AgeMonths; input.AgeWeeks; input.AgeDays ]
+        |> List.exists Option.isSome
 
 
-    /// Builds the patient data from the tool input through the patient data Dto. A weight or height that
-    /// the input does not give is estimated from the age. Returns an error when a value of the input is
-    /// invalid.
+    /// Builds the patient data from the tool input through the patient data Dto. GenCORE completes it with the
+    /// resources of the provider. Returns an error when a value of the input is invalid.
     let buildPatient today (provider: IResourceProvider) (input: CreateOrderContextInput) =
-        let gender =
+        let dto = CorePatientData.Dto.dto ()
+
+        if hasAge input then
+            let age = CoreAgeValue.Dto.dto ()
+            age.Years <- input.AgeYears
+            age.Months <- input.AgeMonths
+            age.Weeks <- input.AgeWeeks
+            age.Days <- input.AgeDays
+            dto.Age <- Some age
+
+        let weightDto kg =
+            let w = CoreWeightAtDate.Dto.dto ()
+            w.WeightValue.Weight <- decimal kg
+            w.WeightValue.WeightInKg <- true
+            w
+
+        let heightDto cm =
+            let h = CoreHeightAtDate.Dto.dto ()
+            h.HeightValue.Height <- decimal cm
+            h.HeightValue.HeightInMeter <- false
+            h
+
+        dto.Gender <-
             input.Sex
             |> Option.map parseGender
             |> Option.defaultValue CoreGender.UnknownGender
+            |> CoreGender.toString
 
-        let age =
-            input.AgeMonths
-            |> Option.map (fun a -> [ Months(a |> Math.Round |> int) ] |> daysOfParts |> CoreAgeValue.fromDays)
-
-        let estWeight, estHeight =
-            estimated (provider.Get Keys.normalValueTables) (provider.Get Keys.calculationWeightsAndHeights) gender age
-
-        let weight =
-            match input.WeightKg with
-            | Some w ->
-                decimal w
-                |> CoreWeightValue.weightInKg
-                |> CoreWeightAtDate.undated
-                |> CoreSource.Measured
-                |> Some
-            | None -> estWeight |> Option.map (CoreWeightAtDate.undated >> CoreSource.Estimated)
-
-        let height =
-            match input.HeightCm with
-            | Some h ->
-                decimal h
-                |> CoreHeightValue.heightInCm
-                |> CoreHeightAtDate.undated
-                |> CoreSource.Measured
-                |> Some
-            | None -> estHeight |> Option.map (CoreHeightAtDate.undated >> CoreSource.Estimated)
-
-        let dto = CorePatientData.Dto.dto ()
-        dto.Age <- age |> Option.map CoreAgeValue.Dto.toDto
-        dto.Gender <- gender |> CoreGender.toString
-        dto.Weight <- weight |> CoreWeight.create [] None [] |> CoreWeight.Dto.toDto
-        dto.Height <- height |> CoreHeight.create [] None |> CoreHeight.Dto.toDto
+        dto.Weight.Calculation <- input.WeightKg |> Option.map weightDto
+        dto.Height.Calculation <- input.HeightCm |> Option.map heightDto
         dto.Department.OtherDepartment <- input.Department
 
-        dto |> readPatientData today
+        dto |> readPatientData today (Api.getPatientDataResources provider)
+
+
+    /// The age parts of the patient as GenCORE completed them; none without an age.
+    let patientAge (pat: PatientData) =
+        match pat.Age with
+        | None -> None, None, None, None
+        | Some age ->
+            let y, m, w, d = age |> CoreAgeValue.getDef0
+            Some(int y), Some(int m), Some(int w), Some(int d)
+
+
+    /// The calculation weight of the patient in kg as GenCORE completed it, measured or estimated; none without one.
+    let patientWeightKg pat =
+        pat
+        |> Patient.getWeight
+        |> Option.map (CoreWeightValue.getWeightInKg >> decimal >> float)
 
 
     // ── Tool handler functions ──────────────────────────────────────────────
@@ -256,8 +260,8 @@ module GenOrderTools =
     /// height. With an age alone the weight and height are estimated, as the web client does;
     /// without either the rules would silently answer nothing, so the call is refused.
     let requireAgeOrMeasures (input: CreateOrderContextInput) =
-        match input.AgeMonths, input.WeightKg, input.HeightCm with
-        | Some _, _, _
+        match hasAge input, input.WeightKg, input.HeightCm with
+        | true, _, _
         | _, Some _, Some _ -> Ok()
         | _ ->
             Error
@@ -345,7 +349,10 @@ module GenOrderTools =
         : Result<FilterOptionsOutput, string>
         =
         {
+            AgeYears = input.AgeYears
             AgeMonths = input.AgeMonths
+            AgeWeeks = input.AgeWeeks
+            AgeDays = input.AgeDays
             WeightKg = input.WeightKg
             HeightCm = input.HeightCm
             Sex = None
@@ -439,14 +446,22 @@ module GenOrderTools =
                         Indication = result.Filter.Indication
                         Route = result.Filter.Route
                         Form = result.Filter.Form
+                        AgeYears = input.AgeYears
                         AgeMonths = input.AgeMonths
+                        AgeWeeks = input.AgeWeeks
+                        AgeDays = input.AgeDays
                         WeightKg = input.WeightKg
                         HeightCm = input.HeightCm
                     }
 
+            let years, months, weeks, days = result.PatientData |> patientAge
+
             {
-                PatientAgeMonths = input.AgeMonths
-                PatientWeightKg = input.WeightKg
+                PatientAgeYears = years
+                PatientAgeMonths = months
+                PatientAgeWeeks = weeks
+                PatientAgeDays = days
+                PatientWeightKg = result.PatientData |> patientWeightKg
                 SelectedGeneric = result.Filter.Generic
                 SelectedRoute = result.Filter.Route
                 SelectedForm = result.Filter.Form

@@ -198,14 +198,19 @@ step 10 is client UI code.
      when the server sent none. The options depend only on the resources, so `Patient.withOptions` sets them from
      the resources where the server answers with patient data: the panel command, the session and the signing
      answers. Patient data mapped from a Dto, and patient data without the resources, has no options.
-   - **7c. MCP.** MCP takes the age parts in place of `AgeMonths`, and `buildPatient` fills the Dto with plain
-     values and passes the resources, as the server does.
+   - **7c. MCP.** MCP takes the age parts (`ageYears`, `ageMonths` as the months after the whole years, `ageWeeks`,
+     `ageDays`) in place of the age in months, and `buildPatient` fills the Dto with plain values and passes the
+     resources, as the server does. The resources come from a new GenFORM function, `Api.getPatientDataResources`,
+     which the server uses too and step 8 builds on. The answer of `create_order_context` gives the age parts and
+     the weight as GenCORE completed them.
 8. **One function completes the patient data.** The server and MCP complete the patient data through one shared
    function that takes the resource provider and the patient data Dto, reads the normal-value tables and the
    calculation weights and heights, and returns the completed patient data (decision 8). It lives in a library
    that both reference; its place and name are decided in the script review. The server and MCP no longer read
-   these resources themselves. `Patient.atDate` sets the age of an identified patient from the birth date but does
-   not estimate again, because it has no resources; the shared function estimates after the age is set.
+   these resources themselves. The function also replaces the two copies of the weight and height Dto builders,
+   `weightDto` and `heightDto` in `McpTools.GenOrder.fs` and in `ServerApi.Mappers.Patient.fs`; MCP takes the weight
+   in kg, the server in whole grams. `Patient.atDate` sets the age of an identified patient from the birth date but
+   does not estimate again, because it has no resources; the shared function estimates after the age is set.
 9. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
    data Dto and returns the completed Dto, as GenORDER applies a filter pick to an order context. Because every
    value is picked from the options that GenCORE offers, the command cannot fail. `PatientDataCommand` sends the
