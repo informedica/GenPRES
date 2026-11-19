@@ -62,6 +62,29 @@ type RenalFunction =
     | PeritonealDialysis
 
 
+/// An eGFR band the user picks from, with the text the user reads.
+type EGFRBandOption =
+    {
+        /// The band of the option.
+        Band: EGFRBand
+        /// The text in the Band column of the row of the band, which the user reads.
+        Text: string
+    }
+
+
+/// A problem in the rows of the eGFR band sheet. Row numbers count the header as row 1.
+[<RequireQualifiedAccess>]
+type EGFRBandSheetWarning =
+    /// The sheet lacks these columns; no band is read.
+    | MissingColumns of columns: string list
+    /// The limits of the row match no band; the row is left out.
+    | NoBand of row: int * minimum: string * maximum: string
+    /// The row is a second row for a band; the first row is used.
+    | DuplicateBand of row: int
+    /// No row matches the band; the band is left out of the options.
+    | MissingBand of band: EGFRBand
+
+
 /// Where a value comes from: a measurement or an estimate.
 type Source<'v> =
     /// The value was measured.
@@ -1486,6 +1509,15 @@ module EGFRBand =
         | _ -> None
 
 
+    /// Returns the lower and the upper limit of a band as text, with an empty text where the band has no limit.
+    let limits =
+        function
+        | Above50 -> "50", ""
+        | From30To50 -> "30", "50"
+        | From10To30 -> "10", "30"
+        | UpTo10 -> "", "10"
+
+
 /// Converts a renal function to and from its string form in the Dto: egfr:min:max, with an empty bound where
 /// the band has none, or the name of the dialysis.
 module RenalFunction =
@@ -1493,10 +1525,9 @@ module RenalFunction =
     /// Returns the string form of a renal function.
     let toString =
         function
-        | EGFR Above50 -> "egfr:50:"
-        | EGFR From30To50 -> "egfr:30:50"
-        | EGFR From10To30 -> "egfr:10:30"
-        | EGFR UpTo10 -> "egfr::10"
+        | EGFR band ->
+            let minimum, maximum = band |> EGFRBand.limits
+            $"egfr:%s{minimum}:%s{maximum}"
         | IntermittentHemodialysis -> "intermittent-hemodialysis"
         | ContinuousHemodialysis -> "continuous-hemodialysis"
         | PeritonealDialysis -> "peritoneal-dialysis"
@@ -1505,15 +1536,104 @@ module RenalFunction =
     /// Returns the renal function a string names, ignoring case and outer white space; None for any other
     /// string, such as an eGFR range that is not a band.
     let tryFromString s =
-        match s |> String.toLower |> String.trim with
-        | "egfr:50:" -> Some(EGFR Above50)
-        | "egfr:30:50" -> Some(EGFR From30To50)
-        | "egfr:10:30" -> Some(EGFR From10To30)
-        | "egfr::10" -> Some(EGFR UpTo10)
-        | "intermittent-hemodialysis" -> Some IntermittentHemodialysis
-        | "continuous-hemodialysis" -> Some ContinuousHemodialysis
-        | "peritoneal-dialysis" -> Some PeritonealDialysis
+        let s = s |> String.toLower |> String.trim
+
+        [
+            EGFR Above50
+            EGFR From30To50
+            EGFR From10To30
+            EGFR UpTo10
+            IntermittentHemodialysis
+            ContinuousHemodialysis
+            PeritonealDialysis
+        ]
+        |> List.tryFind (toString >> (=) s)
+
+
+/// Reads the cells of sheet rows by the column names in the header row.
+[<RequireQualifiedAccess>]
+module SheetRows =
+
+    /// Returns the required columns that the header lacks, in the order of the required columns.
+    let missingColumns header required =
+        required |> List.filter (fun c -> header |> Array.contains c |> not)
+
+
+    /// Returns the trimmed cell of a row in a column of the header, or an empty text when the row is shorter
+    /// than the header. The column must be in the header.
+    let cell header (row: string[]) column =
+        let i = header |> Array.findIndex ((=) column)
+        if i < row.Length then row[i] |> String.trim else ""
+
+
+[<RequireQualifiedAccess>]
+module EGFRBandOptions =
+
+    /// The sheet of the eGFR bands.
+    let sheet = "egfr_bands"
+
+
+    /// The columns the sheet must have.
+    let requiredColumns = [ "MinEGFR"; "MaxEGFR"; "Band" ]
+
+
+    /// The four bands, from high to low.
+    let bands = [ EGFRBand.Above50; EGFRBand.From30To50; EGFRBand.From10To30; EGFRBand.UpTo10 ]
+
+
+    /// Returns the band that a minimum and a maximum name, with an empty text for no limit; None when they name
+    /// no band.
+    let tryBand minimum maximum =
+        match $"egfr:%s{minimum}:%s{maximum}" |> RenalFunction.tryFromString with
+        | Some(EGFR band) -> Some band
         | _ -> None
+
+
+    /// Parses the rows of the sheet, header first, into the options in the order of the bands, with a warning
+    /// for every problem. A sheet without rows gives no options and no warnings.
+    let ofRows (rows: string[][]) =
+        match rows |> Array.tryHead with
+        | None -> [], []
+        | Some header ->
+            let header = header |> Array.map String.trim
+
+            match requiredColumns |> SheetRows.missingColumns header with
+            | _ :: _ as missing -> [], [ EGFRBandSheetWarning.MissingColumns missing ]
+            | [] ->
+                let cell = SheetRows.cell header
+
+                let folder (options, warnings) (n, row) =
+                    let minimum = cell row "MinEGFR"
+                    let maximum = cell row "MaxEGFR"
+
+                    match tryBand minimum maximum with
+                    | None -> options, EGFRBandSheetWarning.NoBand(n, minimum, maximum) :: warnings
+                    | Some band when options |> List.exists (fun o -> o.Band = band) ->
+                        options, EGFRBandSheetWarning.DuplicateBand n :: warnings
+                    | Some band ->
+                        {
+                            Band = band
+                            Text = cell row "Band"
+                        }
+                        :: options,
+                        warnings
+
+                let options, warnings =
+                    rows[1..]
+                    |> Array.toList
+                    |> List.mapi (fun i row -> i + 2, row)
+                    |> List.fold folder ([], [])
+
+                let found =
+                    bands
+                    |> List.map (fun band -> band, options |> List.tryFind (fun o -> o.Band = band))
+
+                let missing =
+                    found
+                    |> List.filter (snd >> Option.isNone)
+                    |> List.map (fst >> EGFRBandSheetWarning.MissingBand)
+
+                found |> List.choose snd, (warnings |> List.rev) @ missing
 
 
 module Department =
@@ -2052,12 +2172,10 @@ module NormalValueTables =
         | Some header ->
             let header = header |> Array.map _.Trim()
 
-            match requiredColumns |> List.filter (fun c -> header |> Array.contains c |> not) with
+            match requiredColumns |> SheetRows.missingColumns header with
             | _ :: _ as missing -> Validation.error (NormalValueError.MissingColumns(sheet, missing))
             | [] ->
-                let cell (row: string[]) column =
-                    let i = header |> Array.findIndex ((=) column)
-                    if i < row.Length then row[i] else ""
+                let cell = SheetRows.cell header
 
                 let parseRow n (row: string[]) =
                     let number column =
@@ -2066,7 +2184,7 @@ module NormalValueTables =
                         |> Result.requireSome (NormalValueError.NotANumber(sheet, n, column))
 
                     let gender =
-                        match (cell row "sex").Trim() with
+                        match cell row "sex" with
                         | "M" -> Ok Male
                         | "F" -> Ok Female
                         | s -> Error(NormalValueError.UnknownSex(sheet, n, s))

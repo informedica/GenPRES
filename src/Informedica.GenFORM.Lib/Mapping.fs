@@ -169,7 +169,7 @@ module Mapping =
                 acc
                 |> Result.bind (fun rows ->
                     Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
-                    |> Result.mapError (fun e -> [ ErrorMsg($"normal values, sheet %s{sheet}: %s{e}", None) ])
+                    |> Result.mapError (fun e -> [ ErrorMsg($"sheet %s{sheet}: %s{e}", None) ])
                     |> Result.map (fun data -> rows |> Map.add sheet data)
                 )
             )

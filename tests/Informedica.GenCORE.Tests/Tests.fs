@@ -3305,6 +3305,88 @@ module Tests =
                 ]
 
 
+    module EGFRBandOptionsTests =
+
+        let header = [| "MinEGFR"; "MaxEGFR"; "Band" |]
+
+        let fullSheet =
+            [|
+                header
+                [| "50"; ""; "> 50" |]
+                [| "30"; "50"; "30 - 50" |]
+                [| "10"; "30"; "10 - 30" |]
+                [| ""; "10"; "< 10" |]
+            |]
+
+        let option band text =
+            {
+                Band = band
+                Text = text
+            }
+
+
+        let tests =
+            testList
+                "EGFRBandOptions"
+                [
+                    test "reads every band with its text, without warnings" {
+                        fullSheet
+                        |> EGFRBandOptions.ofRows
+                        |> Expect.equal
+                            "four options"
+                            ([
+                                option EGFRBand.Above50 "> 50"
+                                option EGFRBand.From30To50 "30 - 50"
+                                option EGFRBand.From10To30 "10 - 30"
+                                option EGFRBand.UpTo10 "< 10"
+                             ],
+                             [])
+                    }
+
+                    test "gives the options in the order of the bands, whatever the order of the rows" {
+                        Array.append [| header |] (fullSheet[1..] |> Array.rev)
+                        |> EGFRBandOptions.ofRows
+                        |> fst
+                        |> List.map _.Band
+                        |> Expect.equal "high to low" EGFRBandOptions.bands
+                    }
+
+                    test "a row whose limits match no band is left out with a warning" {
+                        Array.append fullSheet [| [| "20"; "40"; "20 - 40" |] |]
+                        |> EGFRBandOptions.ofRows
+                        |> fun (options, warnings) -> options.Length, warnings
+                        |> Expect.equal "four options, one warning" (4, [ EGFRBandSheetWarning.NoBand(6, "20", "40") ])
+                    }
+
+                    test "a second row for a band is left out with a warning" {
+                        Array.append fullSheet [| [| "50"; ""; "more than 50" |] |]
+                        |> EGFRBandOptions.ofRows
+                        |> fun (options, warnings) -> options.Head.Text, warnings
+                        |> Expect.equal "the first text, one warning" ("> 50", [ EGFRBandSheetWarning.DuplicateBand 6 ])
+                    }
+
+                    test "a band without a row is left out with a warning" {
+                        fullSheet[0..3]
+                        |> EGFRBandOptions.ofRows
+                        |> fun (options, warnings) -> options |> List.map _.Band, warnings
+                        |> Expect.equal
+                            "three bands, one warning"
+                            ([ EGFRBand.Above50; EGFRBand.From30To50; EGFRBand.From10To30 ],
+                             [ EGFRBandSheetWarning.MissingBand EGFRBand.UpTo10 ])
+                    }
+
+                    test "a sheet without the columns gives no options and one warning" {
+                        [| [| "Min"; "MaxEGFR" |]; [| "50"; "" |] |]
+                        |> EGFRBandOptions.ofRows
+                        |> Expect.equal "no options" ([], [ EGFRBandSheetWarning.MissingColumns [ "MinEGFR"; "Band" ] ])
+                    }
+
+                    test "a sheet without rows gives no options and no warnings" {
+                        [||] |> EGFRBandOptions.ofRows |> Expect.equal "nothing" ([], [])
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -3328,6 +3410,7 @@ module Tests =
             EstimatesTests.tests
             NormalValueTablesTests.tests
             CalculationWeightsAndHeightsTests.tests
+            EGFRBandOptionsTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1

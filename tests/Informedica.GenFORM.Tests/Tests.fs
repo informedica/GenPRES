@@ -6595,6 +6595,35 @@ module Tests =
                             ))
                     }
 
+                    test "the eGFR band rows and options are registered resources" {
+                        let registry = defaultRegistry Informedica.Logging.Lib.Logging.noOp ""
+
+                        [ Keys.egfrBandRows.Name; Keys.egfrBandOptions.Name ]
+                        |> List.forall (fun name -> registry |> Map.containsKey name)
+                        |> Expect.isTrue "registered"
+                    }
+
+                    test "eGFR band rows give the options with a warning for each problem" {
+                        [|
+                            [| "MinEGFR"; "MaxEGFR"; "Band" |]
+                            [| "50"; ""; "> 50" |]
+                            [| "30"; "50"; "30 - 50" |]
+                            [| "10"; "30"; "10 - 30" |]
+                        |]
+                        |> egfrBandOptionsOf
+                        |> fun (options, msgs) -> options.Length, msgs
+                        |> Expect.equal
+                            "three options, one warning"
+                            (3,
+                             [
+                                 Warning "eGFR bands, sheet egfr_bands: no row with MinEGFR '' and MaxEGFR '10'"
+                             ])
+                    }
+
+                    test "no eGFR band rows give no options and no second warning" {
+                        [||] |> egfrBandOptionsOf |> Expect.equal "nothing" ([], [])
+                    }
+
                     test "a calculation weight that rounds to 0 is named with its row and value" {
                         CoreNormalValueSheetError.RoundsToZero("calc_weight", 2, "0.0004")
                         |> normalValueSheetErrorText

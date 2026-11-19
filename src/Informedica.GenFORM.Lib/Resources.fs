@@ -8,12 +8,16 @@ module Resources =
 
     module CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
     module CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
+    module CoreEGFRBandOptions = Informedica.GenCore.Lib.Patients.EGFRBandOptions
+    module CoreEGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
 
     type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
     type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
     type CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
     type CoreNormalValueSheetError = Informedica.GenCore.Lib.Patients.NormalValueSheetError
     type CoreNormalValueSheetWarning = Informedica.GenCore.Lib.Patients.NormalValueSheetWarning
+    type CoreEGFRBandOption = Informedica.GenCore.Lib.Patients.EGFRBandOption
+    type CoreEGFRBandSheetWarning = Informedica.GenCore.Lib.Patients.EGFRBandSheetWarning
 
     type Data =
         {
@@ -241,6 +245,30 @@ module Resources =
             $"calculation weights and heights, sheet %s{sheet}, row %i{row}: a value a row above it holds, the value is used once"
 
 
+    /// Returns the message text for a problem in the eGFR band sheet.
+    let egfrBandSheetWarningText warning =
+        let sheet = CoreEGFRBandOptions.sheet
+
+        match warning with
+        | CoreEGFRBandSheetWarning.MissingColumns columns ->
+            let names = columns |> String.concat ", "
+            $"eGFR bands, sheet %s{sheet}: columns missing: %s{names}"
+        | CoreEGFRBandSheetWarning.NoBand(row, minimum, maximum) ->
+            $"eGFR bands, sheet %s{sheet}, row %i{row}: the limits '%s{minimum}' to '%s{maximum}' are no band"
+        | CoreEGFRBandSheetWarning.DuplicateBand row ->
+            $"eGFR bands, sheet %s{sheet}, row %i{row}: a second row for a band, the first row is used"
+        | CoreEGFRBandSheetWarning.MissingBand band ->
+            let minimum, maximum = band |> CoreEGFRBand.limits
+            $"eGFR bands, sheet %s{sheet}: no row with MinEGFR '%s{minimum}' and MaxEGFR '%s{maximum}'"
+
+
+    /// Parses the eGFR band options from the rows with GenCORE, with a warning for every problem. Empty rows give
+    /// no options and no warning, because the failed sheet read has already warned.
+    let egfrBandOptionsOf rows =
+        let options, warnings = rows |> CoreEGFRBandOptions.ofRows
+        options, warnings |> List.map (egfrBandSheetWarningText >> Warning)
+
+
     /// Parses the calculation weights and heights from the rows with GenCORE. Returns them with a warning for
     /// each correction, or an error for each problem.
     let calculationWeightsAndHeightsOf rows =
@@ -332,6 +360,10 @@ module Resources =
         // The weights and heights an estimate is rounded to and the user picks from.
         let calculationWeightsAndHeights =
             ResourceKey.create<CoreCalculationWeightsAndHeights> "calculationWeightsAndHeights"
+        // The rows of the eGFR band sheet; empty when the sheet fails to load.
+        let egfrBandRows = ResourceKey.create<string[][]> "egfrBandRows"
+        // The eGFR bands the user picks from, each with the text of its row.
+        let egfrBandOptions = ResourceKey.create<CoreEGFRBandOption list> "egfrBandOptions"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
         // The rows of the RuleSets sheet as written.
@@ -446,6 +478,19 @@ module Resources =
                     Mapping.getSheetRows dataUrlId CoreCalculationWeightsAndHeights.sheets
                     |> Result.bind calculationWeightsAndHeightsOf
                 )
+
+                // An eGFR band sheet that fails to load gives no eGFR band options and a warning, and does not
+                // empty the rules.
+                Keys.egfrBandRows.Name,
+                ofResultOrDefault
+                    "eGFR bands not loaded"
+                    ([||]: string[][])
+                    (fun () ->
+                        Mapping.getSheetRows dataUrlId [ CoreEGFRBandOptions.sheet ]
+                        |> Result.map (Map.find CoreEGFRBandOptions.sheet)
+                    )
+
+                Keys.egfrBandOptions.Name, deriveWith (fun r -> r.Get Keys.egfrBandRows |> egfrBandOptionsOf)
 
                 // A Totals sheet that fails to load gives no totals and a warning, and does not empty
                 // the other resources.
