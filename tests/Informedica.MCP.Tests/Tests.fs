@@ -19,6 +19,8 @@ module Tests =
     open Informedica.Logging.Lib
     open Informedica.MCP.Lib
 
+    type CoreEGFRBandOption = Informedica.GenCore.Lib.Patients.EGFRBandOption
+
     let testHelloWorld =
         test "hello world test" { "Hello World" |> Expect.equal "Strings should be equal" "Hello World" }
 
@@ -130,7 +132,10 @@ module Tests =
 
         let private emptyInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = None
                 HeightCm = None
                 Sex = None
@@ -155,7 +160,7 @@ module Tests =
 
                     test "both measures without an age are Ok" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
@@ -165,7 +170,7 @@ module Tests =
 
                     test "one measure without an age is Error" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             WeightKg = Some 12.0
                         }
                         |> requireAgeOrMeasures
@@ -173,13 +178,13 @@ module Tests =
                     }
 
                     test "nothing is Error" {
-                        { emptyInput with AgeMonths = None }
+                        { emptyInput with AgeYears = None }
                         |> requireAgeOrMeasures
                         |> Expect.isError "should be Error"
                     }
 
                     test "createOrderContext refuses before touching the provider when the input is no patient" {
-                        { emptyInput with AgeMonths = None }
+                        { emptyInput with AgeYears = None }
                         |> createOrderContext today unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
@@ -190,7 +195,10 @@ module Tests =
                             Indication = None
                             Route = None
                             Form = None
+                            AgeYears = None
                             AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
                             WeightKg = Some 12.0
                             HeightCm = None
                         }
@@ -200,7 +208,7 @@ module Tests =
 
                     test "getOrderScenarios refuses before touching the provider when the input is no patient" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             HeightCm = Some 86.0
                         }
                         |> getOrderScenarios today unusedProvider
@@ -267,6 +275,8 @@ module Tests =
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
                     elif key.Name = Keys.calculationWeightsAndHeights.Name then
                         box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -300,6 +310,8 @@ module Tests =
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
                     elif key.Name = Keys.calculationWeightsAndHeights.Name then
                         box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -329,7 +341,10 @@ module Tests =
 
         let private measured: CreateOrderContextInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = Some 12.0
                 HeightCm = Some 86.0
                 Sex = None
@@ -483,7 +498,10 @@ module Tests =
                             Indication = None
                             Route = None
                             Form = None
+                            AgeYears = None
                             AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
@@ -500,7 +518,7 @@ module Tests =
 
                     test "evaluateOrderContext refuses no patient before touching the provider" {
                         { measured with
-                            AgeMonths = None
+                            AgeYears = None
                             HeightCm = None
                             Department = Some "PICU"
                         }
@@ -523,6 +541,7 @@ module Tests =
         module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
         module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
         module CoreSource = Informedica.GenCore.Lib.Patients.Source
+        module Api = Informedica.GenForm.Lib.Api
 
         type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
@@ -548,6 +567,8 @@ module Tests =
                         box (rows |> EstimateFixtures.tablesOf) :?> 'T
                     elif key.Name = Keys.calculationWeightsAndHeights.Name then
                         box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -585,7 +606,10 @@ module Tests =
 
         let private ageAlone: CreateOrderContextInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = None
                 HeightCm = None
                 Sex = Some "male"
@@ -642,7 +666,7 @@ module Tests =
                     }
 
                     test "without an age nothing is estimated" {
-                        let pat = { ageAlone with AgeMonths = None } |> EstimateFixtures.patientOf tablesOnly
+                        let pat = { ageAlone with AgeYears = None } |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight, pat |> Patient.getHeight)
                         |> Expect.equal "none" (None, None)
@@ -662,16 +686,14 @@ module Tests =
                     }
 
                     test "an adult without a weight and a height while the tables are not loaded passes the check" {
-                        { ageAlone with AgeMonths = Some(40.0 * 12.0) }
+                        { ageAlone with AgeYears = Some 40 }
                         |> validPatient today noTables
                         |> Result.isOk
                         |> Expect.isTrue "passes"
                     }
 
                     test "an adult of 40 gets no estimate" {
-                        let pat =
-                            { ageAlone with AgeMonths = Some(40.0 * 12.0) }
-                            |> EstimateFixtures.patientOf tablesOnly
+                        let pat = { ageAlone with AgeYears = Some 40 } |> EstimateFixtures.patientOf tablesOnly
 
                         (pat |> Patient.getWeight, pat |> Patient.getHeight)
                         |> Expect.equal "none" (None, None)
@@ -723,6 +745,58 @@ module Tests =
                         |> Result.mapError (fun m -> m.Contains "hold no row")
                         |> Expect.equal "named as a missing row too" (Error true)
                     }
+
+                    test "the patient data resources are the tables, the calculation values and the eGFR bands" {
+                        (tablesOnly |> Api.getPatientDataResources |> Option.map _.EGFRBandOptions,
+                         noTables |> Api.getPatientDataResources)
+                        |> Expect.equal "the resources, none without the tables" (Some [], None)
+                    }
+
+                    test "a weight given is rounded to the calculation weights and stays measured" {
+                        let pat = { ageAlone with WeightKg = Some 12.34 } |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat |> Patient.getWeight, pat |> weightMeasured)
+                        |> Expect.equal "12.5 kg measured" (gram 12500m, true)
+                    }
+
+                    test "the answer gives the weight GenCORE uses, rounded or estimated" {
+                        ({ ageAlone with WeightKg = Some 12.34 }
+                         |> EstimateFixtures.patientOf tablesOnly
+                         |> patientWeightKg,
+                         ageAlone |> EstimateFixtures.patientOf tablesOnly |> patientWeightKg)
+                        |> Expect.equal "12.5 kg given, 12 kg estimated" (Some 12.5, Some 12.0)
+                    }
+
+                    test "the age parts are read together and reported as GenCORE completed them" {
+                        { ageAlone with
+                            AgeYears = Some 1
+                            AgeMonths = Some 6
+                            AgeWeeks = Some 2
+                            AgeDays = Some 3
+                        }
+                        |> EstimateFixtures.patientOf tablesOnly
+                        |> patientAge
+                        |> Expect.equal "1 year, 6 months, 2 weeks, 3 days" (Some 1, Some 6, Some 2, Some 3)
+                    }
+
+                    test "months beyond 11 are refused with the GenCORE message" {
+                        { ageAlone with
+                            AgeYears = None
+                            AgeMonths = Some 24
+                        }
+                        |> buildPatient today tablesOnly
+                        |> Result.mapError _.Contains("Months")
+                        |> Expect.equal "refused" (Error true)
+                    }
+
+                    test "any age part alone is an age" {
+                        { ageAlone with
+                            AgeYears = None
+                            AgeDays = Some 3
+                        }
+                        |> requireAgeOrMeasures
+                        |> Expect.isOk "an age"
+                    }
                 ]
 
 
@@ -743,6 +817,8 @@ module Tests =
                         box (None: Informedica.GenCore.Lib.Patients.NormalValueTables option) :?> 'T
                     elif key.Name = Keys.calculationWeightsAndHeights.Name then
                         box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
@@ -805,7 +881,10 @@ module Tests =
 
                     test "a medication without its diluent is an error through the tool path" {
                         {
-                            AgeMonths = Some 480.0
+                            AgeYears = Some 40
+                            AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
                             WeightKg = Some 70.0
                             HeightCm = Some 175.0
                             Sex = None
@@ -878,6 +957,9 @@ module Tests =
                                 null,
                                 null,
                                 Nullable(),
+                                Nullable(),
+                                Nullable(),
+                                Nullable(),
                                 Nullable 12.0,
                                 Nullable 86.0
                             )
@@ -898,6 +980,9 @@ module Tests =
                                 null,
                                 null,
                                 null,
+                                Nullable(),
+                                Nullable(),
+                                Nullable(),
                                 Nullable(),
                                 Nullable 12.0,
                                 Nullable()
@@ -1002,19 +1087,19 @@ module Tests =
                         let! r =
                             callTool
                                 "get_order_context_filter_options"
-                                [ "generic", box "paracetamol"; "ageMonths", box 72; "weightKg", box 24 ]
+                                [ "generic", box "paracetamol"; "ageYears", box 6; "weightKg", box 24 ]
 
                         r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
                     }
 
                     testTask "get_order_context_filter_options with only an age binds and answers" {
-                        let! r = callTool "get_order_context_filter_options" [ "ageMonths", box 72 ]
+                        let! r = callTool "get_order_context_filter_options" [ "ageYears", box 6 ]
 
                         r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
                     }
 
                     testTask "create_order_context without its optional arguments binds" {
-                        let! r = callTool "create_order_context" [ "ageMonths", box 72 ]
+                        let! r = callTool "create_order_context" [ "ageYears", box 6 ]
 
                         // the empty rules give a summary with no scenarios, not the SDK's invocation failure
                         r

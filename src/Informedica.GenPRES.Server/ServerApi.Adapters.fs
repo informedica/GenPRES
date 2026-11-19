@@ -406,20 +406,11 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
-    /// Returns the resources GenCORE completes the patient data with: the normal-value tables the provider parsed at
-    /// load, the calculation weights and heights, and the eGFR band options. None when the provider is not loaded or
-    /// the normal-value rows did not parse.
-    let patientDataResourcesOf (provider: Resources.IResourceProvider) () : CorePatientDataResources option =
+    /// Returns the patient data resources of the provider; None when the provider is not loaded or the normal-value
+    /// rows did not parse.
+    let patientDataResourcesOf (provider: Resources.IResourceProvider) () =
         match notLoaded provider with
-        | None ->
-            provider.Get Resources.Keys.normalValueTables
-            |> Option.map (fun tables ->
-                {
-                    NormalValueTables = tables
-                    CalculationWeightsAndHeights = provider.Get Resources.Keys.calculationWeightsAndHeights
-                    EGFRBandOptions = provider.Get Resources.Keys.egfrBandOptions
-                }
-            )
+        | None -> provider |> Api.getPatientDataResources
         | Some _ -> None
 
 

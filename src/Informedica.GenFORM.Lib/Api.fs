@@ -9,6 +9,8 @@ module Api =
 
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
 
+    type CorePatientDataResources = Informedica.GenCore.Lib.Patients.PatientDataResources
+
 
     let private logGenFormMessages (logger: Logger) (provider: IResourceProvider) =
         provider.GetResourceInfo().Messages
@@ -37,6 +39,19 @@ module Api =
 
     /// Returns the registered resource for a typed key.
     let get (key: ResourceKey<'T>) (provider: IResourceProvider) : 'T = provider.Get key
+
+
+    /// Returns the resources the patient data is completed with: the normal-value tables, the calculation weights
+    /// and heights, and the eGFR band options. None when the normal-value rows did not parse.
+    let getPatientDataResources (provider: IResourceProvider) : CorePatientDataResources option =
+        provider.Get Keys.normalValueTables
+        |> Option.map (fun tables ->
+            {
+                NormalValueTables = tables
+                CalculationWeightsAndHeights = provider.Get Keys.calculationWeightsAndHeights
+                EGFRBandOptions = provider.Get Keys.egfrBandOptions
+            }
+        )
 
 
     let getRouteMapping (provider: IResourceProvider) = provider.GetRouteMappings()
