@@ -131,7 +131,7 @@ Decided by the maintainer on 2026-11-19.
 10. **The renal function options.** The renal functions the user picks from are options too: the eGFR bands and
     the kinds of dialysis. GenCORE keeps `EGFRBand` with its four cases. GenFORM reads the sheet `egfr_bands`
     (`MinEGFR`, `MaxEGFR`, `Band`) of the rules spreadsheet and matches each row to a case by its limits; the text of
-    the row is the text of the option. A row that matches no case is a load warning.
+    the row is the text of the option. A row that matches no case, or a second row for a case, is a load warning.
 
 ## Confidence
 
@@ -161,8 +161,9 @@ step 9 is client UI code.
    `weightSteps` and `heightSteps` go. The server and MCP pass the record.
 4. **The renal function options as data.** GenCORE parses the rows of `egfr_bands` into the eGFR band options,
    each a band with the text of its row, and matches a row to a band through `RenalFunction.tryFromString`.
-   GenFORM reads the rows under a resource key of its own. A row that matches no band, or a band without a row,
-   gives a warning; a sheet that fails to load gives a warning and no eGFR band options (decision 10).
+   GenFORM reads the rows under a resource key of its own. A row that matches no band, a second row for a band,
+   or a band without a row gives a warning; a sheet that fails to load gives a warning and no eGFR band options
+   (decision 10).
 5. **GenCORE calculates the estimates and returns the options.** `PatientData.Dto.fromDto` takes the tables and the
    weight and height options and fills `Estimates` and, without a measured value, the calculation weight and height
    (decisions 1 and 3). `toDto` writes the estimates and every option, the renal functions included (decisions 5
