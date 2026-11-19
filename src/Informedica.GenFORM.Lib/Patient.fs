@@ -129,11 +129,13 @@ module PatientCategory =
 
 
     /// Whether one patient can be in both categories. Categories for a CVL and for a PVL have no
-    /// patient in common, because the access device tells them apart.
+    /// patient in common, because the access device tells them apart. Department names are compared
+    /// apart from capitals and surrounding spaces.
     let canShare (a: PatientCategory) (b: PatientCategory) =
         MinMax.canMeet (a |> getAge) (b |> getAge)
         && VenousAccess.canMeet a.Access b.Access
-        && canMeet a.Department b.Department
+        && (Option.map2 String.equalsCapInsens a.Department b.Department
+            |> Option.defaultValue true)
         && canMeet a.Location b.Location
         && MinMax.canMeet a.Weight b.Weight
         && MinMax.canMeet a.BSA b.BSA

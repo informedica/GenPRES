@@ -4046,6 +4046,17 @@ module Tests =
                                 PatientCategory.departmentMatches (Some "ICK") (Some "ick")
                                 |> Expect.isTrue "ick"
                             }
+
+                            test "two categories share a patient when the departments are equal apart from capitals" {
+                                let category dep = { PatientCategory.empty with Department = dep }
+
+                                PatientCategory.canShare (category (Some "ICK")) (category (Some "ick"))
+                                |> Expect.isTrue "ICK and ick"
+                                PatientCategory.canShare (category (Some "ICK")) (category (Some "NEO"))
+                                |> Expect.isFalse "ICK and NEO"
+                                PatientCategory.canShare (category (Some "ICK")) (category None)
+                                |> Expect.isTrue "ICK and none"
+                            }
                         ]
 
                     testList
