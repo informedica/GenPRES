@@ -27,7 +27,7 @@
 #load "../Helpers/FilterSeed.fs"
 #load "../Policies/LanguagePolicy.fs"
 #load "../Policies/OrderContextRefusalPolicy.fs"
-#load "../Policies/PatientDraftPolicy.fs"
+#load "../Policies/PatientDataPolicy.fs"
 #load "../Policies/PatientReadinessPolicy.fs"
 #load "../Policies/PickPolicy.fs"
 #load "../Policies/CompositionPolicy.fs"

@@ -2,7 +2,7 @@ namespace Informedica.GenPRES.Client.Core.Tests.Policies
 
 
 /// The edit that a message of the patient panel makes, and whether the draft is a patient.
-module PatientDraftPolicyTests =
+module PatientDataPolicyTests =
 
     open Informedica.GenPRES.Client.Core.Policies
 
@@ -10,7 +10,7 @@ module PatientDraftPolicyTests =
     open Expecto.Flip
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Api
-    open PatientDraftPolicy
+    open PatientDataPolicy
 
 
     module Fixtures =
@@ -111,4 +111,4 @@ module PatientDraftPolicyTests =
 
 
     [<Tests>]
-    let tests = testList "PatientDraftPolicy" [ toEditTests; canCalculateTests ]
+    let tests = testList "PatientDataPolicy" [ toEditTests; canCalculateTests ]

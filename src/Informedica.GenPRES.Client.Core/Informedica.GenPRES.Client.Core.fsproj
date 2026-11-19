@@ -39,7 +39,7 @@
     <!-- policies over the contract -->
     <Compile Include="Policies/LanguagePolicy.fs" />
     <Compile Include="Policies/OrderContextRefusalPolicy.fs" />
-    <Compile Include="Policies/PatientDraftPolicy.fs" />
+    <Compile Include="Policies/PatientDataPolicy.fs" />
     <Compile Include="Policies/PatientReadinessPolicy.fs" />
     <Compile Include="Policies/PickPolicy.fs" />
     <Compile Include="Policies/CompositionPolicy.fs" />

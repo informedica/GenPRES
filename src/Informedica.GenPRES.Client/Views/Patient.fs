@@ -19,7 +19,7 @@ module Patient =
     open Informedica.GenPRES.Shared.Models
     open OrderPlanMachine
     open OrderContextMachine
-    open PatientDraftPolicy
+    open PatientDataPolicy
 
 
     module private Elmish =
