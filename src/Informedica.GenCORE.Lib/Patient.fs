@@ -2102,8 +2102,9 @@ module Estimates =
     let toWhole (v: float<'u>) : int<'u> = v |> float |> int |> LanguagePrimitives.Int32WithMeasure
 
 
-    /// The step nearest to a value.
-    let nearestStep (steps: int<'u>[]) (v: int<'u>) = steps[steps |> Informedica.Utils.Lib.Array.nearestIndex v]
+    /// The step nearest to a value: the lower step on a tie, and the first or last step for a value beyond the
+    /// steps. The steps are in ascending order.
+    let inline nearestStep (steps: _[]) v = steps[steps |> Informedica.Utils.Lib.Array.nearestIndex v]
 
 
     /// Returns the percentiles of the row nearest to the age for a gender; None when the table has no row
@@ -2625,9 +2626,32 @@ module PatientData =
         |> determineGestationalAndPostMenstrualAge
 
 
-    /// Sets the estimates and the options from the resources. A measured calculation weight or height is kept;
-    /// otherwise it becomes the estimated mean, without a date, or none without an estimate. Without the
-    /// resources, the patient data is returned unchanged.
+    /// Rounds a measured calculation value to the nearest step and keeps the measurement date. The exact
+    /// measurement is added to the actual values when none of them has the same date and the same value. A value
+    /// that is not measured, or that is already a step, is returned unchanged.
+    let roundMeasured (steps: decimal<'u>[]) valueOf dateOf ofStep actual calculation =
+        match calculation with
+        | Some(Measured m) ->
+            let v = m |> valueOf
+            let step = v |> Estimates.nearestStep steps
+
+            // The values are compared in the unit of the steps, so 12.34 kg and 12340 gram are the same value.
+            let isMeasurement a = (a |> dateOf) = (m |> dateOf) && (a |> valueOf) = v
+
+            if step = v then
+                actual, calculation
+            else
+                (if actual |> List.exists isMeasurement then
+                     actual
+                 else
+                     actual @ [ m ]),
+                Some(Measured(step |> ofStep (m |> dateOf)))
+        | _ -> actual, calculation
+
+
+    /// Sets the estimates and the options from the resources. A measured calculation weight or height is rounded
+    /// to the nearest calculation value; any other becomes the estimated mean, without a date, or none without an
+    /// estimate. Without the resources, the patient data is returned unchanged.
     let estimate resources (dat: PatientData) =
         match resources with
         | None -> dat
@@ -2640,8 +2664,8 @@ module PatientData =
                     dat.Age
                     dat.PostMenstrualAge
 
-            // A measured calculation value is kept; any other becomes the estimated mean, or none without an
-            // estimate.
+            // A measured calculation value, already rounded, is kept; any other becomes the estimated mean, or none
+            // without an estimate.
             let calculation toValue current (pct: Percentiles<_> option) =
                 match current with
                 | Some(Measured _) -> current
@@ -2650,11 +2674,43 @@ module PatientData =
             let weight = int >> decimal >> WeightValue.weightInGram >> WeightAtDate.undated
             let height = int >> decimal >> HeightValue.heightInCm >> HeightAtDate.undated
 
+            // The weights are compared in gram and the heights in cm, the units of the calculation values. The
+            // step becomes a measurement on the date of the measured value.
+            let weightActual, weightCalculation =
+                dat.Weight.Calculation
+                |> roundMeasured
+                    (res.CalculationWeightsAndHeights.Weights
+                     |> Array.map (decimal >> Conversions.gramFromDecimal))
+                    (WeightAtDate.SetGet.getWeight
+                     >> WeightValue.getWeightInKg
+                     >> Conversions.decimalKgToDecimalGram)
+                    WeightAtDate.SetGet.getDate
+                    (fun date step -> step |> decimal |> WeightValue.weightInGram |> WeightAtDate.create date)
+                    dat.Weight.Actual
+
+            let heightActual, heightCalculation =
+                dat.Height.Calculation
+                |> roundMeasured
+                    (res.CalculationWeightsAndHeights.Heights
+                     |> Array.map (decimal >> Conversions.cmFromDecimal))
+                    (HeightAtDate.SetGet.getHeight >> HeightValue.getHeightCm)
+                    HeightAtDate.SetGet.getDate
+                    (fun date step -> step |> decimal |> HeightValue.heightInCm |> HeightAtDate.create date)
+                    dat.Height.Actual
+
             { dat with
                 Estimates = est
                 Options = PatientDataOptions.ofResources res
-                Weight = { dat.Weight with Calculation = est.Weight |> calculation weight dat.Weight.Calculation }
-                Height = { dat.Height with Calculation = est.Height |> calculation height dat.Height.Calculation }
+                Weight =
+                    { dat.Weight with
+                        Actual = weightActual
+                        Calculation = est.Weight |> calculation weight weightCalculation
+                    }
+                Height =
+                    { dat.Height with
+                        Actual = heightActual
+                        Calculation = est.Height |> calculation height heightCalculation
+                    }
             }
 
 
