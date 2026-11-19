@@ -99,6 +99,30 @@ let tests =
                 |> Expect.isTrue "24 months refused"
             }
 
+            test "a renal function that is not a band is refused with the message of a change" {
+                let notABand = Some(EGFR(Some 20, Some 40))
+
+                stub
+                |> Patient.edit readAt (AgeOnRequest.loaded ()) (PatientDataEdit.SetRenalFunction notABand)
+                |> Expect.equal
+                    "the same refusal"
+                    ({ stub with RenalFunction = notABand }
+                     |> Patient.complete readAt (AgeOnRequest.loaded ()))
+
+                stub
+                |> Patient.edit readAt (AgeOnRequest.loaded ()) (PatientDataEdit.SetRenalFunction notABand)
+                |> Result.isError
+                |> Expect.isTrue "refused"
+            }
+
+            test "a renal function that is a band, and a clear, are edits" {
+                let band = Some(EGFR(Some 10, Some 30))
+
+                ((stub |> edited (PatientDataEdit.SetRenalFunction band)).RenalFunction,
+                 (stub |> edited (PatientDataEdit.SetRenalFunction None)).RenalFunction)
+                |> Expect.equal "the band, then none" (band, None)
+            }
+
             test "an edit command needs the loaded resources, as a change does" {
                 (PatientDataCommand.EditPatientData(PatientDataEdit.SetYears(Some 6), stub)
                  |> ServerApi.PatientDataCommand.gate,

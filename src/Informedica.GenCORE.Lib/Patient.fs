@@ -2899,7 +2899,10 @@ module PatientDataEdit =
             dto.Height.CalculationEstimated <- false
         | PatientDataEdit.SetGender g -> dto.Gender <- g |> Gender.toString
         | PatientDataEdit.SetRenalFunction rf -> dto.RenalFunction <- rf |> Option.map RenalFunction.toString
-        | PatientDataEdit.SetDepartment name -> dto.Department.OtherDepartment <- name
+        | PatientDataEdit.SetDepartment name ->
+            // A fresh department Dto, so no department of another kind stays next to the new name.
+            dto.Department <- Department.Dto.dto ()
+            dto.Department.OtherDepartment <- name
         | PatientDataEdit.AddAccess a ->
             let s = a |> Access.toString
 

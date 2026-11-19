@@ -441,35 +441,46 @@ module Patient =
     let complete today resources model = model |> ofModel |> completeDto today resources
 
 
-    /// Maps an edit of the contract to the GenCORE edit.
+    /// Maps an edit of the contract to the GenCORE edit. Returns the message of GenCORE when a renal function
+    /// is not one GenCORE knows, such as an eGFR range that is not a band; None stays a clear.
     let coreEdit edit =
         match edit with
-        | ContractEdit.SetYears v -> CoreEdit.SetYears v
-        | ContractEdit.SetMonths v -> CoreEdit.SetMonths v
-        | ContractEdit.SetWeeks v -> CoreEdit.SetWeeks v
-        | ContractEdit.SetDays v -> CoreEdit.SetDays v
-        | ContractEdit.SetGestationalWeeks v -> CoreEdit.SetGestationalWeeks v
-        | ContractEdit.SetGestationalDays v -> CoreEdit.SetGestationalDays v
-        | ContractEdit.SetWeight w -> w |> Option.map (decimal >> CoreWeightValue.weightInGram) |> CoreEdit.SetWeight
-        | ContractEdit.SetHeight h -> h |> Option.map (decimal >> CoreHeightValue.heightInCm) |> CoreEdit.SetHeight
-        | ContractEdit.SetGender g -> g |> Age.coreGender |> CoreEdit.SetGender
-        | ContractEdit.SetRenalFunction rf ->
-            rf
-            |> Option.bind (renalString >> CoreRenal.tryFromString)
-            |> CoreEdit.SetRenalFunction
-        | ContractEdit.SetDepartment name -> CoreEdit.SetDepartment name
-        | ContractEdit.AddAccess a -> a |> coreAccess |> CoreEdit.AddAccess
-        | ContractEdit.RemoveAccess a -> a |> coreAccess |> CoreEdit.RemoveAccess
-        | ContractEdit.SetMarkedAdult marked -> CoreEdit.SetMarkedAdult marked
+        | ContractEdit.SetYears v -> CoreEdit.SetYears v |> Ok
+        | ContractEdit.SetMonths v -> CoreEdit.SetMonths v |> Ok
+        | ContractEdit.SetWeeks v -> CoreEdit.SetWeeks v |> Ok
+        | ContractEdit.SetDays v -> CoreEdit.SetDays v |> Ok
+        | ContractEdit.SetGestationalWeeks v -> CoreEdit.SetGestationalWeeks v |> Ok
+        | ContractEdit.SetGestationalDays v -> CoreEdit.SetGestationalDays v |> Ok
+        | ContractEdit.SetWeight w ->
+            w
+            |> Option.map (decimal >> CoreWeightValue.weightInGram)
+            |> CoreEdit.SetWeight
+            |> Ok
+        | ContractEdit.SetHeight h ->
+            h
+            |> Option.map (decimal >> CoreHeightValue.heightInCm)
+            |> CoreEdit.SetHeight
+            |> Ok
+        | ContractEdit.SetGender g -> g |> Age.coreGender |> CoreEdit.SetGender |> Ok
+        | ContractEdit.SetRenalFunction None -> CoreEdit.SetRenalFunction None |> Ok
+        | ContractEdit.SetRenalFunction(Some rf) ->
+            let s = rf |> renalString
+
+            match s |> CoreRenal.tryFromString with
+            | Some renal -> Some renal |> CoreEdit.SetRenalFunction |> Ok
+            | None -> Error [| $"Renal function is unknown: %s{s}" |]
+        | ContractEdit.SetDepartment name -> CoreEdit.SetDepartment name |> Ok
+        | ContractEdit.AddAccess a -> a |> coreAccess |> CoreEdit.AddAccess |> Ok
+        | ContractEdit.RemoveAccess a -> a |> coreAccess |> CoreEdit.RemoveAccess |> Ok
+        | ContractEdit.SetMarkedAdult marked -> CoreEdit.SetMarkedAdult marked |> Ok
 
 
     /// Applies an edit of the panel to the contract patient through GenCORE and completes the result on
-    /// today's date. Returns the messages when a value is invalid.
+    /// today's date. Returns the messages when the edit or a value is invalid.
     let edit today resources panelEdit model =
-        model
-        |> ofModel
-        |> CoreEdit.apply (panelEdit |> coreEdit)
-        |> completeDto today resources
+        panelEdit
+        |> coreEdit
+        |> Result.bind (fun e -> model |> ofModel |> CoreEdit.apply e |> completeDto today resources)
 
 
     /// Maps the contract patient to GenCORE patient data and checks that the rules can be looked up:

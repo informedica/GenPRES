@@ -3839,6 +3839,30 @@ module Tests =
                         |> Expect.isNone "no gestational age at 5 years"
                     }
 
+                    test "a department edit replaces a department of another kind and leaves the rest" {
+                        let neonatal () =
+                            let dto = agedDto (Some 5) None
+                            dto.Gender <- "female"
+                            dto.Access <- [| "cvl" |]
+                            dto.Department.NeonatalICU <- Some "NEO"
+                            dto
+
+                        let named = neonatal () |> PatientDataEdit.apply (PatientDataEdit.SetDepartment(Some "ICK"))
+
+                        named
+                        |> PatientData.Dto.fromDto readAt None
+                        |> Result.map (_.Department >> Department.name)
+                        |> Expect.equal "the other department ICK" (Ok(Some "ICK"))
+
+                        (named.Age |> Option.map _.Years, named.Gender, named.Access)
+                        |> Expect.equal "the rest as it was" (Some(Some 5), "female", [| "cvl" |])
+
+                        let cleared = neonatal () |> PatientDataEdit.apply (PatientDataEdit.SetDepartment None)
+
+                        (cleared.Department.NeonatalICU, cleared.Department.OtherDepartment)
+                        |> Expect.equal "no department" (None, None)
+                    }
+
                     test "the gender, the renal function, the department and the mark are written as Dto strings" {
                         let dto =
                             PatientData.Dto.dto ()
