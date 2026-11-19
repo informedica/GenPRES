@@ -50,6 +50,7 @@ let portAtToday () =
         directory.idp
         directory.registry
         Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.ehrPatients
+        (fun () -> None)
         (StubMail.make ()).port
         AR.state
 

@@ -87,7 +87,8 @@ let opened (sid: string) (ehr: Informedica.GenCore.Lib.Patients.Patient option) 
 
 
 /// What the Session given shows at a date, through the port whose projection moves with the clock.
-let shownAt date (_, record: Session.SessionRecord) = record.Opened |> Session.sessionPatientData date port
+let shownAt date (_, record: Session.SessionRecord) =
+    record.Opened |> Session.sessionPatientData date (fun () -> None) port
 
 
 let unreadable: UnreadableVersion =
@@ -471,7 +472,7 @@ let tests =
 
                         let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(estimated, identity)))
                         let session = { record.Opened with Act = SessionAct.Signed }
-                        let shown date = session |> Session.sessionPatientData date port
+                        let shown date = session |> Session.sessionPatientData date (fun () -> None) port
 
                         shown today
                         |> Option.bind weightInKg
@@ -488,6 +489,46 @@ let tests =
                         (shown tomorrow |> Option.bind CorePatientData.heightInCm, signed |> CorePatientData.heightInCm)
                         |> fun (shownHeight, signedHeight) ->
                             shownHeight |> Expect.equal "the measured height stays" signedHeight
+                    }
+
+                    let withWeight source =
+                        { typed with Plan = { typed.Plan with PatientData = { signed with Weight = thirtyKg source } } }
+
+                    // What the Session after the sign of the version given shows at a date, with the resources.
+                    let shownWith resources date version =
+                        let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(version, identity)))
+
+                        { record.Opened with Act = SessionAct.Signed }
+                        |> Session.sessionPatientData date resources port
+
+                    let isMeasured (pat: CorePatientData) =
+                        pat.Weight.Calculation
+                        |> Option.map Informedica.GenCore.Lib.Patients.Source.isMeasured
+
+                    test "with the resources, an estimate signed is estimated again for the new age" {
+                        withWeight CoreSource.Estimated
+                        |> shownWith Informedica.GenPRES.Server.Tests.AgeOnRequestTests.loaded tomorrow
+                        |> Option.bind isMeasured
+                        |> Expect.equal "an estimated weight" (Some false)
+                    }
+
+                    test "with the resources, a measured weight signed stays measured at the new age" {
+                        let shown =
+                            withWeight CoreSource.Measured
+                            |> shownWith Informedica.GenPRES.Server.Tests.AgeOnRequestTests.loaded tomorrow
+
+                        (shown |> Option.bind weightInKg, shown |> Option.bind isMeasured)
+                        |> Expect.equal "30 kg measured" (Some 30N, Some true)
+                    }
+
+                    test "at the age signed, the estimate stands and the resources are not read" {
+                        let unread () =
+                            failtest "the resources are read although the age did not change"
+
+                        withWeight CoreSource.Estimated
+                        |> shownWith unread today
+                        |> Option.bind weightInKg
+                        |> Expect.equal "30 kg" (Some 30N)
                     }
 
                     test "the patient after the sign is at the age of the sign, the version keeps its own" {
@@ -515,7 +556,7 @@ let tests =
                              identity,
                              Some version.Id,
                              Some token,
-                             record.Opened |> Session.sessionPatientData tomorrow port)
+                             record.Opened |> Session.sessionPatientData tomorrow (fun () -> None) port)
                     }
 
                     test "the version names the patient of the read signed on: a notice accepted over another name" {
@@ -545,7 +586,7 @@ let tests =
                             signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
 
                         (record.Opened
-                         |> Session.sessionPatientData tomorrow port
+                         |> Session.sessionPatientData tomorrow (fun () -> None) port
                          |> Option.bind ageInDays,
                          version.Plan.PatientData |> ageInDays)
                         |> Expect.equal "3848 on the Session, 3847 on the version" (Some 3848N, Some 3847N)
@@ -558,7 +599,7 @@ let tests =
                         (version.EhrPatient,
                          patient |> weightInKg,
                          after.Opened
-                         |> Session.sessionPatientData tomorrow port
+                         |> Session.sessionPatientData tomorrow (fun () -> None) port
                          |> Option.bind weightInKg)
                         |> Expect.equal "the 34 kg read, the 32 kg signed" (Some heavier, Some 32N, Some 32N)
                     }

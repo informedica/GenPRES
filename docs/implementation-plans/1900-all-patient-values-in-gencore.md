@@ -125,7 +125,8 @@ Decided by the maintainer on 2026-11-19.
    the patient data arrives with its options.
 8. **MCP takes the same path as the client.** Its input takes the age parts in place of `AgeMonths`, within the
    options the Dto offers, and fills the Dto with plain values. MCP does not read the normal-value resources or call
-   the estimates itself: the server and MCP complete the patient data through one shared function. Letting the MCP
+   the estimates itself: the server and MCP complete the patient data through one shared path, GenCORE
+   `PatientData.Dto.fromDto` with the resources from GenFORM `Api.getPatientDataResources`. Letting the MCP
    tools ask the server API, as the client does, is left to issue #1907.
 9. **Stored data.** This is an alpha without production data, so the stored fixtures change and the structure
    versions stay.
@@ -203,14 +204,15 @@ step 10 is client UI code.
      resources, as the server does. The resources come from a new GenFORM function, `Api.getPatientDataResources`,
      which the server uses too and step 8 builds on. The answer of `create_order_context` gives the age parts and
      the weight as GenCORE completed them.
-8. **One function completes the patient data.** The server and MCP complete the patient data through one shared
-   function that takes the resource provider and the patient data Dto, reads the normal-value tables and the
-   calculation weights and heights, and returns the completed patient data (decision 8). It lives in a library
-   that both reference; its place and name are decided in the script review. The server and MCP no longer read
-   these resources themselves. The function also replaces the two copies of the weight and height Dto builders,
-   `weightDto` and `heightDto` in `McpTools.GenOrder.fs` and in `ServerApi.Mappers.Patient.fs`; MCP takes the weight
-   in kg, the server in whole grams. `Patient.atDate` sets the age of an identified patient from the birth date but
-   does not estimate again, because it has no resources; the shared function estimates after the age is set.
+8. **One path completes the patient data.** The server and MCP complete the patient data through one shared
+   path: GenCORE `PatientData.Dto.fromDto` with the resources from GenFORM `Api.getPatientDataResources`, which steps
+   7a to 7c built (decision 8). No wrapper function is added, because the server commands hold the resources and not
+   the provider. The server and MCP each keep a one-line weight and height Dto builder, written with the
+   existing GenCORE functions (`WeightValue.weightInGram` or `weightInKg`, `HeightValue.heightInCm`, `undated` and
+   `Dto.toDto`); no new GenCORE function is added for the two callers. When a signed version
+   is aged to a new age, the server drops the estimated weight and height and GenCORE estimates them again with the
+   resources: `Session.signedPatientDataAt` and `sessionPatientData` take the resources, and the session port gets
+   them from the composition root.
 9. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
    data Dto and returns the completed Dto, as GenORDER applies a filter pick to an order context. Because every
    value is picked from the options that GenCORE offers, the command cannot fail. `PatientDataCommand` sends the

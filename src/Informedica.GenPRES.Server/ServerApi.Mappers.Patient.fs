@@ -123,6 +123,8 @@ module Patient =
     module CoreRenal = Informedica.GenCore.Lib.Patients.RenalFunction
     module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
+    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module Measures = Informedica.GenPRES.Shared.Measures
 
     type CoreAccess = Informedica.GenCore.Lib.Patients.Access
@@ -203,17 +205,17 @@ module Patient =
 
         let weeksDays = Age.weeksDays >> CoreAgeWeeksDays.Dto.toDto
 
-        let weightDto grams =
-            let w = CoreWeightAtDate.Dto.dto ()
-            w.WeightValue.Weight <- grams |> int |> decimal
-            w.WeightValue.WeightInKg <- false
-            w
+        let weightDto =
+            decimal
+            >> CoreWeightValue.weightInGram
+            >> CoreWeightAtDate.undated
+            >> CoreWeightAtDate.Dto.toDto
 
-        let heightDto cms =
-            let h = CoreHeightAtDate.Dto.dto ()
-            h.HeightValue.Height <- cms |> int |> decimal
-            h.HeightValue.HeightInMeter <- false
-            h
+        let heightDto =
+            decimal
+            >> CoreHeightValue.heightInCm
+            >> CoreHeightAtDate.undated
+            >> CoreHeightAtDate.Dto.toDto
 
         dto.Location <- model.Location
         dto.Department.OtherDepartment <- model.Department

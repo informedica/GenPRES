@@ -825,6 +825,7 @@ module StubDatabase =
         (idp: IdentityProviderPort)
         (registry: UserRegistryPort)
         (ehrPatients: EhrPatientPort)
+        (patientDataResources: unit -> CorePatientDataResources option)
         (mailPort: MailPort)
         (initial: Session.State)
         : SessionPort
@@ -932,7 +933,9 @@ module StubDatabase =
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
             find = fun id -> async { return overSession id (fun at -> Session.find at id) }
-            patientData = fun opened -> Session.sessionPatientData (now () |> LocalDate.ofUtc zone) ehrPatients opened
+            patientData =
+                fun opened ->
+                    Session.sessionPatientData (now () |> LocalDate.ofUtc zone) patientDataResources ehrPatients opened
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             closeTab =
                 fun id opened ->

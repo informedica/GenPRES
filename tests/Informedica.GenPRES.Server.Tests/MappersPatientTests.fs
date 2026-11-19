@@ -158,6 +158,23 @@ let tests =
                 |> Expect.equal "estimated" estimated
             }
 
+            test "the weight and height reach the Dto without a date, in gram and in cm" {
+                let dto = full |> ServerApi.Patient.ofModel
+
+                (dto.Weight.Calculation
+                 |> Option.map (fun w -> w.DateTime, w.WeightValue.Weight, w.WeightValue.WeightInKg),
+                 dto.Height.Calculation
+                 |> Option.map (fun h -> h.DateTime, h.HeightValue.Height, h.HeightValue.HeightInMeter))
+                |> Expect.equal
+                    "gram and cm, no date"
+                    (full
+                     |> ContractPatientData.getWeight
+                     |> Option.map (fun g -> None, decimal (int g), false),
+                     full
+                     |> ContractPatientData.getHeight
+                     |> Option.map (fun c -> None, decimal (int c), false))
+            }
+
             test "outside L3: the other estimates are not on the Dto and come back empty" {
                 let withP3 =
                     { stub with

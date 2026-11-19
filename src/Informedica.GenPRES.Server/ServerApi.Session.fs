@@ -747,10 +747,10 @@ module Session =
 
 
     /// The patient data of a signed version, aged to the local date. When the age changed, the
-    /// estimated weight and height are removed, because an estimate is only valid for the age it
-    /// was made for. A measured value stays. Raises an InvalidOperationException when GenCORE refuses the
-    /// Dto.
-    let signedPatientDataAt date whom (patientData: CorePatientData) =
+    /// estimated weight and height are removed, because an estimate is valid only for the age it was
+    /// made for. GenCORE then estimates them again for the new age with the resources. A measured value
+    /// stays. Raises an InvalidOperationException when GenCORE refuses the Dto.
+    let signedPatientDataAt date resources whom (patientData: CorePatientData) =
         let aged = patientData |> atBirthDate date whom
 
         // Compare the ages in days. Two age values with different parts can be the same age.
@@ -765,18 +765,19 @@ module Session =
             if not (aged.Height |> CoreHeight.isMeasured) then
                 dto.Height.Calculation <- None
 
-            dto |> Patient.fromOwnDto date None
+            dto |> Patient.fromOwnDto date (resources ())
 
 
     /// The patient data a Session shows on the local date. After a signing, the data of the signed
     /// version; after any other act, the data from the EHR. Each falls back on the other. None
     /// when neither exists; the user then enters the data.
-    let sessionPatientData date (ehrPatients: EhrPatientPort) (opened: OpenedSession) =
+    let sessionPatientData date resources (ehrPatients: EhrPatientPort) (opened: OpenedSession) =
         let ofEhrPatient = opened.EhrPatient |> Option.map ehrPatients.patientData
 
         let ofHead =
             match opened.Head with
-            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.PatientData |> signedPatientDataAt date whom)
+            | Some(StoredVersion.Readable(v, whom)) ->
+                Some(v.Plan.PatientData |> signedPatientDataAt date resources whom)
             | _ -> None
 
         match opened.Act with
