@@ -11,9 +11,9 @@ open ServerApi
 open Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 
-/// The answer to a patient data update in the Session named, with the normal values given.
-let changed normalValues (sid: string option) (pat: PatientData) =
-    let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
+/// The answer to a patient data update in the Session named, with the resources given.
+let changed resources (sid: string option) (pat: PatientData) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     Compute.bound
         env

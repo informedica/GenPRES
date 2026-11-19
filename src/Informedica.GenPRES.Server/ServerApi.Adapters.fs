@@ -406,13 +406,20 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
-    /// Returns the normal-value tables of weight and height the provider parsed at load, with the calculation weights
-    /// and heights; None when the provider is not loaded or the rows did not parse.
-    let normalValuesOf (provider: Resources.IResourceProvider) () =
+    /// Returns the resources GenCORE completes the patient data with: the normal-value tables the provider parsed at
+    /// load, the calculation weights and heights, and the eGFR band options. None when the provider is not loaded or
+    /// the normal-value rows did not parse.
+    let patientDataResourcesOf (provider: Resources.IResourceProvider) () : CorePatientDataResources option =
         match notLoaded provider with
         | None ->
             provider.Get Resources.Keys.normalValueTables
-            |> Option.map (fun tables -> tables, provider.Get Resources.Keys.calculationWeightsAndHeights)
+            |> Option.map (fun tables ->
+                {
+                    NormalValueTables = tables
+                    CalculationWeightsAndHeights = provider.Get Resources.Keys.calculationWeightsAndHeights
+                    EGFRBandOptions = provider.Get Resources.Keys.egfrBandOptions
+                }
+            )
         | Some _ -> None
 
 
@@ -518,7 +525,7 @@ module Adapters =
                             }
                 }
             requireLoaded = fun () -> notLoaded provider
-            normalValues = normalValuesOf provider
+            patientDataResources = patientDataResourcesOf provider
             today = today
             departments = fun () -> provider.GetDepartments()
             // The session port over the SQLite store when store is set, otherwise in memory. In memory, the sessions
@@ -550,10 +557,10 @@ module Adapters =
                     (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     directory.idp
                     directory.registry
-                    // The stub EHR data with estimates from the loaded normal-value tables; the test patients are
+                    // The stub EHR data, completed by GenCORE with the loaded resources; the test patients are
                     // measured on the local date.
                     (StubEhrPatient.portAt today
-                     |> Patient.estimating today (normalValuesOf provider))
+                     |> Patient.completing today (patientDataResourcesOf provider))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (

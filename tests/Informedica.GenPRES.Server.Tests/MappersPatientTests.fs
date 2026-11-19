@@ -41,6 +41,17 @@ open Informedica.GenPRES.Server.Tests.TestDates
 
 let stub = ServerApi.StubEhrPatient.contractPatient
 
+
+/// The contract patient completed by GenCORE on the date of reading, with the resources when they are given.
+let completedWith resources model =
+    model
+    |> ServerApi.Patient.complete readAt resources
+    |> Result.defaultWith (fun errs -> failtest $"not completed: %A{errs}")
+
+
+/// The contract patient completed by GenCORE without the resources.
+let completed model = model |> completedWith None
+
 /// Every field the mapping carries, in the shape the contract model gives back: a patient of 20
 /// days, so that the gestational age is needed.
 let full: Informedica.GenPRES.Shared.Types.PatientData =
@@ -62,7 +73,7 @@ let full: Informedica.GenPRES.Shared.Types.PatientData =
         Location = Some "UMCU"
         Department = Some "ICK"
     }
-    |> fun pat -> { pat with PostMenstrualAge = pat.GestationalAge |> ServerApi.Age.postMenstrualAge pat.Age }
+    |> completed
 
 
 /// The patient the Formulary filter is made for.
@@ -89,6 +100,15 @@ let weightKg pat = pat |> CorePatientData.weightInKg |> Option.bind singleValue
 
 /// The height in cm as a number.
 let heightCm pat = pat |> CorePatientData.heightInCm |> Option.bind singleValue
+
+
+/// An age in weeks and days of the contract in days.
+let weeksDaysInDays (awd: AgeWeeksDays) = int awd.Weeks * 7 + int awd.Days
+
+
+/// An age of the contract in days, as GenCORE counts it.
+let ageInDays age =
+    age |> ServerApi.Age.ageValue |> CoreAgeValue.getAgeInDays |> int
 
 
 /// The post-menstrual age of a Dto in days.
@@ -183,12 +203,7 @@ let tests =
                 // as the server answers the patient change that removed the gestational age
                 let withoutGest = { full with GestationalAge = GestationalAge.RequiredGestationalAge None }
 
-                (Some
-                    { withoutGest with
-                        PostMenstrualAge = withoutGest.GestationalAge |> ServerApi.Age.postMenstrualAge withoutGest.Age
-                    }
-                 |> formularyPatient)
-                    .PostMenstrualAge
+                (Some(withoutGest |> completed) |> formularyPatient).PostMenstrualAge
                 |> Expect.isNone "none"
             }
 
@@ -221,21 +236,17 @@ let tests =
                             }
                 ]
                 |> List.filter (fun pat ->
-                    (pat.GestationalAge
-                     |> ServerApi.Age.postMenstrualAge pat.Age
-                     |> Option.map (ServerApi.Age.weeksDaysInDays >> int))
+                    ((pat |> completed).PostMenstrualAge |> Option.map weeksDaysInDays)
                     <> (pat.Age
-                        |> Option.map ServerApi.Age.inDays
-                        |> Option.map2
-                            (fun ga age -> age + (ServerApi.Age.weeksDaysInDays ga |> int))
-                            (pat.GestationalAge |> GA.value))
+                        |> Option.map ageInDays
+                        |> Option.map2 (fun ga age -> age + weeksDaysInDays ga) (pat.GestationalAge |> GA.value))
                 )
                 |> Expect.isEmpty "the same days"
             }
 
             test "no gestational age, or no age: no post-menstrual age" {
-                (GestationalAge.NoGestationalAge |> ServerApi.Age.postMenstrualAge stub.Age,
-                 full.GestationalAge |> ServerApi.Age.postMenstrualAge None)
+                (({ stub with GestationalAge = GestationalAge.NoGestationalAge } |> completed).PostMenstrualAge,
+                 ({ full with Age = None } |> completed).PostMenstrualAge)
                 |> Expect.equal "none, none" (None, None)
             }
 
@@ -269,7 +280,7 @@ let tests =
                     { stub with Height = { stub.Height with Measured = None } }
                     ContractPatientData.empty
                 ]
-                |> List.map (ServerApi.Patient.bodySurfaceArea readAt)
+                |> List.map (completed >> _.BodySurfaceArea)
                 |> Expect.equal
                     "32 kg and 140 cm, also marked as an adult under 16; no height; no patient"
                     [ Some 1.1m; Some 1.1m; None; None ]
@@ -288,31 +299,12 @@ let tests =
                         GestationalAge = GestationalAge.RequiredGestationalAge(Some gest)
                     }
 
-                let dto =
-                    { model with PostMenstrualAge = model.GestationalAge |> ServerApi.Age.postMenstrualAge model.Age }
-                    |> ServerApi.Patient.ofModel
+                let dto = model |> completed |> ServerApi.Patient.ofModel
 
                 let back = dto |> ServerApi.Patient.toModel
 
-                (back.PostMenstrualAge |> Option.map (ServerApi.Age.weeksDaysInDays >> int),
-                 back |> ServerApi.Patient.ofModel |> pmaDays)
+                (back.PostMenstrualAge |> Option.map weeksDaysInDays, back |> ServerApi.Patient.ofModel |> pmaDays)
                 |> Expect.equal "241 days, 241 days" (Some 241, Some 241)
-            }
-
-            test "the gestational age in days and back, as GenCORE counts and splits them" {
-                let gestOf w d : AgeWeeksDays =
-                    {
-                        Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
-                        Days = Informedica.GenPRES.Shared.Measures.toDay d
-                    }
-
-                { full with GestationalAge = GestationalAge.RequiredGestationalAge(Some(gestOf 28 3)) }
-                |> ServerApi.Age.gestAgeInDays
-                |> Expect.equal "199 days" (Some 199<Informedica.GenCore.Lib.Measures.day>)
-
-                [ 0; 6; 199; 259 ]
-                |> List.map ServerApi.Age.weeksDaysOfDays
-                |> Expect.equal "weeks and days" [ gestOf 0 0; gestOf 0 6; gestOf 28 3; gestOf 37 0 ]
             }
 
             test "an empty department stays empty, in the Formulary mapper too: the lookup applies the default" {
@@ -394,8 +386,20 @@ module EstimateFixtures =
         |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
-    /// The tables with the calculation weights and heights, as the server passes them to an estimate.
-    let normalValues = tables, calc
+    /// The resources over the tables, as the server passes them to GenCORE.
+    let resources: Informedica.GenCore.Lib.Patients.PatientDataResources =
+        {
+            NormalValueTables = tables
+            CalculationWeightsAndHeights = calc
+            EGFRBandOptions = []
+        }
+
+
+    /// The patient data completed by GenCORE with the resources, as the EHR read completes it.
+    let estimated pat =
+        pat
+        |> CorePatientData.Dto.toDto
+        |> ServerApi.Patient.fromOwnDto readAt (Some resources)
 
 
 open EstimateFixtures
@@ -411,7 +415,7 @@ let estimateTests =
                     PatientData.unknown
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Male
-                    |> ServerApi.Patient.estimated readAt normalValues
+                    |> estimated
 
                 (pat |> weightKg,
                  pat |> heightCm,
@@ -429,7 +433,7 @@ let estimateTests =
                 PatientData.unknown
                 |> SamplePatients.withAge [ Years 2 ]
                 |> SamplePatients.withGender CoreGender.Male
-                |> ServerApi.Patient.estimated readAt normalValues
+                |> estimated
                 |> _.BodySurfaceArea
                 |> Option.map decimal
                 |> Expect.equal "twelve kilograms and 87 centimetres" (Some 0.53m)
@@ -441,7 +445,7 @@ let estimateTests =
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Male
                     |> SamplePatients.withWeightInKg 20m
-                    |> ServerApi.Patient.estimated readAt normalValues
+                    |> estimated
 
                 (pat |> weightKg,
                  pat.Weight |> CoreWeight.isMeasured,
@@ -460,7 +464,7 @@ let estimateTests =
 
                 let estimated =
                     (port
-                     |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                     |> ServerApi.Patient.completing (fun () -> readAt) (fun () -> Some resources))
                         .patientData
                         noHeight
 
@@ -468,15 +472,17 @@ let estimateTests =
                 |> Expect.equal "the weight as read, the height an estimate" (read.Weight, true, false)
             }
 
-            test "a measured weight and height of the EHR are returned as read" {
+            test "a measured weight and height of the EHR on the list are returned as read" {
                 let ehr = ServerApi.StubEhrPatient.patient ServerApi.StubEhrPatient.measuredOn "any"
                 let port = ServerApi.StubEhrPatient.port
+                let read = port.patientData ehr
 
                 (port
-                 |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                 |> ServerApi.Patient.completing (fun () -> readAt) (fun () -> Some resources))
                     .patientData
                     ehr
-                |> Expect.equal "as read" (port.patientData ehr)
+                |> fun pat -> pat.Weight, pat.Height
+                |> Expect.equal "as read" (read.Weight, read.Height)
             }
 
             test "the department, the gender, the access devices and the diagnoses survive the round trip" {
@@ -488,16 +494,19 @@ let estimateTests =
                     }
                     |> SamplePatients.withAge [ Years 2 ]
                     |> SamplePatients.withGender CoreGender.Female
-                    |> ServerApi.Patient.estimated readAt normalValues
+                    |> estimated
 
                 (pat |> PatientData.department, pat |> PatientData.gender, pat |> PatientData.access, pat.Diagnoses)
                 |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ], [| "sepsis" |])
             }
 
-            test "a reading that is no patient stays as it was" {
+            test "a reading that is no patient gets no weight, height or estimates" {
                 PatientData.unknown
-                |> ServerApi.Patient.estimated readAt normalValues
-                |> Expect.equal "unchanged" PatientData.unknown
+                |> estimated
+                |> fun pat -> pat.Weight, pat.Height, pat.Estimates
+                |> Expect.equal
+                    "as it was"
+                    (PatientData.unknown.Weight, PatientData.unknown.Height, PatientData.unknown.Estimates)
             }
 
             test "an identified patient keeps the age, gestational age and post-menstrual age the projection gives" {
@@ -520,7 +529,7 @@ let estimateTests =
                 let projected = port.patientData premature
                 let estimated =
                     (port
-                     |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                     |> ServerApi.Patient.completing (fun () -> readAt) (fun () -> Some resources))
                         .patientData
                         premature
 
@@ -546,13 +555,13 @@ let estimateTests =
                 let port = ServerApi.StubEhrPatient.port
 
                 (port
-                 |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> Some normalValues))
+                 |> ServerApi.Patient.completing (fun () -> readAt) (fun () -> Some resources))
                     .patientData
                     bare
                 |> _.Weight.Calculation.IsSome
                 |> Expect.isTrue "estimated"
 
-                (port |> ServerApi.Patient.estimating (fun () -> readAt) (fun () -> None)).patientData bare
+                (port |> ServerApi.Patient.completing (fun () -> readAt) (fun () -> None)).patientData bare
                 |> Expect.equal "as projected" (port.patientData bare)
             }
         ]
@@ -566,13 +575,14 @@ let draft days marked weight height : Informedica.GenPRES.Shared.Types.PatientDa
 
     { empty with
         Age = age
-        AdultMark = AdultMark.MarkableAdult marked |> ServerApi.Age.adultMark age
+        AdultMark = AdultMark.MarkableAdult marked
         Weight =
             { empty.Weight with
                 Measured = weight |> Option.map ((*) 1000 >> Informedica.GenPRES.Shared.Measures.toGram)
             }
         Height = { empty.Height with Measured = height |> Option.map Informedica.GenPRES.Shared.Measures.toCm }
     }
+    |> completed
 
 
 [<Tests>]
@@ -636,7 +646,7 @@ let adultTests =
                 adult |> ServerApi.Patient.patient |> Expect.equal "passes" (Ok adult)
 
                 adult
-                |> ServerApi.Patient.estimate (fun () -> Some normalValues)
+                |> completedWith (Some resources)
                 |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p |> Patient.getWeight, p |> Patient.getHeight)
                 |> Expect.equal "no weight, no height" (Ok(None, None))
@@ -674,7 +684,7 @@ let adultTests =
 
             test "a child of 2 without measures is estimated and passes" {
                 draft (Some(2 * 365)) false None None
-                |> ServerApi.Patient.estimate (fun () -> Some normalValues)
+                |> completedWith (Some resources)
                 |> ServerApi.Patient.parse readAt
                 |> Result.map (fun p -> p.Weight.Calculation.IsSome, p.Height.Calculation.IsSome)
                 |> Expect.equal "both estimated" (Ok(true, true))
@@ -728,17 +738,23 @@ let adultTests =
                     ]
             }
 
-            test "an age in months: 191 months not markable, 192 markable, 215 markable, 216 an adult" {
-                [ 191; 192; 215; 216 ]
-                |> List.map (fun months ->
+            test
+                "an age in years and months: 15 years 11 months not markable, 16 years markable, 17 years 11 months markable, 18 years an adult" {
+                [ 15, 11; 16, 0; 17, 11; 18, 0 ]
+                |> List.map (fun (years, months) ->
                     let age =
                         ContractPatientData.Age.create
-                            (Informedica.GenPRES.Shared.Measures.toYear 0)
+                            (Informedica.GenPRES.Shared.Measures.toYear years)
                             (Some(Informedica.GenPRES.Shared.Measures.toMonth months))
                             None
                             None
 
-                    AdultMark.MarkableAdult true |> ServerApi.Age.adultMark (Some age)
+                    ({ ContractPatientData.empty with
+                        Age = Some age
+                        AdultMark = AdultMark.MarkableAdult true
+                     }
+                     |> completed)
+                        .AdultMark
                 )
                 |> Expect.equal
                     "the marks"
@@ -752,7 +768,13 @@ let adultTests =
 
             test "the server keeps the choice when the age stays markable, and sets it again on a new age" {
                 let marked17 = (draft (Some(17 * 365)) true None None).AdultMark
-                let mark days = ServerApi.Age.adultMark (Some(ServerApi.Age.ofDays days))
+                let mark days m =
+                    ({ ContractPatientData.empty with
+                        Age = Some(ServerApi.Age.ofDays days)
+                        AdultMark = m
+                     }
+                     |> completed)
+                        .AdultMark
 
                 [
                     marked17 |> mark (16 * 365)
@@ -806,7 +828,14 @@ let adultTests =
                 |> Expect.equal
                     "as GenCORE wrote them"
                     (AdultMark.Adult,
-                     GestationalAge.RequiredGestationalAge(Some(ServerApi.Age.weeksDaysOfDays (30 * 7))))
+                     GestationalAge.RequiredGestationalAge(
+                         Some(
+                             {
+                                 Weeks = Informedica.GenPRES.Shared.Measures.toWeek 30
+                                 Days = Informedica.GenPRES.Shared.Measures.toDay 0
+                             }
+                         )
+                     ))
             }
 
             test "the EHR reading of an adult keeps the weight it has and is an adult without a mark" {
@@ -815,7 +844,7 @@ let adultTests =
                     |> ServerApi.Patient.parse readAt
                     |> Result.defaultWith (fun _ -> failtest "a patient")
 
-                let estimated = reading |> ServerApi.Patient.estimated readAt normalValues
+                let estimated = reading |> estimated
 
                 (estimated.Weight, estimated.Height, estimated.AdultMark)
                 |> Expect.equal "as read" (reading.Weight, CoreHeight.unknown, CoreAdultMark.Adult)
@@ -839,7 +868,14 @@ let gestationalAgeTests =
         [
             test "the server sets the need from the age and keeps the value given while it may be given" {
                 [ None; Some 0; Some 27; Some 28; Some 364; Some 365; Some 730 ]
-                |> List.map (fun d -> Some ga30 |> ServerApi.Age.gestationalAge (ofDays d))
+                |> List.map (fun d ->
+                    ({ ContractPatientData.empty with
+                        Age = ofDays d
+                        GestationalAge = GestationalAge.OptionalGestationalAge(Some ga30)
+                     }
+                     |> completed)
+                        .GestationalAge
+                )
                 |> Expect.equal
                     "the gestational ages"
                     [
@@ -854,8 +890,9 @@ let gestationalAgeTests =
             }
 
             test "a patient under 28 days without a gestational age needs one" {
-                None
-                |> ServerApi.Age.gestationalAge (ofDays (Some 10))
+                { ContractPatientData.empty with Age = ofDays (Some 10) }
+                |> completed
+                |> _.GestationalAge
                 |> Expect.equal "needed, none given" (GestationalAge.RequiredGestationalAge None)
             }
 
@@ -875,11 +912,11 @@ let gestationalAgeTests =
 
 
 [<Tests>]
-let withEstimatesTests =
+let estimatesTests =
     testList
         "the estimates GenCORE gives"
         [
-            test "a weight estimate replaced where GenCORE gives one, a height estimate kept where it gives none" {
+            test "a weight estimate replaced where GenCORE gives one, a height estimate dropped where it gives none" {
                 let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
                     {
                         Weights =
@@ -906,15 +943,52 @@ let withEstimatesTests =
                                 Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
                             }
                     }
-                    |> ServerApi.Patient.withEstimates (tables, calc)
+                    |> completedWith (Some { resources with NormalValueTables = tables })
 
                 (model.Weight.EstimatedP3, model.Weight.Estimated, model.Weight.EstimatedP97, model.Height.Estimated)
                 |> Expect.equal
-                    "25 to 40 kg, 32 kg; 140 cm kept"
+                    "25 to 40 kg, 32 kg; no height"
                     (Some(Informedica.GenPRES.Shared.Measures.toGram 25000),
                      Some(Informedica.GenPRES.Shared.Measures.toGram 32000),
                      Some(Informedica.GenPRES.Shared.Measures.toGram 40000),
-                     Some(Informedica.GenPRES.Shared.Measures.toCm 140))
+                     None)
+            }
+
+            test "a measured weight is rounded to the list, with the estimates of the age beside it" {
+                let boyOfTwo =
+                    { ContractPatientData.empty with
+                        Age = Some(ServerApi.Age.ofDays (2 * 365))
+                        Gender = Male
+                        Weight =
+                            { ContractPatientData.empty.Weight with
+                                Measured = Some(Informedica.GenPRES.Shared.Measures.toGram 12340)
+                            }
+                    }
+
+                (boyOfTwo |> completedWith (Some resources)).Weight
+                |> Expect.equal
+                    "12.5 kg measured, 10 to 14 kg and 12 kg estimated"
+                    {
+                        EstimatedP3 = Some(Informedica.GenPRES.Shared.Measures.toGram 10000)
+                        Estimated = Some(Informedica.GenPRES.Shared.Measures.toGram 12000)
+                        EstimatedP97 = Some(Informedica.GenPRES.Shared.Measures.toGram 14000)
+                        Measured = Some(Informedica.GenPRES.Shared.Measures.toGram 12500)
+                    }
+
+                (boyOfTwo |> completed).Weight
+                |> Expect.equal "without the resources, the weight as measured" boyOfTwo.Weight
+            }
+
+            test "a value GenCORE refuses is answered with its message" {
+                { ContractPatientData.empty with
+                    Weight =
+                        { ContractPatientData.empty.Weight with
+                            Measured = Some(Informedica.GenPRES.Shared.Measures.toGram 1_000_000)
+                        }
+                }
+                |> ServerApi.Patient.complete readAt (Some resources)
+                |> Result.isError
+                |> Expect.isTrue "refused"
             }
         ]
 

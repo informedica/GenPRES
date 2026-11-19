@@ -239,10 +239,26 @@ let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
     }
 
 
-let loaded () = Some(tables, calc)
+/// The resources over the normal-value tables of an estimate.
+let resourcesOf normalValueTables : Informedica.GenCore.Lib.Patients.PatientDataResources =
+    {
+        NormalValueTables = normalValueTables
+        CalculationWeightsAndHeights = calc
+        EGFRBandOptions = []
+    }
 
 
-/// The normal values, counting how often they are asked.
+let loaded () = Some(resourcesOf tables)
+
+
+/// The patient completed by GenCORE with the resources the function gives.
+let completedWith resources pat =
+    pat
+    |> Patient.complete today (resources ())
+    |> Result.defaultWith (fun errs -> failtest $"not completed: %A{errs}")
+
+
+/// The resources, counting how often they are asked.
 let counting nv =
     let count = ref 0
 
@@ -265,11 +281,11 @@ let weightAndHeight (pat: PatientData) =
     pat |> Informedica.GenPRES.Shared.Models.PatientData.getHeight
 
 
-/// The command a computing request reaches its handler as, with the normal values given.
-let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
+/// The command a computing request reaches its handler as, with the resources given.
+let estimatedOver resources (sid: string option) (cmd: 'cmd) : 'cmd =
     let seen: 'cmd option ref = ref None
 
-    let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     let request =
         {
@@ -291,10 +307,10 @@ let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
     |> Option.defaultWith (fun () -> failtest "the handler was not reached")
 
 
-/// The answer of the order-context member over a context, without a Session, with the normal
-/// values given.
-let evaluatedWith normalValues (ctx: OrderContext) =
-    let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
+/// The answer of the order-context member over a context, without a Session, with the resources
+/// given.
+let evaluatedWith resources (ctx: OrderContext) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     Compute.bound
         env
@@ -318,9 +334,9 @@ let evaluatedWith normalValues (ctx: OrderContext) =
     |> Async.RunSynchronously
 
 
-/// The patient a patient data update answers in the Session named, with the normal values given.
-let changedIn normalValues (sid: string option) (pat: PatientData) =
-    let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
+/// The patient a patient data update answers in the Session named, with the resources given.
+let changedIn resources (sid: string option) (pat: PatientData) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     Compute.bound
         env
@@ -338,11 +354,11 @@ let changedIn normalValues (sid: string option) (pat: PatientData) =
 
 
 /// The answer to a signing command and the plan the session port was asked over, with the
-/// normal values given.
-let signedWith normalValues (sid: string option) (cmd: SigningCommand) =
+/// resources given.
+let signedWith resources (sid: string option) (cmd: SigningCommand) =
     let captured = ResizeArray()
 
-    let env = { envOver (portOver captured) with normalValues = normalValues }
+    let env = { envOver (portOver captured) with patientDataResources = resources }
 
     let response = SigningCommand.processCmd env (cookieOf sid) cmd |> Async.RunSynchronously
 
@@ -459,14 +475,14 @@ let tests =
                 [
                     test "an age alone gets a weight and a height" {
                         ageOnly 10
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> weightAndHeight
                         |> Expect.equal "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
                     test "a measured weight is kept, with the estimate next to it, and the height estimated" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Measured = Some 28000<gram> } }
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> fun pat -> pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated
                         |> Expect.equal
                             "the measured weight, the weight estimate, the height estimate"
@@ -475,15 +491,15 @@ let tests =
 
                     test "the estimate is the server's, whatever estimate the draft holds" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Estimated = Some 41000<gram> } }
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> weightAndHeight
                         |> Expect.equal "the server's 32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
                     test
                         "a measured patient keeps the measured values, the calculation reads them, and gets the estimate range" {
-                        let ask, count = counting (Some(tables, calc))
-                        let pat = StubEhrPatient.contractPatient |> Patient.estimate ask
+                        let ask, count = counting (loaded ())
+                        let pat = StubEhrPatient.contractPatient |> completedWith ask
 
                         (pat.Weight.Measured,
                          pat.Height.Measured,
@@ -500,11 +516,11 @@ let tests =
                              1)
                     }
 
-                    test "without the normal values the patient stays as it is and the gate refuses it" {
-                        let pat = ageOnly 10 |> Patient.estimate (fun () -> None)
+                    test "without the resources the patient gets no weight or height and the gate refuses it" {
+                        let pat = ageOnly 10 |> completedWith (fun () -> None)
 
-                        (pat = ageOnly 10, pat |> Patient.patient)
-                        |> Expect.equal "unchanged, refused" (true, Error [| Patient.noWeight |])
+                        (weightAndHeight pat, pat |> Patient.patient)
+                        |> Expect.equal "no weight or height, refused" ((None, None), Error [| Patient.noWeight |])
                     }
 
                     test "empty tables leave the estimate out and the gate refuses" {
@@ -517,7 +533,7 @@ let tests =
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some(empty, calc))
+                        |> completedWith (fun () -> Some(resourcesOf empty))
                         |> Patient.patient
                         |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
@@ -534,7 +550,7 @@ let tests =
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some(oneSex, calc))
+                        |> completedWith (fun () -> Some(resourcesOf oneSex))
                         |> Patient.patient
                         |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
@@ -568,7 +584,7 @@ let tests =
                     }
 
                     test "a request other than a patient data update never asks the normal values" {
-                        let ask, count = counting (Some(tables, calc))
+                        let ask, count = counting (loaded ())
                         let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = ageOnly 10 }
 
                         estimatedOver
