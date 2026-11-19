@@ -754,51 +754,76 @@ module Tests =
 
         module DepartmentTests =
 
-            let deps =
+            let kinds =
                 [
-                    (fun _ -> Department.any)
-                    (fun _ -> Department.unknown)
                     Department.adultICU
                     Department.pediatricICU
                     Department.neonatalICU
                     Department.adultDepartment
                     Department.pediatricDepartment
+                    Department.outpatientClinic
                     Department.otherDepartment
                 ]
+
+            let deps = (fun _ -> Department.any) :: (fun _ -> Department.unknown) :: kinds
 
             let tests =
                 testList
                     "Department"
                     [
-                        let noName = ""
                         let name = "Test"
 
-                        test "a ward named after its kind keeps its name" {
-                            let ward = Department.adultICU "Adult ICU"
+                        for f in kinds do
+                            let kind = f name
 
-                            ward
-                            |> Department.toString
-                            |> Department.fromString
-                            |> Expect.equal "there and back" (Ok ward)
-                        }
-
-                        for f in deps do
-                            test $"can create without a name {noName |> f}" {
-                                noName
-                                |> f
-                                |> Department.toString
-                                |> Department.fromString
-                                |> Expect.equal "comes back without one" (Ok(noName |> f))
+                            test $"a blank name in the Dto is an unknown department %A{kind}" {
+                                for blank in [ ""; "  " ] do
+                                    blank
+                                    |> f
+                                    |> Department.Dto.toDto
+                                    |> Department.Dto.fromDto
+                                    |> Expect.equal "unknown" (Ok Department.unknown)
                             }
 
                         for f in deps do
-                            test $"can create with a name {name |> f}" {
+                            test $"comes back from its Dto with a name {name |> f}" {
                                 name
                                 |> f
-                                |> Department.toString
-                                |> Department.fromString
+                                |> Department.Dto.toDto
+                                |> Department.Dto.fromDto
                                 |> Expect.equal "comes back with the name" (Ok(name |> f))
                             }
+
+                        test "a Dto without a field set is an unknown department" {
+                            Department.Dto.dto ()
+                            |> Department.Dto.fromDto
+                            |> Expect.equal "unknown" (Ok Department.unknown)
+                        }
+
+                        test "a plain name in the Dto is a department of a kind that is not known" {
+                            let dto = Department.Dto.dto ()
+                            dto.OtherDepartment <- Some "NEO"
+
+                            dto
+                            |> Department.Dto.fromDto
+                            |> Expect.equal "the name" (Ok(Department.otherDepartment "NEO"))
+                        }
+
+                        test "a Dto with two fields set is refused" {
+                            let dto = Department.Dto.dto ()
+                            dto.OtherDepartment <- Some "NEO"
+                            dto.NeonatalICU <- Some "NICU"
+
+                            dto |> Department.Dto.fromDto |> Expect.isError "two departments"
+                        }
+
+                        test "a Dto with a name and any department is refused" {
+                            let dto = Department.Dto.dto ()
+                            dto.AdultICU <- Some "IC"
+                            dto.AnyDepartment <- true
+
+                            dto |> Department.Dto.fromDto |> Expect.isError "a name and any department"
+                        }
 
                         test "a department whose kind is not known has the string of its name after one word" {
                             Department.otherDepartment "ICK"
@@ -806,14 +831,14 @@ module Tests =
                             |> Expect.equal "the string" "Department ICK"
                         }
 
-                        test "a department whose kind is not known keeps a name that starts with the words of a kind" {
-                            for name in [ "Adult ICU 3"; "Pediatric Department"; "Department" ] do
-                                let dep = Department.otherDepartment name
+                        test "an outpatient clinic has its name and its kind" {
+                            let clinic = Department.outpatientClinic "Poli Kinderen"
 
-                                dep
-                                |> Department.toString
-                                |> Department.fromString
-                                |> Expect.equal $"there and back: %s{name}" (Ok dep)
+                            clinic |> Department.name |> Expect.equal "the name" (Some "Poli Kinderen")
+
+                            clinic
+                            |> Department.toString
+                            |> Expect.equal "the string" "Outpatient Clinic Poli Kinderen"
                         }
 
                         test "the name of a department whose kind is not known is its own; none when blank" {
@@ -824,10 +849,6 @@ module Tests =
                                     Department.otherDepartment "  ", None
                                 ] do
                                 dep |> Department.name |> Expect.equal "the name" exp
-                        }
-
-                        test "a string that names no department is refused" {
-                            "ICK" |> Department.fromString |> Expect.isError "no kind word in front"
                         }
 
                     ]

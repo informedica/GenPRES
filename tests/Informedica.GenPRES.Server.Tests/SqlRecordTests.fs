@@ -76,7 +76,7 @@ let v15FixtureText () =
 
 
 /// The plan column as this release writes it, structure version 16. It is the order plan of the
-/// version 15 fixture with the patient data named PatientData.
+/// version 15 fixture with the patient data named PatientData and the department as its Dto.
 let currentFixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v16.json"))
 

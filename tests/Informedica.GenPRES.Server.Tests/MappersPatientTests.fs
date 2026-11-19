@@ -912,17 +912,12 @@ let coreTests =
     testList
         "the contract patient as GenCORE patient data"
         [
-            test "a department name is a department of a kind that is not known" {
-                Some "ICK"
-                |> ServerApi.Patient.department
-                |> Expect.equal "the name" (CoreDepartment.OtherDepartment "ICK")
-            }
-
             test "no department name, or a blank one, is an unknown department" {
                 for name in [ None; Some ""; Some "  " ] do
-                    name
-                    |> ServerApi.Patient.department
-                    |> Expect.equal "unknown" CoreDepartment.UnknownDepartment
+                    { stub with Department = name }
+                    |> ServerApi.Patient.toCore readAt
+                    |> Result.map _.Department
+                    |> Expect.equal "unknown" (Ok CoreDepartment.UnknownDepartment)
             }
 
             test "a blank department name reaches the rules as no department" {
