@@ -219,11 +219,17 @@ step 10 is client UI code.
    with `AddAccess` and `RemoveAccess`, so the same edit sent twice gives the same result. The contract
    gets its own `PatientDataEdit` and the case `EditPatientData` of the edit and the patient data, next to
    `ChangePatientData`. The server maps the edit to GenCORE (`Patient.coreEdit`), applies it and completes the
-   result with the resources (`Patient.edit`). The client still sends `ChangePatientData` until step 10.
-10. **The client sends the edits and reads the options.** The patient form sends `EditPatientData` for each edit
-    and takes every list from the patient data options instead of its own arrays, and waits for the patient data.
-    `ChangePatientData`, the client's `PatientEdit` setters and its estimate rule (`PatientDraftPolicy.estimates`
-    and `keepEstimates`) go.
+   result with the resources (`Patient.edit`). The client sends the panel edits with it from step 10a.
+10. **The client sends the edits and reads the options.**
+    - **10a. The panel sends the edits.** `PatientDraftPolicy.toEdit` turns a panel message into a
+      `PatientDataEdit`; an access switch adds or removes the access by whether the draft has it. The patient
+      machine sends it with `EditPatientData` and the patient data the panel shows, and every answer becomes the
+      draft. Whole patient data from the url, the Session, a refresh, the age taken and a resend still goes with
+      `ChangePatientData`, which stays. The question about another patient is asked for every edit while the
+      patient is anonymous with orders. The client's `PatientEdit` and its estimate rule
+      (`PatientDraftPolicy.update`, `estimates`, `keepEstimates` and the `Estimates` type) go.
+    - **10b. The form reads the options.** The patient form takes every list from the patient data options
+      instead of its own arrays, and waits for the patient data.
 
 ## Verification
 
