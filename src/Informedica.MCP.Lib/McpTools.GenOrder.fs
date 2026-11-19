@@ -128,13 +128,13 @@ module GenOrderTools =
         )
 
 
-    /// Estimates the weight and the height from the age and the gender. Returns None for both without an age
-    /// or without the normal-value tables.
-    let estimated normalValues gender age =
+    /// Estimates the weight and the height from the age and the gender, rounded to the calculation weights and
+    /// heights. Returns None for both without an age or without the normal-value tables.
+    let estimated normalValues calculationWeightsAndHeights gender age =
         match normalValues with
         | None -> None, None
         | Some tables ->
-            let est = CoreEstimates.ofAge tables gender age None
+            let est = CoreEstimates.ofAge tables calculationWeightsAndHeights gender age None
 
             est.Weight
             |> Option.map (fun e -> decimal e.Mean |> CoreWeightValue.weightInGram),
@@ -154,7 +154,8 @@ module GenOrderTools =
             input.AgeMonths
             |> Option.map (fun a -> [ Months(a |> Math.Round |> int) ] |> daysOfParts |> CoreAgeValue.fromDays)
 
-        let estWeight, estHeight = estimated (provider.Get Keys.normalValueTables) gender age
+        let estWeight, estHeight =
+            estimated (provider.Get Keys.normalValueTables) (provider.Get Keys.calculationWeightsAndHeights) gender age
 
         let weight =
             match input.WeightKg with

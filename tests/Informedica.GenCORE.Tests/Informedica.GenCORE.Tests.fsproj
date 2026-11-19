@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Generators.fs" />
+    <Compile Include="CalculationWeightsAndHeightsFixture.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />

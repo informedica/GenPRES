@@ -406,11 +406,13 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
-    /// Returns the normal-value tables of weight and height the provider parsed at load; None when the provider is not
-    /// loaded or the rows did not parse.
+    /// Returns the normal-value tables of weight and height the provider parsed at load, with the calculation weights
+    /// and heights; None when the provider is not loaded or the rows did not parse.
     let normalValuesOf (provider: Resources.IResourceProvider) () =
         match notLoaded provider with
-        | None -> provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueTables
+        | None ->
+            provider.Get Resources.Keys.normalValueTables
+            |> Option.map (fun tables -> tables, provider.Get Resources.Keys.calculationWeightsAndHeights)
         | Some _ -> None
 
 

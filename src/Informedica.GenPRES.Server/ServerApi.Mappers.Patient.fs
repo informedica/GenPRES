@@ -152,9 +152,10 @@ module Age =
 
 
     /// The weight and height estimates of GenCORE for the contract patient.
-    let estimates tables (model: PatientData) =
+    let estimates (tables, calculationWeightsAndHeights) (model: PatientData) =
         CoreEstimates.ofAge
             tables
+            calculationWeightsAndHeights
             (model.Gender |> coreGender)
             (model.Age |> Option.map ageValue)
             (model.PostMenstrualAge |> Option.map weeksDays)

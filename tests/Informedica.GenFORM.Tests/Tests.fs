@@ -6523,7 +6523,9 @@ module Tests =
                         |> Expect.isTrue "registered"
 
                         Informedica.GenCore.Lib.Patients.NormalValueTables.sheets
-                        |> Expect.equal "the four sheets" [ "weight"; "height"; "weight neo"; "height neo" ]
+                        |> Expect.equal
+                            "the four sheets"
+                            [ "norm_weight"; "norm_height"; "norm_weight_neo"; "norm_height_neo" ]
                     }
 
                     test "normal-value rows that parse give the tables, without a warning" {
@@ -6531,10 +6533,10 @@ module Tests =
 
                         Map.ofList
                             [
-                                "weight", [| header; [| "M"; "2"; "10"; "12"; "14" |] |]
-                                "height", [| header; [| "M"; "2"; "80"; "87"; "94" |] |]
-                                "weight neo", [| header |]
-                                "height neo", [| header |]
+                                "norm_weight", [| header; [| "M"; "2"; "10"; "12"; "14" |] |]
+                                "norm_height", [| header; [| "M"; "2"; "80"; "87"; "94" |] |]
+                                "norm_weight_neo", [| header |]
+                                "norm_height_neo", [| header |]
                             ]
                         |> normalValueTablesOf
                         |> fun (tables, msgs) -> tables |> Option.map _.Weights.Length, msgs
@@ -6546,23 +6548,64 @@ module Tests =
 
                         Map.ofList
                             [
-                                "weight", [| header; [| "B"; "2"; "x"; "12"; "14" |] |]
-                                "height", [| header |]
-                                "weight neo", [| header |]
+                                "norm_weight", [| header; [| "B"; "2"; "x"; "12"; "14" |] |]
+                                "norm_height", [| header |]
+                                "norm_weight_neo", [| header |]
                             ]
                         |> normalValueTablesOf
                         |> Expect.equal
                             "none, three warnings"
                             (None,
                              [
-                                 Warning "normal values, sheet weight, row 2: the sex 'B' is not M or F"
-                                 Warning "normal values, sheet weight, row 2: no number in p3"
-                                 Warning "normal values, sheet height neo: missing"
+                                 Warning "normal values, sheet norm_weight, row 2: the sex 'B' is not M or F"
+                                 Warning "normal values, sheet norm_weight, row 2: no number in p3"
+                                 Warning "normal values, sheet norm_height_neo: missing"
                              ])
                     }
 
                     test "no normal-value rows give no tables and no second warning" {
                         Map.empty |> normalValueTablesOf |> Expect.equal "none, no warning" (None, [])
+                    }
+
+                    test "the calculation weights and heights are a registered resource over two sheets" {
+                        defaultRegistry Informedica.Logging.Lib.Logging.noOp ""
+                        |> Map.containsKey Keys.calculationWeightsAndHeights.Name
+                        |> Expect.isTrue "registered"
+
+                        Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights.sheets
+                        |> Expect.equal "the two sheets" [ "calc_weight"; "calc_height" ]
+                    }
+
+                    test "calculation weight and height rows give them with a warning for each correction" {
+                        Map.ofList
+                            [
+                                "calc_weight", [| [| "WeightKg" |]; [| "1" |]; [| "1" |] |]
+                                "calc_height", [| [| "HeightCm" |]; [| "50" |] |]
+                            ]
+                        |> calculationWeightsAndHeightsOf
+                        |> Result.map (fun (calc, msgs) -> calc.Weights.Length, msgs)
+                        |> Expect.equal
+                            "one weight, one warning"
+                            (Ok(
+                                1,
+                                [
+                                    Warning
+                                        "calculation weights and heights, sheet calc_weight, row 3: a value a row above it holds, the value is used once"
+                                ]
+                            ))
+                    }
+
+                    test "calculation weight and height rows that hold an error give an error for each" {
+                        Map.ofList [ ("calc_weight", [| [| "WeightKg" |]; [| "x" |] |]) ]
+                        |> calculationWeightsAndHeightsOf
+                        |> Result.mapError (List.map FormLogging.formatMessage)
+                        |> Expect.equal
+                            "two errors"
+                            (Error
+                                [
+                                    "Error: calculation weights and heights, sheet calc_weight, row 2: 'x' is not a positive number"
+                                    "Error: calculation weights and heights, sheet calc_height: missing"
+                                ])
                     }
 
                     test

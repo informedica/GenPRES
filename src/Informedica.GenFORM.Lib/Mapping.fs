@@ -160,15 +160,10 @@ module Mapping =
         |> Result.mapErrorSource "getLinkRules"
 
 
-    /// The id of the emergency-list spreadsheet with the normal values of weight and height by age and sex.
-    /// The client has the same id written in code; both should become one setting.
-    let normalValuesUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
-
-
-    /// Fetches the rows of each normal-value sheet that GenCORE names, by sheet name.
-    /// Returns an error when any sheet fails to load. GenCORE parses and checks the rows.
-    let getNormalValueRows urlId : Result<Map<string, string[][]>, Message list> =
-        Informedica.GenCore.Lib.Patients.NormalValueTables.sheets
+    /// Fetches the rows of each of the sheets, by sheet name. Returns an error when any sheet fails to load.
+    /// GenCORE parses and checks the rows.
+    let getSheetRows urlId sheets : Result<Map<string, string[][]>, Message list> =
+        sheets
         |> List.fold
             (fun acc sheet ->
                 acc
