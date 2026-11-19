@@ -678,18 +678,12 @@ module Trail =
         open PatientMachine
 
 
-        /// What becomes of the estimates once the change is answered.
-        let estimates (estimates: PatientDraftPolicy.Estimates) =
-            match estimates with
-            | PatientDraftPolicy.Estimates.Renewed -> "estimates renewed"
-            | PatientDraftPolicy.Estimates.Kept -> "estimates kept"
-
-
         /// Describes a patient message, with the patient data as Part.patient describes it; never the identity.
         let msg (msg: PatientMsg) =
             match msg with
-            | PatientMsg.Changed(p, e, request) ->
-                $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
+            | PatientMsg.Changed(p, request) -> $"Changed %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.Edited(edit, p, request) ->
+                $"Edited %A{edit} %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
             | PatientMsg.Refreshed(p, request) -> $"Refreshed %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.AgeTaken(p, request) -> $"AgeTaken %s{Part.patientOption p} %s{Part.shortId request}"
@@ -701,6 +695,8 @@ module Trail =
         let effect (effect: PatientEffect) =
             match effect with
             | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
+            | PatientEffect.CallEdit(edit, p, request) ->
+                $"CallEdit %A{edit} %s{Part.patient p} %s{Part.shortId request}"
             | PatientEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
             | PatientEffect.TellError _ -> "TellError"
             | PatientEffect.GivePlan p -> $"GivePlan %s{Part.patient p}"
@@ -1099,8 +1095,9 @@ module Trail =
             | ClientMsg.Admin m -> $"Admin %s{Admin.msg m}"
             | ClientMsg.Shell m -> $"Shell %s{Shell.msg m}"
             | ClientMsg.PageChosen p -> $"PageChosen %s{Loader.page p}"
-            | ClientMsg.PanelChanged(_, _, request) -> $"PanelChanged %s{Part.shortId request}"
-            | ClientMsg.NewPatient(_, _, request) -> $"NewPatient %s{Part.shortId request}"
+            | ClientMsg.PanelCleared request -> $"PanelCleared %s{Part.shortId request}"
+            | ClientMsg.PanelEdited(_, request) -> $"PanelEdited %s{Part.shortId request}"
+            | ClientMsg.NewPatient(_, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
             | ClientMsg.EmergencyListItemChosen item -> $"EmergencyListItemChosen %s{item}"
             | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"

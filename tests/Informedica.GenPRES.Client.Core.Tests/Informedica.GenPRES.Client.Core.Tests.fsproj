@@ -24,7 +24,6 @@
     <!-- the code from Shared -->
     <Compile Include="Models/PatientTextTests.fs" />
     <Compile Include="Models/RenalFunctionTextTests.fs" />
-    <Compile Include="Models/PatientEditTests.fs" />
     <Compile Include="Models/SeverityTests.fs" />
     <Compile Include="Models/OrderDisplayTests.fs" />
     <Compile Include="Models/OrderContextTextTests.fs" />

@@ -12,6 +12,7 @@ module Client =
     open Informedica.GenPRES.Client.Core.StateMachines
     open Informedica.GenPRES.Client.Core.MachinePolicies
     open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Api
     open Page
     open Loads
     open Lanes
@@ -69,11 +70,14 @@ module Client =
         | Shell of ShellMsg
         /// The user chose a page; the settings page shows only to a logged-in admin.
         | PageChosen of Page
-        /// The patient panel changed the patient data, with whether the estimates are renewed.
-        | PanelChanged of PatientData option * PatientDraftPolicy.Estimates * request: string
+        /// The patient panel was reset, so the patient data is cleared.
+        | PanelCleared of request: string
+        /// The patient panel made an edit to the patient data it shows.
+        | PanelEdited of PatientDataEdit * request: string
         /// Another patient from the panel, after the prescriber agreed. Unlike a patient data update, which
-        /// recalculates the orders, this clears everything first and then sets the new patient data.
-        | NewPatient of PatientData option * PatientDraftPolicy.Estimates * request: string
+        /// recalculates the orders, this clears everything first and then sends the edit for the patient data
+        /// the panel showed.
+        | NewPatient of PatientDataEdit * request: string
         /// The url changed in the address bar, as path segments and as parsed parts.
         | UrlChanged of string list * Url.UrlParts
         /// An item chosen on the emergency list.
@@ -562,23 +566,26 @@ module Client =
                 [ ClientStep.Shell(m, shell, effects) ]
         | ClientMsg.PageChosen page ->
             becomes [ ClientMsg.Shell(ShellMsg.PageChosen(page, state.Admin.IsAuthenticated)) ]
-        | ClientMsg.PanelChanged(pat, estimates, request) ->
+        | ClientMsg.PanelCleared request ->
+            becomes [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, request))) ]
+        | ClientMsg.PanelEdited(edit, request) ->
             becomes
                 [
-                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         // Ignored while a launch can identify the patient, because the orders of that patient are never
         // cleared.
         | ClientMsg.NewPatient _ when not (NewPatientPolicy.startsNewPatient (SessionState.view state.Lanes.Session)) ->
             becomes []
-        | ClientMsg.NewPatient(pat, estimates, request) ->
+        | ClientMsg.NewPatient(edit, request) ->
             becomes
                 [
                     ClientMsg.Loader LoaderMsg.PatientExpected
                     // A failed patient call gives no plan, so the interaction warnings are cleared here.
                     ClientMsg.Loader(LoaderMsg.CheckInteractions [])
-                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, estimates, request)))
-                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, request)))
+                    // The edit applies to the patient data the panel showed before the clear.
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]
         | ClientMsg.EmergencyListItemChosen item ->
@@ -683,11 +690,7 @@ module Client =
         // An open launched Session supplies the patient, so the patient from the url is ignored.
         | ClientEffect.Shell(ShellEffect.PatientFromUrl _) when launched state -> []
         | ClientEffect.Shell(ShellEffect.PatientFromUrl pat) ->
-            [
-                ClientMsg.Lanes(
-                    LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
-                )
-            ]
+            [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, newId ()))) ]
         | ClientEffect.Shell(ShellEffect.SeedWorkbench seed) -> state |> seedOrAlert newId seed
         | ClientEffect.Shell(ShellEffect.LaunchRefused refusal) ->
             [ ClientMsg.Lanes(LanesMsg.Session(SessionMsg.LaunchRefused refusal)) ]

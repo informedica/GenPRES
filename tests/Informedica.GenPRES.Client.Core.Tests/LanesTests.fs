@@ -93,11 +93,7 @@ let tests =
 
                 let lanes, _, _ =
                     Lanes.initial (Some measured)
-                    |> Lanes.transition
-                        newId
-                        (LanesMsg.Patient(
-                            PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
-                        ))
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-1")))
 
                 lanes |> out |> Expect.equal "the patient out" [ Loads.Request.Patient ]
 
@@ -164,9 +160,7 @@ let tests =
                             newId
                             lanes
                             [
-                                LanesMsg.Patient(
-                                    PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
-                                )
+                                LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-1"))
                                 LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured))
                             ]
                     |> List.last
@@ -243,7 +237,7 @@ let tests =
                 steps
                 |> List.exists (
                     function
-                    | LanesStep.Patient(PatientMsg.Changed(p, PatientDraftPolicy.Estimates.Renewed, _), _, _) ->
+                    | LanesStep.Patient(PatientMsg.Changed(p, _), _, _) ->
                         p = (session.PatientContext |> Option.bind _.PatientData)
                     | _ -> false
                 )
@@ -278,9 +272,7 @@ let tests =
 
                 let lanes, _, _ =
                     lanes
-                    |> Lanes.transition
-                        newId
-                        (LanesMsg.Patient(PatientMsg.Changed(Some young, PatientDraftPolicy.Estimates.Renewed, "p-0")))
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(Some young, "p-0")))
 
                 let lanes, _, _ =
                     lanes
@@ -296,7 +288,7 @@ let tests =
                             SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, SessionMachineTests.signedVersion)
                         ))
 
-                let cleared = aged |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None
+                let cleared = aged
 
                 let request =
                     effects
@@ -461,9 +453,7 @@ let tests =
                         newId
                         { Lanes.initial None with Session = SessionState.resuming }
                         [
-                            LanesMsg.Patient(
-                                PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
-                            )
+                            LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-1"))
                             LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured))
                         ]
                     |> List.last
@@ -532,11 +522,7 @@ let tests =
                 // the user enters the patient, and it is answered
                 let lanes, _, _ =
                     lanes
-                    |> Lanes.transition
-                        newId
-                        (LanesMsg.Patient(
-                            PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
-                        ))
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-1")))
 
                 let _, effects, _ =
                     lanes
@@ -622,9 +608,7 @@ let tests =
             testList
                 "a new patient"
                 (let another = { measured with Department = Some "other" }
-                 let renewed = PatientDraftPolicy.Estimates.Renewed
-
-                 let changed pat request = LanesMsg.Patient(PatientMsg.Changed(Some pat, renewed, request))
+                 let changed pat request = LanesMsg.Patient(PatientMsg.Changed(Some pat, request))
                  let answered request result = LanesMsg.Patient(PatientMsg.Answered(request, result))
 
                  /// The lanes with a new patient started over a plan with one order.
@@ -639,7 +623,7 @@ let tests =
 
                      let lanes, _, _ =
                          lanes
-                         |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(None, renewed, "p-2")))
+                         |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(None, "p-2")))
 
                      lanes |> Lanes.transition newId (changed another "p-2")
 
@@ -701,9 +685,7 @@ let tests =
 
                 let lanes, _, _ =
                     start
-                    |> Lanes.transition
-                        newId
-                        (LanesMsg.Patient(PatientMsg.Changed(Some heavier, PatientDraftPolicy.Estimates.Kept, "p-1")))
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(Some heavier, "p-1")))
 
                 let lanes, effects, _ =
                     lanes
@@ -785,8 +767,7 @@ let tests =
                 let newId = counter ()
                 let changed = { measured with Department = Some "other" }
 
-                let given request =
-                    LanesMsg.Patient(PatientMsg.Changed(Some changed, PatientDraftPolicy.Estimates.Renewed, request))
+                let given request = LanesMsg.Patient(PatientMsg.Changed(Some changed, request))
 
                 let answered request = LanesMsg.Patient(PatientMsg.Answered(request, Ok changed))
                 let requestOf effects =
@@ -794,11 +775,7 @@ let tests =
 
                 let lanes, _, _ =
                     Lanes.initial (Some measured)
-                    |> Lanes.transition
-                        newId
-                        (LanesMsg.Patient(
-                            PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
-                        ))
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-1")))
 
                 let lanes, effects, _ =
                     lanes
@@ -875,9 +852,7 @@ let tests =
                             Signing = SigningFixtures.submitting
                         }
                         [
-                            LanesMsg.Patient(
-                                PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-0")
-                            )
+                            LanesMsg.Patient(PatientMsg.Changed(Some measured, "p-0"))
                             LanesMsg.Patient(PatientMsg.Answered("p-0", Ok pat))
                             LanesMsg.Workbench(
                                 OrderContextMsg.Answered("id-1", Ok(OrderContextResponse.Evaluated(ctx, [||])))

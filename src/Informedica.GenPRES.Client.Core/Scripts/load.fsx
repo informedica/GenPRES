@@ -7,7 +7,6 @@
 #load "../Models/RenalFunctionText.fs"
 #load "../Models/PatientRead.fs"
 #load "../Models/PatientText.fs"
-#load "../Models/PatientEdit.fs"
 #load "../Models/Severity.fs"
 #load "../Models/TextBlockDisplay.fs"
 #load "../Models/TextBlockParser.fs"

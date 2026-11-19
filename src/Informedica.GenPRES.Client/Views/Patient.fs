@@ -67,7 +67,7 @@ module Patient =
         // The summary shows the patient from the server answer, with estimates next to an entered or
         // cleared weight or height. The fields show the draft.
         let current = envPatient.Current
-        let updatePatient = envPatient.UpdatePatient
+        let clearPatient = envPatient.ClearPatient
         let editPatient = envPatient.EditPatient
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -90,28 +90,16 @@ module Patient =
         // answer of the App equals the draft, and show values the App no longer has.
         let pat = patient
 
-        // The data of another patient while the user is asked whether to remove the orders. The draft
+        // The edit of another patient while the user is asked whether to remove the orders. The draft
         // is unchanged, so cancel keeps the previous data.
-        let newPatient, setNewPatient = React.useState (None: (PatientData option * Estimates) option)
+        let newPatient, setNewPatient = React.useState (None: Api.PatientDataEdit option)
 
+        // The server applies each edit; the reset, which has its own confirmation dialog, clears the draft.
         let dispatch msg =
-            let renewal = estimates msg
-
-            let edited, send =
-                match renewal with
-                | Estimates.Renewed -> pat |> update msg, updatePatient
-                | Estimates.Kept -> pat |> update msg |> keepEstimates msg pat, editPatient
-
-            // The reset has its own confirmation dialog.
-            let cleared =
-                match msg with
-                | Msg.Clear -> true
-                | _ -> false
-
-            if envPatient.AsksNewPatient && not cleared && edited <> pat then
-                setNewPatient (Some(edited, renewal))
-            else
-                edited |> send
+            match msg |> toEdit pat with
+            | None -> clearPatient ()
+            | Some edit when envPatient.AsksNewPatient -> Some edit |> setNewPatient
+            | Some edit -> edit |> editPatient
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
@@ -427,7 +415,13 @@ module Patient =
                 fun ev ->
                     keepOpen ()
 
-                    ev?target?value |> string |> Msg.UpdateGender |> dispatch
+                    // the radio values written above: male and female
+                    match ev?target?value |> string with
+                    | "male" -> Male
+                    | "female" -> Female
+                    | _ -> UnknownGender
+                    |> Msg.UpdateGender
+                    |> dispatch
 
             let genderLabel = Terms.``Patient Gender`` |> getTerm "Gender"
             let maleLabel = Terms.``Patient Male`` |> getTerm "Male"

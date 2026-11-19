@@ -17,8 +17,12 @@ let named (term: Terms) = $"<{term}>"
 let empty = Models.PatientData.empty
 
 
+/// Patient data with this age, nothing else.
+let withAge (age: Age) = Some { empty with Age = Some age }
+
+
 /// An age of five years, nothing else.
-let aged = PatientEdit.setYear (Some "5") None
+let aged = withAge { Models.PatientData.Age.ageZero with Years = 5<year> }
 
 
 /// The draft with the gestational age the server answers for its age.
@@ -27,21 +31,32 @@ let answered ga (p: PatientData option) = p |> Option.map (fun p -> { p with Ges
 
 /// An age of ten days, nothing else: younger than 28 days, so the server needs the gestational age.
 let infant =
-    PatientEdit.setDay (Some "10") None
+    withAge { Models.PatientData.Age.ageZero with Days = 10<day> }
     |> answered (GestationalAge.RequiredGestationalAge None)
 
 
-let withWeight (p: PatientData option) = p |> PatientEdit.setWeight (Some "18000")
+/// The patient data, or empty patient data, with a change.
+let changed change (p: PatientData option) = p |> Option.defaultValue empty |> change |> Some
 
 
-let withHeight (p: PatientData option) = p |> PatientEdit.setHeight (Some "110")
+let withWeight = changed (fun p -> { p with Weight = { p.Weight with Measured = Some 18000<gram> } })
 
 
-let withGestationalAge (p: PatientData option) = p |> PatientEdit.setGAWeek (Some "36")
+let withHeight = changed (fun p -> { p with Height = { p.Height with Measured = Some 110<cm> } })
 
 
-/// The weight and the height estimated, as the App fills them in from the age. Applied last,
-/// since a setter blanks the estimates as the panel's edit does.
+/// A gestational age of 36 weeks, as needed under 28 days.
+let withGestationalAge =
+    let ga: AgeWeeksDays =
+        {
+            Weeks = 36<week>
+            Days = 0<day>
+        }
+
+    changed (fun p -> { p with GestationalAge = GestationalAge.RequiredGestationalAge(Some ga) })
+
+
+/// The weight and the height estimated, as the server fills them in from the age.
 let estimated (p: PatientData option) =
     p
     |> Option.map (fun p ->
@@ -72,8 +87,8 @@ let tests =
                     test "a draft with only a gender, a department or a renal function is no patient" {
                         for draft in
                             [
-                                PatientEdit.setGender "male" None
-                                PatientDraftPolicy.setDepartment (Some "ICK") None
+                                Some { empty with Gender = Male }
+                                Some { empty with Department = Some "ICK" }
                                 Some { empty with RenalFunction = Some Types.RenalFunction.PeritonealDialysis }
                             ] do
                             draft |> readiness |> Expect.equal $"%A{draft}" Readiness.NoPatient
@@ -131,15 +146,6 @@ let tests =
                         |> Expect.equal "measured" (Readiness.Patient [])
                     }
 
-                    test "a cleared weight over an estimate misses the weight and the height again" {
-                        // the setter blanks the estimates, as the panel's edit does
-                        aged
-                        |> estimated
-                        |> PatientEdit.setWeight None
-                        |> readiness
-                        |> Expect.equal "no estimate stands in" (Readiness.Patient [ Missing.Weight; Missing.Height ])
-                    }
-
                     test "a patient younger than 28 days misses the gestational age" {
                         infant
                         |> estimated
@@ -158,9 +164,9 @@ let tests =
                     test "a patient of 28 days or older needs no gestational age" {
                         for draft in
                             [
-                                PatientEdit.setDay (Some "28") None
+                                withAge { Models.PatientData.Age.ageZero with Days = 28<day> }
                                 |> answered (GestationalAge.OptionalGestationalAge None)
-                                PatientEdit.setMonth (Some "3") None
+                                withAge { Models.PatientData.Age.ageZero with Months = 3<month> }
                                 |> answered (GestationalAge.OptionalGestationalAge None)
                                 aged
                             ] do
@@ -171,7 +177,7 @@ let tests =
                     }
 
                     test "a patient marked as an adult without an age misses no age" {
-                        PatientEdit.setMarkedAdult true None
+                        Some { empty with AdultMark = AdultMark.MarkableAdult true }
                         |> readiness
                         |> Expect.equal
                             "the weight and the height"

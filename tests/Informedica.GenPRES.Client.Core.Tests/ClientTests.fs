@@ -547,24 +547,21 @@ let tests =
             testList
                 "the patient and the signature"
                 [
-                    test "a panel change with an unsigned order reaches the patient" {
+                    test "a panel edit with an unsigned order reaches the patient" {
                         unsignedState
-                        |> play
-                            [
-                                ClientMsg.PanelChanged(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
-                            ]
+                        |> play [ ClientMsg.PanelEdited(PatientDataEdit.SetYears(Some 5), "p-1") ]
                         |> hasEffect (
                             function
-                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, "p-1"))) -> true
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(_, _, "p-1"))) -> true
                             | _ -> false
                         )
                         |> Expect.isTrue "sent"
                     }
 
-                    test "a new patient clears everything first, then sends the data" {
+                    test "a new patient clears everything first, then sends the edit for the data shown" {
                         let _, effects, _ =
                             initial Url.none
-                            |> play [ ClientMsg.NewPatient(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+                            |> play [ ClientMsg.NewPatient(PatientDataEdit.SetYears(Some 5), "p-1") ]
 
                         let cleared =
                             effects
@@ -578,7 +575,7 @@ let tests =
                             effects
                             |> List.findIndex (
                                 function
-                                | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, "p-1"))) -> true
+                                | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(_, _, "p-1"))) -> true
                                 | _ -> false
                             )
 
@@ -588,7 +585,7 @@ let tests =
                     test "a new patient withdraws the warnings and asks no page for no patient" {
                         let result =
                             initial Url.none
-                            |> play [ ClientMsg.NewPatient(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+                            |> play [ ClientMsg.NewPatient(PatientDataEdit.SetYears(Some 5), "p-1") ]
 
                         result
                         |> hasEffect (
@@ -632,7 +629,7 @@ let tests =
                     }
 
                     test "a new patient is dropped once the patient is identified" {
-                        let confirmed = ClientMsg.NewPatient(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
+                        let confirmed = ClientMsg.NewPatient(PatientDataEdit.SetYears(Some 5), "p-1")
 
                         unsignedState
                         |> play [ confirmed ]
@@ -656,7 +653,7 @@ let tests =
                         state |> Client.asksNewPatient |> Expect.isFalse "no question"
 
                         state
-                        |> play [ ClientMsg.PanelChanged(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+                        |> play [ ClientMsg.PanelEdited(PatientDataEdit.SetYears(Some 5), "p-1") ]
                         |> hasEffect (
                             function
                             | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData None)) -> true
@@ -665,15 +662,37 @@ let tests =
                         |> Expect.isFalse "nothing is cleared"
                     }
 
-                    test "a panel change reaches the patient without a Session" {
+                    test "a panel edit is sent as an edit with the patient data the panel shows" {
                         initial Url.none
-                        |> play [ ClientMsg.PanelChanged(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+                        |> play [ ClientMsg.PanelEdited(PatientDataEdit.SetYears(Some 5), "p-1") ]
                         |> hasEffect (
                             function
-                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, "p-1"))) -> true
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(PatientDataEdit.SetYears(Some 5),
+                                                                                            _,
+                                                                                            "p-1"))) -> true
                             | _ -> false
                         )
                         |> Expect.isTrue "sent"
+                    }
+
+                    test "a panel reset clears the patient data without a call" {
+                        let _, effects, _ = initial Url.none |> play [ ClientMsg.PanelCleared "p-1" ]
+
+                        effects
+                        |> List.exists (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData None)) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isTrue "cleared"
+
+                        effects
+                        |> List.exists (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient _)) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "no call"
                     }
 
                     test "a signature answered is said on the snackbar and told to the plan" {

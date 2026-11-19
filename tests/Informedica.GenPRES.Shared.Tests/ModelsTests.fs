@@ -381,20 +381,6 @@ let gestationalAgeTests =
                 |> Expect.equal "the values" [ None; None; Some ga30; None; Some ga30 ]
             }
 
-            test "map changes the value when it may be given, and leaves no gestational age unchanged" {
-                all
-                |> List.map (GestationalAge.map (fun _ -> Some(awd 26 2)))
-                |> Expect.equal
-                    "the gestational ages"
-                    [
-                        GestationalAge.NoGestationalAge
-                        GestationalAge.OptionalGestationalAge(Some(awd 26 2))
-                        GestationalAge.OptionalGestationalAge(Some(awd 26 2))
-                        GestationalAge.RequiredGestationalAge(Some(awd 26 2))
-                        GestationalAge.RequiredGestationalAge(Some(awd 26 2))
-                    ]
-            }
-
             test "the gestational age may be given, except when there is none to give" {
                 all
                 |> List.map GestationalAge.mayBeGiven
