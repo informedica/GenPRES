@@ -87,7 +87,7 @@ module Patient =
     /// the data is not enough to select rules.
     let fromDto today dto =
         dto
-        |> CorePatientData.Dto.fromDto today
+        |> CorePatientData.Dto.fromDto today None
         |> Result.mapError (ValidationErrors.toList >> List.map DtoError.PatientData)
         |> Result.bind (
             CorePatientData.checkMinimumData

@@ -1,4 +1,4 @@
-# Implementation plan for issue #1900
+# Implementation plan for issues #1900 and #1911
 
 GenCORE calculates every patient value and returns it in the patient data Dto, with the options the user picks
 from, as GenORDER does for an order. The server and MCP fill the Dto with plain values and copy the results back.
@@ -96,7 +96,8 @@ Decided by the maintainer on 2026-11-19.
 
 1. **The estimates live on the patient data.** `PatientData` gets an `Estimates` field with the existing `Estimates`
    type (3rd percentile, mean and 97th percentile of the weight and the height), and so does its Dto. The
-   calculation weight and height stay as they are: the measured value, or else the estimated mean.
+   calculation weight and height are the measured value, rounded to the list of calculation values (decision 11),
+   or else the estimated mean.
 2. **The adult mark and the need for a gestational age are DUs.** `PatientData.MarkedAdult: bool` becomes
    `AdultMark: AdultMark`, and a `GestationalAgeNeed` field is added. The Dto keeps the plain `MarkedAdult` bool as
    the choice of the user, and adds the mark and the need as the GenCORE DUs, which `toDto` writes. A mark under 16
@@ -132,16 +133,24 @@ Decided by the maintainer on 2026-11-19.
     the kinds of dialysis. GenCORE keeps `EGFRBand` with its four cases. GenFORM reads the sheet `egfr_bands`
     (`MinEGFR`, `MaxEGFR`, `Band`) of the rules spreadsheet and matches each row to a case by its limits; the text of
     the row is the text of the option. A row that matches no case, or a second row for a case, is a load warning.
+11. **A measured calculation value is rounded to the list (#1911).** Decided by the maintainer on 2026-11-19. Every
+    measured calculation weight, from the EHR, the user or MCP, becomes the nearest value of the calculation
+    weights, and every measured calculation height the nearest value of the calculation heights. The rounding is
+    the one of the estimated mean (`Estimates.nearestStep`): the lower value on a tie, and the first or last value
+    for a value beyond the list. The rounded value stays `Measured`. The exact value is kept in `Weight.Actual` or
+    `Height.Actual`, unless that list already holds it. Every use reads the calculation value, so the order
+    adjustment, rule selection by weight range, the body surface area and the other uses all take the rounded value.
+    The signing notice compares the calculation weights of the plan and of the EHR.
 
 ## Confidence
 
-Medium. The direction is decided. The size is not: the patient data Dto has many readers, and steps 5 to 8
+Medium. The direction is decided. The size is not: the patient data Dto has many readers, and steps 5 to 9
 may each need splitting to stay within the 200-line limit.
 
 ## Steps
 
 Each step builds and passes its tests on its own. Every step after step 1 is script first, as AGENTS.md describes;
-step 9 is client UI code.
+step 10 is client UI code.
 
 1. **The department Dto fields.** GenCORE: the case `OutpatientClinic`, and the Dto department per case
    (decision 4), with `fromDto` and `toDto`. `Department.fromString` goes.
@@ -151,7 +160,7 @@ step 9 is client UI code.
    `PatientData`, `GestationalAgeNeed` is added, and `create`, `fromDto` and `Patient.atDate` set both from the age
    (decision 2). `markRefused` and `PatientDataError.MarkedAdultBelowSixteen` go. The server `ofModel` writes the
    mark and the need of the contract on the Dto and `toModel` copies them back. `PatientDataCommand` keeps
-   `Age.adultMark` and `Age.gestationalAge` until step 8.
+   `Age.adultMark` and `Age.gestationalAge` until step 9.
 3. **The weight and height options as data.** GenCORE parses the rows of `calc_weight` and `calc_height` into
    `CalculationWeightsAndHeights`, sorted, with a `NormalValueSheetWarning` for a list out of order or a duplicate
    value and a `NormalValueSheetError` for a value that is not a positive number.
@@ -164,31 +173,41 @@ step 9 is client UI code.
    GenFORM reads the rows under a resource key of its own. A row that matches no band, a second row for a band,
    or a band without a row gives a warning; a sheet that fails to load gives a warning and no eGFR band options
    (decision 10).
-5. **GenCORE calculates the estimates and returns the options.** `PatientData.Dto.fromDto` takes the tables and the
-   weight and height options and fills `Estimates` and, without a measured value, the calculation weight and height
-   (decisions 1 and 3). `toDto` writes the estimates and every option, the renal functions included (decisions 5
-   and 10). Every reader of the Dto passes them; GenFORM and GenORDER tests pass none.
-6. **The server and MCP copy.** The contract `PatientData` gets the options (decision 6). `Patient.ofModel` fills the
-   Dto with plain values, and `toModel` copies the results and the options back. `Age.estimates`,
+5. **GenCORE calculates the estimates and returns the options.** `PatientData` gets the fields `Estimates` and
+   `Options` (`PatientDataOptions`). `PatientData.Dto.fromDto` takes the resources as an option
+   (`PatientDataResources`: the normal-value tables, the calculation weights and heights and the eGFR band options)
+   and fills the estimates, the options and, without a measured value, the calculation weight and height: the
+   estimated mean, or none without an estimate (decisions 1 and 3). Without the resources nothing is estimated. The
+   age options sit next to their validators; the eGFR bands carry the sheet text and the dialyses are listed without
+   a text (decisions 5 and 10). `toDto` writes the estimates as the GenCORE record. The options stay off the Dto, so
+   they are not stored with every patient data; they depend only on the resources. Every reader of the Dto passes
+   None in this step, so nothing changes in behaviour.
+6. **A measured calculation value is rounded to the list.** With the resources, `PatientData.estimate` rounds a
+   measured calculation weight and height to the nearest calculation value and keeps the exact value in `Actual`
+   (decision 11). Without the resources, the measured value is read as it is.
+7. **The server and MCP copy.** The contract `PatientData` gets the options (decision 6). The server and MCP pass the
+   resources to `fromDto`, and the server port adds the eGFR band options. `Patient.ofModel` fills the
+   Dto with plain values, and `toModel` copies the results back, and the options from `PatientData.Options`. `Age.estimates`,
    `Patient.withEstimates`, `estimated`, `estimating` and `estimate` go. MCP takes the age parts in place of
    `AgeMonths`, and `buildPatient` fills the Dto with plain values, as the client does.
-7. **One function completes the patient data.** The server and MCP complete the patient data through one shared
+8. **One function completes the patient data.** The server and MCP complete the patient data through one shared
    function that takes the resource provider and the patient data Dto, reads the normal-value tables and the
    calculation weights and heights, and returns the completed patient data (decision 8). It lives in a library
    that both reference; its place and name are decided in the script review. The server and MCP no longer read
-   these resources themselves.
-8. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
+   these resources themselves. `Patient.atDate` sets the age of an identified patient from the birth date but does
+   not estimate again, because it has no resources; the shared function estimates after the age is set.
+9. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
    data Dto and returns the completed Dto, as GenORDER applies a filter pick to an order context. Because every
    value is picked from the options that GenCORE offers, the command cannot fail. `PatientDataCommand` sends the
    command and the Dto, and `Age.adultMark` and `Age.gestationalAge` go.
-9. **The client reads the options.** The patient form takes every list from the patient data options instead of
-   its own arrays, and waits for the patient data.
+10. **The client reads the options.** The patient form takes every list from the patient data options instead of
+    its own arrays, and waits for the patient data.
 
 ## Verification
 
 - `dotnet run servertests` passes after every step.
-- After step 8, `git grep` finds no `AdultMark.ofAge`, `GestationalAgeNeed.ofAge`, `Estimates.ofAge` or
+- After step 9, `git grep` finds no `AdultMark.ofAge`, `GestationalAgeNeed.ofAge`, `Estimates.ofAge` or
   `AgeValue.fromDays` outside GenCORE.
-- After step 9, `git grep` finds no number list for the patient values in the client.
+- After step 10, `git grep` finds no number list for the patient values in the client.
 - A manual check in the app: an anonymous patient of 3 months shows the estimates and the options; a measured weight
-  keeps the estimates beside it; an EHR patient without a measured weight gets an estimate.
+  keeps the estimates beside it; an EHR patient without a measured weight gets an estimate; an EHR weight of 12.34 kg is used as 12.5 kg.

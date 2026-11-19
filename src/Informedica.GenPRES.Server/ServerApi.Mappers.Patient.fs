@@ -438,7 +438,7 @@ module Patient =
     let toCore today model =
         model
         |> ofModel
-        |> CorePatientData.Dto.fromDto today
+        |> CorePatientData.Dto.fromDto today None
         |> Result.mapError (ValidationErrors.toList >> List.toArray)
         |> Result.bind (
             CorePatientData.checkMinimumData
@@ -451,7 +451,7 @@ module Patient =
     let bodySurfaceArea today model =
         model
         |> ofModel
-        |> CorePatientData.Dto.fromDto today
+        |> CorePatientData.Dto.fromDto today None
         |> Result.toOption
         |> Option.bind _.BodySurfaceArea
         |> Option.map decimal
@@ -505,7 +505,7 @@ module Patient =
     /// InvalidOperationException when GenCORE refuses it: that is a bug, not invalid input.
     let fromOwnDto today dto =
         dto
-        |> CorePatientData.Dto.fromDto today
+        |> CorePatientData.Dto.fromDto today None
         |> Result.defaultWith (fun errs ->
             let msgs = errs |> ValidationErrors.toList |> String.concat "; "
             invalidOp $"GenCORE refuses patient data that the server wrote: %s{msgs}"

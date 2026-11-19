@@ -589,7 +589,9 @@ let adultTests =
                             if days >= 0 then
                                 let shared = draft (Some days) marked None None
 
-                                match shared |> ServerApi.Patient.ofModel |> CorePatientData.Dto.fromDto readAt with
+                                match
+                                    shared |> ServerApi.Patient.ofModel |> CorePatientData.Dto.fromDto readAt None
+                                with
                                 | Ok lib ->
                                     shared
                                     |> ContractPatientData.isAdult
@@ -622,7 +624,7 @@ let adultTests =
                                     $"%A{age} %b{marked} %A{weight} %A{height}"
                                     (shared
                                      |> ServerApi.Patient.ofModel
-                                     |> CorePatientData.Dto.fromDto readAt
+                                     |> CorePatientData.Dto.fromDto readAt None
                                      |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
                                      |> CorePatientData.checkMinimumData
                                      |> Result.map ignore)
@@ -862,7 +864,7 @@ let gestationalAgeTests =
                 |> List.map (fun d ->
                     { full with Age = Some(ServerApi.Age.ofDays d) }
                     |> ServerApi.Patient.ofModel
-                    |> CorePatientData.Dto.fromDto readAt
+                    |> CorePatientData.Dto.fromDto readAt None
                     |> Result.map (CorePatientData.Dto.toDto >> ServerApi.Patient.toModel >> _.GestationalAge)
                 )
                 |> Expect.equal

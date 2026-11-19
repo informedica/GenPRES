@@ -121,7 +121,7 @@ module GenOrderTools =
     /// Reads patient data from a Dto on a date. Returns the GenCORE messages when a value is invalid.
     let readPatientData today dto =
         dto
-        |> CorePatientData.Dto.fromDto today
+        |> CorePatientData.Dto.fromDto today None
         |> Result.mapError (fun errs ->
             let msgs = errs |> ValidationErrors.toList |> String.concat "; "
             $"The patient data is not valid: %s{msgs}"
