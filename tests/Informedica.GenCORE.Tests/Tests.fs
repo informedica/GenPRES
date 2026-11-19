@@ -3577,6 +3577,136 @@ module Tests =
                 ]
 
 
+    module RoundMeasuredTests =
+
+        let resources =
+            {
+                NormalValueTables =
+                    {
+                        Weights = []
+                        Heights = []
+                        NeoWeights = []
+                        NeoHeights = []
+                    }
+                CalculationWeightsAndHeights = calc
+                EGFRBandOptions = []
+            }
+
+        let measuredOn = Some(DateTime(2026, 11, 10))
+
+        let kg (v: decimal) = v |> WeightValue.weightInKg |> WeightAtDate.create measuredOn
+
+        let cm (v: decimal) = v |> HeightValue.heightInCm |> HeightAtDate.create measuredOn
+
+        /// Patient data of an adult with a measured calculation weight and height and the given actual weights.
+        let patient actualWeights weight height =
+            PatientData.create
+                Department.unknown
+                [||]
+                Male
+                (Some AgeValue.eighteen)
+                (Weight.create actualWeights None [] (Some(Measured weight)))
+                (Height.create [] None (Some(Measured height)))
+                None
+
+        let gram (v: int) =
+            v
+            |> decimal
+            |> WeightValue.weightInGram
+            |> WeightAtDate.create measuredOn
+            |> Measured
+            |> Some
+
+        let weightOf w =
+            (patient [] (kg w) (cm 180m) |> PatientData.estimate (Some resources)).Weight.Calculation
+
+        let heightOf h =
+            (patient [] (kg 12.5m) (cm h) |> PatientData.estimate (Some resources)).Height.Calculation
+
+
+        let tests =
+            testList
+                "PatientData round measured"
+                [
+                    test
+                        "a measured weight of 12.34 kg becomes 12.5 kg on the measurement date, the exact weight in Actual" {
+                        let dat = patient [] (kg 12.34m) (cm 180m) |> PatientData.estimate (Some resources)
+
+                        dat.Weight.Calculation
+                        |> Expect.equal "12500 g, measured, with the date" (gram 12500)
+                        dat.Weight.Actual |> Expect.equal "the exact weight" [ kg 12.34m ]
+                    }
+
+                    test "an exact weight that Actual already holds is not added again" {
+                        let w = kg 12.34m
+
+                        (patient [ w ] w (cm 180m) |> PatientData.estimate (Some resources)).Weight.Actual
+                        |> Expect.equal "the one exact weight" [ w ]
+                    }
+
+                    test "a measured weight that is already on the list is left as it is" {
+                        let dat = patient [] (kg 12.5m) (cm 180m) |> PatientData.estimate (Some resources)
+
+                        dat.Weight.Calculation
+                        |> Expect.equal "the measured weight" (Some(Measured(kg 12.5m)))
+                        dat.Weight.Actual |> Expect.isEmpty "nothing added"
+                    }
+
+                    test "a weight halfway between two list values takes the lower value" {
+                        weightOf 12.25m |> Expect.equal "12000 g" (gram 12000)
+                    }
+
+                    test "above 100 kg a weight is rounded to steps of 5 kg, the lower value on a tie" {
+                        [ 123m; 122.5m ]
+                        |> List.map weightOf
+                        |> Expect.equal "125 kg and 120 kg" [ gram 125000; gram 120000 ]
+                    }
+
+                    test "a weight below the list takes the first value" {
+                        weightOf 0.3m |> Expect.equal "400 g" (gram 400)
+                    }
+
+                    test
+                        "a measured height of 75.6 cm becomes 76 cm on the measurement date, the exact height in Actual" {
+                        let dat = patient [] (kg 12.5m) (cm 75.6m) |> PatientData.estimate (Some resources)
+
+                        dat.Height.Calculation
+                        |> Expect.equal "76 cm, measured, with the date" (Some(Measured(cm 76m)))
+                        dat.Height.Actual |> Expect.equal "the exact height" [ cm 75.6m ]
+                    }
+
+                    test "a height is compared exactly, not first cut to whole cm" {
+                        heightOf 75.9m |> Expect.equal "76 cm, not 75 cm" (Some(Measured(cm 76m)))
+                    }
+
+                    test "a height beyond the list takes the first or the last value" {
+                        [ 25m; 230m ]
+                        |> List.map heightOf
+                        |> Expect.equal "30 cm and 220 cm" [ Some(Measured(cm 30m)); Some(Measured(cm 220m)) ]
+                    }
+
+                    test "without the resources a measured weight is read as it is" {
+                        let dat = patient [] (kg 12.34m) (cm 180m) |> PatientData.estimate None
+
+                        dat.Weight.Calculation
+                        |> Expect.equal "the exact weight" (Some(Measured(kg 12.34m)))
+                        dat.Weight.Actual |> Expect.isEmpty "nothing added"
+                    }
+
+                    test "the body surface area uses the rounded weight and height" {
+                        let rounded =
+                            patient [] (kg 12.34m) (cm 75.6m)
+                            |> PatientData.estimate (Some resources)
+                            |> PatientData.calculateBodySurfaceArea
+
+                        let onList = patient [] (kg 12.5m) (cm 76m) |> PatientData.calculateBodySurfaceArea
+
+                        rounded.BodySurfaceArea
+                        |> Expect.equal "the area of 12.5 kg and 76 cm" onList.BodySurfaceArea
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -3602,6 +3732,7 @@ module Tests =
             CalculationWeightsAndHeightsTests.tests
             EGFRBandOptionsTests.tests
             PatientDataEstimateTests.tests
+            RoundMeasuredTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1
