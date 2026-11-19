@@ -226,6 +226,8 @@ module Resources =
             $"calculation weights and heights, sheet %s{sheet}: column missing: %s{column}"
         | CoreNormalValueSheetError.NotAPositiveNumber(sheet, row, value) ->
             $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' is not a positive number"
+        | CoreNormalValueSheetError.RoundsToZero(sheet, row, value) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' rounds to 0"
         | CoreNormalValueSheetError.NoValues sheet -> $"calculation weights and heights, sheet %s{sheet}: no values"
 
 

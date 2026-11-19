@@ -268,6 +268,8 @@ type NormalValueSheetError =
     | MissingColumn of sheet: string * column: string
     /// The row holds a value that is not a positive number.
     | NotAPositiveNumber of sheet: string * row: int * value: string
+    /// The row holds a positive number that rounds to 0 in whole grams or whole cm.
+    | RoundsToZero of sheet: string * row: int * value: string
     /// The sheet holds no values.
     | NoValues of sheet: string
 
@@ -2153,9 +2155,10 @@ module CalculationWeightsAndHeights =
     let sheets = [ weightSheet; heightSheet ]
 
 
-    /// Parses the rows of a sheet, header first, into the positive numbers of a column with their row numbers.
-    /// A blank cell is skipped. Returns every error in the rows, and NoValues when no row holds a value.
-    let parseSheet sheet column rows =
+    /// Parses the rows of a sheet, header first, into the numbers of a column with their row numbers, each
+    /// rounded to a whole value by toWhole. A blank cell is skipped. Returns every error in the rows: a number
+    /// that is not positive, a number that rounds to 0, and NoValues when no row holds a value.
+    let parseSheet sheet column (toWhole: float -> int<'u>) rows =
         let header = rows |> Array.tryHead |> Option.defaultValue [||] |> Array.map String.trim
 
         match header |> Array.tryFindIndex ((=) column) with
@@ -2168,7 +2171,10 @@ module CalculationWeightsAndHeights =
                     Ok None
                 else
                     match cell |> Double.tryParse with
-                    | Some v when v > 0. -> Ok(Some(n, v))
+                    | Some v when v > 0. ->
+                        match v |> toWhole with
+                        | w when int w > 0 -> Ok(Some(n, w))
+                        | _ -> Error [ NormalValueSheetError.RoundsToZero(sheet, n, cell) ]
                     | _ -> Error [ NormalValueSheetError.NotAPositiveNumber(sheet, n, cell) ]
 
             rows[1..]
@@ -2203,23 +2209,27 @@ module CalculationWeightsAndHeights =
     /// MissingSheet for a sheet that is not in the map; otherwise the weights and heights with the warnings of
     /// both sheets.
     let ofRows (rows: Map<string, string[][]>) =
-        let values sheet column =
+        let values sheet column toWhole =
             match rows |> Map.tryFind sheet with
             | None -> Validation.error (NormalValueSheetError.MissingSheet sheet)
-            | Some sheetRows -> sheetRows |> parseSheet sheet column
+            | Some sheetRows -> sheetRows |> parseSheet sheet column toWhole
 
-        let toGram (kg: float<kg>) =
-            kg * 1000.<gram / kg> |> float |> Math.Round |> int |> Conversions.gramFromInt
+        let toGram v =
+            v * 1.<kg> * 1000.<gram / kg>
+            |> float
+            |> Math.Round
+            |> int
+            |> Conversions.gramFromInt
 
-        let toCm (cm: float<cm>) = cm |> float |> Math.Round |> int |> Conversions.cmFromInt
+        let toCm v =
+            v * 1.<cm> |> float |> Math.Round |> int |> Conversions.cmFromInt
 
         validation {
-            let! w = values weightSheet weightColumn
-            and! h = values heightSheet heightColumn
+            let! w = values weightSheet weightColumn toGram
+            and! h = values heightSheet heightColumn toCm
 
-            let weights, ww = w |> List.map (fun (n, v) -> n, v * 1.<kg> |> toGram) |> ascending weightSheet
-
-            let heights, hw = h |> List.map (fun (n, v) -> n, v * 1.<cm> |> toCm) |> ascending heightSheet
+            let weights, ww = w |> ascending weightSheet
+            let heights, hw = h |> ascending heightSheet
 
             return
                 {

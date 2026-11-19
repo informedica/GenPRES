@@ -3267,6 +3267,18 @@ module Tests =
                                 }
                         ]
 
+                    test "a positive value that rounds to 0 is an error with the row" {
+                        rowsOf [| "0.0004" |] [| "0.4" |]
+                        |> CalculationWeightsAndHeights.ofRows
+                        |> Expect.equal
+                            "an error per sheet"
+                            (Error
+                                [
+                                    NormalValueSheetError.RoundsToZero("calc_weight", 2, "0.0004")
+                                    NormalValueSheetError.RoundsToZero("calc_height", 2, "0.4")
+                                ])
+                    }
+
                     test "returns the errors of both sheets" {
                         rowsOf [| "x" |] [||]
                         |> CalculationWeightsAndHeights.ofRows

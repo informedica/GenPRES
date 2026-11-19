@@ -6595,6 +6595,14 @@ module Tests =
                             ))
                     }
 
+                    test "a calculation weight that rounds to 0 is named with its row and value" {
+                        CoreNormalValueSheetError.RoundsToZero("calc_weight", 2, "0.0004")
+                        |> normalValueSheetErrorText
+                        |> Expect.equal
+                            "the text"
+                            "calculation weights and heights, sheet calc_weight, row 2: '0.0004' rounds to 0"
+                    }
+
                     test "calculation weight and height rows that hold an error give an error for each" {
                         Map.ofList [ ("calc_weight", [| [| "WeightKg" |]; [| "x" |] |]) ]
                         |> calculationWeightsAndHeightsOf
