@@ -765,7 +765,7 @@ module Session =
             if not (aged.Height |> CoreHeight.isMeasured) then
                 dto.Height.Calculation <- None
 
-            dto |> Patient.fromOwnDto date
+            dto |> Patient.fromOwnDto date None
 
 
     /// The patient data a Session shows on the local date. After a signing, the data of the signed

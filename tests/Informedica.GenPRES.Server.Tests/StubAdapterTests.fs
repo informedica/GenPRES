@@ -176,8 +176,8 @@ module StubAdapters =
             admin = adminNone
             requireLoaded = fun () -> None
             departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
-            // no normal values: a patient is estimated only where a test gives them
-            normalValues = fun () -> None
+            // no resources: a patient is completed with them only where a test gives them
+            patientDataResources = fun () -> None
             today = fun () -> readAt
             // the tests run as the demo server does
             session = sessionNone
@@ -208,7 +208,7 @@ module StubAdapters =
             admin = adminNone
             requireLoaded = fun () -> Some msgs
             departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
-            normalValues = fun () -> None
+            patientDataResources = fun () -> None
             today = fun () -> readAt
             // the tests run as the demo server does
             session = sessionNone

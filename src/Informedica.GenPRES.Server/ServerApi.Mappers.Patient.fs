@@ -5,17 +5,14 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
 
 
-/// Maps the ages, the adult mark, the gender and the estimates of the contract patient to GenCORE
-/// and back. The contract patient has no birthdate, only an age.
+/// Maps the ages, the adult mark and the gender of the contract patient to GenCORE and back. The
+/// contract patient has no birthdate, only an age.
 module Age =
 
     module Measures = Informedica.GenPRES.Shared.Measures
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
-    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
-    module CoreGestationalAgeNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
-    module CoreEstimates = Informedica.GenCore.Lib.Patients.Estimates
 
     type CoreMark = Informedica.GenCore.Lib.Patients.AdultMark
     type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
@@ -29,10 +26,6 @@ module Age =
         |> CoreAgeValue.SetGet.setIntMonths (int age.Months)
         |> CoreAgeValue.SetGet.setIntWeeks (int age.Weeks)
         |> CoreAgeValue.SetGet.setIntDays (int age.Days)
-
-
-    /// The age of the contract in days.
-    let inDays age = age |> ageValue |> CoreAgeValue.getAgeInDays |> int
 
 
     /// Maps an age in days to the age of the contract.
@@ -60,35 +53,6 @@ module Age =
             (int awd.Days |> CoreConversions.dayFromInt)
 
 
-    /// An age in weeks and days of the contract, in days.
-    let weeksDaysInDays awd = awd |> weeksDays |> CoreAgeWeeksDays.toDays
-
-
-    /// The gestational age of the contract patient in days.
-    let gestAgeInDays (model: PatientData) =
-        model.GestationalAge |> GestationalAge.value |> Option.map weeksDaysInDays
-
-
-    /// Maps a number of days to an age in weeks and days of the contract.
-    let weeksDaysOfDays days : AgeWeeksDays =
-        let awd = days |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
-
-        {
-            Weeks = int awd.Weeks |> Measures.toWeek
-            Days = int awd.Days |> Measures.toDay
-        }
-
-
-    /// The post-menstrual age that GenCORE calculates from the age and the gestational age. None
-    /// when either is missing.
-    let postMenstrualAge age ga =
-        Option.map2
-            (fun age ga -> CoreAgeWeeksDays.postMenstrualAge (ageValue age) (weeksDays ga))
-            age
-            (ga |> GestationalAge.value)
-        |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
-
-
     /// Maps the gestational age of the contract to the GenCORE need for a gestational age.
     let coreGestationalAgeNeed ga =
         match ga with
@@ -104,12 +68,6 @@ module Age =
         | CoreNeed.NoGestationalAge -> GestationalAge.NoGestationalAge
         | CoreNeed.OptionalGestationalAge -> GestationalAge.OptionalGestationalAge ga
         | CoreNeed.RequiredGestationalAge -> GestationalAge.RequiredGestationalAge ga
-
-
-    /// The gestational age with the need for it that GenCORE gives for the age. The gestational age
-    /// is dropped from 1 year and without an age.
-    let gestationalAge age ga =
-        gestationalAgeOfCore (age |> Option.map ageValue |> CoreGestationalAgeNeed.ofAge) ga
 
 
     /// Maps the adult mark of the contract to a GenCORE adult mark.
@@ -128,13 +86,6 @@ module Age =
         | CoreMark.Adult -> AdultMark.Adult
 
 
-    /// The adult mark that GenCORE gives for the age and the choice of the user.
-    let adultMark age mark =
-        let marked = mark = AdultMark.MarkableAdult true
-
-        CoreAdultMark.ofAge (age |> Option.map ageValue) marked |> adultMarkOfCore
-
-
     /// Maps the gender of the contract to GenCORE.
     let coreGender g =
         match g with
@@ -149,16 +100,6 @@ module Age =
         | CoreGender.Male -> Male
         | CoreGender.Female -> Female
         | CoreGender.UnknownGender -> UnknownGender
-
-
-    /// The weight and height estimates of GenCORE for the contract patient.
-    let estimates (tables, calculationWeightsAndHeights) (model: PatientData) =
-        CoreEstimates.ofAge
-            tables
-            calculationWeightsAndHeights
-            (model.Gender |> coreGender)
-            (model.Age |> Option.map ageValue)
-            (model.PostMenstrualAge |> Option.map weeksDays)
 
 
 /// Maps the patient of the contract to the GenCORE patient data and back. Every request with
@@ -179,18 +120,14 @@ module Patient =
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreRenal = Informedica.GenCore.Lib.Patients.RenalFunction
-    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
-    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
-    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
-    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
     module Measures = Informedica.GenPRES.Shared.Measures
 
     type CoreAccess = Informedica.GenCore.Lib.Patients.Access
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
     type CoreRenalFunction = Informedica.GenCore.Lib.Patients.RenalFunction
-    type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
+    type CorePercentiles<'v> = Informedica.GenCore.Lib.Patients.Percentiles<'v>
     type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
 
     /// The message for patient data without an age and without a measured weight and height.
@@ -258,17 +195,23 @@ module Patient =
 
 
     /// Maps the contract patient to the GenCORE Dto of patient data. Nothing is checked. A measured
-    /// weight or height is used when there is one, otherwise the estimate. Neither has a date.
+    /// weight or height is used when there is one, otherwise the estimate, in gram and cm without a date.
     let ofModel (model: PatientData) =
         let dto = CorePatientData.Dto.dto ()
 
         let weeksDays = Age.weeksDays >> CoreAgeWeeksDays.Dto.toDto
 
-        let source measured v =
-            if measured then
-                CoreSource.Measured v
-            else
-                CoreSource.Estimated v
+        let weightDto grams =
+            let w = CoreWeightAtDate.Dto.dto ()
+            w.WeightValue.Weight <- grams |> int |> decimal
+            w.WeightValue.WeightInKg <- false
+            w
+
+        let heightDto cms =
+            let h = CoreHeightAtDate.Dto.dto ()
+            h.HeightValue.Height <- cms |> int |> decimal
+            h.HeightValue.HeightInMeter <- false
+            h
 
         dto.Location <- model.Location
         dto.Department.OtherDepartment <- model.Department
@@ -282,32 +225,10 @@ module Patient =
         dto.BodySurfaceArea <- model.BodySurfaceArea
         dto.Access <- model.Access |> List.map (coreAccess >> CoreAccess.toString) |> List.toArray
         dto.RenalFunction <- model.RenalFunction |> Option.map renalString
-
-        dto.Weight <-
-            model
-            |> PatientData.getWeight
-            |> Option.map (
-                int
-                >> decimal
-                >> CoreWeightValue.weightInGram
-                >> CoreWeightAtDate.undated
-                >> source model.Weight.Measured.IsSome
-            )
-            |> CoreWeight.create [] None []
-            |> CoreWeight.Dto.toDto
-
-        dto.Height <-
-            model
-            |> PatientData.getHeight
-            |> Option.map (
-                int
-                >> decimal
-                >> CoreHeightValue.heightInCm
-                >> CoreHeightAtDate.undated
-                >> source model.Height.Measured.IsSome
-            )
-            |> CoreHeight.create [] None
-            |> CoreHeight.Dto.toDto
+        dto.Weight.Calculation <- model |> PatientData.getWeight |> Option.map weightDto
+        dto.Weight.CalculationEstimated <- model.Weight.Measured.IsNone
+        dto.Height.Calculation <- model |> PatientData.getHeight |> Option.map heightDto
+        dto.Height.CalculationEstimated <- model.Height.Measured.IsNone
 
         dto
 
@@ -331,8 +252,9 @@ module Patient =
 
 
     /// Maps the GenCORE Dto of patient data to the patient of the contract. A string that GenCORE
-    /// cannot read is left out. The Dto has no 3rd and 97th percentile estimates, so those are
-    /// empty in the result.
+    /// cannot read is left out. The 3rd percentile, the mean and the 97th percentile come from the
+    /// estimates of the Dto; without an estimate, an estimated calculation value is the mean and the
+    /// percentiles are empty.
     let toModel (dto: CorePatientData.Dto.Dto) : PatientData =
         let weeksDays (awd: CoreAgeWeeksDays.Dto.Dto) : AgeWeeksDays =
             {
@@ -376,7 +298,19 @@ module Patient =
             )
 
         let measured isEstimated v = if isEstimated then None else v
-        let estimated isEstimated v = if isEstimated then v else None
+
+        let percentiles toUnit calc isEstimated (est: CorePercentiles<_> option) =
+            match est with
+            | Some e -> Some(toUnit e.P3), Some(toUnit e.Mean), Some(toUnit e.P97)
+            | None -> None, (if isEstimated then calc else None), None
+
+        let weightP3, weightMean, weightP97 =
+            dto.Estimates.Weight
+            |> percentiles (int >> Measures.toGram) grams dto.Weight.CalculationEstimated
+
+        let heightP3, heightMean, heightP97 =
+            dto.Estimates.Height
+            |> percentiles (int >> Measures.toCm) cms dto.Height.CalculationEstimated
 
         {
             Age = age
@@ -388,16 +322,16 @@ module Patient =
             BodySurfaceArea = dto.BodySurfaceArea
             Weight =
                 {
-                    EstimatedP3 = None
-                    Estimated = grams |> estimated dto.Weight.CalculationEstimated
-                    EstimatedP97 = None
+                    EstimatedP3 = weightP3
+                    Estimated = weightMean
+                    EstimatedP97 = weightP97
                     Measured = grams |> measured dto.Weight.CalculationEstimated
                 }
             Height =
                 {
-                    EstimatedP3 = None
-                    Estimated = cms |> estimated dto.Height.CalculationEstimated
-                    EstimatedP97 = None
+                    EstimatedP3 = heightP3
+                    Estimated = heightMean
+                    EstimatedP97 = heightP97
                     Measured = cms |> measured dto.Height.CalculationEstimated
                 }
             Gender =
@@ -433,28 +367,30 @@ module Patient =
         | CoreError.NoAgeOrMeasuredWeightAndHeight -> noPatient
 
 
+    /// Maps the contract patient to GenCORE patient data on today's date, with the resources when they
+    /// are given. Returns the messages when a value is invalid.
+    let toPatientData today resources model =
+        model
+        |> ofModel
+        |> CorePatientData.Dto.fromDto today resources
+        |> Result.mapError (ValidationErrors.toList >> List.toArray)
+
+
     /// Maps the contract patient to GenCORE patient data on today's date. Returns the messages
     /// when a value is invalid or the data is not enough to select rules.
     let toCore today model =
         model
-        |> ofModel
-        |> CorePatientData.Dto.fromDto today None
-        |> Result.mapError (ValidationErrors.toList >> List.toArray)
+        |> toPatientData today None
         |> Result.bind (
             CorePatientData.checkMinimumData
             >> Result.mapError (notEnoughMessage >> Array.singleton)
         )
 
 
-    /// Returns the body surface area in m2 that GenCORE calculates for the contract patient on today's date.
-    /// None when the patient data is invalid or has no weight and height.
-    let bodySurfaceArea today model =
-        model
-        |> ofModel
-        |> CorePatientData.Dto.fromDto today None
-        |> Result.toOption
-        |> Option.bind _.BodySurfaceArea
-        |> Option.map decimal
+    /// Completes the contract patient through GenCORE on today's date. Returns the messages when a
+    /// value is invalid.
+    let complete today resources model =
+        model |> toPatientData today resources |> Result.map ofPatientData
 
 
     /// Maps the contract patient to GenCORE patient data and checks that the rules can be looked up:
@@ -470,83 +406,29 @@ module Patient =
         )
 
 
-    /// Adds the weight and height estimates of GenCORE to the contract patient. An estimate is
-    /// replaced when GenCORE gives one. A measured value is kept.
-    let withEstimates tables (model: PatientData) : PatientData =
-        let est = model |> Age.estimates tables
-
-        let toGram (g: int<Informedica.GenCore.Lib.Measures.gram>) = int g |> Measures.toGram
-
-        let toCm (c: int<Informedica.GenCore.Lib.Measures.cm>) = int c |> Measures.toCm
-
-        { model with
-            Weight =
-                match est.Weight with
-                | Some e ->
-                    { model.Weight with
-                        EstimatedP3 = Some(toGram e.P3)
-                        Estimated = Some(toGram e.Mean)
-                        EstimatedP97 = Some(toGram e.P97)
-                    }
-                | None -> model.Weight
-            Height =
-                match est.Height with
-                | Some e ->
-                    { model.Height with
-                        EstimatedP3 = Some(toCm e.P3)
-                        Estimated = Some(toCm e.Mean)
-                        EstimatedP97 = Some(toCm e.P97)
-                    }
-                | None -> model.Height
-        }
-
-
-    /// Reads a patient data Dto that the server wrote from valid patient data. Raises an
-    /// InvalidOperationException when GenCORE refuses it: that is a bug, not invalid input.
-    let fromOwnDto today dto =
+    /// Reads a patient data Dto that the server wrote from valid patient data, with the resources
+    /// when they are given. Raises an InvalidOperationException when GenCORE refuses it: that is a
+    /// bug, not invalid input.
+    let fromOwnDto today resources dto =
         dto
-        |> CorePatientData.Dto.fromDto today None
+        |> CorePatientData.Dto.fromDto today resources
         |> Result.defaultWith (fun errs ->
             let msgs = errs |> ValidationErrors.toList |> String.concat "; "
             invalidOp $"GenCORE refuses patient data that the server wrote: %s{msgs}"
         )
 
 
-    /// Adds the weight and height estimates of GenCORE to patient data, without a date. A measured
-    /// weight or height is kept as it is, with its date and its measurements. The patient data is
-    /// returned unchanged when the estimate fails. Raises an InvalidOperationException when GenCORE
-    /// refuses the Dto.
-    let estimated today tables (pat: CorePatientData) =
-        pat
-        |> ofPatientData
-        |> withEstimates tables
-        |> toCore today
-        // Only the estimated values are taken over. The contract has no diagnoses, no kind of
-        // department and no measurement lists, so the rest of the mapped data is incomplete.
-        |> Result.map (fun est ->
-            let dto = pat |> CorePatientData.Dto.toDto
-
-            if not (pat.Weight |> CoreWeight.isMeasured) then
-                dto.Weight <- { pat.Weight with Calculation = est.Weight.Calculation } |> CoreWeight.Dto.toDto
-
-            if not (pat.Height |> CoreHeight.isMeasured) then
-                dto.Height <- { pat.Height with Calculation = est.Height.Calculation } |> CoreHeight.Dto.toDto
-
-            dto |> fromOwnDto today
-        )
-        |> Result.defaultValue pat
-
-
-    /// Wraps the EHR port so that the patient data it reads gets weight and height estimates. Nothing
-    /// is estimated while the normal-value tables are not loaded.
-    let estimating today normalValues (port: EhrPatientPort) : EhrPatientPort =
+    /// Wraps the EHR port so that GenCORE completes the patient data it reads with the resources.
+    /// Without the resources, the patient data is read as it is. Raises an InvalidOperationException
+    /// when GenCORE refuses the Dto.
+    let completing today resources (port: EhrPatientPort) : EhrPatientPort =
         { port with
             patientData =
                 fun ehr ->
                     let pat = port.patientData ehr
 
-                    match normalValues () with
-                    | Some tables -> pat |> estimated (today ()) tables
+                    match resources () with
+                    | Some _ as res -> pat |> CorePatientData.Dto.toDto |> fromOwnDto (today ()) res
                     | None -> pat
         }
 
@@ -580,11 +462,3 @@ module Patient =
     /// Keeps a contract patient read from the EHR only when it is an adult, has an age, or has a measured
     /// weight and height.
     let reading (dto: PatientData option) = dto |> Option.filter (PatientData.validate >> Result.isOk)
-
-
-    /// Adds the weight and height estimates to the contract patient when the normal-value tables
-    /// are loaded.
-    let estimate normalValues (draft: PatientData) : PatientData =
-        match normalValues () with
-        | Some tables -> draft |> withEstimates tables
-        | None -> draft

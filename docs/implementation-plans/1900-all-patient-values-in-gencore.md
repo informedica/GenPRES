@@ -185,11 +185,19 @@ step 10 is client UI code.
 6. **A measured calculation value is rounded to the list.** With the resources, `PatientData.estimate` rounds a
    measured calculation weight and height to the nearest calculation value and keeps the exact value in `Actual`
    (decision 11). Without the resources, the measured value is read as it is.
-7. **The server and MCP copy.** The contract `PatientData` gets the options (decision 6). The server and MCP pass the
-   resources to `fromDto`, and the server port adds the eGFR band options. `Patient.ofModel` fills the
-   Dto with plain values, and `toModel` copies the results back, and the options from `PatientData.Options`. `Age.estimates`,
-   `Patient.withEstimates`, `estimated`, `estimating` and `estimate` go. MCP takes the age parts in place of
-   `AgeMonths`, and `buildPatient` fills the Dto with plain values, as the client does.
+7. **The server and MCP copy.** Split in three pull requests by the maintainer on 2026-11-19:
+   - **7a. The server completes the patient data.** The port field `normalValues` becomes `patientDataResources`,
+     the GenCORE `PatientDataResources` with the eGFR band options. Only where the patient data changes does the
+     server pass the resources: the panel command completes the contract patient through GenCORE
+     (`Patient.complete`) and returns the GenCORE messages when a value is refused, and the EHR read is wrapped by
+     `Patient.completing`. The rule lookups, the body surface area and the stored data read with `None`.
+     `Patient.ofModel` fills the Dto with plain values, and `toModel` copies the estimates back. `Age.estimates`,
+     `Age.gestationalAge`, `Age.postMenstrualAge`, `Age.adultMark`, `Patient.withEstimates`, `estimated`,
+     `estimating` and `estimate` go.
+   - **7b. The options reach the contract.** The contract `PatientData` gets the options (decision 6), and
+     `toModel` copies them from `PatientData.Options`.
+   - **7c. MCP.** MCP takes the age parts in place of `AgeMonths`, and `buildPatient` fills the Dto with plain
+     values and passes the resources, as the server does.
 8. **One function completes the patient data.** The server and MCP complete the patient data through one shared
    function that takes the resource provider and the patient data Dto, reads the normal-value tables and the
    calculation weights and heights, and returns the completed patient data (decision 8). It lives in a library

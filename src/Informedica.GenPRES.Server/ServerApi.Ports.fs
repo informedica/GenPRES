@@ -15,11 +15,8 @@ type Logger = Informedica.Logging.Lib.Logger
 /// The identity of a patient, of GenCORE.
 type CorePatientIdentity = Informedica.GenCore.Lib.Patients.PatientIdentity
 
-/// The normal-value tables of weight and height, of GenCORE.
-type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
-
-/// The calculation weights and heights an estimate is rounded to, of GenCORE.
-type CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
+/// The resources GenCORE completes the patient data with.
+type CorePatientDataResources = Informedica.GenCore.Lib.Patients.PatientDataResources
 
 
 type FormularyPort =
@@ -453,9 +450,9 @@ type AppEnv =
         demo: bool
         // The departments the loaded rules name, and the default; only the default while the rules are not loaded.
         departments: unit -> GenForm.Departments
-        // The normal values of weight and height with the calculation weights and heights, used for estimates; None
-        // until the resources are loaded. Calling it may load them.
-        normalValues: unit -> (CoreNormalValueTables * CoreCalculationWeightsAndHeights) option
+        // The resources GenCORE completes the patient data with; None until the resources are loaded. Calling it may
+        // load them.
+        patientDataResources: unit -> CorePatientDataResources option
         // The current date in the hospital time zone, used as the measurement date of a weight or height from the
         // client.
         today: unit -> DateTime
