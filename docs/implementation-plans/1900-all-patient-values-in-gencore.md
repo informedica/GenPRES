@@ -98,7 +98,10 @@ Decided by the maintainer on 2026-11-19.
    calculation weight and height stay as they are: the measured value, or else the estimated mean.
 2. **The adult mark and the need for a gestational age are DUs.** `PatientData.MarkedAdult: bool` becomes
    `AdultMark: AdultMark`, and a `GestationalAgeNeed` field is added. The Dto keeps the plain `MarkedAdult` bool as
-   the choice of the user, and adds the mark and the need, which `toDto` writes.
+   the choice of the user, and adds the mark and the need as the GenCORE DUs, which `toDto` writes. A mark under 16
+   years is ignored: the patient is not an adult and the patient data is accepted. The patient data keeps only the
+   mark GenCORE decided, not the choice of the user: once the age gives an adult or a patient under 16 years, the
+   mark of the user is gone, and the user marks the patient again after a change of the age.
 3. **The tables and the weight and height options are passed in.** The Dto creation takes the normal-value tables
    and the lists of weights and heights the user picks from. GenFORM reads the lists like the rules, from a sheet the
    maintainer provides, with the values as lists of options. `Estimates.ofAge` rounds to these lists, and
@@ -123,21 +126,23 @@ Decided by the maintainer on 2026-11-19.
 
 ## Confidence
 
-Medium. The direction is decided. The size is not: the patient data Dto has many readers, and steps 4 and 5
+Medium. The direction is decided. The size is not: the patient data Dto has many readers, and steps 4 to 6
 may each need splitting to stay within the 200-line limit.
 
 ## Steps
 
 Each step builds and passes its tests on its own. Every step after step 1 is script first, as AGENTS.md describes;
-step 6 is client UI code.
+step 7 is client UI code.
 
 1. **The department Dto fields.** GenCORE: the case `OutpatientClinic`, and the Dto department per case
    (decision 4), with `fromDto` and `toDto`. `Department.fromString` goes.
    The server `Patient.ofModel` writes the name to `OtherDepartment` and `toModel` reads `Department.name`; MCP
    writes `OtherDepartment`. `Patient.department` in the server goes. The stored fixtures change.
 2. **The adult mark and the need for a gestational age.** GenCORE: `AdultMark` replaces `MarkedAdult` on
-   `PatientData`, `GestationalAgeNeed` is added, and `fromDto` sets both (decision 2). The server `toModel` copies
-   them, and `Age.adultMark` and `Age.gestationalAge` go; `PatientDataCommand` reads them from the Dto.
+   `PatientData`, `GestationalAgeNeed` is added, and `create`, `fromDto` and `Patient.atDate` set both from the age
+   (decision 2). `markRefused` and `PatientDataError.MarkedAdultBelowSixteen` go. The server `ofModel` writes the
+   mark and the need of the contract on the Dto and `toModel` copies them back. `PatientDataCommand` keeps
+   `Age.adultMark` and `Age.gestationalAge` until step 6.
 3. **The weight and height options as data.** After the maintainer has added the sheet: GenFORM reads
    the lists under a resource key, next to the normal-value tables. `Estimates.ofAge` takes the lists, and
    `weightSteps` and `heightSteps` go. The server and MCP pass the lists.
@@ -147,17 +152,20 @@ step 6 is client UI code.
    them; GenFORM and GenORDER tests pass none.
 5. **The server and MCP copy.** The contract `PatientData` gets the options (decision 6). `Patient.ofModel` fills the
    Dto with plain values, and `toModel` copies the results and the options back. `Age.estimates`,
-   `Patient.withEstimates`, `estimated`, `estimating` and `estimate` go, and `PatientDataCommand` becomes
-   `ofModel`, `fromDto`, `toDto`, `toModel`. MCP takes the age parts in place of `AgeMonths`, and
-   `buildPatient` fills the Dto with plain values, as the client does.
-6. **The client reads the options.** The patient form takes every list from the patient data options instead of
+   `Patient.withEstimates`, `estimated`, `estimating` and `estimate` go. MCP takes the age parts in place of
+   `AgeMonths`, and `buildPatient` fills the Dto with plain values, as the client does.
+6. **Commands on the patient Dto.** GenCORE applies a command, such as a pick from the options, to the patient
+   data Dto and returns the completed Dto, as GenORDER applies a filter pick to an order context. Because every
+   value is picked from the options that GenCORE offers, the command cannot fail. `PatientDataCommand` sends the
+   command and the Dto, and `Age.adultMark` and `Age.gestationalAge` go.
+7. **The client reads the options.** The patient form takes every list from the patient data options instead of
    its own arrays, and waits for the patient data.
 
 ## Verification
 
 - `dotnet run servertests` passes after every step.
-- After step 5, `git grep` finds no `AdultMark.ofAge`, `GestationalAgeNeed.ofAge`, `Estimates.ofAge` or
+- After step 6, `git grep` finds no `AdultMark.ofAge`, `GestationalAgeNeed.ofAge`, `Estimates.ofAge` or
   `AgeValue.fromDays` outside GenCORE.
-- After step 6, `git grep` finds no number list for the patient values in the client.
+- After step 7, `git grep` finds no number list for the patient values in the client.
 - A manual check in the app: an anonymous patient of 3 months shows the estimates and the options; a measured weight
   keeps the estimates beside it; an EHR patient without a measured weight gets an estimate.

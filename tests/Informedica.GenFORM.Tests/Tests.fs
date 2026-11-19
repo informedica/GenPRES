@@ -2211,7 +2211,8 @@ module Tests =
             { pat with RenalFunction = Some renalFunction } |> throughDto
 
         /// Marks the patient as an adult.
-        let markedAsAdult (pat: PatientData) = { pat with MarkedAdult = true } |> throughDto
+        let markedAsAdult (pat: PatientData) =
+            { pat with AdultMark = AdultMark.MarkableAdult true } |> throughDto
 
 
     module DoseLimitTests =
@@ -3645,7 +3646,7 @@ module Tests =
                                 child
                                 { Core.unknown with Location = Some "OK" }
                                 { Core.unknown with Gender = Male }
-                                { Core.unknown with MarkedAdult = true }
+                                { Core.unknown with AdultMark = AdultMark.MarkableAdult true }
                                 { Core.unknown with Access = [ CVL ] }
                             ] do
                             dat |> FormData.hasDataBesidesDepartment |> Expect.isTrue "data"
@@ -4815,14 +4816,12 @@ module Tests =
                                 aged (Some(years 16N)) |> marked |> PatientData.isAdult |> Expect.isTrue "adult"
                             }
 
-                            test "a patient of 16 years less one day with the mark is refused and is not an adult" {
+                            test "a patient of 16 years less one day with the mark is not an adult and is accepted" {
                                 let pat = aged (Some(days 5839N)) |> marked
 
                                 pat |> PatientData.isAdult |> Expect.isFalse "not an adult"
 
-                                pat
-                                |> CorePatientData.checkMinimumData
-                                |> Expect.equal "the mark is refused" (Error PatientDataError.MarkedAdultBelowSixteen)
+                                pat |> CorePatientData.checkMinimumData |> Expect.isOk "the mark is ignored"
                             }
                         ]
 

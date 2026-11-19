@@ -436,18 +436,13 @@ module PatientData =
     let renalFunction (dat: CorePatientData) = dat.RenalFunction |> Option.map RenalFunction.ofPatient
 
 
-    /// Returns the adult mark that GenCORE gives for the age and the MarkedAdult value of the patient data.
-    let adultMark (dat: CorePatientData) = CoreAdultMark.ofAge dat.Age dat.MarkedAdult
-
-
-    /// Returns true when the GenCORE adult mark says adult: from 18 years, or from 16 years or without an
-    /// age when the patient is marked as an adult.
-    let isAdult dat = dat |> adultMark |> CoreAdultMark.isAdult
+    /// True when the adult mark of the patient data says adult.
+    let isAdult (dat: CorePatientData) = dat.AdultMark |> CoreAdultMark.isAdult
 
 
     /// Whether the rules for adults apply because of the mark: a marked patient of 16 or 17 years,
     /// or a marked patient without an age.
-    let matchedAsAdult dat = dat |> adultMark = CoreAdultMark.MarkableAdult true
+    let matchedAsAdult (dat: CorePatientData) = dat.AdultMark = CoreAdultMark.MarkableAdult true
 
 
     /// Gives a patient the age of 18 years and removes the gestational and post-menstrual age. A

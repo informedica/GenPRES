@@ -893,8 +893,7 @@ module Tests =
             let withHeight calc dat : PatientData = { dat with Height = Height.create [] None (Some calc) }
 
             /// Patient data with an age, a measured weight, an estimated height, their body surface area,
-            /// both ages of a neonate, a location, a department, the mark as an adult, an access and a renal
-            /// function.
+            /// both ages of a neonate, a location, a department, an access and a renal function.
             let complete =
                 { PatientData.create
                       (Department.pediatricICU "ICK")
@@ -905,7 +904,6 @@ module Tests =
                       (Height.create [ height ] None (Some(Estimated height)))
                       (Some(AgeWeeksDays.create 26<week> 3<day>)) with
                     Location = Some "UMCU"
-                    MarkedAdult = true
                     PostMenstrualAge = Some(AgeWeeksDays.create 30<week> 0<day>)
                     Access = [ CVL; EnteralTube ]
                     RenalFunction = Some(EGFR From10To30)
@@ -919,6 +917,29 @@ module Tests =
                 |> fun idn -> Patient.create idn complete
 
             let belowMinimum = Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
+
+            /// An age of a number of years.
+            let years y = AgeValue.create (Some y) None None None |> Some
+
+            /// Creates patient data with only an age.
+            let createAt age =
+                PatientData.create Department.unknown [||] UnknownGender age Weight.unknown Height.unknown None
+
+            /// A patient data Dto with an age and the mark of the user.
+            let dtoAt age marked =
+                let dto = PatientData.Dto.dto ()
+                dto.Age <- age |> Option.map AgeValue.Dto.toDto
+                dto.MarkedAdult <- marked
+                dto
+
+            /// Reads a patient data Dto that is valid.
+            let read dto =
+                dto
+                |> PatientData.Dto.fromDto readAt
+                |> Expect.wantOk "the patient data Dto reads"
+
+            /// Patient data at an age with the mark of the user, read from its Dto.
+            let markedAt age = dtoAt (Some age) true |> read
 
 
             /// A dated weight Dto of a number of kg at a date.
@@ -1284,7 +1305,8 @@ module Tests =
                                     let dat = PatientData.unknown
 
                                     dat.Location |> Expect.isNone "location"
-                                    dat.MarkedAdult |> Expect.isFalse "mark as an adult"
+                                    dat.AdultMark
+                                    |> Expect.equal "no mark as an adult" (AdultMark.MarkableAdult false)
                                     dat.Access |> Expect.isEmpty "access"
                                     dat.RenalFunction |> Expect.isNone "renal function"
                                 }
@@ -1432,26 +1454,28 @@ module Tests =
                                         }
 
                                         test "the mark as an adult is enough without an age" {
-                                            let dat = { PatientData.unknown with MarkedAdult = true }
+                                            let dat =
+                                                { PatientData.unknown with AdultMark = AdultMark.MarkableAdult true }
 
                                             dat
                                             |> PatientData.checkMinimumData
                                             |> Expect.equal "marked, no age" (Ok dat)
                                         }
 
-                                        test "the mark as an adult is refused below 16 years" {
-                                            { PatientData.unknown with MarkedAdult = true }
-                                            |> withAge AgeValue.ten
+                                        test "the mark as an adult is ignored below 16 years" {
+                                            let dat = markedAt AgeValue.ten
+
+                                            dat.AdultMark |> Expect.equal "not an adult" AdultMark.NotAdult
+
+                                            dat
                                             |> PatientData.checkMinimumData
-                                            |> Expect.equal
-                                                "marked at ten years"
-                                                (Error PatientDataError.MarkedAdultBelowSixteen)
+                                            |> Expect.equal "the age is enough" (Ok dat)
                                         }
 
                                         test "the mark as an adult is accepted from 16 years" {
-                                            let dat =
-                                                { PatientData.unknown with MarkedAdult = true }
-                                                |> withAge AgeValue.sixteen
+                                            let dat = markedAt AgeValue.sixteen
+
+                                            dat.AdultMark |> Expect.equal "marked" (AdultMark.MarkableAdult true)
 
                                             dat
                                             |> PatientData.checkMinimumData
@@ -1460,10 +1484,154 @@ module Tests =
                                     ]
 
                                 testList
+                                    "the adult mark and the need for a gestational age"
+                                    [
+                                        test "create sets the mark from the age, without a mark of the user" {
+                                            [ None; years 5<year>; years 17<year>; years 18<year> ]
+                                            |> List.map (fun age -> (createAt age).AdultMark)
+                                            |> Expect.equal
+                                                "the marks"
+                                                [
+                                                    AdultMark.MarkableAdult false
+                                                    AdultMark.NotAdult
+                                                    AdultMark.MarkableAdult false
+                                                    AdultMark.Adult
+                                                ]
+                                        }
+
+                                        test "markAsAdult sets the mark only when the age allows it" {
+                                            [ None; years 15<year>; years 17<year>; years 18<year> ]
+                                            |> List.map (fun age ->
+                                                (createAt age |> PatientData.markAsAdult true).AdultMark
+                                            )
+                                            |> Expect.equal
+                                                "the marks"
+                                                [
+                                                    AdultMark.MarkableAdult true
+                                                    AdultMark.NotAdult
+                                                    AdultMark.MarkableAdult true
+                                                    AdultMark.Adult
+                                                ]
+                                        }
+
+                                        test "fromDto sets the mark from the age and the mark of the user" {
+                                            [
+                                                None, true
+                                                None, false
+                                                years 17<year>, true
+                                                years 16<year>, false
+                                                years 18<year>, false
+                                            ]
+                                            |> List.map (fun (age, marked) -> (dtoAt age marked |> read).AdultMark)
+                                            |> Expect.equal
+                                                "the marks"
+                                                [
+                                                    AdultMark.MarkableAdult true
+                                                    AdultMark.MarkableAdult false
+                                                    AdultMark.MarkableAdult true
+                                                    AdultMark.MarkableAdult false
+                                                    AdultMark.Adult
+                                                ]
+                                        }
+
+                                        test "fromDto accepts a mark below 16 years and ignores it" {
+                                            dtoAt (years 15<year>) true
+                                            |> PatientData.Dto.fromDto readAt
+                                            |> Result.map _.AdultMark
+                                            |> Expect.equal "not an adult" (Ok AdultMark.NotAdult)
+                                        }
+
+                                        test "fromDto does not read the mark of the Dto" {
+                                            let dto = dtoAt (years 5<year>) false
+                                            dto.AdultMark <- AdultMark.Adult
+
+                                            (dto |> read).AdultMark |> Expect.equal "from the age" AdultMark.NotAdult
+                                        }
+
+                                        test "toDto marks only a patient that may be marked and is marked" {
+                                            [
+                                                AdultMark.NotAdult
+                                                AdultMark.MarkableAdult false
+                                                AdultMark.MarkableAdult true
+                                                AdultMark.Adult
+                                            ]
+                                            |> List.map (fun mark ->
+                                                let dto =
+                                                    { PatientData.unknown with AdultMark = mark }
+                                                    |> PatientData.Dto.toDto
+                                                dto.MarkedAdult, dto.AdultMark
+                                            )
+                                            |> Expect.equal
+                                                "the user's marks and the marks"
+                                                [
+                                                    false, AdultMark.NotAdult
+                                                    false, AdultMark.MarkableAdult false
+                                                    true, AdultMark.MarkableAdult true
+                                                    false, AdultMark.Adult
+                                                ]
+                                        }
+
+                                        test "fromDto sets the need from the age and toDto writes it" {
+                                            [
+                                                None
+                                                Some(AgeValue.fromDays 10<day>)
+                                                Some(AgeValue.fromDays 60<day>)
+                                                years 2<year>
+                                            ]
+                                            |> List.map (fun age ->
+                                                (dtoAt age false |> read |> PatientData.Dto.toDto).GestationalAgeNeed
+                                            )
+                                            |> Expect.equal
+                                                "the needs"
+                                                [
+                                                    GestationalAgeNeed.NoGestationalAge
+                                                    GestationalAgeNeed.RequiredGestationalAge
+                                                    GestationalAgeNeed.OptionalGestationalAge
+                                                    GestationalAgeNeed.NoGestationalAge
+                                                ]
+                                        }
+
+                                        test "fromDto drops a gestational age that is not used" {
+                                            let ga = AgeWeeksDays.create 30<week> 0<day>
+
+                                            [ Some(AgeValue.fromDays 10<day>); years 2<year> ]
+                                            |> List.map (fun age ->
+                                                let dto = dtoAt age false
+                                                dto.GestationalAge <- ga |> AgeWeeksDays.Dto.toDto |> Some
+                                                (dto |> read).GestationalAge
+                                            )
+                                            |> Expect.equal "kept, dropped" [ Some ga; None ]
+                                        }
+
+                                        test "fromAgeType sets the mark and the need from the age" {
+                                            [ NewBorn; Adult ]
+                                            |> List.map (
+                                                PatientData.fromAgeType Male
+                                                >> fun dat -> dat.AdultMark, dat.GestationalAgeNeed
+                                            )
+                                            |> Expect.equal
+                                                "the mark and the need"
+                                                [
+                                                    AdultMark.NotAdult, GestationalAgeNeed.RequiredGestationalAge
+                                                    AdultMark.Adult, GestationalAgeNeed.NoGestationalAge
+                                                ]
+                                        }
+                                    ]
+
+                                testList
                                     "Dto"
                                     [
                                         test "patient data reads back from its Dto" {
-                                            for dat in [ complete; PatientData.unknown ] do
+                                            for dat in
+                                                [
+                                                    complete
+                                                    PatientData.unknown
+                                                    { PatientData.unknown with
+                                                        AdultMark = AdultMark.MarkableAdult true
+                                                    }
+                                                    NewBorn |> PatientData.fromAgeType Male
+                                                    Adult |> PatientData.fromAgeType Female
+                                                ] do
                                                 dat
                                                 |> PatientData.Dto.toDto
                                                 |> PatientData.Dto.fromDto readAt

@@ -89,23 +89,50 @@ module Age =
         |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
 
 
-    /// The gestational age with the need for it that GenCORE gives for the age. The gestational age
-    /// is dropped from 1 year and without an age.
-    let gestationalAge age ga =
-        match age |> Option.map ageValue |> CoreGestationalAgeNeed.ofAge with
+    /// Maps the gestational age of the contract to the GenCORE need for a gestational age.
+    let coreGestationalAgeNeed ga =
+        match ga with
+        | GestationalAge.NoGestationalAge -> CoreNeed.NoGestationalAge
+        | GestationalAge.OptionalGestationalAge _ -> CoreNeed.OptionalGestationalAge
+        | GestationalAge.RequiredGestationalAge _ -> CoreNeed.RequiredGestationalAge
+
+
+    /// Maps a GenCORE need and a gestational age to the gestational age of the contract. The gestational age is
+    /// dropped when it is not needed.
+    let gestationalAgeOfCore need ga =
+        match need with
         | CoreNeed.NoGestationalAge -> GestationalAge.NoGestationalAge
         | CoreNeed.OptionalGestationalAge -> GestationalAge.OptionalGestationalAge ga
         | CoreNeed.RequiredGestationalAge -> GestationalAge.RequiredGestationalAge ga
+
+
+    /// The gestational age with the need for it that GenCORE gives for the age. The gestational age
+    /// is dropped from 1 year and without an age.
+    let gestationalAge age ga =
+        gestationalAgeOfCore (age |> Option.map ageValue |> CoreGestationalAgeNeed.ofAge) ga
+
+
+    /// Maps the adult mark of the contract to a GenCORE adult mark.
+    let coreAdultMark mark =
+        match mark with
+        | AdultMark.NotAdult -> CoreMark.NotAdult
+        | AdultMark.MarkableAdult m -> CoreMark.MarkableAdult m
+        | AdultMark.Adult -> CoreMark.Adult
+
+
+    /// Maps a GenCORE adult mark to the adult mark of the contract.
+    let adultMarkOfCore mark =
+        match mark with
+        | CoreMark.NotAdult -> AdultMark.NotAdult
+        | CoreMark.MarkableAdult m -> AdultMark.MarkableAdult m
+        | CoreMark.Adult -> AdultMark.Adult
 
 
     /// The adult mark that GenCORE gives for the age and the choice of the user.
     let adultMark age mark =
         let marked = mark = AdultMark.MarkableAdult true
 
-        match CoreAdultMark.ofAge (age |> Option.map ageValue) marked with
-        | CoreMark.NotAdult -> AdultMark.NotAdult
-        | CoreMark.MarkableAdult m -> AdultMark.MarkableAdult m
-        | CoreMark.Adult -> AdultMark.Adult
+        CoreAdultMark.ofAge (age |> Option.map ageValue) marked |> adultMarkOfCore
 
 
     /// Maps the gender of the contract to GenCORE.
@@ -171,10 +198,6 @@ module Patient =
     /// The message for a child without a weight. The rules are not looked up for a child without a
     /// weight. An adult needs no weight.
     let noWeight = "Gewicht onbekend: voer het in"
-
-
-    /// The message for a patient younger than 16 years who is marked as an adult.
-    let markedBelowSixteen = "Onder 16 jaar kan een patiënt niet als volwassene gelden"
 
 
     /// Checks the contract patient: an adult, or a child with a weight. Returns the message when
@@ -251,6 +274,8 @@ module Patient =
         dto.Gender <- model.Gender |> Age.coreGender |> CoreGender.toString
         dto.Age <- model.Age |> Option.map (Age.ageValue >> CoreAgeValue.Dto.toDto)
         dto.MarkedAdult <- model.AdultMark = AdultMark.MarkableAdult true
+        dto.AdultMark <- model.AdultMark |> Age.coreAdultMark
+        dto.GestationalAgeNeed <- model.GestationalAge |> Age.coreGestationalAgeNeed
         dto.GestationalAge <- model.GestationalAge |> GestationalAge.value |> Option.map weeksDays
         dto.PostMenstrualAge <- model.PostMenstrualAge |> Option.map weeksDays
         dto.BodySurfaceArea <- model.BodySurfaceArea
@@ -354,7 +379,10 @@ module Patient =
 
         {
             Age = age
-            GestationalAge = dto.GestationalAge |> Option.map weeksDays |> Age.gestationalAge age
+            GestationalAge =
+                dto.GestationalAge
+                |> Option.map weeksDays
+                |> Age.gestationalAgeOfCore dto.GestationalAgeNeed
             PostMenstrualAge = dto.PostMenstrualAge |> Option.map weeksDays
             BodySurfaceArea = dto.BodySurfaceArea
             Weight =
@@ -390,7 +418,7 @@ module Patient =
                 |> CoreDepartment.Dto.fromDto
                 |> Result.toOption
                 |> Option.bind CoreDepartment.name
-            AdultMark = AdultMark.MarkableAdult dto.MarkedAdult |> Age.adultMark age
+            AdultMark = dto.AdultMark |> Age.adultMarkOfCore
         }
 
 
@@ -402,7 +430,6 @@ module Patient =
     let notEnoughMessage =
         function
         | CoreError.NoAgeOrMeasuredWeightAndHeight -> noPatient
-        | CoreError.MarkedAdultBelowSixteen -> markedBelowSixteen
 
 
     /// Maps the contract patient to GenCORE patient data on today's date. Returns the messages
