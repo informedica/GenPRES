@@ -14,6 +14,7 @@ module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
 
 type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
 
 
 module Fixtures =
@@ -1090,7 +1091,7 @@ module RuleFixtures =
                 |> SamplePatients.withAge [ Patient.AgeParts.Days(y * 365N |> BigRational.ToInt32) ]
             | None -> pat
 
-        { PatientData.unknown with MarkedAdult = marked }
+        { PatientData.unknown with AdultMark = CoreAdultMark.MarkableAdult marked }
         |> withAge
         |> SamplePatients.withWeight (weight |> Option.map (BigRational.toDecimal >> CoreWeightValue.weightInKg))
         |> SamplePatients.withHeight (height |> Option.map (BigRational.toDecimal >> CoreHeightValue.heightInCm))

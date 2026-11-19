@@ -275,14 +275,17 @@ type PatientData =
         /// identified patient calculated by Patient.atDate from the birthdate when the patient is
         /// created. None when not known.
         Age: AgeValue option
-        /// Whether the user marked the patient as an adult.
-        MarkedAdult: bool
+        /// Whether the patient is an adult, from the age and the mark the user set. A mark set under
+        /// 16 years is ignored.
+        AdultMark: AdultMark
+        /// Whether the gestational age is needed at the age of the patient.
+        GestationalAgeNeed: GestationalAgeNeed
         /// The weights.
         Weight: Weight
         /// The heights.
         Height: Height
         /// The gestational age at birth; absent when not known, and left out by
-        /// PatientData.determineGestationalAndPostMenstrualAge from 1 year or without an age.
+        /// PatientData.determineGestationalAndPostMenstrualAge when the gestational age is not used.
         GestationalAge: AgeWeeksDays option
         /// The post-menstrual age, the age corrected for the gestational age: the age plus the
         /// gestational age, set by PatientData.determineGestationalAndPostMenstrualAge. None without a
@@ -303,8 +306,6 @@ type PatientData =
 type PatientDataError =
     /// The patient data has no age, no adult mark and no measured weight with a measured height.
     | NoAgeOrMeasuredWeightAndHeight
-    /// A patient marked as an adult who is younger than 16 years.
-    | MarkedAdultBelowSixteen
 
 
 /// The patient: the identity of an identified patient and the patient data. An anonymous patient
@@ -2122,8 +2123,23 @@ module PatientData =
     module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
 
-    /// Creates patient data without a location, an adult mark, an access or a renal function. The
-    /// post-menstrual age is None until determineGestationalAndPostMenstrualAge sets it.
+    /// Sets the adult mark and the need for the gestational age from the age. A patient marked as an adult
+    /// keeps the mark when the age allows it.
+    let determineAdultMarkAndGestationalAgeNeed (dat: PatientData) =
+        { dat with
+            AdultMark = AdultMark.ofAge dat.Age (dat.AdultMark = AdultMark.MarkableAdult true)
+            GestationalAgeNeed = GestationalAgeNeed.ofAge dat.Age
+        }
+
+
+    /// Sets the adult mark from the age and the mark the user asks for. The mark is ignored when the age does
+    /// not allow it.
+    let markAsAdult marked (dat: PatientData) = { dat with AdultMark = AdultMark.ofAge dat.Age marked }
+
+
+    /// Creates patient data without a location, an access, a renal function or a mark of the user. The adult
+    /// mark and the need for the gestational age follow from the age. The post-menstrual age is None until
+    /// determineGestationalAndPostMenstrualAge sets it.
     let create dep diagn gend age wght hght gest =
         {
             Location = None
@@ -2131,7 +2147,8 @@ module PatientData =
             Diagnoses = diagn
             Gender = gend
             Age = age
-            MarkedAdult = false
+            AdultMark = AdultMark.MarkableAdult false
+            GestationalAgeNeed = GestationalAgeNeed.NoGestationalAge
             Weight = wght
             Height = hght
             GestationalAge = gest
@@ -2140,6 +2157,7 @@ module PatientData =
             Access = []
             RenalFunction = None
         }
+        |> determineAdultMarkAndGestationalAgeNeed
 
 
     /// The patient data with nothing known.
@@ -2199,40 +2217,31 @@ module PatientData =
     /// Creates patient data with the age at the start of an age type, and the normal weight and height of
     /// that age type for a gender as undated estimates.
     let fromAgeType gend at =
-        { unknown with
-            Age = at |> AgeValue.fromAgeType |> Some
-            Weight = Weight.fromAgeType gend at
-            Height = Height.fromAgeType gend at
-        }
+        let age = at |> AgeValue.fromAgeType |> Some
+
+        create Department.unknown [||] UnknownGender age (Weight.fromAgeType gend at) (Height.fromAgeType gend at) None
         |> calculateBodySurfaceArea
-
-
-    /// True for a patient marked as an adult who is younger than 16 years.
-    let markRefused (dat: PatientData) =
-        dat.MarkedAdult && AdultMark.ofAge dat.Age dat.MarkedAdult = AdultMark.NotAdult
 
 
     /// True when the patient data has an age, an adult mark, or a measured weight with a measured height.
     let meetsMinimumData (dat: PatientData) =
-        dat.MarkedAdult
+        dat.AdultMark |> AdultMark.isAdult
         || dat.Age.IsSome
         || (dat.Weight |> Weight.isMeasured && dat.Height |> Height.isMeasured)
 
 
-    /// Returns the patient data when it is enough to select rules with. Returns MarkedAdultBelowSixteen for a
-    /// patient under 16 years marked as an adult, and NoAgeOrMeasuredWeightAndHeight otherwise.
+    /// Returns the patient data when it is enough to select rules with, and NoAgeOrMeasuredWeightAndHeight
+    /// otherwise.
     let checkMinimumData dat =
-        if dat |> markRefused then
-            Error PatientDataError.MarkedAdultBelowSixteen
-        elif dat |> meetsMinimumData then
+        if dat |> meetsMinimumData then
             Ok dat
         else
             Error PatientDataError.NoAgeOrMeasuredWeightAndHeight
 
 
-    /// Removes the gestational age from 1 year, or without an age.
+    /// Removes the gestational age when the gestational age is not used.
     let ignoreGestationalAge (dat: PatientData) =
-        match dat.Age |> GestationalAgeNeed.ofAge with
+        match dat.GestationalAgeNeed with
         | GestationalAgeNeed.NoGestationalAge -> { dat with GestationalAge = None }
         | GestationalAgeNeed.OptionalGestationalAge
         | GestationalAgeNeed.RequiredGestationalAge -> dat
@@ -2243,8 +2252,17 @@ module PatientData =
         { dat with PostMenstrualAge = Option.map2 AgeWeeksDays.postMenstrualAge dat.Age dat.GestationalAge }
 
 
-    /// Removes the gestational age from 1 year or without an age, then calculates the post-menstrual age.
+    /// Removes the gestational age when the gestational age is not used, then calculates the post-menstrual
+    /// age.
     let determineGestationalAndPostMenstrualAge dat = dat |> ignoreGestationalAge |> calculatePostMenstrualAge
+
+
+    /// Sets the values that follow from the age: the adult mark, the need for the gestational age, the
+    /// gestational age when it is used, and the post-menstrual age.
+    let determineAgeValues dat =
+        dat
+        |> determineAdultMarkAndGestationalAgeNeed
+        |> determineGestationalAndPostMenstrualAge
 
 
     /// The Dto of the patient data, without the patient identity.
@@ -2260,7 +2278,12 @@ module PatientData =
             member val Diagnoses: string[] = [||] with get, set
             member val Gender = "" with get, set
             member val Age: AgeValue.Dto.Dto option = None with get, set
+            /// Whether the user marked the patient as an adult; fromDto ignores the mark under 16 years.
             member val MarkedAdult = false with get, set
+            /// Written by toDto for readers of the Dto; fromDto sets the adult mark from the age and MarkedAdult.
+            member val AdultMark = AdultMark.MarkableAdult false with get, set
+            /// Written by toDto for readers of the Dto; fromDto sets the need from the age.
+            member val GestationalAgeNeed = GestationalAgeNeed.NoGestationalAge with get, set
             member val Weight = Weight.Dto.dto () with get, set
             member val Height = Height.Dto.dto () with get, set
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
@@ -2283,9 +2306,8 @@ module PatientData =
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// Validates a Dto as patient data and calculates the ages and the body surface area; the
-        /// post-menstrual age and the body surface area of the Dto are not read. A weight or height dated
-        /// after today is an error.
+        /// Validates a Dto as patient data and calculates the values that follow from it. The calculated
+        /// fields of the Dto are not read. A weight or height dated after today is an error.
         let fromDto today (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.Dto.fromDto
@@ -2310,16 +2332,16 @@ module PatientData =
                 return
                     { create dep dto.Diagnoses gend age wght hght gest with
                         Location = dto.Location
-                        MarkedAdult = dto.MarkedAdult
                         Access = access
                         RenalFunction = renal
                     }
-                    |> determineGestationalAndPostMenstrualAge
+                    |> markAsAdult dto.MarkedAdult
+                    |> determineAgeValues
                     |> calculateBodySurfaceArea
             }
 
 
-        /// The Dto of patient data.
+        /// The Dto of patient data. MarkedAdult is true only for a patient that may be marked and is marked.
         let toDto (dat: PatientData) =
             let dto = dto ()
 
@@ -2328,7 +2350,9 @@ module PatientData =
             dto.Diagnoses <- dat.Diagnoses
             dto.Gender <- dat.Gender |> Gender.toString
             dto.Age <- dat.Age |> Option.map AgeValue.Dto.toDto
-            dto.MarkedAdult <- dat.MarkedAdult
+            dto.MarkedAdult <- dat.AdultMark = AdultMark.MarkableAdult true
+            dto.AdultMark <- dat.AdultMark
+            dto.GestationalAgeNeed <- dat.GestationalAgeNeed
             dto.Weight <- dat.Weight |> Weight.Dto.toDto
             dto.Height <- dat.Height |> Height.Dto.toDto
             dto.GestationalAge <- dat.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
@@ -2391,20 +2415,15 @@ module Patient =
 
 
     /// Sets the ages of a patient at a date. An identified patient gets the age from the birth date; an
-    /// anonymous patient keeps the entered age. Then the gestational age is removed from 1 year or without an
-    /// age, and the post-menstrual age and the body surface area are calculated.
+    /// anonymous patient keeps the entered age. Then the values that follow from the age and the body surface
+    /// area are set.
     let atDate dt pat =
         let dat =
             match pat.Identity with
             | Some idn -> { pat.Data with Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
             | None -> pat.Data
 
-        { pat with
-            Data =
-                dat
-                |> PatientData.determineGestationalAndPostMenstrualAge
-                |> PatientData.calculateBodySurfaceArea
-        }
+        { pat with Data = dat |> PatientData.determineAgeValues |> PatientData.calculateBodySurfaceArea }
 
 
     /// Creates a patient from an identity and patient data, with the ages set at a date.

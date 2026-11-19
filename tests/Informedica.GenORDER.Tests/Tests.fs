@@ -12,6 +12,7 @@ open Informedica.GenOrder.Lib
 module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
 type CoreAccess = Informedica.GenCore.Lib.Patients.Access
 
 // --- New tests for fluent pipeline guard/order behavior ---
@@ -1324,7 +1325,8 @@ module PatientAgeTests =
 
 
     let orderPatient ags marked =
-        { PatientData.unknown with MarkedAdult = marked } |> SamplePatients.withAge ags
+        { PatientData.unknown with AdultMark = CoreAdultMark.MarkableAdult marked }
+        |> SamplePatients.withAge ags
 
 
     let orderDays ags =
@@ -1356,10 +1358,10 @@ module PatientAgeTests =
                     orderPatient [ Months 192 ] true |> PatientData.isAdult |> Expect.isTrue "adult"
                 }
 
-                test "191 months marked is refused" {
+                test "191 months marked is not an adult" {
                     orderPatient [ Months 191 ] true
-                    |> CorePatientData.markRefused
-                    |> Expect.isTrue "refused"
+                    |> PatientData.isAdult
+                    |> Expect.isFalse "child"
                 }
 
                 test "1 year and 14 months is 2 years and 2 months" {

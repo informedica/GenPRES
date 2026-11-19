@@ -21,6 +21,7 @@ module ContractPatientData = Informedica.GenPRES.Shared.Models.PatientData
 module Measures = Informedica.GenPRES.Shared.Measures
 module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreHeight = Informedica.GenCore.Lib.Patients.Height
 
@@ -29,6 +30,8 @@ type CoreSource<'v> = Informedica.GenCore.Lib.Patients.Source<'v>
 type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 type CoreAccess = Informedica.GenCore.Lib.Patients.Access
 type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
+type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
 type CoreDto = Informedica.GenCore.Lib.Patients.PatientData.Dto.Dto
 
 
@@ -665,8 +668,8 @@ let adultTests =
 
                 marked
                 |> ServerApi.Patient.parse readAt
-                |> Result.map (fun p -> p.MarkedAdult, p |> PatientData.isAdult)
-                |> Expect.equal "marked, an adult" (Ok(true, true))
+                |> Result.map (fun p -> p.AdultMark, p |> PatientData.isAdult)
+                |> Expect.equal "marked, an adult" (Ok(CoreAdultMark.MarkableAdult true, true))
 
                 marked
                 |> ServerApi.Patient.ofModel
@@ -764,15 +767,32 @@ let adultTests =
                 |> List.map (fun (d, m) ->
                     { PatientData.unknown with
                         Age = d |> Option.map (fun days -> CoreAgeValue.fromDays (days * 1<day>))
-                        MarkedAdult = m
+                        AdultMark = CoreAdultMark.MarkableAdult m
                     }
+                    |> CorePatientData.determineAgeValues
                     |> ServerApi.Patient.ofPatientData
                     |> _.AdultMark
                 )
                 |> Expect.equal "the marks" [ AdultMark.NotAdult; AdultMark.MarkableAdult true; AdultMark.Adult ]
             }
 
-            test "the EHR reading of an adult keeps the weight it has and is never marked" {
+            test "the server copies the mark and the need for the gestational age from the Dto" {
+                let ga = CoreAgeWeeksDays.create 30<week> 0<day>
+                let dto = CorePatientData.Dto.dto ()
+                dto.AdultMark <- CoreAdultMark.Adult
+                dto.GestationalAgeNeed <- CoreNeed.RequiredGestationalAge
+                dto.GestationalAge <- ga |> CoreAgeWeeksDays.Dto.toDto |> Some
+
+                dto
+                |> ServerApi.Patient.toModel
+                |> fun p -> p.AdultMark, p.GestationalAge
+                |> Expect.equal
+                    "as GenCORE wrote them"
+                    (AdultMark.Adult,
+                     GestationalAge.RequiredGestationalAge(Some(ServerApi.Age.weeksDaysOfDays (30 * 7))))
+            }
+
+            test "the EHR reading of an adult keeps the weight it has and is an adult without a mark" {
                 let reading =
                     draft (Some(40 * 365)) false (Some 70) None
                     |> ServerApi.Patient.parse readAt
@@ -780,8 +800,8 @@ let adultTests =
 
                 let estimated = reading |> ServerApi.Patient.estimated readAt tables
 
-                (estimated.Weight, estimated.Height, estimated.MarkedAdult)
-                |> Expect.equal "as read" (reading.Weight, CoreHeight.unknown, false)
+                (estimated.Weight, estimated.Height, estimated.AdultMark)
+                |> Expect.equal "as read" (reading.Weight, CoreHeight.unknown, CoreAdultMark.Adult)
             }
         ]
 
@@ -822,17 +842,17 @@ let gestationalAgeTests =
                 |> Expect.equal "needed, none given" (GestationalAge.RequiredGestationalAge None)
             }
 
-            test "toModel sets the need from the age" {
+            test "the need that GenCORE sets from the age reaches the contract" {
                 [ 20; 365 ]
                 |> List.map (fun d ->
                     { full with Age = Some(ServerApi.Age.ofDays d) }
                     |> ServerApi.Patient.ofModel
-                    |> ServerApi.Patient.toModel
-                    |> _.GestationalAge
+                    |> CorePatientData.Dto.fromDto readAt
+                    |> Result.map (CorePatientData.Dto.toDto >> ServerApi.Patient.toModel >> _.GestationalAge)
                 )
                 |> Expect.equal
                     "needed under 28 days, none from 1 year"
-                    [ full.GestationalAge; GestationalAge.NoGestationalAge ]
+                    [ Ok full.GestationalAge; Ok GestationalAge.NoGestationalAge ]
             }
         ]
 
@@ -959,13 +979,14 @@ let coreTests =
                 |> Expect.equal "the server's words" (Error [| ServerApi.Patient.noPatient |])
             }
 
-            test "a patient marked as an adult below 16 years is refused" {
+            test "a patient marked as an adult below 16 years is accepted as not an adult" {
                 { stub with
                     Age = Some(ServerApi.Age.ofDays (10 * 365))
                     AdultMark = AdultMark.MarkableAdult true
                 }
                 |> ServerApi.Patient.toCore readAt
-                |> Expect.equal "the server's words" (Error [| ServerApi.Patient.markedBelowSixteen |])
+                |> Result.map _.AdultMark
+                |> Expect.equal "the mark is ignored" (Ok CoreAdultMark.NotAdult)
             }
 
             test "an eGFR that is no band of GenCORE is refused, in GenCORE's words" {
