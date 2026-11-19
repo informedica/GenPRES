@@ -644,6 +644,37 @@ let versionFollowTests =
                 |> Expect.isFalse "opened as signed"
             }
 
+            test "a version on the current patient has nothing to follow when only the current patient has options" {
+                let options =
+                    {
+                        Weights = [| 12000<gram> |]
+                        Heights = [| 90<cm> |]
+                        Years = [ 0<year> ]
+                        Months = [ 0<month> ]
+                        Weeks = [ 0<week> ]
+                        Days = [ 0<day> ]
+                        GestationalWeeks = [ 37<week> ]
+                        GestationalDays = [ 0<day> ]
+                        EGFRBands = []
+                        Dialyses = [ IntermittentHemodialysis ]
+                    }
+
+                openedOver { otherDraft with Options = Some options }
+                |> landed two
+                |> snd
+                |> List.exists (
+                    function
+                    | OrderPlanEffect.CallPlan _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "opened as signed"
+            }
+
+            test "a command that opens no version follows nothing" {
+                OrderPlanState.toFollow (OrderPlanCommand.UpdatePatientData(patient, two)) otherDraft
+                |> Expect.isNone "no update"
+            }
+
             test "a follow that changes no order says nothing, and nothing is to sign" {
                 let state, effects =
                     openedOver patient

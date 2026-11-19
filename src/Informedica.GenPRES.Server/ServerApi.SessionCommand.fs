@@ -13,7 +13,9 @@ module SessionCommand =
     /// also when the close fails, unless another tab owns the session. A failed close is rethrown
     /// after the delete.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
-        let toOpened = SessionMapper.toOpened env.demo (env.patientDataResources ()) env.session.patientData
+        // The resources are read only when an opened session is mapped, so a close does not wait for them.
+        let toOpened opened =
+            SessionMapper.toOpened env.demo (env.patientDataResources ()) env.session.patientData opened
 
         let reopened answer =
             match answer with

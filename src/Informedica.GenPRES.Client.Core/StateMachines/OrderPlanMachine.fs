@@ -231,7 +231,7 @@ module OrderPlanMachine =
         /// plan must be updated to it; None otherwise.
         let toFollow sent current =
             match sent with
-            | OrderPlanCommand.Open(signedOn, _) when signedOn <> current -> Some current
+            | OrderPlanCommand.Open(signedOn, _) when not (PatientData.sameValues signedOn current) -> Some current
             | _ -> None
 
 
