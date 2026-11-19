@@ -23,6 +23,21 @@ module Fixtures =
             Height = { draft.Height with Estimated = Some 140<cm> }
         }
 
+    /// Options the server sends with patient data; their values do not matter to the machine.
+    let options: PatientDataOptions =
+        {
+            Weights = [||]
+            Heights = [||]
+            Years = []
+            Months = []
+            Weeks = []
+            Days = []
+            GestationalWeeks = []
+            GestationalDays = []
+            EGFRBands = []
+            Dialyses = []
+        }
+
     /// Below the minimum: no age, no measured weight and height.
     let below = Informedica.GenPRES.Shared.Models.PatientData.empty
 
@@ -154,7 +169,9 @@ let tests =
                 PatientState.init (Some { Fixtures.draft with AdultMark = AdultMark.MarkableAdult true })
                 |> PatientState.transition (PatientMsg.Refreshed(None, "r-1"))
                 |> snd
-                |> Expect.equal "cleared" [ PatientEffect.SetPatientData None ]
+                |> Expect.equal
+                    "cleared, and asked for the options"
+                    [ PatientEffect.SetPatientData None; PatientEffect.CallPatient(below, "r-1") ]
             }
 
             test "a change is sent, the draft kept for the panel" {
@@ -166,13 +183,60 @@ let tests =
                     (Some draft, Some "r-1", [ PatientEffect.CallPatient(draft, "r-1") ])
             }
 
-            test "a draft below the minimum is no patient: nothing sent, the patient cleared" {
+            test "a draft below the minimum is no patient: the patient cleared, the draft sent for the options" {
                 let state, effects = transition (PatientMsg.Changed(Some below, "r-2")) (changing "r-1")
 
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
-                    "the draft, nothing awaited, the patient cleared"
-                    (Some below, None, [ PatientEffect.SetPatientData None ])
+                    "the draft, awaiting r-2, the patient cleared"
+                    (Some below,
+                     Some "r-2",
+                     [ PatientEffect.SetPatientData None; PatientEffect.CallPatient(below, "r-2") ])
+            }
+
+            test "no patient data clears the pages and asks with empty patient data for the options" {
+                let state, effects = none |> transition (PatientMsg.Changed(None, "r-1"))
+
+                effects
+                |> Expect.equal
+                    "cleared and asked"
+                    [ PatientEffect.SetPatientData None; PatientEffect.CallPatient(below, "r-1") ]
+
+                state |> PatientState.changing |> Expect.isTrue "under way"
+            }
+
+            test "the answer for the options becomes the draft, and the pages stay cleared" {
+                let withOptions = { below with Options = Some Fixtures.options }
+
+                let state, effects =
+                    none
+                    |> transition (PatientMsg.Changed(None, "r-1"))
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-1", Ok withOptions))
+
+                (PatientState.draft state, PatientState.answered state, effects)
+                |> Expect.equal "the options on the draft, nothing for the pages" (Some withOptions, None, [])
+            }
+
+            test "a clear empties the draft and the pages without a call" {
+                let state, effects =
+                    PatientState.init (Some draft)
+                    |> transition (PatientMsg.Changed(Some draft, "r-1"))
+                    |> fst
+                    |> transition PatientMsg.Cleared
+
+                (PatientState.draft state, PatientState.changing state, effects)
+                |> Expect.equal "cleared, nothing sent" (None, false, [ PatientEffect.SetPatientData None ])
+            }
+
+            test "a failed request for the options keeps the cleared draft" {
+                PatientState.init (Some draft)
+                |> transition (PatientMsg.Changed(None, "r-1"))
+                |> fst
+                |> transition (PatientMsg.Answered("r-1", Error [| "loading" |]))
+                |> fst
+                |> PatientState.draft
+                |> Expect.isNone "still cleared"
             }
 
             test "the draft takes the answered patient" {
@@ -293,11 +357,18 @@ let tests =
                         |> Expect.equal "unchanged, nothing sent" (held, [])
                     }
 
-                    test "a reset over a draft never answered clears the draft and the patient" {
-                        let state, effects = transition (PatientMsg.Changed(None, "r-2")) (changing "r-1")
+                    test "a reset over a patient clears the pages once, and asks for the options" {
+                        let reset, effects = held |> transition (PatientMsg.Changed(None, "r-2"))
 
-                        (PatientState.draft state, PatientState.changing state, effects)
-                        |> Expect.equal "cleared" (None, false, [ PatientEffect.SetPatientData None ])
+                        (PatientState.draft reset, effects)
+                        |> Expect.equal
+                            "cleared and asked"
+                            (None, [ PatientEffect.SetPatientData None; PatientEffect.CallPatient(below, "r-2") ])
+
+                        reset
+                        |> transition (PatientMsg.Answered("r-2", Ok below))
+                        |> snd
+                        |> Expect.isEmpty "not cleared again"
                     }
 
                     test "the same data while a change is under way is sent, so the newer request replaces it" {
@@ -361,7 +432,11 @@ let tests =
                     test "answered without an age or a measured weight and height clears the patient data" {
                         let state, effects =
                             PatientState.init (Some draft)
-                            |> transition (PatientMsg.Edited(PatientDataEdit.SetYears None, Some draft, "r-1"))
+                            |> transition (PatientMsg.Changed(Some draft, "r-0"))
+                            |> fst
+                            |> transition (PatientMsg.Answered("r-0", Ok answered))
+                            |> fst
+                            |> transition (PatientMsg.Edited(PatientDataEdit.SetYears None, Some answered, "r-1"))
                             |> fst
                             |> transition (PatientMsg.Answered("r-1", Ok below))
 

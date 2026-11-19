@@ -159,8 +159,8 @@ module Lanes =
 
             let lanes, cleared, clearing =
                 if opensOverPatient then
-                    // Clearing the patient data sends no request, so the request id is never used.
-                    step (LanesMsg.Patient(PatientMsg.Changed(None, "cleared"))) lanes
+                    // The Session's patient data, or its absence, follows at once, so the clear sends nothing.
+                    step (LanesMsg.Patient PatientMsg.Cleared) lanes
                 else
                     lanes, [], []
 

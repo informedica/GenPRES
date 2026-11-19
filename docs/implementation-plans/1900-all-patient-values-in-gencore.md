@@ -228,8 +228,12 @@ step 10 is client UI code.
       `ChangePatientData`, which stays. The question about another patient is asked for every edit while the
       patient is anonymous with orders. The client's `PatientEdit` and its estimate rule
       (`PatientDraftPolicy.update`, `estimates`, `keepEstimates` and the `Estimates` type) go.
-    - **10b. The form reads the options.** The patient form takes every list from the patient data options
-      instead of its own arrays, and waits for the patient data.
+    - **10b. The patient panel reads the options.** The patient panel takes every select list from the patient data
+      options instead of its own arrays: the values as given, a 0 shown as an empty field. The renal function list
+      shows the eGFR bands and the dialyses of the options with their translated term, the label the patient
+      summary shows too. Patient data that is no patient, also none at all at the start or after a reset, is still
+      sent, so the answer brings the options; the pages stay cleared. A clear that patient data or an edit follows
+      at once, for a new patient or a Session that opens over a patient, sends nothing.
 
 ## Verification
 

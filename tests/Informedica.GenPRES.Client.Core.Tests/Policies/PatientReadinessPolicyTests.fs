@@ -21,6 +21,22 @@ let empty = Models.PatientData.empty
 let withAge (age: Age) = Some { empty with Age = Some age }
 
 
+/// Options the server sends with patient data; their values do not matter to the readiness.
+let options: PatientDataOptions =
+    {
+        Weights = [||]
+        Heights = [||]
+        Years = []
+        Months = []
+        Weeks = []
+        Days = []
+        GestationalWeeks = []
+        GestationalDays = []
+        EGFRBands = []
+        Dialyses = []
+    }
+
+
 /// An age of five years, nothing else.
 let aged = withAge { Models.PatientData.Age.ageZero with Years = 5<year> }
 
@@ -82,6 +98,22 @@ let tests =
 
                     test "an empty draft is no data" {
                         Some empty |> readiness |> Expect.equal "nothing entered" Readiness.NoData
+                    }
+
+                    test "an empty draft with the options the server sent is no data" {
+                        Some { empty with Options = Some options }
+                        |> readiness
+                        |> Expect.equal "nothing entered" Readiness.NoData
+                    }
+
+                    test "a draft with the options and only a gender is no patient" {
+                        Some
+                            { empty with
+                                Options = Some options
+                                Gender = Male
+                            }
+                        |> readiness
+                        |> Expect.equal "a gender is no patient" Readiness.NoPatient
                     }
 
                     test "a draft with only a gender, a department or a renal function is no patient" {

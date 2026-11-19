@@ -50,10 +50,10 @@ module PatientReadinessPolicy =
         | PlanMedication
 
 
-    /// Whether a draft equals the empty patient data: no age, no measurement, and none of the other panel
-    /// data such as the gender, renal function, department or an access. A draft whose fields were all
-    /// cleared is blank.
-    let isBlank (p: PatientData) = p = PatientData.empty
+    /// Whether a draft equals the empty patient data, with the options left out: no age, no measurement, and
+    /// none of the other panel data such as the gender, renal function, department or an access. A draft whose
+    /// fields were all cleared is blank.
+    let isBlank (p: PatientData) = p |> PatientData.sameValues PatientData.empty
 
 
     /// Returns the data the calculations of a patient lack, in notice order. A weight or height counts

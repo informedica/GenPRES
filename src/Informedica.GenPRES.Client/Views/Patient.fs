@@ -340,13 +340,24 @@ module Patient =
         // the age fields: read-only for an identified patient, whose age the platform computes
         let createAgeSelect label sel changeValue vs = createField identified true None label sel changeValue vs
 
-        let wghts =
-            [| 21000..1000..100000 |]
-            |> Array.append [| 10500..500..20000 |]
-            |> Array.append [| 2000..100..10000 |]
-            |> Array.append [| 400..50..1950 |]
+        // The lists of the selects come from the options the server sends with the patient data; without
+        // patient data the lists are empty until the answer arrives.
+        let options = pat |> Option.bind _.Options
 
-        let hghts = [| 40..220 |]
+        // The option values of a field as whole numbers; none without options.
+        let optionValues get = options |> Option.map get |> Option.defaultValue []
+
+        let wghts = optionValues (_.Weights >> Array.map int >> Array.toList)
+
+        let hghts = optionValues (_.Heights >> Array.map int >> Array.toList)
+
+        // The select list of whole numbers, each value with its label.
+        let selectList label (values: int list) = values |> List.toArray |> Array.map (fun k -> $"%i{k}", label k)
+
+        let whole (k: int) = $"%i{k}"
+
+        // A 0 is not listed in a field that shows a cleared value, which is 0, as empty.
+        let withoutZero = List.filter ((<>) 0)
 
         let inline zeroToNone opt =
             match opt with
@@ -355,12 +366,12 @@ module Patient =
 
         let weightToNone =
             function
-            | Some v -> wghts |> Array.tryFind ((=) (int v))
+            | Some v -> wghts |> List.tryFind ((=) (int v))
             | None -> None
 
         let heightToNone =
             function
-            | Some v -> hghts |> Array.tryFind ((=) (int v))
+            | Some v -> hghts |> List.tryFind ((=) (int v))
             | None -> None
 
         // The placeholder of a field from its estimate, as a key and a text marked as estimated.
@@ -492,8 +503,8 @@ module Patient =
 
         let items1 =
             [|
-                [| 0..19 |]
-                |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
+                optionValues (_.Years >> List.map int)
+                |> selectList whole
                 |> createAgeSelect
                     (Terms.``Patient Age years`` |> getTerm "years")
                     (pat |> Option.bind PatientData.getAgeYears)
@@ -502,8 +513,9 @@ module Patient =
                         s |> Msg.UpdateYear |> dispatch
                     )
 
-                [| 1..11 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Months >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
                     (Terms.``Patient Age months`` |> getTerm "months")
                     (pat |> Option.bind PatientData.getAgeMonths |> zeroToNone)
@@ -512,8 +524,9 @@ module Patient =
                         s |> Msg.UpdateMonth |> dispatch
                     )
 
-                [| 1..3 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Weeks >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
                     (Terms.``Patient Age weeks`` |> getTerm "weeks")
                     (pat |> Option.bind PatientData.getAgeWeeks |> zeroToNone)
@@ -522,8 +535,9 @@ module Patient =
                         s |> Msg.UpdateWeek |> dispatch
                     )
 
-                [| 1..6 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Days >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
                     (Terms.``Patient Age days`` |> getTerm "days")
                     (pat |> Option.bind PatientData.getAgeDays |> zeroToNone)
@@ -533,7 +547,7 @@ module Patient =
                     )
 
                 wghts
-                |> Array.map (fun k -> $"{k}", $"{(k |> float) / 1000.}")
+                |> selectList (fun g -> $"%g{float g / 1000.}")
                 |> createMeasureSelect
                     (pat
                      |> Option.bind (fun p ->
@@ -550,8 +564,8 @@ module Patient =
                         s |> Msg.UpdateWeight |> dispatch
                     )
 
-                [| 40..220 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                hghts
+                |> selectList whole
                 |> createMeasureSelect
                     (pat
                      |> Option.bind (fun p ->
@@ -568,8 +582,9 @@ module Patient =
 
                 // the server says from the age whether the gestational age may be given
                 if pat |> Option.exists (fun p -> p.GestationalAge |> GestationalAge.mayBeGiven) then
-                    [| 24..42 |]
-                    |> Array.map (fun k -> $"{k}", $"{k}")
+                    optionValues (_.GestationalWeeks >> List.map int)
+                    |> withoutZero
+                    |> selectList whole
                     |> createMeasureSelect
                         None
                         (Terms.``Patient Age weeks`` |> getTerm "weeks" |> (fun s -> $"GA {s}"))
@@ -579,8 +594,9 @@ module Patient =
                             s |> Msg.UpdateGAWeek |> dispatch
                         )
 
-                    [| 1..6 |]
-                    |> Array.map (fun k -> $"{k}", $"{k}")
+                    optionValues (_.GestationalDays >> List.map int)
+                    |> withoutZero
+                    |> selectList whole
                     |> createMeasureSelect
                         None
                         (Terms.``Patient Age days`` |> getTerm "days" |> (fun s -> $"GA {s}"))
@@ -641,7 +657,11 @@ module Patient =
                 </Box>
                 """
 
-                RenalFunctionText.labelled (fun term -> term |> getTerm (RenalFunctionText.english term))
+                options
+                |> Option.map (
+                    RenalFunctionText.ofOptions (fun term -> term |> getTerm (RenalFunctionText.english term))
+                )
+                |> Option.defaultValue [||]
                 |> createSelect
                     (Terms.``Patient Renal Function`` |> getTerm "Renal function")
                     (pat |> Option.bind PatientRead.getRenalFunction)

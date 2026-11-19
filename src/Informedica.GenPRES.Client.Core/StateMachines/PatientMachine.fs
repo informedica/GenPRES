@@ -20,6 +20,9 @@ module PatientMachine =
     type PatientMsg =
         /// Whole patient data from the url, the Session or the reset; None clears it.
         | Changed of PatientData option * request: string
+        /// Clears the draft and the patient data of the pages without a request, because patient data or an edit
+        /// follows at once.
+        | Cleared
         /// An edit of the panel and the patient data it applies to; None applies it to empty patient data.
         | Edited of PatientDataEdit * PatientData option * request: string
         /// The patient data read from the EHR by a refresh. The EHR does not store the adult mark, so the adult
@@ -110,9 +113,10 @@ module PatientMachine =
 
 
         /// Returns the next state and effects for a message.
-        /// Whole patient data without an age or a measured weight and height is not sent, and the patient data is
-        /// cleared. An edit is always sent; the server applies it and completes the result. Every answer becomes
-        /// the draft. A failure restores the draft from before the update.
+        /// Whole patient data without an age or a measured weight and height clears the patient data of the pages,
+        /// and is still sent, so the answer brings the options. An edit is always sent; the server applies it and
+        /// completes the result. Every answer becomes the draft. A failure restores the draft from before the
+        /// update, except for patient data that is no patient, which stays.
         /// The same data as the last answer, given while no update runs, is not sent again and changes nothing.
         /// An answer without an age or a measured weight and height clears the patient data. An answer that cannot
         /// select rules, such as a child without a measured or estimated weight, is not passed on: the pages keep
@@ -129,11 +133,24 @@ module PatientMachine =
                 | Some pat ->
                     { state with InFlight = Some(before, request) }, [ PatientEffect.CallPatient(pat, request) ]
                 | None ->
+                    // Patient data that is no patient is sent too, so the patient panel gets the options; the pages
+                    // are cleared at once. A failure keeps this draft.
                     { state with
                         Answered = None
-                        InFlight = None
+                        InFlight = Some(dto, request)
                     },
-                    [ PatientEffect.SetPatientData None ]
+                    [
+                        PatientEffect.SetPatientData None
+                        PatientEffect.CallPatient(dto |> Option.defaultValue PatientData.empty, request)
+                    ]
+
+            | PatientMsg.Cleared ->
+                { state with
+                    Draft = None
+                    Answered = None
+                    InFlight = None
+                },
+                [ PatientEffect.SetPatientData None ]
 
             | PatientMsg.Edited(edit, pat, request) ->
                 { state with InFlight = Some(state.Draft, request) },
@@ -173,7 +190,13 @@ module PatientMachine =
                     match pat |> PatientData.validate, pat |> PatientData.selectsRules with
                     | Ok _, true -> { state with Answered = Some pat }, [ PatientEffect.SetPatientData(Some pat) ]
                     | Ok _, false -> state, givePlan state
-                    | Error _, _ -> { state with Answered = None }, [ PatientEffect.SetPatientData None ]
+                    // The pages are cleared only when they had patient data.
+                    | Error _, _ ->
+                        { state with Answered = None },
+                        if state.Answered.IsSome then
+                            [ PatientEffect.SetPatientData None ]
+                        else
+                            []
                 | Some(before, underWay), Error errs when underWay = request ->
                     let state =
                         { state with

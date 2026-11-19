@@ -7,6 +7,41 @@ open Expecto
 open Expecto.Flip
 
 
+/// The renal function options the server sends: the four eGFR bands with the text of their sheet row, and the
+/// three dialyses.
+let options: PatientDataOptions =
+    {
+        Weights = [||]
+        Heights = [||]
+        Years = []
+        Months = []
+        Weeks = []
+        Days = []
+        GestationalWeeks = []
+        GestationalDays = []
+        EGFRBands =
+            [
+                {
+                    RenalFunction = EGFR(Some 50, None)
+                    Text = "eGFR > 50"
+                }
+                {
+                    RenalFunction = EGFR(Some 30, Some 50)
+                    Text = "eGFR 30 - 50"
+                }
+                {
+                    RenalFunction = EGFR(Some 10, Some 30)
+                    Text = "eGFR 10 - 30"
+                }
+                {
+                    RenalFunction = EGFR(None, Some 10)
+                    Text = "eGFR < 10"
+                }
+            ]
+        Dialyses = [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
+    }
+
+
 let renals =
     [
         EGFR(Some 50, None)
@@ -41,17 +76,12 @@ let tests =
                     |> Expect.equal $"%A{renal}" (RenalFunctionText.term renal)
             }
 
-            test "the values of the select do not depend on the labels" {
-                RenalFunctionText.labelled (fun _ -> "label")
-                |> Array.map fst
-                |> Expect.equal "the options" RenalFunctionText.options
-            }
-
-            test "the labels of the select are the translated terms" {
-                RenalFunctionText.labelled RenalFunctionText.english
+            test "the bands and the dialyses of the options are labelled with their translated term" {
+                options
+                |> RenalFunctionText.ofOptions RenalFunctionText.english
                 |> Array.map snd
                 |> Expect.equal
-                    "the English"
+                    "the English, not the sheet text"
                     [|
                         "> 50 mL/min/1.73 m2"
                         "30 - 50 mL/min/1.73 m2"
@@ -61,6 +91,16 @@ let tests =
                         "Continuous hemodialysis"
                         "Peritoneal dialysis"
                     |]
+            }
+
+            test "the values from the options read back as their renal function" {
+                options
+                |> RenalFunctionText.ofOptions string
+                |> Array.map (fst >> RenalFunctionText.optionToRenal)
+                |> Expect.equal
+                    "the bands and the dialyses"
+                    ((options.EGFRBands |> List.map _.RenalFunction) @ options.Dialyses
+                     |> List.toArray)
             }
 
         ]

@@ -583,7 +583,7 @@ module Client =
                     ClientMsg.Loader LoaderMsg.PatientExpected
                     // A failed patient call gives no plan, so the interaction warnings are cleared here.
                     ClientMsg.Loader(LoaderMsg.CheckInteractions [])
-                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, request)))
+                    ClientMsg.Lanes(LanesMsg.Patient PatientMsg.Cleared)
                     // The edit applies to the patient data the panel showed before the clear.
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
