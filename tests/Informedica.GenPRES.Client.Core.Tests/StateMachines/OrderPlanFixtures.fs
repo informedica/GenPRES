@@ -20,9 +20,7 @@ let noPatientChange = PatientMachine.PatientState.init (Some draft)
 
 let patientChanging =
     noPatientChange
-    |> PatientMachine.PatientState.transition (
-        PatientMachine.PatientMsg.Changed(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
-    )
+    |> PatientMachine.PatientState.transition (PatientMachine.PatientMsg.Changed(Some otherDraft, "p-1"))
     |> fst
 
 /// A change under way over the plan in the cart for the patient, the one a failed change goes back to.

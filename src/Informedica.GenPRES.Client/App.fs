@@ -416,6 +416,12 @@ module private Effects =
                 serverApi.processPatientData
                 (Api.PatientDataCommand.ChangePatientData pat)
                 (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
+        | PatientEffect.CallEdit(edit, pat, request) ->
+            opened
+            |> underSession
+                serverApi.processPatientData
+                (Api.PatientDataCommand.EditPatientData(edit, pat))
+                (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
             Cmd.none
@@ -644,17 +650,13 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Current = Client.currentPatient state
 
-        member _.UpdatePatient pat =
-            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
-            |> dispatch
+        member _.ClearPatient() = Msg.PanelCleared(Elmish.newRequest ()) |> dispatch
 
-        member _.EditPatient pat =
-            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
-            |> dispatch
+        member _.EditPatient edit = Msg.PanelEdited(edit, Elmish.newRequest ()) |> dispatch
 
         member _.AsksNewPatient = Client.asksNewPatient state
 
-        member _.NewPatient(pat, estimates) = Msg.NewPatient(pat, estimates, Elmish.newRequest ()) |> dispatch
+        member _.NewPatient edit = Msg.NewPatient(edit, Elmish.newRequest ()) |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = Client.formulary state

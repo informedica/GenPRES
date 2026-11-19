@@ -160,9 +160,7 @@ module Lanes =
             let lanes, cleared, clearing =
                 if opensOverPatient then
                     // Clearing the patient data sends no request, so the request id is never used.
-                    step
-                        (LanesMsg.Patient(PatientMsg.Changed(None, PatientDraftPolicy.Estimates.Renewed, "cleared")))
-                        lanes
+                    step (LanesMsg.Patient(PatientMsg.Changed(None, "cleared"))) lanes
                 else
                     lanes, [], []
 
@@ -294,12 +292,10 @@ module Lanes =
             [ LanesMsg.Slot(slotId, OrderContextMsg.Reset(newId ())) ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
-        // The session patient data goes to the patient machine with renewed estimates, as for any patient
-        // data from outside; the signed plan goes to the plan.
+        // The session patient data goes to the patient machine as whole patient data, as any patient data
+        // from outside; the signed plan goes to the plan.
         | LanesEffect.Session(SessionEffect.SetPatientData pat) ->
-            [
-                LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
-            ]
+            [ LanesMsg.Patient(PatientMsg.Changed(pat, newId ())) ]
         | LanesEffect.Session(SessionEffect.SetPatientDataRead pat) ->
             [ LanesMsg.Patient(PatientMsg.Refreshed(pat, newId ())) ]
         | LanesEffect.Session(SessionEffect.TakeAge pat) -> [ LanesMsg.Patient(PatientMsg.AgeTaken(pat, newId ())) ]

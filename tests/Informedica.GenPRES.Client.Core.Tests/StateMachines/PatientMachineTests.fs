@@ -5,6 +5,7 @@ open Informedica.GenPRES.Client.Core.StateMachines
 open Expecto
 open Expecto.Flip
 open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Api
 open PatientMachine
 
 
@@ -25,16 +26,12 @@ module Fixtures =
     /// Below the minimum: no age, no measured weight and height.
     let below = Informedica.GenPRES.Shared.Models.PatientData.empty
 
-    let renewed = PatientDraftPolicy.Estimates.Renewed
-    let kept = PatientDraftPolicy.Estimates.Kept
-
     let none = PatientState.init None
 
     let transition = PatientState.transition
 
     /// A change under way for the draft.
-    let changing estimates request =
-        transition (PatientMsg.Changed(Some draft, estimates, request)) none |> fst
+    let changing request = transition (PatientMsg.Changed(Some draft, request)) none |> fst
 
 
 open Fixtures
@@ -48,12 +45,12 @@ let tests =
             test "the same data goes out again once the plan could not follow it" {
                 let asked, _ =
                     PatientState.init (Some Fixtures.draft)
-                    |> PatientState.transition (PatientMsg.Changed(Some Fixtures.draft, Fixtures.renewed, "r-1"))
+                    |> PatientState.transition (PatientMsg.Changed(Some Fixtures.draft, "r-1"))
 
                 let held, _ =
                     asked
                     |> PatientState.transition (PatientMsg.Answered("r-1", Ok Fixtures.answered))
-                let again = PatientMsg.Changed(Some Fixtures.answered, Fixtures.renewed, "r-2")
+                let again = PatientMsg.Changed(Some Fixtures.answered, "r-2")
 
                 held
                 |> PatientState.transition again
@@ -75,25 +72,14 @@ let tests =
 
                     let older = { Fixtures.ten with Age.Years = 11<year> }
 
-                    test "a new age clears the estimates for the server to renew, a measured value stays" {
+                    test "a new age is sent as it is, for the server to renew the estimates" {
                         let measured = { child with PatientData.Height.Measured = Some 141<cm> }
                         let aged = { measured with Age = Some older }
 
-                        let expected = aged |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None
-
                         PatientState.init (Some measured)
-                        |> PatientState.transition (PatientMsg.Changed(Some aged, Fixtures.renewed, "r-1"))
+                        |> PatientState.transition (PatientMsg.Changed(Some aged, "r-1"))
                         |> snd
-                        |> Expect.equal "estimated again" [ PatientEffect.CallPatient(expected, "r-1") ]
-
-                        expected.Height.Measured |> Expect.equal "measured" (Some 141<cm>)
-                    }
-
-                    test "the same age keeps the estimates" {
-                        PatientState.init (Some child)
-                        |> PatientState.transition (PatientMsg.Changed(Some child, Fixtures.renewed, "r-1"))
-                        |> snd
-                        |> Expect.equal "fixed with the age" [ PatientEffect.CallPatient(child, "r-1") ]
+                        |> Expect.equal "as it is" [ PatientEffect.CallPatient(aged, "r-1") ]
                     }
 
                     test "a version opened takes the age, not the data" {
@@ -109,13 +95,7 @@ let tests =
                         |> snd
                         |> Expect.equal
                             "the typed weight, the new age"
-                            [
-                                PatientEffect.CallPatient(
-                                    { typed with Age = Some older }
-                                    |> Informedica.GenPRES.Shared.Models.PatientData.withEstimates None None,
-                                    "r-1"
-                                )
-                            ]
+                            [ PatientEffect.CallPatient({ typed with Age = Some older }, "r-1") ]
                     }
 
                     test "the same age leaves the panel, and the plan can go on" {
@@ -178,7 +158,7 @@ let tests =
             }
 
             test "a change is sent, the draft kept for the panel" {
-                let state, effects = transition (PatientMsg.Changed(Some draft, renewed, "r-1")) none
+                let state, effects = transition (PatientMsg.Changed(Some draft, "r-1")) none
 
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
@@ -187,8 +167,7 @@ let tests =
             }
 
             test "a draft below the minimum is no patient: nothing sent, the patient cleared" {
-                let state, effects =
-                    transition (PatientMsg.Changed(Some below, renewed, "r-2")) (changing renewed "r-1")
+                let state, effects = transition (PatientMsg.Changed(Some below, "r-2")) (changing "r-1")
 
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
@@ -196,8 +175,8 @@ let tests =
                     (Some below, None, [ PatientEffect.SetPatientData None ])
             }
 
-            test "after an edit that renews the estimates the draft takes the answered patient" {
-                let state, effects = transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
+            test "the draft takes the answered patient" {
+                let state, effects = transition (PatientMsg.Answered("r-1", Ok answered)) (changing "r-1")
 
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
@@ -205,20 +184,13 @@ let tests =
                     (Some answered, None, [ PatientEffect.SetPatientData(Some answered) ])
             }
 
-            test "after any other edit the draft is kept, the answered patient goes to the rest" {
-                let state, effects = transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
-
-                (PatientState.draft state, effects)
-                |> Expect.equal "the draft as typed" (Some draft, [ PatientEffect.SetPatientData(Some answered) ])
-            }
-
             test "an answered child without a weight is held back, the pages keep theirs" {
                 let unestimated = { draft with Department = Some "unestimated" }
 
                 let state, effects =
-                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
+                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing "r-1")
                     |> fst
-                    |> transition (PatientMsg.Changed(Some unestimated, renewed, "r-2"))
+                    |> transition (PatientMsg.Changed(Some unestimated, "r-2"))
                     |> fst
                     |> transition (PatientMsg.Answered("r-2", Ok unestimated))
 
@@ -238,7 +210,7 @@ let tests =
                     }
 
                 let state, effects =
-                    transition (PatientMsg.Changed(Some adult, renewed, "r-1")) none
+                    transition (PatientMsg.Changed(Some adult, "r-1")) none
                     |> fst
                     |> transition (PatientMsg.Answered("r-1", Ok adult))
 
@@ -250,7 +222,7 @@ let tests =
                 let child = { draft with Weight = { draft.Weight with Measured = Some 30000<gram> } }
 
                 let state, effects =
-                    transition (PatientMsg.Changed(Some child, renewed, "r-1")) none
+                    transition (PatientMsg.Changed(Some child, "r-1")) none
                     |> fst
                     |> transition (PatientMsg.Answered("r-1", Ok child))
 
@@ -259,9 +231,7 @@ let tests =
             }
 
             test "an answer to an earlier change is dropped" {
-                let newer =
-                    transition (PatientMsg.Changed(Some draft, kept, "r-2")) (changing renewed "r-1")
-                    |> fst
+                let newer = transition (PatientMsg.Changed(Some draft, "r-2")) (changing "r-1") |> fst
 
                 transition (PatientMsg.Answered("r-1", Ok answered)) newer
                 |> Expect.equal "unchanged, nothing done" (newer, [])
@@ -270,10 +240,9 @@ let tests =
             test "changing while a change is under way, not once it is answered or failed" {
                 [
                     none
-                    changing renewed "r-1"
-                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
-                    |> fst
-                    transition (PatientMsg.Answered("r-1", Error [| "failed" |])) (changing renewed "r-1")
+                    changing "r-1"
+                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing "r-1") |> fst
+                    transition (PatientMsg.Answered("r-1", Error [| "failed" |])) (changing "r-1")
                     |> fst
                 ]
                 |> List.map PatientState.changing
@@ -281,19 +250,17 @@ let tests =
             }
 
             test "the answered patient: set by an answer, kept by a failure, cleared below the minimum" {
-                let answeredOnce =
-                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
-                    |> fst
+                let answeredOnce = transition (PatientMsg.Answered("r-1", Ok answered)) (changing "r-1") |> fst
 
                 [
                     none
                     answeredOnce
                     answeredOnce
-                    |> transition (PatientMsg.Changed(Some draft, kept, "r-2"))
+                    |> transition (PatientMsg.Changed(Some draft, "r-2"))
                     |> fst
                     |> transition (PatientMsg.Answered("r-2", Error [| "failed" |]))
                     |> fst
-                    answeredOnce |> transition (PatientMsg.Changed(Some below, kept, "r-2")) |> fst
+                    answeredOnce |> transition (PatientMsg.Changed(Some below, "r-2")) |> fst
                 ]
                 |> List.map PatientState.answered
                 |> Expect.equal "none, the answer, the answer kept, none" [ None; Some answered; Some answered; None ]
@@ -304,7 +271,7 @@ let tests =
 
                 let state, effects =
                     PatientState.init (Some older)
-                    |> transition (PatientMsg.Changed(Some draft, renewed, "r-1"))
+                    |> transition (PatientMsg.Changed(Some draft, "r-1"))
                     |> fst
                     |> transition (PatientMsg.Answered("r-1", Error [| "failed" |]))
 
@@ -317,40 +284,28 @@ let tests =
             testList
                 "the same patient data sent once"
                 [
-                    // the patient answered under kept estimates: the draft as typed, the answer held
-                    let held =
-                        transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
-                        |> fst
+                    // the patient answered: the answer is the draft and is held
+                    let held = transition (PatientMsg.Answered("r-1", Ok answered)) (changing "r-1") |> fst
 
                     test "the patient data answered, given again, is not sent and changes nothing" {
                         held
-                        |> transition (PatientMsg.Changed(Some answered, renewed, "r-2"))
+                        |> transition (PatientMsg.Changed(Some answered, "r-2"))
                         |> Expect.equal "unchanged, nothing sent" (held, [])
                     }
 
                     test "a reset over a draft never answered clears the draft and the patient" {
-                        let state, effects = transition (PatientMsg.Changed(None, renewed, "r-2")) (changing kept "r-1")
+                        let state, effects = transition (PatientMsg.Changed(None, "r-2")) (changing "r-1")
 
                         (PatientState.draft state, PatientState.changing state, effects)
                         |> Expect.equal "cleared" (None, false, [ PatientEffect.SetPatientData None ])
                     }
 
-                    test "an edit to the value the draft took under renewed estimates is not sent" {
-                        let renewedOnce =
-                            transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
-                            |> fst
-
-                        renewedOnce
-                        |> transition (PatientMsg.Changed(PatientState.draft renewedOnce, renewed, "r-2"))
-                        |> Expect.equal "unchanged, nothing sent" (renewedOnce, [])
-                    }
-
                     test "the same data while a change is under way is sent, so the newer request replaces it" {
                         let state, effects =
                             held
-                            |> transition (PatientMsg.Changed(Some draft, kept, "r-2"))
+                            |> transition (PatientMsg.Changed(Some draft, "r-2"))
                             |> fst
-                            |> transition (PatientMsg.Changed(Some answered, renewed, "r-3"))
+                            |> transition (PatientMsg.Changed(Some answered, "r-3"))
 
                         (PatientState.inFlightRequest state, effects)
                         |> Expect.equal "sent" (Some "r-3", [ PatientEffect.CallPatient(answered, "r-3") ])
@@ -360,30 +315,80 @@ let tests =
                         let heavier = { answered with Weight = { answered.Weight with Measured = Some 35000<gram> } }
 
                         held
-                        |> transition (PatientMsg.Changed(Some heavier, kept, "r-2"))
+                        |> transition (PatientMsg.Changed(Some heavier, "r-2"))
                         |> snd
                         |> Expect.equal "sent" [ PatientEffect.CallPatient(heavier, "r-2") ]
                     }
+                ]
 
-                    test "a weight cleared under kept estimates stays cleared when the same data comes again" {
-                        let measuredWeight =
-                            { answered with Weight = { answered.Weight with Measured = Some 35000<gram> } }
+            testList
+                "an edit"
+                [
+                    test "is sent with the patient data it applies to, and the draft waits for the answer" {
+                        let state, effects =
+                            PatientState.init (Some draft)
+                            |> transition (PatientMsg.Edited(PatientDataEdit.SetYears(Some 11), Some draft, "r-1"))
 
-                        let cleared = { measuredWeight with Weight = { measuredWeight.Weight with Measured = None } }
+                        effects
+                        |> Expect.equal
+                            "sent"
+                            [ PatientEffect.CallEdit(PatientDataEdit.SetYears(Some 11), draft, "r-1") ]
 
-                        // the weight cleared on the panel; the server fills the estimate back in
-                        let state =
-                            PatientState.init (Some measuredWeight)
-                            |> transition (PatientMsg.Changed(Some cleared, kept, "r-1"))
+                        (PatientState.draft state, PatientState.changing state)
+                        |> Expect.equal "unchanged, under way" (Some draft, true)
+                    }
+
+                    test "without patient data applies to empty patient data" {
+                        none
+                        |> transition (PatientMsg.Edited(PatientDataEdit.SetYears(Some 1), None, "r-1"))
+                        |> snd
+                        |> Expect.equal
+                            "empty"
+                            [ PatientEffect.CallEdit(PatientDataEdit.SetYears(Some 1), below, "r-1") ]
+                    }
+
+                    test "has its answer as the draft and the patient data of the pages" {
+                        let state, effects =
+                            PatientState.init (Some draft)
+                            |> transition (PatientMsg.Edited(PatientDataEdit.SetWeight None, Some draft, "r-1"))
                             |> fst
                             |> transition (PatientMsg.Answered("r-1", Ok answered))
-                            |> fst
-
-                        // the Session gives the patient as signed, which is the data answered
-                        let state, effects = state |> transition (PatientMsg.Changed(Some answered, renewed, "r-2"))
 
                         (PatientState.draft state, effects)
-                        |> Expect.equal "the draft as cleared, nothing sent" (Some cleared, [])
+                        |> Expect.equal "the answer" (Some answered, [ PatientEffect.SetPatientData(Some answered) ])
+                    }
+
+                    test "answered without an age or a measured weight and height clears the patient data" {
+                        let state, effects =
+                            PatientState.init (Some draft)
+                            |> transition (PatientMsg.Edited(PatientDataEdit.SetYears None, Some draft, "r-1"))
+                            |> fst
+                            |> transition (PatientMsg.Answered("r-1", Ok below))
+
+                        (PatientState.answered state, effects)
+                        |> Expect.equal "cleared" (None, [ PatientEffect.SetPatientData None ])
+                    }
+
+                    test "refused keeps the draft and tells the error" {
+                        let state, effects =
+                            PatientState.init (Some draft)
+                            |> transition (PatientMsg.Edited(PatientDataEdit.SetMonths(Some 24), Some draft, "r-1"))
+                            |> fst
+                            |> transition (PatientMsg.Answered("r-1", Error [| "24 months" |]))
+
+                        (PatientState.draft state, effects)
+                        |> Expect.equal
+                            "kept, told"
+                            (Some draft, [ PatientEffect.TellError [| "24 months" |]; PatientEffect.GivePlan draft ])
+                    }
+
+                    test "answered for an earlier request is ignored" {
+                        PatientState.init (Some draft)
+                        |> transition (PatientMsg.Edited(PatientDataEdit.SetYears(Some 11), Some draft, "r-2"))
+                        |> fst
+                        |> transition (PatientMsg.Answered("r-1", Ok answered))
+                        |> snd
+                        |> Expect.isEmpty "ignored"
                     }
                 ]
         ]

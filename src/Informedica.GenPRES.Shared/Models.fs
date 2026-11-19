@@ -25,14 +25,6 @@ module Models =
             | GestationalAge.RequiredGestationalAge v -> v
 
 
-        /// Applies f to the gestational age when it may be given; NoGestationalAge stays unchanged.
-        let map f ga =
-            match ga with
-            | GestationalAge.NoGestationalAge -> GestationalAge.NoGestationalAge
-            | GestationalAge.OptionalGestationalAge v -> v |> f |> GestationalAge.OptionalGestationalAge
-            | GestationalAge.RequiredGestationalAge v -> v |> f |> GestationalAge.RequiredGestationalAge
-
-
         /// Whether the gestational age may be given.
         let mayBeGiven ga = ga <> GestationalAge.NoGestationalAge
 

@@ -15,7 +15,6 @@
     <Compile Include="Models/RenalFunctionText.fs" />
     <Compile Include="Models/PatientRead.fs" />
     <Compile Include="Models/PatientText.fs" />
-    <Compile Include="Models/PatientEdit.fs" />
     <Compile Include="Models/Severity.fs" />
     <Compile Include="Models/TextBlockDisplay.fs" />
     <Compile Include="Models/TextBlockParser.fs" />

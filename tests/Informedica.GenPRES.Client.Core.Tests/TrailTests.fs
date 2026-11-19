@@ -526,24 +526,19 @@ let tests =
 
             test "the patient data given again shows the change and nothing out" {
                 let landed =
-                    PatientMachineTests.Fixtures.changing PatientDraftPolicy.Estimates.Kept "r-1"
+                    PatientMachineTests.Fixtures.changing "r-1"
                     |> PatientMachine.PatientState.transition (
                         PatientMachine.PatientMsg.Answered("r-1", Ok PatientMachineTests.Fixtures.answered)
                     )
                     |> fst
 
-                let again =
-                    PatientMachine.PatientMsg.Changed(
-                        Some PatientMachineTests.Fixtures.answered,
-                        PatientDraftPolicy.Estimates.Renewed,
-                        "r-2"
-                    )
+                let again = PatientMachine.PatientMsg.Changed(Some PatientMachineTests.Fixtures.answered, "r-2")
 
                 Trail.patient 1 at again (landed |> PatientMachine.PatientState.transition again)
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#1 10:41:07.311 Patient Changed patient 10.0 y est 32.0 kg est 140 cm gender unknown estimates renewed r-2 -> none | patient 10.0 y no weight no height gender unknown"
+                    "#1 10:41:07.311 Patient Changed patient 10.0 y est 32.0 kg est 140 cm gender unknown r-2 -> none | patient 10.0 y est 32.0 kg est 140 cm gender unknown"
             }
 
             test "the shell read by its page and what shows over it, never a url's patient" {
@@ -561,16 +556,10 @@ let tests =
             }
 
             test "a dropped client message says so, never the patient data" {
-                Client.ClientStep.Dropped(
-                    Client.ClientMsg.PanelChanged(
-                        Some Informedica.GenPRES.Shared.Models.PatientData.empty,
-                        PatientDraftPolicy.Estimates.Kept,
-                        "p-1"
-                    )
-                )
+                Client.ClientStep.Dropped(Client.ClientMsg.PanelCleared "p-1")
                 |> Trail.client 1 at
                 |> Trail.format
-                |> Expect.equal "the line" "#1 10:41:07.311 Client PanelChanged p-1 dropped -> none | unchanged"
+                |> Expect.equal "the line" "#1 10:41:07.311 Client PanelCleared p-1 dropped -> none | unchanged"
             }
 
             test "a client step is the line of the part that took it" {

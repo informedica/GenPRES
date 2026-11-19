@@ -129,17 +129,15 @@ type IPatient =
     /// measured one is present; otherwise the draft. The summary shows these data, the fields show
     /// the draft.
     abstract Current: PatientData option
-    /// Updates the patient data and has the server estimate again the weight and height the user did
-    /// not enter. Used after an edit of the age, the gender or the gestational age.
-    abstract UpdatePatient: PatientData option -> unit
-    /// Updates the patient data without new estimates, so a weight or height the user cleared stays
-    /// cleared. Used after any other edit.
-    abstract EditPatient: PatientData option -> unit
+    /// Clears the patient data, as the reset of the panel does.
+    abstract ClearPatient: unit -> unit
+    /// Sends an edit of the patient data the panel shows; the server applies it and completes the result.
+    abstract EditPatient: Api.PatientDataEdit -> unit
     /// Whether an edit on the panel counts as another patient, so the prescriber is asked first
     /// because orders or a selection would be lost.
     abstract AsksNewPatient: bool
-    /// Clears the plan and the workbench and sets the patient data of another patient.
-    abstract NewPatient: PatientData option * PatientDraftPolicy.Estimates -> unit
+    /// Clears the order plan and the workbench, and sends the edit for the patient data the panel showed.
+    abstract NewPatient: Api.PatientDataEdit -> unit
 
 
 /// The formulary and its updates.
