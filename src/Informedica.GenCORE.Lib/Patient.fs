@@ -307,6 +307,44 @@ type NormalValueSheetWarning =
     | Duplicate of sheet: string * row: int
 
 
+/// The values the user picks the patient values from.
+type PatientDataOptions =
+    {
+        /// The calculation weights in gram; empty without the resources.
+        Weights: int<gram>[]
+        /// The calculation heights in cm; empty without the resources.
+        Heights: int<cm>[]
+        /// The years of an age.
+        Years: int<year> list
+        /// The months of an age.
+        Months: int<month> list
+        /// The weeks of an age.
+        Weeks: int<week> list
+        /// The days of an age.
+        Days: int<day> list
+        /// The weeks of a gestational age.
+        GestationalWeeks: int<week> list
+        /// The days of a gestational age.
+        GestationalDays: int<day> list
+        /// The eGFR bands, each with the text of its row in the sheet; empty without the resources.
+        EGFRBands: EGFRBandOption list
+        /// The kinds of dialysis.
+        Dialyses: RenalFunction list
+    }
+
+
+/// The resources that the estimates and the options of patient data come from.
+type PatientDataResources =
+    {
+        /// The tables the weight and the height are estimated from.
+        NormalValueTables: NormalValueTables
+        /// The weights and heights an estimated mean is rounded to and the user picks from.
+        CalculationWeightsAndHeights: CalculationWeightsAndHeights
+        /// The eGFR bands the user picks from.
+        EGFRBandOptions: EGFRBandOption list
+    }
+
+
 /// The id, the name and the birth date of an identified patient. Patient.toString never prints the identity.
 type PatientIdentity =
     {
@@ -357,6 +395,11 @@ type PatientData =
         Access: Access list
         /// The renal function; none when not known.
         RenalFunction: RenalFunction option
+        /// The estimated weight and height for the age and the gender, set by PatientData.estimate; none without
+        /// the resources, without an age or from 18 years.
+        Estimates: Estimates
+        /// The values the user picks the patient values from, set by PatientData.estimate.
+        Options: PatientDataOptions
     }
 
 
@@ -467,9 +510,9 @@ module AgeValue =
 
     module Optics =
 
-        let years = (fun (a: AgeValue) -> a.Years), (fun y a -> { a with Years = y })
+        let years = (fun (a: AgeValue) -> a.Years), (fun y (a: AgeValue) -> { a with Years = y })
 
-        let months = (fun (a: AgeValue) -> a.Months), (fun m a -> { a with Months = m })
+        let months = (fun (a: AgeValue) -> a.Months), (fun m (a: AgeValue) -> { a with Months = m })
 
         let weeks = (fun (a: AgeValue) -> a.Weeks), (fun w (a: AgeValue) -> { a with Weeks = w })
 
@@ -622,13 +665,41 @@ module AgeValue =
             Check.optional (Check.Int.between 0 m) |> mapOpt Conversions.yearFromInt
 
 
-        let monthValidator = Check.optional (Check.Int.between 0 11) |> mapOpt Conversions.monthFromInt
+        /// The years of an age the user picks from.
+        let yearOptions = [ 0 .. int maxYear ] |> List.map Conversions.yearFromInt
 
 
-        let weekValidator = Check.optional (Check.Int.between 0 4) |> mapOpt Conversions.weekFromInt
+        /// The highest month of an age.
+        let maxMonth = 11
 
 
-        let dayValidator = Check.optional (Check.Int.between 0 6) |> mapOpt Conversions.dayFromInt
+        let monthValidator = Check.optional (Check.Int.between 0 maxMonth) |> mapOpt Conversions.monthFromInt
+
+
+        /// The months of an age the user picks from.
+        let monthOptions = [ 0..maxMonth ] |> List.map Conversions.monthFromInt
+
+
+        /// The highest week of an age.
+        let maxWeek = 4
+
+
+        let weekValidator = Check.optional (Check.Int.between 0 maxWeek) |> mapOpt Conversions.weekFromInt
+
+
+        /// The weeks of an age the user picks from.
+        let weekOptions = [ 0..maxWeek ] |> List.map Conversions.weekFromInt
+
+
+        /// The highest day of an age.
+        let maxDay = 6
+
+
+        let dayValidator = Check.optional (Check.Int.between 0 maxDay) |> mapOpt Conversions.dayFromInt
+
+
+        /// The days of an age the user picks from.
+        let dayOptions = [ 0..maxDay ] |> List.map Conversions.dayFromInt
 
 
     module Dto =
@@ -1957,7 +2028,15 @@ module AgeWeeksDays =
         let validateWeeks = Check.Int.between minWeeks maxWeeks *|* Conversions.weekFromInt
 
 
+        /// The weeks of a gestational age the user picks from.
+        let weekOptions = [ minWeeks..maxWeeks ] |> List.map Conversions.weekFromInt
+
+
         let validateDays = Check.Int.between 0 maxDays *|* Conversions.dayFromInt
+
+
+        /// The days of a gestational age the user picks from.
+        let dayOptions = [ 0..maxDays ] |> List.map Conversions.dayFromInt
 
 
     let toString awd =
@@ -2089,7 +2168,7 @@ module Estimates =
     /// mean rounded to the nearest calculation weight or height; none without an age or from 18 years. Uses the
     /// neonatal table when it has a row at or above the post-menstrual age, otherwise the age table. A weight from
     /// the age table has its 3rd and 97th percentiles truncated to whole kg.
-    let ofAge tables calculationWeightsAndHeights gender age pma =
+    let ofAge tables (calculationWeightsAndHeights: CalculationWeightsAndHeights) gender age pma =
         match age with
         | None -> none
         | Some age when age >=? AgeValue.eighteen -> none
@@ -2358,6 +2437,33 @@ module CalculationWeightsAndHeights =
         }
 
 
+module PatientDataOptions =
+
+    /// The options that need no resources: the age parts, the gestational age parts and the dialyses.
+    let withoutResources =
+        {
+            Weights = [||]
+            Heights = [||]
+            Years = AgeValue.Validation.yearOptions
+            Months = AgeValue.Validation.monthOptions
+            Weeks = AgeValue.Validation.weekOptions
+            Days = AgeValue.Validation.dayOptions
+            GestationalWeeks = AgeWeeksDays.Validation.weekOptions
+            GestationalDays = AgeWeeksDays.Validation.dayOptions
+            EGFRBands = []
+            Dialyses = [ IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis ]
+        }
+
+
+    /// Returns every option, with the weights, the heights and the eGFR bands of the resources.
+    let ofResources resources =
+        { withoutResources with
+            Weights = resources.CalculationWeightsAndHeights.Weights
+            Heights = resources.CalculationWeightsAndHeights.Heights
+            EGFRBands = resources.EGFRBandOptions
+        }
+
+
 module PatientIdentity =
 
     /// Creates a patient identity from an id, a name and a birth date.
@@ -2390,7 +2496,8 @@ module PatientData =
 
     /// Creates patient data without a location, an access, a renal function or a mark of the user. The adult
     /// mark and the need for the gestational age follow from the age. The post-menstrual age is None until
-    /// determineGestationalAndPostMenstrualAge sets it.
+    /// determineGestationalAndPostMenstrualAge sets it. Without the resources, the estimates are none and the
+    /// options are the options without resources.
     let create dep diagn gend age wght hght gest =
         {
             Location = None
@@ -2407,6 +2514,8 @@ module PatientData =
             BodySurfaceArea = None
             Access = []
             RenalFunction = None
+            Estimates = Estimates.none
+            Options = PatientDataOptions.withoutResources
         }
         |> determineAdultMarkAndGestationalAgeNeed
 
@@ -2516,6 +2625,39 @@ module PatientData =
         |> determineGestationalAndPostMenstrualAge
 
 
+    /// Sets the estimates and the options from the resources. A measured calculation weight or height is kept;
+    /// otherwise it becomes the estimated mean, without a date, or none without an estimate. Without the
+    /// resources, the patient data is returned unchanged.
+    let estimate resources (dat: PatientData) =
+        match resources with
+        | None -> dat
+        | Some res ->
+            let est =
+                Estimates.ofAge
+                    res.NormalValueTables
+                    res.CalculationWeightsAndHeights
+                    dat.Gender
+                    dat.Age
+                    dat.PostMenstrualAge
+
+            // A measured calculation value is kept; any other becomes the estimated mean, or none without an
+            // estimate.
+            let calculation toValue current (pct: Percentiles<_> option) =
+                match current with
+                | Some(Measured _) -> current
+                | _ -> pct |> Option.map (_.Mean >> toValue >> Estimated)
+
+            let weight = int >> decimal >> WeightValue.weightInGram >> WeightAtDate.undated
+            let height = int >> decimal >> HeightValue.heightInCm >> HeightAtDate.undated
+
+            { dat with
+                Estimates = est
+                Options = PatientDataOptions.ofResources res
+                Weight = { dat.Weight with Calculation = est.Weight |> calculation weight dat.Weight.Calculation }
+                Height = { dat.Height with Calculation = est.Height |> calculation height dat.Height.Calculation }
+            }
+
+
     /// The Dto of the patient data, without the patient identity.
     module Dto =
 
@@ -2531,19 +2673,21 @@ module PatientData =
             member val Age: AgeValue.Dto.Dto option = None with get, set
             /// Whether the user marked the patient as an adult; fromDto ignores the mark under 16 years.
             member val MarkedAdult = false with get, set
-            /// Written by toDto for readers of the Dto; fromDto sets the adult mark from the age and MarkedAdult.
+            /// fromDto does not read this field; it sets the adult mark from the age and MarkedAdult.
             member val AdultMark = AdultMark.MarkableAdult false with get, set
-            /// Written by toDto for readers of the Dto; fromDto sets the need from the age.
+            /// fromDto does not read this field; it sets the need from the age.
             member val GestationalAgeNeed = GestationalAgeNeed.NoGestationalAge with get, set
             member val Weight = Weight.Dto.dto () with get, set
             member val Height = Height.Dto.dto () with get, set
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
-            /// Written by toDto for readers of the Dto; fromDto calculates the post-menstrual age instead.
+            /// fromDto does not read this field; it calculates the post-menstrual age.
             member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
-            /// Written by toDto for readers of the Dto; fromDto calculates the body surface area instead.
+            /// fromDto does not read this field; it calculates the body surface area.
             member val BodySurfaceArea: decimal option = None with get, set
             member val Access: string[] = [||] with get, set
             member val RenalFunction: string option = None with get, set
+            /// fromDto does not read this field; it estimates from the resources.
+            member val Estimates = Estimates.none with get, set
 
 
         let dto () = Dto()
@@ -2557,9 +2701,10 @@ module PatientData =
             | None -> ValidationErrors.create field [ $"%s{field} is unknown: %s{s}" ] |> Result.Error
 
 
-        /// Validates a Dto as patient data and calculates the values that follow from it. The calculated
-        /// fields of the Dto are not read. A weight or height dated after today is an error.
-        let fromDto today (dto: Dto) =
+        /// Validates a Dto as patient data and calculates the values that follow from it. With the resources, it
+        /// also sets the estimates and the options. The calculated fields of the Dto are not read. A weight or
+        /// height dated after today is an error.
+        let fromDto today resources (dto: Dto) =
             validate {
                 let! dep = dto.Department |> Department.Dto.fromDto
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
@@ -2588,6 +2733,7 @@ module PatientData =
                     }
                     |> markAsAdult dto.MarkedAdult
                     |> determineAgeValues
+                    |> estimate resources
                     |> calculateBodySurfaceArea
             }
 
@@ -2611,6 +2757,7 @@ module PatientData =
             dto.BodySurfaceArea <- dat.BodySurfaceArea |> Option.map decimal
             dto.Access <- dat.Access |> List.map Access.toString |> List.toArray
             dto.RenalFunction <- dat.RenalFunction |> Option.map RenalFunction.toString
+            dto.Estimates <- dat.Estimates
 
             dto
 
@@ -2726,11 +2873,12 @@ module Patient =
         let dto () = Dto()
 
 
-        /// Validates a Dto as a patient. An id, a name and a birth date make an identified patient, none
-        /// of the three an anonymous patient; only some of the three is an error.
-        let fromDto today (dto: Dto) =
+        /// Validates a Dto as a patient. With the resources, the patient data also gets the estimates and the
+        /// options. An id, a name and a birth date make an identified patient, none of the three an anonymous
+        /// patient; only some of the three is an error.
+        let fromDto today resources (dto: Dto) =
             validate {
-                let! dat = dto.Data |> PatientData.Dto.fromDto today
+                let! dat = dto.Data |> PatientData.Dto.fromDto today resources
 
                 let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)

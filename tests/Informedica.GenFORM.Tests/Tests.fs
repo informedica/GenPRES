@@ -2148,7 +2148,7 @@ module Tests =
         let throughDto pat =
             pat
             |> CorePatientData.Dto.toDto
-            |> CorePatientData.Dto.fromDto readAt
+            |> CorePatientData.Dto.fromDto readAt None
             |> Expect.wantOk "the patient data Dto reads"
 
         /// Sets the age from a time value. The age is rounded down to whole days.

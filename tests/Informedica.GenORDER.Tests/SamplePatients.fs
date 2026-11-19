@@ -35,7 +35,7 @@ let readAt = DateTime(2026, 11, 17)
 let throughDto pat =
     pat
     |> CorePatientData.Dto.toDto
-    |> CorePatientData.Dto.fromDto readAt
+    |> CorePatientData.Dto.fromDto readAt None
     |> Expect.wantOk "the patient data Dto reads"
 
 

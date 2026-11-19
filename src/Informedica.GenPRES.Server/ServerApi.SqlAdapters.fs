@@ -169,7 +169,7 @@ module SqlEhrPatient =
             try
                 json
                 |> Canonical.deserialize<CorePatient.Dto.Dto>
-                |> CorePatient.Dto.fromDto today
+                |> CorePatient.Dto.fromDto today None
                 |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
             with e ->
                 Error $"the JSON does not read: %s{e.Message}"
@@ -630,7 +630,7 @@ module SqlSessions =
             try
                 json
                 |> Canonical.deserialize<CorePatientData.Dto.Dto>
-                |> CorePatientData.Dto.fromDto today
+                |> CorePatientData.Dto.fromDto today None
                 |> Result.mapError (fun errs -> $"the patient data does not parse: %A{errs}")
             // Catch every exception: a JSON converter throws its own exception type on a malformed value.
             with e ->
