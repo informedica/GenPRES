@@ -61,20 +61,6 @@ module SeverityMark =
                     paddingBottom = "4px"
                 |}
 
-            // the reason uses the body text size, because the tooltip text size is too small with
-            // the base size of this theme
-            let tooltipSlotProps =
-                {|
-                    tooltip =
-                        {|
-                            sx =
-                                {|
-                                    typography = "body2"
-                                    padding = "6px 10px"
-                                |}
-                        |}
-                |}
-
             // With a reason the mark takes the keyboard focus and names the reason for a screen
             // reader, so the tooltip opens on focus as well as on hover.
             match props.reason with
@@ -89,7 +75,7 @@ module SeverityMark =
                     $"""
                 import Box from '@mui/material/Box';
                 import Tooltip from '@mui/material/Tooltip';
-                <Tooltip title={reason} arrow slotProps={tooltipSlotProps}>
+                <Tooltip title={reason} arrow>
                     <Box sx={markSx} role="img" aria-label={reason} tabIndex={0}>{icon props.severity}</Box>
                 </Tooltip>
                 """
