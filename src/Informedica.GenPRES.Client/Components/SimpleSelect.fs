@@ -325,24 +325,42 @@ module SimpleSelect =
             |> Option.map snd
             |> Option.defaultValue ""
 
-        // MUI may call this after its enter delay, when the event no longer has a current target,
-        // so the field is found from the element under the pointer.
-        let handleTipOpen (e: Browser.Types.Event) =
-            let field = e.target?closest (".MuiFormControl-root")
+        // the field under the pointer, kept so the check can run again when the label changes;
+        // null while the pointer is not on the field
+        let hoveredField = React.useRef null
 
+        // whether the text shown in the field is wider than the space the field gives it
+        let overflows field =
             let display =
                 if isNull field then
                     null
                 else
                     field?querySelector (".MuiSelect-select")
 
-            let overflows =
-                not (isNull display)
-                && (display?scrollWidth: float) > (display?clientWidth: float)
+            not (isNull display)
+            && (display?scrollWidth: float) > (display?clientWidth: float)
 
-            setTipOpen overflows
+        // MUI may call this after its enter delay, when the event no longer has a current target,
+        // so the field is found from the element under the pointer.
+        let handleTipOpen (e: Browser.Types.Event) =
+            let field = e.target?closest (".MuiFormControl-root")
+            hoveredField.current <- field
+            setTipOpen (overflows field)
 
-        let handleTipClose = fun _ -> setTipOpen false
+        let handleTipClose =
+            fun _ ->
+                hoveredField.current <- null
+                setTipOpen false
+
+        // A value that changes while the pointer stays on the field, such as a server answer,
+        // is checked again, so a new label that does not fit gets the tooltip.
+        React.useEffect (
+            (fun () ->
+                if not (isNull hoveredField.current) then
+                    setTipOpen (overflows hoveredField.current)
+            ),
+            [| box selectedLabel |]
+        )
 
         let showTip = tipOpen && not isOpen && selectedLabel <> ""
 
