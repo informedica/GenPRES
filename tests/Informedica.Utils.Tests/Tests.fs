@@ -2202,6 +2202,124 @@ module Tests =
                     }
                 ]
 
+
+    /// The memo of a function for a bounded number of distinct arguments.
+    module MemoizeBounded =
+
+        open Expecto.Flip
+
+
+        /// Creates a memo with a counter of the calls of f.
+        let counted maxCount f =
+            let calls = ref 0
+
+            let memo =
+                fun x ->
+                    Threading.Interlocked.Increment(&calls.contents) |> ignore
+                    f x
+                |> Memoization.memoizeBounded maxCount
+
+            memo, (fun () -> calls.Value)
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Memoization.memoizeBounded"
+                [
+                    test "a second call with the same argument does not run f again" {
+                        let memo, calls = counted 4 id
+
+                        [ memo 1; memo 1 ] |> Expect.equal "the same result" [ 1; 1 ]
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "structurally equal arguments share one entry" {
+                        let memo, calls = counted 4 (fun (xs: int list) -> xs.Length)
+
+                        memo [ 1; 2 ] |> ignore
+                        memo [ 1; 2 ] |> ignore
+
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "with fewer arguments than the bound, every argument stays cached" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 1; 2; 3 ] |> List.iter (memo >> ignore)
+
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
+
+                    test "a new argument past the bound empties the cache" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 4 ] |> List.iter (memo >> ignore)
+                        memo 4 |> ignore
+                        calls () |> Expect.equal "the last argument is still cached" 4
+
+                        memo 1 |> ignore
+                        calls () |> Expect.equal "the first argument is computed again" 5
+                    }
+
+                    test "a call with a cached argument at the bound does not empty the cache" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 3; 2; 1 ] |> List.iter (memo >> ignore)
+
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
+
+                    test "many distinct arguments keep at most the bound cached" {
+                        let memo, calls = counted 64 id
+
+                        [ 1..1000 ] |> List.iter (memo >> ignore)
+                        // 1000 = 15 * 64 + 40: the cache was emptied at 961, so 961 to 1000 are cached
+                        [ 961..1000 ] |> List.iter (memo >> ignore)
+                        calls () |> Expect.equal "the last 40 are cached" 1000
+
+                        memo 960 |> ignore
+                        calls () |> Expect.equal "an earlier argument is computed again" 1001
+                    }
+
+                    test "concurrent calls with one argument run f once" {
+                        let memo, calls =
+                            counted
+                                4
+                                (fun (x: int) ->
+                                    Threading.Thread.Sleep 50
+                                    x
+                                )
+
+                        Array.init 32 (fun _ -> async { return memo 7 })
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Expect.allEqual "every call gets the result" 7
+
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "a call that raised an exception runs f again on the next call" {
+                        let mutable fail = true
+
+                        let memo, calls =
+                            counted
+                                4
+                                (fun (x: int) ->
+                                    if fail then
+                                        fail <- false
+                                        invalidOp "first call fails"
+
+                                    x
+                                )
+
+                        Expect.throwsT<InvalidOperationException> "the exception passes" (fun () -> memo 1 |> ignore)
+
+                        memo 1 |> Expect.equal "the second call succeeds" 1
+                        calls () |> Expect.equal "f ran twice" 2
+                    }
+                ]
+
     module Optic =
 
         open Informedica.Utils.Lib.Optics

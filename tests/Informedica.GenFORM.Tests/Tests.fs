@@ -10989,6 +10989,242 @@ module Tests =
                 ]
 
 
+    /// The prescription rules of a patient, cached per load of the resources.
+    module PrescriptionRuleCacheTests =
+
+        open Informedica.GenForm.Lib.Resources
+
+        module Limiting = LimitingSolutionRuleTests
+
+
+        /// A registry with one dose rule, one solution rule that limits it, no renal rules and the IV route
+        /// mapping. Every load builds new arrays, as a reload of the sheets does. withCache adds the cache.
+        let registry withCache : ResourceRegistry =
+            let empty (key: ResourceKey<'T[]>) = key.Name, ofResult (fun () -> Ok Array.empty<'T>)
+
+            Map
+                [
+                    // the resources the loaded state reads, empty
+                    empty Keys.unitMappings
+                    empty Keys.validForms
+                    empty Keys.formRoutes
+                    empty Keys.formularyProducts
+                    empty Keys.genPresProducts
+                    empty Keys.doseRuleData
+                    empty Keys.solutionRuleData
+                    empty Keys.renalRuleData
+                    empty Keys.totalsData
+                    empty Keys.reconstitution
+                    empty Keys.parenteralMeds
+                    empty Keys.enteralFeeding
+                    empty Keys.products
+                    // the resources the prescription rules are built from; in parentheses, because without them
+                    // Fantomas joins the multi-line tuples into one expression that does not compile
+                    (Keys.doseRules.Name, ofResult (fun () -> Ok [| Limiting.withoutLimits |]))
+                    // a separate array with the same dose rule, so that a test can tell the two arrays of the load
+                    // apart
+                    (Keys.standAloneDoseRules.Name, ofResult (fun () -> Ok [| Limiting.withoutLimits |]))
+                    (Keys.solutionRules.Name, ofResult (fun () -> Ok [| Limiting.limitsBoth |]))
+                    (Keys.renalRules.Name, ofResult (fun () -> Ok Array.empty<RenalRule>))
+                    (Keys.routeMappings.Name, ofResult (fun () -> Ok RuleCheckTests.ivRouteMapping))
+                    (Keys.departments.Name, ofResult (fun () -> Ok(Departments.ofNamed [])))
+                    (Keys.isAdditive.Name, derive (fun _ -> fun (_: string) -> false))
+                ]
+            |> fun reg ->
+                if withCache then
+                    reg |> Map.add Keys.prescriptionRuleCache.Name prescriptionRuleCacheLoader
+                else
+                    reg
+
+
+        let provider withCache =
+            match registry withCache |> loadAllResourcesWithRegistry with
+            | Ok loaded -> ResourceProvider(loaded) :> IResourceProvider
+            | Error msgs -> invalidOp $"the test registry does not load: %A{msgs}"
+
+
+        let cachedProvider () =
+            CachedResourceProvider(
+                Informedica.Logging.Lib.Logging.noOp,
+                (fun () -> registry true |> loadAllResourcesWithRegistry),
+                None
+            )
+
+
+        /// Wraps the provider as the server does with withDoseRulesOf: doseRules and solutionRules replace the
+        /// rules of the provider, every other member passes through.
+        let wrapped
+            (doseRules: unit -> DoseRule[])
+            (solutionRules: unit -> SolutionRule[])
+            (provider: IResourceProvider)
+            =
+            { new IResourceProvider with
+                member _.Get key = provider.Get key
+                member _.GetData() = provider.GetData()
+                member _.GetUnitMappings() = provider.GetUnitMappings()
+                member _.GetRouteMappings() = provider.GetRouteMappings()
+                member _.GetValidForms() = provider.GetValidForms()
+                member _.GetFormRoutes() = provider.GetFormRoutes()
+                member _.GetFormularyProducts() = provider.GetFormularyProducts()
+                member _.GetReconstitution() = provider.GetReconstitution()
+                member _.GetParenteralMeds() = provider.GetParenteralMeds()
+                member _.GetEnteralFeeding() = provider.GetEnteralFeeding()
+                member _.GetProducts() = provider.GetProducts()
+                member _.GetDoseRules() = doseRules ()
+                member _.GetSolutionRules() = solutionRules ()
+                member _.GetRenalRules() = provider.GetRenalRules()
+                member _.GetTotals() = provider.GetTotals()
+                member _.GetGStandProvider() = provider.GetGStandProvider()
+                member _.GetDepartments() = provider.GetDepartments()
+                member _.GetResourceInfo() = provider.GetResourceInfo()
+            }
+
+
+        /// A patient of 10 kg, for whom the solution rule limits the dose rule.
+        let patient () = Limiting.patient (Some 10N)
+
+
+        /// The rules of the Ok result; a failed or an empty result fails the test. An empty result is the
+        /// shared empty array, which would pass every check of the same array.
+        let rulesOf =
+            function
+            | Ok(prs: PrescriptionRule[]) when prs |> Array.isEmpty |> not -> prs
+            | Ok _ -> failtest "no prescription rules"
+            | Error msgs -> failtest $"no prescription rules: %A{msgs}"
+
+
+        let countOf (result: Result<PrescriptionRule[], Message list>) = result |> Result.map Array.length
+
+
+        let tests =
+            testList
+                "the prescription rule cache"
+                [
+                    test "the cached rules equal the rules computed without the cache" {
+                        let cached = patient () |> Api.getPrescriptionRules (provider true) |> rulesOf
+                        let uncached = patient () |> Api.getPrescriptionRules (provider false) |> rulesOf
+
+                        cached |> Expect.equal "the same rules" uncached
+                    }
+
+                    test "the rules of a patient are built once per load" {
+                        let prov = provider true
+                        let pat = patient ()
+                        let first = pat |> Api.getPrescriptionRules prov |> rulesOf
+                        let second = pat |> Api.getPrescriptionRules prov |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isTrue "the same array"
+                    }
+
+                    test "equal patient data built twice share one entry" {
+                        let prov = provider true
+                        let first = patient () |> Api.getPrescriptionRules prov |> rulesOf
+                        let second = patient () |> Api.getPrescriptionRules prov |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isTrue "the same array"
+                    }
+
+                    test "another patient gets its own rules" {
+                        let prov = provider true
+                        let first = patient () |> Api.getPrescriptionRules prov
+                        let other = Limiting.patient (Some 20N) |> Api.getPrescriptionRules prov
+
+                        obj.ReferenceEquals(first, other) |> Expect.isFalse "not the same result"
+                    }
+
+                    test "a reload drops the cached rules" {
+                        let cached = cachedProvider ()
+                        let prov = cached :> IResourceProvider
+                        let before = patient () |> Api.getPrescriptionRules prov |> rulesOf
+
+                        cached.ReloadCache()
+
+                        let after = patient () |> Api.getPrescriptionRules prov |> rulesOf
+
+                        obj.ReferenceEquals(before, after)
+                        |> Expect.isFalse "built again after the reload"
+                        after |> Expect.equal "the same rules" before
+                    }
+
+                    test "resources without the cache compute the rules on every call" {
+                        let prov = provider false
+                        let first = patient () |> Api.getPrescriptionRules prov |> rulesOf
+                        let second = patient () |> Api.getPrescriptionRules prov |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isFalse "built on every call"
+                        second |> Expect.equal "the same rules" first
+                    }
+
+                    test "a provider that replaces the dose rules gets the rules of its own dose rules" {
+                        let prov = provider true
+
+                        // fill the cache with the dose rules of the load
+                        patient () |> Api.getPrescriptionRules prov |> rulesOf |> ignore
+
+                        let noDoseRules = prov |> wrapped (fun () -> Array.empty) prov.GetSolutionRules
+
+                        patient ()
+                        |> Api.getPrescriptionRules noDoseRules
+                        |> countOf
+                        |> Expect.equal "no dose rules give no prescription rules" (Ok 0)
+                    }
+
+                    test "the stand-alone dose rules of the load use the cache" {
+                        let prov = provider true
+                        let standAlone = prov.Get Keys.standAloneDoseRules
+                        let standAloneOnly = prov |> wrapped (fun () -> standAlone) prov.GetSolutionRules
+
+                        let first = patient () |> Api.getPrescriptionRules standAloneOnly |> rulesOf
+                        let second = patient () |> Api.getPrescriptionRules standAloneOnly |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isTrue "the same array"
+
+                        patient ()
+                        |> Api.getPrescriptionRules prov
+                        |> rulesOf
+                        |> Expect.equal "the same rules as the dose rules of the load" first
+                    }
+
+                    test "a stable dose rule array that is not of the load does not use the cache" {
+                        let prov = provider true
+                        let doseRules = [| Limiting.withoutLimits |]
+                        let otherDoseRules = prov |> wrapped (fun () -> doseRules) prov.GetSolutionRules
+
+                        let first = patient () |> Api.getPrescriptionRules otherDoseRules |> rulesOf
+                        let second = patient () |> Api.getPrescriptionRules otherDoseRules |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isFalse "built on every call"
+                        second |> Expect.equal "the same rules" first
+                    }
+
+                    test "solution rules of another load do not use the cache" {
+                        let prov = provider true
+                        let otherLoad = provider true
+                        let first = patient () |> Api.getPrescriptionRules prov |> rulesOf
+
+                        let mixed = prov |> wrapped prov.GetDoseRules otherLoad.GetSolutionRules
+                        let second = patient () |> Api.getPrescriptionRules mixed |> rulesOf
+
+                        obj.ReferenceEquals(first, second) |> Expect.isFalse "not from the cache"
+                        second |> Expect.equal "the same rules" first
+                    }
+
+                    test "a provider that replaces the solution rules does not use the cache" {
+                        let prov = provider true
+
+                        // fill the cache with the solution rules of the load
+                        patient () |> Api.getPrescriptionRules prov |> rulesOf |> ignore
+
+                        let noSolutionRules = prov |> wrapped prov.GetDoseRules (fun () -> Array.empty)
+
+                        patient ()
+                        |> Api.getPrescriptionRules noSolutionRules
+                        |> countOf
+                        |> Expect.equal "without a limiting solution rule no prescription rule" (Ok 0)
+                    }
+                ]
+
+
     /// Loading a dose rule without limits, which a solution rule limits.
     module LoadWithoutLimitsTests =
 
@@ -11733,6 +11969,7 @@ module Tests =
                 LinkRuleTests.tests
                 LimitingSolutionRuleTests.tests
                 NarrowingTests.tests
+                PrescriptionRuleCacheTests.tests
                 LoadWithoutLimitsTests.tests
                 ConflictingLimitTests.tests
                 RepeatedTargetTests.tests

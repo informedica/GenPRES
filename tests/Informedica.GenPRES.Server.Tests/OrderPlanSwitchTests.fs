@@ -36,7 +36,7 @@ type NoRules() =
             if key.Name = Informedica.GenForm.Lib.Resources.Keys.isAdditive.Name then
                 box (fun (_: string) -> false) :?> 'T
             else
-                raise (System.NotImplementedException())
+                raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
         member _.GetData() = raise (System.NotImplementedException())
         member _.GetUnitMappings() = raise (System.NotImplementedException())

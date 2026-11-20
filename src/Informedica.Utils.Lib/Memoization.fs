@@ -65,6 +65,34 @@ module Memoization =
             cache.GetOrAdd(key, (fun _ -> lazy (f p1 p2))).Value
 
 
+    /// Memoizes f for at most maxCount distinct arguments, compared by structural equality. A new argument
+    /// that finds maxCount entries empties the cache first. Concurrent calls with one argument run f once;
+    /// when f raises an exception, the entry is removed so that the next call runs f again. The argument
+    /// must not be null.
+    let memoizeBounded maxCount (f: 'a -> 'b) =
+        let cache = ConcurrentDictionary<'a, Lazy<'b>>(HashIdentity.Structural)
+
+        fun x ->
+            let entry =
+                match cache.TryGetValue x with
+                | true, entry -> entry
+                | false, _ ->
+                    // Emptying the whole cache keeps the bound without bookkeeping of use. The size check and
+                    // the insert are separate steps, so concurrent new arguments can pass the bound briefly.
+                    if cache.Count >= maxCount then
+                        cache.Clear()
+
+                    cache.GetOrAdd(x, (fun k -> lazy (f k)))
+
+            try
+                entry.Value
+            with _ ->
+                // A Lazy keeps the exception; remove this entry, and only this entry, so that the next call
+                // runs f again.
+                cache.TryRemove(System.Collections.Generic.KeyValuePair(x, entry)) |> ignore
+                reraise ()
+
+
     module Tests =
 
         open Swensen.Unquote

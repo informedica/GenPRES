@@ -10,6 +10,7 @@ module Resources =
     module CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
     module CoreEGFRBandOptions = Informedica.GenCore.Lib.Patients.EGFRBandOptions
     module CoreEGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+    module Memoization = Informedica.Utils.Lib.Memoization
 
     type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
     type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
@@ -58,7 +59,8 @@ module Resources =
 
     /// Gives the loaded resources, built and in memory.
     type IResourceProvider =
-        /// Resolves any registered resource by its typed key.
+        /// Resolves any registered resource by its typed key. Raises KeyNotFoundException for a key the provider
+        /// does not hold.
         abstract member Get: ResourceKey<'T> -> 'T
         abstract member GetData: unit -> Data
         abstract member GetUnitMappings: unit -> UnitMapping[]
@@ -337,6 +339,24 @@ module Resources =
         let isKnown (departments: Departments) (department: string) = departments.Names |> Array.contains department
 
 
+    /// A cache of the prescription rules per patient for the dose rules and the stand-alone dose rules of a load,
+    /// with the other rules of the load it is built from.
+    type PrescriptionRuleCache =
+        {
+            /// The solution rules the prescription rules are built from.
+            SolutionRules: SolutionRule[]
+            /// The renal rules the prescription rules are built from.
+            RenalRules: RenalRule[]
+            /// The route mappings the prescription rules are built from.
+            RouteMappings: RouteMapping[]
+            /// The additive lookup the prescription rules are built from.
+            IsAdditive: string -> bool
+            /// Returns the cached prescription rules of a patient for the dose rules when the dose rules are the
+            /// dose rules or the stand-alone dose rules of the load, the same arrays; None for any other array.
+            TryRulesOf: DoseRule[] -> (PatientData -> Result<PrescriptionRule[], Message list>) option
+        }
+
+
     /// The typed key of every resource.
     module Keys =
         let unitMappings = ResourceKey.create<UnitMapping[]> "unitMappings"
@@ -397,6 +417,45 @@ module Resources =
 
         // The Nederlands Kinder Formularium link lookup, as a function.
         let nkfLinkProvider = ResourceKey.create<Source.LinkProvider> "nkfLinkProvider"
+
+        // The prescription rules of a patient for the dose rules and the stand-alone dose rules, cached for at most
+        // maxCachedPatients patients.
+        let prescriptionRuleCache = ResourceKey.create<PrescriptionRuleCache> "prescriptionRuleCache"
+
+
+    /// The number of distinct patients the prescription rules are cached for.
+    let maxCachedPatients = 64
+
+
+    /// Builds the prescription rule cache over the solution and renal rules, the route mappings and the additive
+    /// lookup of one load. The dose rules and the stand-alone dose rules of the load each get a memo of at most
+    /// maxCachedPatients patients. A reload builds a new, empty cache.
+    let prescriptionRuleCacheLoader: ResourceLoader =
+        derive (fun r ->
+            let solutionRules = r.Get Keys.solutionRules
+            let renalRules = r.Get Keys.renalRules
+            let routeMappings = r.Get Keys.routeMappings
+            let isAdditive = r.Get Keys.isAdditive
+
+            let memoOf doseRules =
+                doseRules,
+                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules routeMappings
+                |> Memoization.memoizeBounded maxCachedPatients
+
+            let memos = [ r.Get Keys.doseRules |> memoOf; r.Get Keys.standAloneDoseRules |> memoOf ]
+
+            {
+                SolutionRules = solutionRules
+                RenalRules = renalRules
+                RouteMappings = routeMappings
+                IsAdditive = isAdditive
+                TryRulesOf =
+                    fun doseRules ->
+                        memos
+                        |> List.tryFind (fun (drs, _) -> obj.ReferenceEquals(drs, doseRules))
+                        |> Option.map snd
+            }
+        )
 
 
     /// The loader of the renal rule data. A renal sheet that fails to load fails the whole load,
@@ -660,6 +719,9 @@ module Resources =
 
                     fun gpk -> gpks |> Set.contains gpk
                 )
+
+                // The prescription rules of a patient, cached per load.
+                Keys.prescriptionRuleCache.Name, prescriptionRuleCacheLoader
 
                 // The NKF link lookup is optional like totalsData: the links only annotate a printed
                 // dose rule, and the index is fetched from a third party. A failed fetch gives a warning
