@@ -301,6 +301,21 @@ module PrescriptionRule =
             | solRules -> Some { pr with SolutionRules = solRules }
 
 
+    /// Returns a lookup of the solution rules by generic. The generic names are compared as
+    /// String.equalsCapInsens compares them, in lower case and trimmed; a generic without solution rules gets
+    /// an empty array.
+    let solutionRulesByGeneric (solutionRules: SolutionRule[]) =
+        let normalise = String.toLower >> String.trim
+        // a dict, not a Map: this lookup runs once per dose rule, and a Map lookup measured about 5% slower
+        // per request
+        let byGeneric = solutionRules |> Array.groupBy (_.Generic >> normalise) |> dict
+
+        fun generic ->
+            match byGeneric.TryGetValue(generic |> normalise) with
+            | true, srs -> srs
+            | false, _ -> [||]
+
+
     /// Returns the prescription rules for the filter. isAdditive finds the additives, the components that a
     /// component selection can leave out.
     let filter
@@ -316,6 +331,11 @@ module PrescriptionRule =
         let warns = ResizeArray<string>()
         let pat = filter.PatientData
 
+        // Each dose rule visits only the solution rules of its own generic; SolutionRule.filter checks the
+        // generic again, which these rules all pass.
+        let solutionRulesFor = solutionRules |> solutionRulesByGeneric
+        let renalRules = renalRules |> RenalRule.forPatient pat
+
         doseRules
         |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
@@ -325,23 +345,15 @@ module PrescriptionRule =
 
             warns.AddRange(newWarns)
 
-            let filter =
-                { filter with
-                    Indication = dr.Indication |> Some
-                    // The renal rules and the solution rules are matched on the generic name, without a brand
-                    // or a form.
-                    Generic = dr.Generic |> Generic.genericName |> Some
-                    Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
-                    Route = dr.Route |> Some
-                    DoseType = dr.DoseType |> Some
-                }
+            // The solution rules are matched on the generic name, without a brand or a form.
+            let generic = dr.Generic |> Generic.genericName
 
             {
                 PatientData = pat
                 DoseRule = dr
                 SolutionRules =
                     let solutionFilter =
-                        { Filter.solutionFilter (dr.Generic |> Generic.genericName) with
+                        { Filter.solutionFilter generic with
                             PatientData = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
                             Route = dr.Route |> Some
@@ -351,7 +363,8 @@ module PrescriptionRule =
                             Dose = None
                         }
 
-                    solutionRules
+                    generic
+                    |> solutionRulesFor
                     // A diluent that is also a component of the dose rule would be in the order twice. This
                     // check runs before the diluents are narrowed to the chosen one, so that choosing another
                     // diluent of the rule does not let the rule through.
@@ -375,7 +388,9 @@ module PrescriptionRule =
                                 )
                         }
                     )
-                RenalRules = renalRules |> RenalRule.filter routeMapping filter
+                RenalRules =
+                    renalRules
+                    |> Array.filter (fun rr -> RenalRule.appliesToDoseRule routeMapping rr dr)
             }
         )
         |> Array.filter (fun pr ->
