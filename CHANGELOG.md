@@ -1,5 +1,5 @@
 ---
-last_commit_released: 65c6514502660976a5218fa940e7eea8e6034e84
+last_commit_released: 44f041c208f5c9fa24de4d0f1d7c4bb05f59e074
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,26 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.59 - 2026-11-20
+
+### 🚀 Features
+
+* *(ui)* Show cut-off select text in a tooltip ([c103063d](https://github.com/informedica/GenPRES/commit/c103063d2b567ec135c5445a8e560c357dc930f5))
+* *(ui)* Open the weight and height lists at the estimate ([38256e99](https://github.com/informedica/GenPRES/commit/38256e99aba828613e057bd2cf4d4ea416e032c6))
+* *(ui)* Open the patient panel closed for complete data ([93a13546](https://github.com/informedica/GenPRES/commit/93a13546e339e7a280835a67b168189d7207e01b))
+
+### 🐞 Bug Fixes
+
+* *(ui)* Check the tooltip again when the select label changes ([bc408c84](https://github.com/informedica/GenPRES/commit/bc408c842523c744703a2aa3652efb67ddcabf44))
+* *(utils)* Keep running builds when the bounded memo is full ([4ad1d277](https://github.com/informedica/GenPRES/commit/4ad1d27786ee4de4faf4ade998641f05d30fd888))
+
+### ⚡ Performance Improvements
+
+* *(genform)* Narrow the solution and renal rules per generic ([dedd35ad](https://github.com/informedica/GenPRES/commit/dedd35ad0c1c9b17de55f8071660ffeac031a7bc))
+* *(genform)* Cache the prescription rules of a patient ([299175ad](https://github.com/informedica/GenPRES/commit/299175ad462e0abd8526ed5ffe740f06df4cc6d2))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/65c6514502660976a5218fa940e7eea8e6034e84..44f041c208f5c9fa24de4d0f1d7c4bb05f59e074)</small></strong>
 
 ## 0.1.2-alpha.58 - 2026-11-19
 
