@@ -304,7 +304,8 @@ module Patient =
 
         // A read-only field cannot be opened and has no clear button, because the user does not set
         // its value. A field that is not clearable can be changed but not emptied. The placeholder is
-        // a key and a text shown greyed while the user has chosen no value, and the list opens on it.
+        // a key and an optional text: while the user has chosen no value, the list opens on the key
+        // and the box shows the text greyed.
         let createField readOnly clearable placeholder label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
@@ -323,7 +324,7 @@ module Patient =
                     reCalc = None
                     restore = ignore
                     busy = false
-                    placeholder = placeholder |> Option.map snd
+                    placeholder = placeholder |> Option.bind snd
                     placeholderValue = placeholder |> Option.map fst
                 |}
 
@@ -374,14 +375,40 @@ module Patient =
             | Some v -> hghts |> List.tryFind ((=) (int v))
             | None -> None
 
-        // The placeholder of a field from its estimate, as a key and a text marked as estimated.
-        // Returns None when a value is measured.
-        let estimatePlaceholder toKey toText measured estimated =
+        // The option nearest to the value v, so a list can open on a value that is not one of its
+        // options. Returns None when there are no options.
+        let nearest options v =
+            match options with
+            | [] -> None
+            | _ -> options |> List.minBy (fun o -> abs (o - v)) |> Some
+
+        // The placeholder of a field from its estimate: the key of the option nearest to the estimate
+        // and the estimate as a text marked as estimated. Returns None when a value is measured.
+        let inline estimatePlaceholder options toText measured estimated =
             let word = Terms.``Patient Estimated`` |> getTerm "estimated"
 
             match measured with
             | Some _ -> None
-            | None -> estimated |> Option.map (fun v -> toKey v, $"%s{toText v} (%s{word})")
+            | None ->
+                estimated
+                |> Option.bind (fun v ->
+                    nearest options (int v)
+                    |> Option.map (fun k -> whole k, Some $"%s{toText v} (%s{word})")
+                )
+
+        // An adult, from 18 years or marked as one by the user, has no estimate, so the weight list
+        // opens on the option nearest to 50 kg. The box then stays empty, so no weight is suggested.
+        let weightPlaceholder p =
+            let isAdult = p |> PatientData.isAdult
+
+            match
+                p.Weight.Estimated
+                |> estimatePlaceholder wghts (fun g -> $"%g{float g / 1000.}") p.Weight.Measured
+            with
+            | Some placeholder -> Some placeholder
+            | None when p.Weight.Measured.IsNone && isAdult ->
+                nearest wghts 50000 |> Option.map (fun k -> whole k, None)
+            | None -> None
 
         let checkBox (name: string) item ev =
             let handleAccessChange _ =
@@ -549,14 +576,7 @@ module Patient =
                 wghts
                 |> selectList (fun g -> $"%g{float g / 1000.}")
                 |> createMeasureSelect
-                    (pat
-                     |> Option.bind (fun p ->
-                         p.Weight.Estimated
-                         |> estimatePlaceholder
-                             (fun g -> $"%i{int g}")
-                             (fun g -> $"%g{float g / 1000.}")
-                             p.Weight.Measured
-                     ))
+                    (pat |> Option.bind weightPlaceholder)
                     (Terms.``Patient Weight`` |> getTerm "Weight" |> (fun s -> $"{s} (kg)"))
                     (pat |> Option.bind (_.Weight.Measured >> weightToNone))
                     (fun s ->
@@ -569,9 +589,8 @@ module Patient =
                 |> createMeasureSelect
                     (pat
                      |> Option.bind (fun p ->
-                         let cm c = $"%i{int c}"
-
-                         p.Height.Estimated |> estimatePlaceholder cm cm p.Height.Measured
+                         p.Height.Estimated
+                         |> estimatePlaceholder hghts (fun c -> $"%i{int c}") p.Height.Measured
                      ))
                     (Terms.``Patient Length`` |> getTerm "Length" |> (fun s -> $"{s} (cm)"))
                     (pat |> Option.bind (_.Height.Measured >> heightToNone))
