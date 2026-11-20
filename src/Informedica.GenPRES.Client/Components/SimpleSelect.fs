@@ -315,6 +315,55 @@ module SimpleSelect =
             | Some _ -> box true
             | None -> JS.undefined
 
+        // The tooltip shows the label of the selected value, so a label cut off with an ellipsis
+        // can still be read. It opens only when the label does not fit and the list is closed.
+        let tipOpen, setTipOpen = React.useState false
+
+        let selectedLabel =
+            props.values
+            |> Array.tryFind (fst >> (=) value)
+            |> Option.map snd
+            |> Option.defaultValue ""
+
+        // the field under the pointer, kept so the check can run again when the label changes;
+        // null while the pointer is not on the field
+        let hoveredField = React.useRef null
+
+        // whether the text shown in the field is wider than the space the field gives it
+        let overflows field =
+            let display =
+                if isNull field then
+                    null
+                else
+                    field?querySelector (".MuiSelect-select")
+
+            not (isNull display)
+            && (display?scrollWidth: float) > (display?clientWidth: float)
+
+        // MUI may call this after its enter delay, when the event no longer has a current target,
+        // so the field is found from the element under the pointer.
+        let handleTipOpen (e: Browser.Types.Event) =
+            let field = e.target?closest (".MuiFormControl-root")
+            hoveredField.current <- field
+            setTipOpen (overflows field)
+
+        let handleTipClose =
+            fun _ ->
+                hoveredField.current <- null
+                setTipOpen false
+
+        // A value that changes while the pointer stays on the field, such as a server answer,
+        // is checked again, so a new label that does not fit gets the tooltip.
+        React.useEffect (
+            (fun () ->
+                if not (isNull hoveredField.current) then
+                    setTipOpen (overflows hoveredField.current)
+            ),
+            [| box selectedLabel |]
+        )
+
+        let showTip = tipOpen && not isOpen && selectedLabel <> ""
+
         // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
             {|
@@ -329,7 +378,9 @@ module SimpleSelect =
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
+        import Tooltip from '@mui/material/Tooltip';
 
+        <Tooltip title={selectedLabel} open={showTip} onOpen={handleTipOpen} onClose={handleTipClose}>
         <FormControl variant="standard" sx={formControlSx}>
             <InputLabel id={props.label + "-label"} shrink={labelShrink}>{props.label}</InputLabel>
             <Select
@@ -354,4 +405,5 @@ module SimpleSelect =
                 {items}
             </Select>
         </FormControl>
+        </Tooltip>
         """

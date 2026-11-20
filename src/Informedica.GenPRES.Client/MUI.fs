@@ -661,6 +661,12 @@ module Themes =
     let responsiveFontSizes (theme: obj, options: obj) : obj = import "responsiveFontSizes" "@mui/material/styles"
 
 
+    /// The style of the text box of a tooltip: the body2 typography of the theme with a padding of
+    /// 6 by 10 pixels. MUI calls it with the finished theme, so the responsive font sizes apply.
+    let tooltipStyle args =
+        JS.Constructors.Object.assign (createEmpty, args?theme?typography?body2, {| padding = "6px 10px" |})
+
+
     /// A theme with this base font size and this default size for tables, fields and buttons.
     let themeOf fontSize size =
         let sized = {| defaultProps = {| size = size |} |}
@@ -722,6 +728,9 @@ module Themes =
                             MuiIconButton = sized
                             MuiToolbar = {| defaultProps = {| variant = "dense" |} |}
                             MuiAutocomplete = sized
+                            // Every tooltip uses the body text size, because the default tooltip text
+                            // is too small with the base font size of these themes.
+                            MuiTooltip = {| styleOverrides = {| tooltip = tooltipStyle |} |}
                         |}
                 |}
 
