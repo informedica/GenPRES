@@ -2318,6 +2318,75 @@ module Tests =
                         memo 1 |> Expect.equal "the second call succeeds" 1
                         calls () |> Expect.equal "f ran twice" 2
                     }
+
+                    test "a full cache keeps an entry still being built, so a call for it does not run f again" {
+                        use started = new Threading.ManualResetEventSlim(false)
+                        use release = new Threading.ManualResetEventSlim(false)
+                        let callsOfOne = ref 0
+
+                        let memo, calls =
+                            counted
+                                2
+                                (fun (x: int) ->
+                                    if x = 1 then
+                                        Threading.Interlocked.Increment(&callsOfOne.contents) |> ignore
+                                        started.Set()
+                                        release.Wait()
+
+                                    x
+                                )
+
+                        // the build of 1 runs and blocks
+                        let first = Threading.Tasks.Task.Run(fun () -> memo 1)
+                        started.Wait()
+
+                        // 2 fills the cache; 3 finds it full while 1 is still being built
+                        memo 2 |> ignore
+                        memo 3 |> ignore
+
+                        // a second call for 1 joins the running build
+                        let second = Threading.Tasks.Task.Run(fun () -> memo 1)
+                        Threading.Thread.Sleep 50
+                        release.Set()
+
+                        [ first.Result; second.Result ]
+                        |> Expect.equal "both calls get the result" [ 1; 1 ]
+                        callsOfOne.Value |> Expect.equal "f ran once for the argument being built" 1
+
+                        // 2 was built, so the full cache removed it
+                        let before = calls ()
+                        memo 2 |> ignore
+                        calls ()
+                        |> Expect.equal "the built entry was removed and is computed again" (before + 1)
+                    }
+
+                    test "a full cache with every entry being built keeps them all" {
+                        use release = new Threading.ManualResetEventSlim(false)
+                        use bothStarted = new Threading.CountdownEvent(2)
+
+                        let memo, calls =
+                            counted
+                                2
+                                (fun (x: int) ->
+                                    // a second build of 1 or 2 would signal a third time; it finds the countdown set
+                                    if x < 3 && not bothStarted.IsSet then
+                                        bothStarted.Signal() |> ignore
+                                        release.Wait()
+
+                                    x
+                                )
+
+                        let builds = [ 1; 2 ] |> List.map (fun x -> Threading.Tasks.Task.Run(fun () -> memo x))
+                        bothStarted.Wait()
+
+                        // 3 finds the cache full with two entries being built; it removes neither
+                        memo 3 |> Expect.equal "the new argument is computed" 3
+                        release.Set()
+
+                        builds |> List.map _.Result |> Expect.equal "the builds finish" [ 1; 2 ]
+                        [ memo 1; memo 2; memo 3 ] |> Expect.equal "every entry is cached" [ 1; 2; 3 ]
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
                 ]
 
     module Optic =
