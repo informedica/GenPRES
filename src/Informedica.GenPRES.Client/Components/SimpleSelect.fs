@@ -56,8 +56,8 @@ module SimpleSelect =
                 busy: bool
                 // the greyed text shown while there are values to pick and none is selected
                 placeholder: string option
-                // the value the placeholder stands for, if it is one of the values; the list opens
-                // on it, shown selected, while the box shows the placeholder
+                // the value the list opens on while none is selected, if it is one of the values; the
+                // box shows the placeholder then, or stays empty without a placeholder
                 placeholderValue: string option
             |})
         =
@@ -88,21 +88,22 @@ module SimpleSelect =
             | [| ("range", _) |] -> 0
             | values -> values.Length
 
+        // Closes the list and sends the value picked. A pick ends a recalculation, so there is
+        // nothing to restore.
+        let pick value =
+            recalculating.current <- false
+            setWaiting false
+            setOpen false
+            props.updateSelected value
+
         let handleChange =
             fun ev ->
-                let value = ev?target?value
-
-                // a pick ends a recalculation, so there is nothing to restore
-                recalculating.current <- false
-                setWaiting false
-                setOpen false
-
-                value
+                ev?target?value
                 |> string
                 |> function
                     | s when s |> String.isNullOrWhiteSpace -> None
                     | s -> s |> Some
-                |> props.updateSelected
+                |> pick
 
         let clear = fun _ -> None |> props.updateSelected
 
@@ -171,19 +172,31 @@ module SimpleSelect =
                 paddingY = if isMobile then 0.25 else 0.75
             |}
 
-        // The select marks only its selected value as selected, so the value the placeholder
-        // stands for gets the selected class and the focus here, which also scrolls it into view.
-        let placeholderValue = props.placeholderValue |> Option.filter (fun _ -> props.selected.IsNone)
+        // The list opens on the value the placeholder stands for, while no value is selected and no
+        // recalculation runs. The select is given that value, because the list focuses and scrolls
+        // to the item of the value the select holds and to no other.
+        let placeholderValue =
+            props.placeholderValue
+            |> Option.filter (fun k ->
+                props.selected.IsNone
+                && not recalculating.current
+                && props.values |> Array.exists (fst >> (=) k)
+            )
 
         let items =
             props.values
             |> Array.mapi (fun i (k, v) ->
-                let isPlaceholderValue = placeholderValue = Some k
-                let className = if isPlaceholderValue then "Mui-selected" else null
+                // The select sends no change for the value it already holds, so a pick of the value
+                // the placeholder stands for is sent here.
+                let handleClick =
+                    if placeholderValue = Some k then
+                        box (fun (_: obj) -> Some k |> pick)
+                    else
+                        null
 
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} className={className} autoFocus={isPlaceholderValue} >
+                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} onClick={handleClick} >
                     {v}
                 </MenuItem>
                 """
@@ -279,19 +292,20 @@ module SimpleSelect =
         // during a recalculation the value selected before it stays selected while it is among
         // the values
         let value =
-            match props.selected with
-            | Some s -> s
-            | None when recalculating.current ->
+            match props.selected, placeholderValue with
+            | Some s, _ -> s
+            | None, _ when recalculating.current ->
                 prior.current
                 |> Option.filter (fun p -> props.values |> Array.exists (fst >> (=) p))
                 |> Option.defaultValue ""
-            | None -> ""
+            | None, Some k -> k
+            | None, None -> ""
 
-        // the placeholder shows only when the box shows no value and there are values, so the
-        // two never overlap
+        // The placeholder shows only when no value is selected and there are values, so the two
+        // never overlap.
         let placeholder =
             match props.placeholder with
-            | Some text when value = "" && props.values.Length > 0 -> Some text
+            | Some text when (value = "" || placeholderValue.IsSome) && props.values.Length > 0 -> Some text
             | _ -> None
 
         let placeholderSx = {| color = "text.disabled" |}
@@ -306,24 +320,33 @@ module SimpleSelect =
                     <Box component="span" sx={placeholderSx}>{text}</Box>
                     """
                 |> box
+            // the select holds the value the list opens on, but the box shows nothing
+            | None when placeholderValue.IsSome -> box (fun (_: string) -> null)
             | None -> null
 
         // A label inside the box would cover the placeholder, so the label shrinks above the box
-        // while the placeholder shows. Otherwise shrink is left undefined and MUI decides.
+        // while the placeholder shows. A box that shows nothing keeps the label inside, as an
+        // empty field does. Otherwise shrink is left undefined and MUI decides.
         let labelShrink =
             match placeholder with
             | Some _ -> box true
+            | None when placeholderValue.IsSome -> box false
             | None -> JS.undefined
 
         // The tooltip shows the label of the selected value, so a label cut off with an ellipsis
         // can still be read. It opens only when the label does not fit and the list is closed.
         let tipOpen, setTipOpen = React.useState false
 
+        // the text the box shows: the placeholder, nothing, or the label of the selected value
         let selectedLabel =
-            props.values
-            |> Array.tryFind (fst >> (=) value)
-            |> Option.map snd
-            |> Option.defaultValue ""
+            match placeholder with
+            | Some text -> text
+            | None when placeholderValue.IsSome -> ""
+            | None ->
+                props.values
+                |> Array.tryFind (fst >> (=) value)
+                |> Option.map snd
+                |> Option.defaultValue ""
 
         // the field under the pointer, kept so the check can run again when the label changes;
         // null while the pointer is not on the field
