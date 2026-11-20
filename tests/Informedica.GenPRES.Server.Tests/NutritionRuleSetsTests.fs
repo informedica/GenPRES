@@ -67,7 +67,7 @@ module Fixtures =
                 elif key.Name = Resources.Keys.isAdditive.Name then
                     unbox<'T>(box (fun (_: string) -> false))
                 else
-                    raise (System.NotImplementedException())
+                    raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
             member _.GetDoseRules() = rules
             member _.GetRouteMappings() = OrderPlanTests.RuleFixtures.routeMapping

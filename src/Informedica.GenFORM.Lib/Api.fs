@@ -108,14 +108,38 @@ module Api =
     let isAdditive (provider: IResourceProvider) = provider.Get Keys.isAdditive
 
 
+    /// Returns the prescription rules of the patient, after the default department is set. The rules come from the
+    /// cache of the load when the provider holds a cache, gives the solution rules, renal rules, route mappings and
+    /// additive lookup the cache was built from, and gives the dose rules or the stand-alone dose rules of that
+    /// load. Otherwise the rules are built on every call. A reload between the reads, or a provider that wraps
+    /// another, can give other rules.
     let getPrescriptionRules (provider: IResourceProvider) =
         let doseRules = getDoseRules provider
         let solutionRules = getSolutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
+        let isAdditive = isAdditive provider
 
-        withDefaultDepartment provider
-        >> PrescriptionRule.getForPatient (isAdditive provider) doseRules solutionRules renalRules routeMappings
+        let cache =
+            try
+                provider.Get Keys.prescriptionRuleCache |> Some
+            with :? System.Collections.Generic.KeyNotFoundException ->
+                None
+
+        let rulesOf =
+            cache
+            |> Option.filter (fun cache ->
+                obj.ReferenceEquals(cache.SolutionRules, solutionRules)
+                && obj.ReferenceEquals(cache.RenalRules, renalRules)
+                && obj.ReferenceEquals(cache.RouteMappings, routeMappings)
+                && obj.ReferenceEquals(cache.IsAdditive, isAdditive)
+            )
+            |> Option.bind (fun cache -> cache.TryRulesOf doseRules)
+            |> Option.defaultWith (fun () ->
+                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules routeMappings
+            )
+
+        withDefaultDepartment provider >> rulesOf
 
 
     let filterPrescriptionRules

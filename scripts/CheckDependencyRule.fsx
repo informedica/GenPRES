@@ -144,6 +144,7 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/SolutionRule.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
+        allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "Memoization.memoize" "prescription rule cache per resource load; moves with the providers to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "File." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Directory." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Environment.CurrentDirectory" "cwd-relative export file write; moves to the adapter project (Phase 2)"

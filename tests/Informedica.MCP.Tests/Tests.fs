@@ -280,7 +280,7 @@ module Tests =
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -315,7 +315,7 @@ module Tests =
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -572,7 +572,7 @@ module Tests =
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -835,7 +835,7 @@ module Tests =
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
 
         let refusals =
