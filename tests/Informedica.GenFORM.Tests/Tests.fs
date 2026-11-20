@@ -4750,8 +4750,6 @@ module Tests =
         let childrenOneToEighteen =
             category (ageRange (Some(years 1N)) (Some(years 18N)) |> AbsoluteAge) MinMax.empty
 
-        let filterFor pat = { Filter.doseFilter with PatientData = pat }
-
         let private load<'T> name =
             Path.Combine(AppContext.BaseDirectory, "fixtures", name)
             |> File.ReadAllText
@@ -4929,10 +4927,7 @@ module Tests =
                             let reduced = TestPatient.withRenalFunction (CoreRenalFunction.EGFR EGFRBand.From10To30)
 
                             let selected pat rule =
-                                [| rule |]
-                                |> RenalRule.filter [||] (filterFor (reduced pat))
-                                |> Array.isEmpty
-                                |> not
+                                [| rule |] |> RenalRule.forPatient (reduced pat) |> Array.isEmpty |> not
 
                             for name, pat in [ "without an age", aged None; "of 17 years", aged (Some(years 17N)) ] do
                                 let pat = pat |> marked
@@ -10780,6 +10775,220 @@ module Tests =
                 ]
 
 
+    /// The renal rules narrowed to the patient, and the solution rules narrowed to the generic of a dose rule,
+    /// before the prescription rules are made.
+    module NarrowingTests =
+
+        let years n = n * 365
+
+
+        let patient ageInDays renalFunction =
+            TestPatient.unknown
+            |> TestPatient.withAgeInDays ageInDays
+            |> TestPatient.withWeightInKg 30N
+            |> fun pat ->
+                match renalFunction with
+                | Some rf -> pat |> TestPatient.withRenalFunction rf
+                | None -> pat
+
+
+        let ageRange min max =
+            let days n =
+                n
+                |> BigRational.fromInt
+                |> ValueUnit.singleWithUnit Units.Time.day
+                |> Limit.inclusive
+
+            { MinMax.empty with
+                Min = min |> Option.map days
+                Max = max |> Option.map days
+            }
+
+
+        let renalRuleFor generic route renalFunction age : RenalRule =
+            {
+                Generic = generic
+                Route = route
+                Indication = ""
+                Source = "test"
+                Age = age
+                RenalFunction = renalFunction
+                DoseType = NoDoseType
+                Frequencies = None
+                IntervalTime = MinMax.empty
+                RenalLimits = [||]
+            }
+
+
+        let egfr10To30 = EGFR(Some 10, Some 30)
+
+
+        let upToTwelve = ageRange None (Some(years 12))
+
+
+        /// Renal rules of two generics, two routes, two renal functions and three age ranges.
+        let renalRules =
+            [|
+                for generic in [ "paracetamol"; "amoxicilline" ] do
+                    for route in [ ""; "INTRAVENEUS" ] do
+                        for rf in [ egfr10To30; EGFR(Some 30, Some 50) ] do
+                            for age in [ MinMax.empty; ageRange (Some(years 18)) None; upToTwelve ] do
+                                renalRuleFor generic route rf age
+            |]
+
+
+        /// A 5-year-old of 30 kg with an eGFR from 10 to 30.
+        let reducedChild = patient (years 5) (Some(CoreRenalFunction.EGFR EGFRBand.From10To30))
+
+
+        /// The prescription rules of the reduced child for the electrolyte mixture without limits, with a solution
+        /// rule that limits it and these renal rules.
+        let prescriptionRulesWithRenal renalRules =
+            Filter.doseFilter
+            |> Filter.setPatientData reducedChild
+            |> PrescriptionRule.filter
+                (fun _ -> false)
+                [| LimitingSolutionRuleTests.withoutLimits |]
+                [| LimitingSolutionRuleTests.limitsBoth |]
+                renalRules
+                RuleCheckTests.ivRouteMapping
+
+
+        /// The prescription rules of a 10 kg patient for the electrolyte mixture without limits, with these
+        /// solution rules.
+        let prescriptionRulesWith solRules =
+            { Filter.doseFilter with PatientData = LimitingSolutionRuleTests.patient (Some 10N) }
+            |> PrescriptionRule.filter
+                (fun _ -> false)
+                [| LimitingSolutionRuleTests.withoutLimits |]
+                solRules
+                [||]
+                RuleCheckTests.ivRouteMapping
+
+
+        let withGeneric generic (sr: SolutionRule) = { sr with Generic = generic }
+
+
+        let tests =
+            testList
+                "narrowing the rules"
+                [
+                    testList
+                        "RenalRule.forPatient"
+                        [
+                            test "a patient without a renal function gets no renal rule" {
+                                renalRules
+                                |> RenalRule.forPatient (patient (years 40) None)
+                                |> Expect.isEmpty "no renal rule"
+                            }
+
+                            test "a patient gets the renal rules of the renal function and the age of the patient" {
+                                renalRules
+                                |> RenalRule.forPatient reducedChild
+                                |> Expect.equal
+                                    "eGFR 10 to 30, for all ages and up to 12 years, of both generics and both routes"
+                                    [|
+                                        renalRuleFor "paracetamol" "" egfr10To30 MinMax.empty
+                                        renalRuleFor "paracetamol" "" egfr10To30 upToTwelve
+                                        renalRuleFor "paracetamol" "INTRAVENEUS" egfr10To30 MinMax.empty
+                                        renalRuleFor "paracetamol" "INTRAVENEUS" egfr10To30 upToTwelve
+                                        renalRuleFor "amoxicilline" "" egfr10To30 MinMax.empty
+                                        renalRuleFor "amoxicilline" "" egfr10To30 upToTwelve
+                                        renalRuleFor "amoxicilline" "INTRAVENEUS" egfr10To30 MinMax.empty
+                                        renalRuleFor "amoxicilline" "INTRAVENEUS" egfr10To30 upToTwelve
+                                    |]
+                            }
+
+                            test "a patient younger than 28 days gets no renal rule" {
+                                renalRules
+                                |> RenalRule.forPatient (patient 10 (Some(CoreRenalFunction.EGFR EGFRBand.From10To30)))
+                                |> Expect.isEmpty "no renal rule"
+                            }
+                        ]
+
+                    testList
+                        "PrescriptionRule.filter, the renal rules per dose rule"
+                        [
+                            test
+                                "only the renal rules of the generic and the route of the dose rule reach the prescription rule" {
+                                let applies =
+                                    renalRuleFor "electrolyt/glucose mengsel" "INTRAVENEUS" egfr10To30 MinMax.empty
+
+                                prescriptionRulesWithRenal
+                                    [|
+                                        applies
+                                        renalRuleFor "paracetamol" "INTRAVENEUS" egfr10To30 MinMax.empty
+                                        renalRuleFor "electrolyt/glucose mengsel" "ORAAL" egfr10To30 MinMax.empty
+                                    |]
+                                |> Result.map (Array.map _.RenalRules)
+                                |> Expect.equal "the renal rule of the generic and the route" (Ok [| [| applies |] |])
+                            }
+                        ]
+
+                    testList
+                        "PrescriptionRule.filter, the solution rules per generic"
+                        [
+                            test "a solution rule of the generic limits the dose rule" {
+                                prescriptionRulesWith [| LimitingSolutionRuleTests.limitsBoth |]
+                                |> Result.map (Array.map (_.SolutionRules >> Array.length))
+                                |> Expect.equal "one rule with one solution rule" (Ok [| 1 |])
+                            }
+
+                            test "the generic of a solution rule matches regardless of case and surrounding spaces" {
+                                prescriptionRulesWith
+                                    [|
+                                        LimitingSolutionRuleTests.limitsBoth
+                                        |> withGeneric "  Electrolyt/Glucose Mengsel "
+                                    |]
+                                |> Result.map (Array.map (_.SolutionRules >> Array.length))
+                                |> Expect.equal "one rule with one solution rule" (Ok [| 1 |])
+                            }
+
+                            test "a solution rule of another generic does not limit the dose rule" {
+                                prescriptionRulesWith
+                                    [| LimitingSolutionRuleTests.limitsBoth |> withGeneric "glucose 10%" |]
+                                |> Expect.equal "no rule left" (Ok [||])
+                            }
+
+                            test "only the solution rules of the generic reach the prescription rule" {
+                                prescriptionRulesWith
+                                    [|
+                                        LimitingSolutionRuleTests.limitsBoth
+                                        LimitingSolutionRuleTests.limitsBoth |> withGeneric "glucose 10%"
+                                    |]
+                                |> Result.map (Array.collect _.SolutionRules >> Array.map _.Generic)
+                                |> Expect.equal
+                                    "the solution rule of the generic"
+                                    (Ok [| "electrolyt/glucose mengsel" |])
+                            }
+                        ]
+
+                    testList
+                        "PrescriptionRule.solutionRulesByGeneric"
+                        [
+                            test "a generic without solution rules gets none" {
+                                "morfine"
+                                |> PrescriptionRule.solutionRulesByGeneric [| LimitingSolutionRuleTests.limitsBoth |]
+                                |> Expect.isEmpty "no solution rule"
+                            }
+
+                            test "the solution rules of a generic keep their order" {
+                                let first = LimitingSolutionRuleTests.limitsBoth
+                                let second = LimitingSolutionRuleTests.limitsBothPerKg
+
+                                "electrolyt/glucose mengsel"
+                                |> PrescriptionRule.solutionRulesByGeneric
+                                    [|
+                                        first
+                                        LimitingSolutionRuleTests.limitsBoth |> withGeneric "glucose 10%"
+                                        second
+                                    |]
+                                |> Expect.equal "both, in order" [| first; second |]
+                            }
+                        ]
+                ]
+
+
     /// Loading a dose rule without limits, which a solution rule limits.
     module LoadWithoutLimitsTests =
 
@@ -11523,6 +11732,7 @@ module Tests =
                 RuleSetTests.tests
                 LinkRuleTests.tests
                 LimitingSolutionRuleTests.tests
+                NarrowingTests.tests
                 LoadWithoutLimitsTests.tests
                 ConflictingLimitTests.tests
                 RepeatedTargetTests.tests

@@ -361,25 +361,24 @@ module RenalRule =
             (Some dr.DoseType)
 
 
-    let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
-        let pat, ageHolds = filter.PatientData |> PatientData.forAdultMatch
-        let age = pat |> CorePatientData.ageInDays
+    /// Returns the renal rules whose renal function and age apply to the patient. A patient without a renal
+    /// function, or younger than 28 days, gets no renal rule.
+    let forPatient patientData (renalRules: RenalRule[]) =
+        match patientData |> PatientData.renalFunction with
+        | None -> [||]
+        | Some renalFunction ->
+            let pat, ageHolds = patientData |> PatientData.forAdultMatch
+            let age = pat |> CorePatientData.ageInDays
 
-        [|
-            fun (rr: RenalRule) ->
-                ageHolds rr.Age
+            renalRules
+            |> Array.filter (fun rr ->
+                rr.RenalFunction = renalFunction
+                && ageHolds rr.Age
                 && age |> MinMax.inRange rr.Age
                 // renal rules only apply to patients of at least 28 days of age
                 && age
                    |> Option.forall (fun a -> Units.Time.day |> ValueUnit.singleWithValue 28N <=? a)
-            appliesTo mapping filter.Generic filter.Route filter.Indication filter.DoseType
-            // A rule applies when its renal function is the renal function of the patient.
-            fun (rr: RenalRule) ->
-                filter.PatientData
-                |> PatientData.renalFunction
-                |> Option.exists ((=) rr.RenalFunction)
-        |]
-        |> Array.fold (fun (acc: RenalRule[]) pred -> acc |> Array.filter pred) renalRules
+            )
 
 
     /// The unit a per kg or per m2 range is adjusted with: the weight or the BSA unit in its bounds.
