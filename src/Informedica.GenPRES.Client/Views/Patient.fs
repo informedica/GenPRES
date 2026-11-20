@@ -108,6 +108,31 @@ module Patient =
         // patient the platform sets the age, and the other data can be changed but not cleared.
         let identified = SessionPatientPolicy.identified session
 
+        // When the first data of an identified patient arrives, the panel closes if nothing is missing
+        // and opens otherwise. Later data of the same patient does not change the panel. This does not
+        // apply to an anonymous patient.
+        let decidedFor = React.useRef (None: string option)
+
+        let identifiedId =
+            SessionPatientPolicy.patientContext session
+            |> Option.filter _.PatientIdentity.IsSome
+            |> Option.map _.PatientId
+
+        let readiness = patient |> PatientReadinessPolicy.readiness
+        let hasData = readiness <> PatientReadinessPolicy.Readiness.NoData
+        let isComplete = readiness = PatientReadinessPolicy.Readiness.Patient []
+
+        React.useEffect (
+            (fun () ->
+                match identifiedId with
+                | Some id when hasData && decidedFor.current <> Some id ->
+                    decidedFor.current <- Some id
+                    isComplete |> not |> setExpanded
+                | _ -> ()
+            ),
+            [| box identifiedId; box hasData; box isComplete |]
+        )
+
         // The summary shows the data only; the id, the name and the birthdate are in the title bar.
         let summary = current |> show lang localizationTerms |> toJsx
 
