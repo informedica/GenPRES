@@ -901,10 +901,11 @@ module Models =
 
         module Orderable =
 
-            let create n orb_qty ord_qty ord_cnt dos_cnt dos cc =
+            let create n orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos cc =
                 {
                     Name = n
                     OrderableQuantity = orb_qty
+                    OrderableQuantityAdjust = orb_qty_adj
                     OrderQuantity = ord_qty
                     OrderCount = ord_cnt
                     DoseCount = dos_cnt

@@ -1687,6 +1687,7 @@ let fullMedication =
     let weightUnit = Units.Weight.kiloGram
     let timeUnit = Units.Time.day
     let concUnit = massUnit |> ValueUnit.per volUnit
+    let volAdjUnit = volUnit |> ValueUnit.per weightUnit
     let molarConcUnit = Units.Molar.milliMole |> ValueUnit.per volUnit
 
     { Medication.template with
@@ -1696,6 +1697,11 @@ let fullMedication =
             { MinMax.empty with
                 Min = 10N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
                 Max = 100N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
+            }
+        QuantityAdjust =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
+                Max = 20N |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
             }
         Quantities = 50N |> ValueUnit.singleWithUnit volUnit |> Some
         Route = "INTRAVENEUS"
@@ -1744,16 +1750,8 @@ let fullMedication =
                             // limits of 0.05 to 0.2 mL/kg
                             QuantityAdjust =
                                 { MinMax.empty with
-                                    Min =
-                                        (1N / 20N)
-                                        |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
-                                        |> Limit.inclusive
-                                        |> Some
-                                    Max =
-                                        (1N / 5N)
-                                        |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
-                                        |> Limit.inclusive
-                                        |> Some
+                                    Min = (1N / 20N) |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
+                                    Max = (1N / 5N) |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
                                 }
                         }
                         |> Some

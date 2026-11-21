@@ -1643,6 +1643,7 @@ module Order =
 
 
         module Quantity = OrderVariable.Quantity
+        module QuantityAdjust = OrderVariable.QuantityAdjust
         module Concentration = OrderVariable.Concentration
         module Count = OrderVariable.Count
         module Literals = EquationMapping.Literals
@@ -1659,15 +1660,17 @@ module Order =
         /// <summary>Creates an orderable from its order variables, its dose and its components.</summary>
         /// <param name="n">The name of the Orderable</param>
         /// <param name="orb_qty">The quantity of the Orderable</param>
+        /// <param name="orb_qty_adj">The quantity of the Orderable per adjust unit</param>
         /// <param name="ord_qty">The quantity of the Orderable in the Order</param>
         /// <param name="ord_cnt">The count of the Orderable in the Order</param>
         /// <param name="dos_cnt">The count of the Orderable dose in the Order</param>
         /// <param name="dos">The dose of the Orderable</param>
         /// <param name="cc">The list of Components in the Orderable</param>
-        let create n orb_qty ord_qty ord_cnt dos_cnt dos cc =
+        let create n orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos cc =
             {
                 Name = n
                 OrderableQuantity = orb_qty
+                OrderableQuantityAdjust = orb_qty_adj
                 OrderQuantity = ord_qty
                 OrderCount = ord_cnt
                 DoseCount = dos_cnt
@@ -1684,12 +1687,13 @@ module Order =
             let n = [ id; orbN ] |> Name.create
 
             let orb_qty = let n = n |> Name.add Literals.orb in Quantity.create n un
+            let orb_qty_adj = let n = n |> Name.add Literals.orb in QuantityAdjust.create n un un
             let ord_qty = let n = n |> Name.add Literals.ord in Quantity.create n un
             let ord_cnt = let n = n |> Name.add Literals.ord in Count.create n
             let dos_cnt = let n = n |> Name.add Literals.dos in Count.create n
             let dos = Dose.createNew n
 
-            create (orbN |> Name.fromString) orb_qty ord_qty ord_cnt dos_cnt dos []
+            create (orbN |> Name.fromString) orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos []
 
 
         /// Get the name of the Orderable
@@ -1751,12 +1755,14 @@ module Order =
         let toOrdVars orb =
             let ord_qty = (orb |> inf).OrderQuantity |> Quantity.toOrdVar
             let orb_qty = orb.OrderableQuantity |> Quantity.toOrdVar
+            let orb_qty_adj = orb.OrderableQuantityAdjust |> QuantityAdjust.toOrdVar
             let ord_cnt = orb.OrderCount |> Count.toOrdVar
             let dos_cnt = orb.DoseCount |> Count.toOrdVar
 
             [
                 ord_qty
                 orb_qty
+                orb_qty_adj
                 ord_cnt
                 dos_cnt
                 yield! orb.Dose |> Dose.toOrdVars
@@ -1774,13 +1780,14 @@ module Order =
         let fromOrdVars ovars orb =
             let ord_qty = (orb |> inf).OrderQuantity |> Quantity.fromOrdVar ovars
             let orb_qty = orb.OrderableQuantity |> Quantity.fromOrdVar ovars
+            let orb_qty_adj = orb.OrderableQuantityAdjust |> QuantityAdjust.fromOrdVar ovars
             let ord_cnt = orb.OrderCount |> Count.fromOrdVar ovars
             let dos_cnt = orb.DoseCount |> Count.fromOrdVar ovars
             let dos = orb.Dose |> Dose.fromOrdVars ovars
 
             orb.Components
             |> List.map (Component.fromOrdVars ovars)
-            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+            |> create orb.Name orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos
 
 
         /// <summary>
@@ -1800,13 +1807,14 @@ module Order =
         let applyConstraints orb =
             let ord_qty = (orb |> inf).OrderQuantity |> Quantity.applyConstraints
             let orb_qty = orb.OrderableQuantity |> Quantity.applyConstraints
+            let orb_qty_adj = orb.OrderableQuantityAdjust |> QuantityAdjust.applyConstraints
             let ord_cnt = orb.OrderCount |> Count.applyConstraints
             let dos_cnt = orb.DoseCount |> Count.applyConstraints
             let dos = orb.Dose |> Dose.applyConstraints
 
             orb.Components
             |> List.map Component.applyConstraints
-            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+            |> create orb.Name orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos
 
 
         /// Get the Orderable dose
@@ -2080,6 +2088,7 @@ module Order =
             module Id = WrappedString.Id
             module Name = WrappedString.Name
             module Quantity = OrderVariable.Quantity
+            module QuantityAdjust = OrderVariable.QuantityAdjust
             module Concentration = OrderVariable.Concentration
             module CT = OrderVariable.Count
 
@@ -2087,6 +2096,7 @@ module Order =
             type Dto() =
                 member val Name = "" with get, set
                 member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
+                member val OrderableQuantityAdjust = OrderVariable.Dto.dto () with get, set
                 member val OrderQuantity = OrderVariable.Dto.dto () with get, set
                 member val OrderCount = OrderVariable.Dto.dto () with get, set
                 member val DoseCount = OrderVariable.Dto.dto () with get, set
@@ -2098,6 +2108,7 @@ module Order =
                 let n = dto.Name |> Name.fromString
 
                 let orb_qty = dto.OrderableQuantity |> Quantity.fromDto
+                let orb_qty_adj = dto.OrderableQuantityAdjust |> QuantityAdjust.fromDto
                 let ord_qty = dto.OrderQuantity |> Quantity.fromDto
                 let ord_cnt = dto.OrderCount |> Count.fromDto
                 let dos_cnt = dto.DoseCount |> Count.fromDto
@@ -2106,7 +2117,7 @@ module Order =
 
                 let dos = dto.Dose |> Dose.Dto.fromDto
 
-                create n orb_qty ord_qty ord_cnt dos_cnt dos cc
+                create n orb_qty orb_qty_adj ord_qty ord_cnt dos_cnt dos cc
 
 
             let toDto (orb: Orderable) =
@@ -2114,6 +2125,7 @@ module Order =
 
                 dto.Name <- orb.Name |> Name.toString
                 dto.OrderableQuantity <- orb.OrderableQuantity |> Quantity.toDto
+                dto.OrderableQuantityAdjust <- orb.OrderableQuantityAdjust |> QuantityAdjust.toDto
                 dto.OrderQuantity <- orb.OrderQuantity |> Quantity.toDto
                 dto.OrderCount <- orb.OrderCount |> Count.toDto
                 dto.DoseCount <- orb.DoseCount |> Count.toDto

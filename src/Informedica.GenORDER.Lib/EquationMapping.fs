@@ -189,8 +189,9 @@ module EquationMapping =
             // equations already relate the items.
             "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", allDoseTypes
             "[orb]_orb_cnc = sum([cmp]_orb_cnc)", allDoseTypes
-            // The orderable quantity adjust equations apply only to an order with a constraint on a component or
-            // item quantity in the orderable per adjust unit.
+            // The orderable quantity adjust equations apply only to an order with a constraint on an orderable,
+            // component or item quantity in the orderable per adjust unit.
+            "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
             "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
             "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
         ]
@@ -255,10 +256,12 @@ module EquationMapping =
         |> List.exists OrderVariable.hasConstraints
 
 
-    /// Returns true when the quantity in the orderable per adjust unit has constraints for a component or an item
-    /// of the order.
+    /// Returns true when the quantity in the orderable per adjust unit has constraints for the orderable, a
+    /// component or an item of the order.
     let usesOrderableQuantityAdjust (ord: Order) =
         [
+            ord.Orderable.OrderableQuantityAdjust
+
             for c in ord.Orderable.Components do
                 c.OrderableQuantityAdjust
 

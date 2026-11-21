@@ -42,6 +42,7 @@ Schedule
 Orderable
 [paracetamol]_ord_qty [1 stuk..1 stuk..>
 [paracetamol]_orb_qty [1 stuk]
+[paracetamol]_orb_qty_adj <0 ..>
 [paracetamol]_ord_cnt [1 x..1 x..>
 [paracetamol]_dos_cnt [1 x]
 [paracetamol]_dos_qty [1 stuk]
@@ -97,6 +98,7 @@ Schedule
 Orderable
 [amfotericine b liposomaal]_ord_qty [61 mL..>
 [amfotericine b liposomaal]_orb_qty [61;62;63 mL .. 267;316;317 mL]
+[amfotericine b liposomaal]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal]_ord_cnt [1 x..1 x..>
 [amfotericine b liposomaal]_dos_cnt [1 x]
 [amfotericine b liposomaal]_dos_qty [61;62;63 mL .. 267;316;317 mL]
@@ -206,6 +208,7 @@ Schedule
 Orderable
 [morfine]_ord_qty [50 mL..50 mL..>
 [morfine]_orb_qty [50 mL]
+[morfine]_orb_qty_adj <0 ..>
 [morfine]_ord_cnt [1 x..1 x..>
 [morfine]_dos_cnt [1 x]
 [morfine]_dos_qty [50 mL]
@@ -302,6 +305,7 @@ Schedule
 Orderable
 [paracetamol drank]_ord_qty [5 mL..5;6;7;8;9;11 mL..>
 [paracetamol drank]_orb_qty [5;6;7;8;9;10;11;12 mL]
+[paracetamol drank]_orb_qty_adj <0 ..>
 [paracetamol drank]_ord_cnt [1 x..1 x..>
 [paracetamol drank]_dos_cnt [1 x]
 [paracetamol drank]_dos_qty [5;6;7;8;9;10;11;12 mL]
@@ -357,6 +361,7 @@ Schedule
 Orderable
 [cotrimoxazol]_ord_qty [7 mL..7 mL..>
 [cotrimoxazol]_orb_qty [7 mL]
+[cotrimoxazol]_orb_qty_adj <0 ..>
 [cotrimoxazol]_ord_cnt [1 x..1 x..>
 [cotrimoxazol]_dos_cnt [1 x]
 [cotrimoxazol]_dos_qty [7 mL]
@@ -426,6 +431,7 @@ Schedule
 Orderable
 [samenstelling c]_ord_qty [380 mL..>
 [samenstelling c]_orb_qty [380;381;382 mL .. 793;794;830 mL]
+[samenstelling c]_orb_qty_adj <0 ..>
 [samenstelling c]_ord_cnt [1 x..1 x..>
 [samenstelling c]_dos_cnt [1 x]
 [samenstelling c]_dos_qty [380;381;382 mL .. 793;794;830 mL]
@@ -592,6 +598,7 @@ Schedule
 Orderable
 [samenstelling c]_ord_qty [380 mL..>
 [samenstelling c]_orb_qty [380;381;382 mL .. 793;794;830 mL]
+[samenstelling c]_orb_qty_adj <0 ..>
 [samenstelling c]_ord_cnt [1 x..1 x..>
 [samenstelling c]_dos_cnt [1 x]
 [samenstelling c]_dos_qty [380;381;382 mL .. 793;794;830 mL]
@@ -862,6 +869,7 @@ Schedule
 Orderable
 [Test Medication Complete]_ord_qty [50 mL..50 mL..>
 [Test Medication Complete]_orb_qty [50 mL]
+[Test Medication Complete]_orb_qty_adj <0 ..>
 [Test Medication Complete]_ord_cnt [1 x..1 x..>
 [Test Medication Complete]_dos_cnt [5;5,56;6,25;7,14;8,33;10 x]
 [Test Medication Complete]_dos_qty [5;6;7;8;9;10 mL]

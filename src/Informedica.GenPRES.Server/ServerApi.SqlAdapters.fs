@@ -201,7 +201,7 @@ module SqlDatabase =
 
 
     /// The JSON structure version this release reads and writes for the order plan of a version.
-    let jsonVersion = 18
+    let jsonVersion = 19
 
 
     /// Checks that this release reads plan JSON of the structure version. An older version is not

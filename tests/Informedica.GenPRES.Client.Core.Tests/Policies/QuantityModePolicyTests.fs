@@ -81,6 +81,7 @@ module QuantityModePolicyTests =
                 solvedVar
                 solvedVar
                 solvedVar
+                solvedVar
                 (dose doseQty)
                 (cmpQtys |> List.map cmp |> List.toArray)
 

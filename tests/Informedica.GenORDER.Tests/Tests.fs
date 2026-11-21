@@ -97,6 +97,9 @@ module Result =
 /// The steps the tests take a medication through to a solved order, failing the test on the way.
 module TestOrder =
 
+    open Informedica.GenCore.Lib.Ranges
+
+
     /// The medication the text holds.
     let parse text =
         match text |> MedicationText.fromString with
@@ -117,6 +120,23 @@ module TestOrder =
         |> cmd
         |> OrderProcessor.processPipeline OrderLogging.noOp
         |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
+
+
+    /// A solution rule for the amphotericin B scenario with the solution limit sl.
+    let solutionRule sl : SolutionRule =
+        {
+            Generic = "amfotericine b liposomaal"
+            Form = None
+            Route = "iv"
+            Indication = None
+            DoseType = NoDoseType
+            PatientCategory = PatientCategory.empty
+            Dose = MinMax.empty
+            AdjustUnit = None
+            Diluents = [||]
+            SolutionLimit = sl
+            DilutionLimits = [||]
+        }
 
 
     /// The order of the medication as the dose dialog gets it: CalcMinMax when the scenario is made,
@@ -2387,6 +2407,7 @@ module ReferenceTests =
             OrderVariableReference.ScheduleFrequency
             OrderVariableReference.ScheduleTime
             OrderVariableReference.OrderableQuantity
+            OrderVariableReference.OrderableQuantityAdjust
             OrderVariableReference.OrderableDoseCount
             OrderVariableReference.OrderableOrderCount
             OrderVariableReference.OrderDuration
@@ -3481,6 +3502,7 @@ module EquationsTests =
             "[orb]_dos_tot_adj = sum([cmp]_dos_tot_adj)", "....."
             "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx"
             "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx"
+            "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
             "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
             "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
         ]
@@ -3528,8 +3550,8 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 70 sheet rows" {
-                    golden |> List.length |> Expect.equal "70 rows transcribed" 70
+                test "golden table has all 71 sheet rows" {
+                    golden |> List.length |> Expect.equal "71 rows transcribed" 71
                 }
 
                 for indx, pos, name in doseTypes do
@@ -3651,8 +3673,9 @@ module EquationsTests =
             ]
 
 
-/// The quantity in the orderable per adjust unit of a component and an item: the variables [cmp]_orb_qty_adj and
-/// [itm]_orb_qty_adj and their equations, which apply only when a variable has a constraint.
+/// The quantity in the orderable per adjust unit of the orderable, a component and an item: the variables
+/// [orb]_orb_qty_adj, [cmp]_orb_qty_adj and [itm]_orb_qty_adj and their equations, which apply only when a variable
+/// has a constraint. Also the quantity per adjust unit on the medication, which a solution rule sets.
 module OrderableQuantityAdjustTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -3794,10 +3817,23 @@ module OrderableQuantityAdjustTests =
         |> OrderVariable.Quantity.toString
 
 
-    /// The number of components plus the number of items of the order.
-    let componentAndItemCount (ord: Order) =
+    /// The number of orderable quantity adjust equations of the order: one for the orderable, plus one for each
+    /// component and each item.
+    let quantityAdjustEquationCount (ord: Order) =
         let cmps = ord.Orderable.Components
-        cmps.Length + (cmps |> List.sumBy _.Items.Length)
+        1 + cmps.Length + (cmps |> List.sumBy _.Items.Length)
+
+
+    /// The orderable quantity per adjust of the order, as an order variable.
+    let orderableQuantityAdjust (ord: Order) =
+        ord.Orderable.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toOrdVar
+
+
+    /// The order with a maximum of max mL/kg on the orderable quantity per adjust.
+    let withOrderableMaximum max (ord: Order) =
+        { ord with
+            Order.Orderable.OrderableQuantityAdjust = ord.Orderable.OrderableQuantityAdjust |> maximumOf mLPerKg max
+        }
 
 
     /// The orderable quantity per adjust of every item of the order, as order variables.
@@ -4052,6 +4088,89 @@ module OrderableQuantityAdjustTests =
             ]
 
 
+    let orderableTests =
+        testList
+            "the orderable variable"
+            [
+                test "a new orderable has the variable [orb]_orb_qty_adj, without constraints" {
+                    let ovar =
+                        Order.Orderable.createNew "o" "orb"
+                        |> _.OrderableQuantityAdjust
+                        |> OrderVariable.QuantityAdjust.toOrdVar
+
+                    ovar.Variable.Name
+                    |> Variable.Name.toString
+                    |> Expect.equal "the name" "[o.orb]_orb_qty_adj"
+
+                    ovar |> OrderVariable.hasConstraints |> Expect.isFalse "no constraints"
+                }
+
+                test "the orderable Dto round trip keeps the variable and its constraint" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withOrderableMaximum 1N
+
+                    ord.Orderable
+                    |> Order.Orderable.Dto.toDto
+                    |> Order.Orderable.Dto.fromDto
+                    |> _.OrderableQuantityAdjust
+                    |> OrderVariable.QuantityAdjust.toOrdVar
+                    |> Expect.equal "the same variable" (ord |> orderableQuantityAdjust)
+                }
+
+                test "the order Dto round trip keeps the variable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withOrderableMaximum 1N
+
+                    ord
+                    |> Order.Dto.toDto
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"the Dto does not read: %A{e}")
+                    |> orderableQuantityAdjust
+                    |> Expect.equal "the same variable" (ord |> orderableQuantityAdjust)
+                }
+
+                test "the variable is one of the order variables of the orderable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder
+
+                    ord.Orderable
+                    |> Order.Orderable.toOrdVars
+                    |> List.contains (ord |> orderableQuantityAdjust)
+                    |> Expect.isTrue "listed"
+                }
+
+                test "a maximum of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                    Scenarios.pcmDrink
+                    |> TestOrder.toOrder
+                    |> withOrderableMaximum 1N
+                    |> solve
+                    |> _.Orderable.OrderableQuantity
+                    |> OrderVariable.Quantity.toString
+                    |> Expect.equal "5 to 10 mL" "[paracetamol drank]_orb_qty [5;6;7;8;9;10 mL]"
+                }
+            ]
+
+
+    let medicationTests =
+        testList
+            "the volume per adjust on the medication"
+            [
+                test "addSolutionRule sets the volume per adjust of the rule on the medication" {
+                    let range = Scenarios.fullMedication.QuantityAdjust
+
+                    Scenarios.amfo
+                    |> Medication.addSolutionRule
+                        OrderLogging.noOp
+                        ({ SolutionRule.SolutionLimit.empty with VolumeAdjust = range }
+                         |> TestOrder.solutionRule
+                         |> Some)
+                    |> _.QuantityAdjust
+                    |> Expect.equal "1 to 20 mL/kg" range
+                }
+
+                test "a new medication has no volume per adjust" {
+                    Medication.template.QuantityAdjust |> Expect.equal "empty" MinMax.empty
+                }
+            ]
+
+
     let equationSelectionTests =
         testList
             "the equation selection"
@@ -4065,16 +4184,21 @@ module OrderableQuantityAdjustTests =
                         |> Expect.isEmpty "none"
                     }
 
-                    for limitName, limit in [ "a component", withComponentMaximum 5N; "an item", withItemMaximum 24N ] do
+                    for limitName, limit in
+                        [
+                            "the orderable", withOrderableMaximum 1N
+                            "a component", withComponentMaximum 5N
+                            "an item", withItemMaximum 24N
+                        ] do
                         test
-                            $"%s{golden.Name}: a constraint on %s{limitName} gives the equation once per component and item" {
+                            $"%s{golden.Name}: a constraint on %s{limitName} gives the equation for the orderable, each component and each item" {
                             let ord = golden.Medication |> TestOrder.toOrder |> limit
 
                             ord
                             |> productEquations
                             |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
                             |> List.length
-                            |> Expect.equal "one per component and item" (ord |> componentAndItemCount)
+                            |> Expect.equal "one each" (ord |> quantityAdjustEquationCount)
                         }
 
                         test $"%s{golden.Name}: a constraint on %s{limitName} leaves the other equations as they were" {
@@ -4090,7 +4214,15 @@ module OrderableQuantityAdjustTests =
 
 
     let tests =
-        testList "the orderable quantity per adjust" [ componentTests; itemTests; equationSelectionTests ]
+        testList
+            "the orderable quantity per adjust"
+            [
+                medicationTests
+                orderableTests
+                componentTests
+                itemTests
+                equationSelectionTests
+            ]
 
 
 module ScheduleCountTests =
@@ -5849,25 +5981,13 @@ module SolutionDoseCountTests =
         }
 
 
-    let solutionRule doseFraction : SolutionRule =
-        {
-            Generic = "amfotericine b liposomaal"
-            Form = None
-            Route = "iv"
-            Indication = None
-            DoseType = NoDoseType
-            PatientCategory = PatientCategory.empty
-            Dose = MinMax.empty
-            AdjustUnit = None
-            Diluents = [||]
-            SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
-            DilutionLimits = [||]
-        }
-
-
     let withRule doseFraction =
         Scenarios.amfo
-        |> Medication.addSolutionRule OrderLogging.noOp (doseFraction |> solutionRule |> Some)
+        |> Medication.addSolutionRule
+            OrderLogging.noOp
+            ({ SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
+             |> TestOrder.solutionRule
+             |> Some)
 
 
     let solved doseFraction =

@@ -29,6 +29,9 @@
     "Quantity": {
       "$ref": "#/definitions/MinMaxDto"
     },
+    "QuantityAdjust": {
+      "$ref": "#/definitions/MinMaxDto"
+    },
     "Quantities": {
       "$ref": "#/definitions/ValueDto"
     },

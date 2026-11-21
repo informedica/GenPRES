@@ -313,6 +313,8 @@ module Types =
         {
             Name: string
             OrderableQuantity: OrderVariable
+            /// The quantity of the orderable per adjust unit of the order
+            OrderableQuantityAdjust: OrderVariable
             OrderQuantity: OrderVariable
             OrderCount: OrderVariable
             DoseCount: OrderVariable

@@ -236,6 +236,8 @@ module Types =
             Name: Name
             /// The quantity of an orderable
             OrderableQuantity: Quantity
+            /// The quantity of an orderable per adjust unit of the order
+            OrderableQuantityAdjust: QuantityAdjust
             /// The quantity of an orderable in an order
             OrderQuantity: Quantity
             /// The orderable count in an order
@@ -414,6 +416,7 @@ module Types =
         | ScheduleFrequency
         | ScheduleTime
         | OrderableQuantity
+        | OrderableQuantityAdjust
         | OrderableDoseCount
         | OrderableOrderCount
         | OrderDuration
@@ -664,6 +667,8 @@ module Types =
             Components: ProductComponent list
             /// The min max quantity
             Quantity: MinMax
+            /// The minimum and maximum quantity of the orderable per adjust unit of the order
+            QuantityAdjust: MinMax
             /// The quantities of the medication order
             Quantities: ValueUnit option
             /// The route by which the order is applied

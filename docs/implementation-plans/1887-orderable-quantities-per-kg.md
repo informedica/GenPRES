@@ -268,8 +268,11 @@ All checks are warnings in the resource messages, like the other rule checks.
 - Add the field to the medication Dto (`toDto`, `fromDto`) and regenerate
   `docs/domain/medication.schema.json` (`MedicationSchema.fsx --write`). `MedicationText` writes and
   reads the medication through the Dto, so it needs no change of its own.
-- Tests: the medication text round trip and the Dto round trip with the new field.
+- Tests: `Scenarios.fullMedication` sets the new field, so the existing medication text round trip, which
+  goes through the Dto, covers the text and the Dto; a new test covers `addSolutionRule`.
 - Estimate: 30 to 50 lines.
+- Built together with step 11, in one pull request.
+- Built: 8 changed lines under `src/`.
 
 ### Step 11: the orderable quantity per adjust in the order model (GenORDER)
 
@@ -278,7 +281,13 @@ All checks are warnings in the resource messages, like the other rule checks.
   wire Orderable (`Shared/Types.fs:308`).
 - The stored order plan JSON gets the new variable, so its structure version goes from 18 to 19, with a
   version 19 fixture and a test that a version 18 row loads as unreadable.
-- Estimate: 50 to 70 lines.
+- `Readjust` sets the new variable back, as it does the component and item variables.
+- An order with only a component or an item limit per adjust unit now also gets the orderable equation,
+  without a constraint on the orderable variable.
+- The equations table of the tests gets the new equation as row 71. The Equations sheet itself needs the
+  same row by hand.
+- The golden orders print one more line per order, the new variable without a value.
+- Built: 53 changed lines under `src/`.
 
 ### Step 12: the orderable limit per adjust (GenORDER)
 
