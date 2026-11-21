@@ -1142,14 +1142,21 @@ module Medication =
                 br |> ValueUnit.singleWithUnit u |> Some
 
 
-        /// Sets the dilution limit on an item: the minimum and maximum of the orderable quantity and of the
-        /// orderable concentration.
+        /// Sets the dilution limit on an item: the minimum and maximum of the orderable quantity, of the orderable
+        /// quantity per adjust unit and of the orderable concentration.
         let withItemDilution (dilutionLimit: DilutionLimit) (itm: Types.Item) =
             { itm with
                 OrderableQuantity =
                     itm.OrderableQuantity
                     |> OrderVariable.Quantity.apply (
                         OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity)
+                    )
+                OrderableQuantityAdjust =
+                    itm.OrderableQuantityAdjust
+                    |> OrderVariable.QuantityAdjust.apply (
+                        OrderVariable.mapConstraints (
+                            OrderVariable.Constraints.setMinMax false dilutionLimit.QuantityAdjust
+                        )
                     )
                 OrderableConcentration =
                     itm.OrderableConcentration

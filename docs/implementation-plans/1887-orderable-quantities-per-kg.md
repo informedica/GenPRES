@@ -258,6 +258,7 @@ All checks are warnings in the resource messages, like the other rule checks.
   (`DilutionTarget.Substance`) on the new variable.
 - Tests as in step 7, for a substance limit.
 - Estimate: 20 to 40 lines.
+- Built: 11 changed lines under `src/`.
 
 ### Step 10: the volume per adjust on the medication (GenORDER)
 
