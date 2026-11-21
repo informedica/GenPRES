@@ -10718,7 +10718,7 @@ module Tests =
                                 |> Expect.isNone "dropped"
                             }
 
-                            test "a quantity per kg that is not adjusted to a weight does not limit" {
+                            test "a quantity per kg does not limit for a patient without a weight" {
                                 prescriptionRule withoutLimits [| limitsBothPerKg |]
                                 |> PrescriptionRule.withLimitingSolutionRules
                                 |> Expect.isNone "dropped"
@@ -10769,8 +10769,58 @@ module Tests =
                         ]
 
                     testList
+                        "limitsComponent"
+                        [
+                            let m2 = Units.BSA.m2
+                            let withWeightAndBsa = patient (Some 10N) |> TestPatient.withBsa 0.5m
+
+                            let limits pat au =
+                                PrescriptionRule.limitsComponent
+                                    pat
+                                    { limitsBothPerKg with AdjustUnit = Some au }
+                                    "NaCl 3%"
+
+                            for name, pat, au in
+                                [
+                                    "a patient with a weight and a rule per kg", patient (Some 10N), kg
+                                    "a patient with a body surface area and a rule per m2", withWeightAndBsa, m2
+                                ] do
+                                test $"%s{name}: the component is limited" { limits pat au |> Expect.isTrue "limited" }
+
+                            for name, pat, au in
+                                [
+                                    "a patient without a weight and a rule per kg", patient None, kg
+                                    "a patient with only a weight and a rule per m2", patient (Some 10N), m2
+                                ] do
+                                test $"%s{name}: the component is not limited" {
+                                    limits pat au |> Expect.isFalse "not limited"
+                                }
+                        ]
+
+                    testList
                         "filter"
                         [
+                            test "the filter passes the solution rule per kg on unchanged" {
+                                let limits (sr: SolutionRule) =
+                                    sr.SolutionLimit,
+                                    sr.DilutionLimits |> Array.map (fun dl -> dl.Quantity, dl.QuantityAdjust)
+
+                                filterFor (Some 10N) [| limitsBothPerKg |]
+                                |> Result.map (Array.collect _.SolutionRules >> Array.map limits)
+                                |> Expect.equal "the limits per kg" (Ok [| limitsBothPerKg |> limits |])
+                            }
+
+                            test "the rules with a solution rule per kg are the same at 10 kg and at 20 kg" {
+                                match
+                                    filterFor (Some 10N) [| limitsBothPerKg |],
+                                    filterFor (Some 20N) [| limitsBothPerKg |]
+                                with
+                                | Ok at10, Ok at20 ->
+                                    PrescriptionRule.sameRules SolutionRuleComparison.Counted at10 at20
+                                    |> Expect.isTrue "the same"
+                                | other -> failtest $"no rules: %A{other}"
+                            }
+
                             test "a patient with a weight gets the rule with a solution rule per kg" {
                                 filterFor (Some 10N) [| limitsBothPerKg |]
                                 |> Result.map (Array.map _.SolutionRules.Length)
@@ -12074,16 +12124,6 @@ module Tests =
             }
 
 
-        /// The volume and the quantity of a solution rule.
-        let absoluteLimits (solRule: SolutionRule) = solRule.SolutionLimit.Volume, solRule.DilutionLimits[0].Quantity
-
-
-        /// A patient with a weight of 10 kg and a body surface area of 0.5 m2, or no body surface area.
-        let patient withBsa =
-            let pat = TestPatient.unknown |> TestPatient.withWeightInKg 10N
-            if withBsa then pat |> TestPatient.withBsa 0.5m else pat
-
-
         let tests =
             testList
                 "the adjust unit of a dose rule and solution rule pair"
@@ -12112,7 +12152,12 @@ module Tests =
                     test "the prescription rule filter leaves out a solution rule per kg for a dose rule per m2" {
                         let dr = { LimitingSolutionRuleTests.withoutLimits with AdjustUnit = Some m2 }
 
-                        { Filter.doseFilter with PatientData = patient true }
+                        let patient =
+                            TestPatient.unknown
+                            |> TestPatient.withWeightInKg 10N
+                            |> TestPatient.withBsa 0.5m
+
+                        { Filter.doseFilter with PatientData = patient }
                         |> PrescriptionRule.filter
                             (fun _ -> false)
                             [| dr |]
@@ -12122,30 +12167,6 @@ module Tests =
                         |> Result.map Array.length
                         |> Expect.equal "no prescription rule" (Ok 0)
                     }
-
-                    testList
-                        "adjustSolutionRuleToPatient"
-                        [
-                            test "a rule per kg gives the limits times the weight" {
-                                solutionRule (Some kg)
-                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient true)
-                                |> absoluteLimits
-                                |> Expect.equal "10 kg" (range mL 100N 200N, range mg 10N 20N)
-                            }
-
-                            test "a rule per m2 gives the limits times the body surface area" {
-                                solutionRule (Some m2)
-                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient true)
-                                |> absoluteLimits
-                                |> Expect.equal "0.5 m2" (range mL 5N 10N, range mg (1N / 2N) 1N)
-                            }
-
-                            test "a rule per m2 without a body surface area keeps its limits" {
-                                solutionRule (Some m2)
-                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient false)
-                                |> Expect.equal "unchanged" (solutionRule (Some m2))
-                            }
-                        ]
                 ]
 
 

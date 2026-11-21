@@ -181,47 +181,10 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    /// Multiplies the limits per adjust of the solution rule by the patient value for its adjust unit, the weight
-    /// or the body surface area, and keeps the tighter of that and the absolute limit. Returns the rule unchanged
-    /// without an adjust unit or without that patient value.
-    let adjustSolutionRuleToPatient (patientData: PatientData) (solRule: SolutionRule) =
-        match solRule.AdjustUnit |> PatientData.adjustValue patientData with
-        | None -> solRule
-        | Some adj ->
-            let sl = solRule.SolutionLimit
-
-            { solRule with
-                SolutionLimit =
-                    { sl with
-                        Volume =
-                            if sl.VolumeAdjust |> MinMax.isEmpty then
-                                sl.Volume
-                            else
-                                [ sl.VolumeAdjust |> MinMax.apply ((*) adj); sl.Volume ] |> MinMax.foldMinimize
-                    }
-                DilutionLimits =
-                    solRule.DilutionLimits
-                    |> Array.map (fun dilutionLimit ->
-                        if dilutionLimit.QuantityAdjust |> MinMax.isEmpty then
-                            dilutionLimit
-                        else
-                            { dilutionLimit with
-                                Quantity =
-                                    [
-                                        dilutionLimit.QuantityAdjust |> MinMax.apply ((*) adj)
-                                        dilutionLimit.Quantity
-                                    ]
-                                    |> MinMax.foldMinimize
-                            }
-                    )
-            }
-
-
     /// Returns the parts of a prescription rule that are compared: the dose rule id, the renal rules and,
-    /// when solutionRules is Counted, the solution rules without the patient amounts. The dose rule itself
-    /// is compared only when a renal rule applies, because a renal rule changes the limits. A dose rule
-    /// changed for a conflict between its limits is still the same rule. The patient is left out, since it
-    /// differs between any two patients.
+    /// when solutionRules is Counted, the solution rules. The dose rule itself is compared only when a renal
+    /// rule applies, because a renal rule changes the limits. A dose rule changed for a conflict between its
+    /// limits is still the same rule. The patient is left out, since it differs between any two patients.
     let comparedRule solutionRules (pr: PrescriptionRule) =
         pr.DoseRule.Id,
         (if pr.RenalRules |> Array.isEmpty then
@@ -230,7 +193,7 @@ module PrescriptionRule =
              Some pr.DoseRule),
         pr.RenalRules,
         match solutionRules with
-        | SolutionRuleComparison.Counted -> pr.SolutionRules |> Array.map SolutionRule.withoutPatientAmounts
+        | SolutionRuleComparison.Counted -> pr.SolutionRules
         | SolutionRuleComparison.Ignored -> [||]
 
 
@@ -277,19 +240,22 @@ module PrescriptionRule =
 
 
     /// Returns true when the first dilution limit of the component has a maximum quantity or a list of
-    /// quantities; the order uses only that dilution limit. A minimum alone does not limit the component.
-    /// Expects a solution rule adjusted to the patient, so a per kg or per m2 quantity counts only with
-    /// a weight or a body surface area.
-    let limitsComponent (solRule: SolutionRule) name =
-        solRule
-        |> SolutionRule.componentLimit name
-        |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
+    /// quantities. When the patient has the value for the adjust unit of the solution rule, a maximum quantity
+    /// per adjust unit also counts. The order uses only that dilution limit. A minimum alone does not limit the
+    /// component.
+    let limitsComponent patientData (solRule: SolutionRule) name =
+        match solRule.AdjustUnit |> PatientData.adjustValue patientData with
+        | Some _ -> SolutionRule.canLimitComponent solRule name
+        | None ->
+            solRule
+            |> SolutionRule.componentLimit name
+            |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
 
 
-    /// Keeps the solution rules with a dose count of at least 1 that limit every component without a limit.
-    /// Returns None when no solution rule is left, and the rule unchanged when all components have a limit.
-    /// Each solution rule gives its own scenario, so any other solution rule would give an order with a
-    /// component without any limit.
+    /// Keeps the solution rules with a dose count of at least 1 that limit every component without a limit,
+    /// for the patient of the prescription rule. Returns None when no solution rule is left, and the rule
+    /// unchanged when all components have a limit. Each solution rule gives its own scenario, so any other
+    /// solution rule would give an order with a component without any limit.
     let withLimitingSolutionRules (pr: PrescriptionRule) =
         match pr.DoseRule |> componentNamesWithoutLimits with
         | [||] -> Some pr
@@ -298,7 +264,7 @@ module PrescriptionRule =
                 pr.SolutionRules
                 |> Array.filter (fun solRule ->
                     solRule |> SolutionRule.hasDoseCountOfAtLeastOne
-                    && names |> Array.forall (limitsComponent solRule)
+                    && names |> Array.forall (limitsComponent pr.PatientData solRule)
                 )
 
             match limiting with
@@ -405,7 +371,7 @@ module PrescriptionRule =
             // and the prescription rules without products
             pr.DoseRule.ComponentLimits |> Array.collect _.Products |> Array.length > 0
         )
-        // Adjusts the dose limits and the solution rules to the patient.
+        // Adjusts the dose limits to the patient.
         |> Array.map (fun pr ->
             // adjustDoseLimitToPatient takes the highest and the lowest frequency from the full set.
             let freq = pr.DoseRule.Frequencies
@@ -425,7 +391,6 @@ module PrescriptionRule =
                                 }
                             )
                     }
-                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.PatientData)
             }
         )
         // Gives one prescription rule per renal rule, with the dose rule adjusted by that renal rule.
@@ -444,8 +409,8 @@ module PrescriptionRule =
         // A renal rule can give a dose rule without an adjust unit one, so the solution rules are matched to the
         // adjust unit of the dose rule after the renal rules.
         |> Array.map (fun pr -> { pr with SolutionRules = pr.SolutionRules |> SolutionRule.forDoseRule pr.DoseRule })
-        // This step comes last, after the solution rules are adjusted to the patient. The renal rules
-        // change only substance limits, so a component without a limit still has none after them.
+        // This step comes last, after the renal rules. The renal rules change only substance limits, so a
+        // component without a limit still has none after them.
         |> Array.choose withLimitingSolutionRules
         |> Ok
 
