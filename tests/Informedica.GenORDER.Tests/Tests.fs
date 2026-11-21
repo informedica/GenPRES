@@ -3806,6 +3806,22 @@ module OrderableQuantityAdjustTests =
         |> OrderVariable.QuantityAdjust.toOrdVar
 
 
+    /// The medication with a maximum of max in unit u on its quantity per adjust unit.
+    let withMedicationLimitAdjust max u (med: Medication) =
+        { med with
+            QuantityAdjust = { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+        }
+
+
+    /// The orderable quantity of the solved order of the medication, as text.
+    let solvedOrderableQuantity med =
+        med
+        |> TestOrder.toOrder
+        |> solve
+        |> _.Orderable.OrderableQuantity
+        |> OrderVariable.Quantity.toString
+
+
     /// The orderable quantity of the first component of the solved order of the medication, as text.
     let solvedComponentQuantity med =
         med
@@ -4145,6 +4161,56 @@ module OrderableQuantityAdjustTests =
                     |> OrderVariable.Quantity.toString
                     |> Expect.equal "5 to 10 mL" "[paracetamol drank]_orb_qty [5;6;7;8;9;10 mL]"
                 }
+
+                testList
+                    "the orderable limit per adjust"
+                    [
+                        test "the limit per adjust is a constraint on the orderable quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> orderableQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isTrue "has the limit"
+                        }
+
+                        test
+                            "a medication without a limit per adjust has no constraint on the orderable quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> TestOrder.toOrder
+                            |> orderableQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isFalse "no constraint"
+                        }
+
+                        test "a limit of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                            Scenarios.pcmDrink
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> solvedOrderableQuantity
+                            |> Expect.equal "5 to 10 mL" "[paracetamol drank]_orb_qty [5;6;7;8;9;10 mL]"
+                        }
+
+                        test "a limit of 20 mL/m2 limits the paracetamol drink of a child of 0,5 m2 to 1 to 10 mL" {
+                            { Scenarios.pcmDrink with
+                                Adjust = 1N / 2N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+                            }
+                            |> withoutAdjustedDose
+                            |> withMedicationLimitAdjust 20N mLPerM2
+                            |> solvedOrderableQuantity
+                            // without a dose the minimum is the step of 1 mL
+                            |> Expect.equal "1 to 10 mL" "[paracetamol drank]_orb_qty [1;2;3;4;5;6;7;8;9;10 mL]"
+                        }
+
+                        // UseAdjust of an order scenario is set from EquationMapping.usesAdjust
+                        test "an order with only the orderable limit per adjust shows no doses per adjust" {
+                            Scenarios.pcmDrink
+                            |> withoutAdjustedDose
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                            |> Expect.isFalse "UseAdjust stays false"
+                        }
+                    ]
             ]
 
 
@@ -4176,8 +4242,12 @@ module OrderableQuantityAdjustTests =
             "the equation selection"
             [
                 for golden in GoldenOrders.all do
+                    // the medication without its quantity per adjust unit, so the order starts without a constraint
+                    // on an orderable quantity per adjust unit
+                    let med = { golden.Medication with QuantityAdjust = MinMax.empty }
+
                     test $"%s{golden.Name}: without a constraint there is no orderable quantity adjust equation" {
-                        golden.Medication
+                        med
                         |> TestOrder.toOrder
                         |> productEquations
                         |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
@@ -4192,7 +4262,7 @@ module OrderableQuantityAdjustTests =
                         ] do
                         test
                             $"%s{golden.Name}: a constraint on %s{limitName} gives the equation for the orderable, each component and each item" {
-                            let ord = golden.Medication |> TestOrder.toOrder |> limit
+                            let ord = med |> TestOrder.toOrder |> limit
 
                             ord
                             |> productEquations
@@ -4202,7 +4272,7 @@ module OrderableQuantityAdjustTests =
                         }
 
                         test $"%s{golden.Name}: a constraint on %s{limitName} leaves the other equations as they were" {
-                            let ord = golden.Medication |> TestOrder.toOrder
+                            let ord = med |> TestOrder.toOrder
 
                             ord
                             |> limit

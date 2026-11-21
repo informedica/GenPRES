@@ -869,7 +869,7 @@ Schedule
 Orderable
 [Test Medication Complete]_ord_qty [50 mL..50 mL..>
 [Test Medication Complete]_orb_qty [50 mL]
-[Test Medication Complete]_orb_qty_adj <0 ..>
+[Test Medication Complete]_orb_qty_adj [3,33 mL/kg]
 [Test Medication Complete]_ord_cnt [1 x..1 x..>
 [Test Medication Complete]_dos_cnt [5;5,56;6,25;7,14;8,33;10 x]
 [Test Medication Complete]_dos_qty [5;6;7;8;9;10 mL]
@@ -882,7 +882,7 @@ Orderable
 [Test Medication Complete]_dos_tot_adj <0 ..>
 [Test Medication Complete.Main Component]_cmp_qty [1 mL]
 [Test Medication Complete.Main Component]_orb_qty [10 mL]
-[Test Medication Complete.Main Component]_orb_qty_adj <0 ..>
+[Test Medication Complete.Main Component]_orb_qty_adj [0,667 mL/kg]
 [Test Medication Complete.Main Component]_orb_cnt [10 x]
 [Test Medication Complete.Main Component]_orb_cnc [0,2 x]
 [Test Medication Complete.Main Component]_ord_qty <0 mL..>
@@ -897,7 +897,7 @@ Orderable
 [Test Medication Complete.Main Component]_dos_tot_adj <0 ..>
 [Test Medication Complete.Main Component.Active Substance]_cmp_qty [10 mg]
 [Test Medication Complete.Main Component.Active Substance]_orb_qty [100 mg]
-[Test Medication Complete.Main Component.Active Substance]_orb_qty_adj <0 ..>
+[Test Medication Complete.Main Component.Active Substance]_orb_qty_adj [6,67 mg/kg]
 [Test Medication Complete.Main Component.Active Substance]_cmp_cnc [10 mg/mL]
 [Test Medication Complete.Main Component.Active Substance]_orb_cnc [2 mg/mL]
 [Test Medication Complete.Main Component.Active Substance]_dos_qty [10;12;14;16;18;20 mg]
@@ -910,7 +910,7 @@ Orderable
 [Test Medication Complete.Main Component.Active Substance]_dos_tot_adj <0 ..>
 [Test Medication Complete.Diluent Component]_cmp_qty [1 mL]
 [Test Medication Complete.Diluent Component]_orb_qty [40 mL]
-[Test Medication Complete.Diluent Component]_orb_qty_adj <0 ..>
+[Test Medication Complete.Diluent Component]_orb_qty_adj [2,67 mL/kg]
 [Test Medication Complete.Diluent Component]_orb_cnt [40 x]
 [Test Medication Complete.Diluent Component]_orb_cnc [0,8 x]
 [Test Medication Complete.Diluent Component]_ord_qty <0 mL..>
@@ -925,7 +925,7 @@ Orderable
 [Test Medication Complete.Diluent Component]_dos_tot_adj <0 ..>
 [Test Medication Complete.Diluent Component.natrium]_cmp_qty [0,154 mmol]
 [Test Medication Complete.Diluent Component.natrium]_orb_qty [6,16 mmol]
-[Test Medication Complete.Diluent Component.natrium]_orb_qty_adj <0 ..>
+[Test Medication Complete.Diluent Component.natrium]_orb_qty_adj [0,411 mmol/kg]
 [Test Medication Complete.Diluent Component.natrium]_cmp_cnc [0,154 mmol/mL]
 [Test Medication Complete.Diluent Component.natrium]_orb_cnc [0,123 mmol/mL]
 [Test Medication Complete.Diluent Component.natrium]_dos_qty [0,616;0,739;0,862;0,986;1,11;1,23 mmol]
