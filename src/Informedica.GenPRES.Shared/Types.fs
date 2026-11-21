@@ -258,6 +258,8 @@ module Types =
             Name: string
             ComponentQuantity: OrderVariable
             OrderableQuantity: OrderVariable
+            /// The quantity of the item in the orderable per adjust unit of the order
+            OrderableQuantityAdjust: OrderVariable
             ComponentConcentration: OrderVariable
             OrderableConcentration: OrderVariable
             Dose: Dose

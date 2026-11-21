@@ -19,6 +19,7 @@ let twoComponents =
             Name = name
             ComponentQuantity = ovar
             OrderableQuantity = ovar
+            OrderableQuantityAdjust = ovar
             ComponentConcentration = ovar
             OrderableConcentration = ovar
             Dose = sc.Order.Orderable.Dose

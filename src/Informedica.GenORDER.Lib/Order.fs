@@ -641,6 +641,7 @@ module Order =
 
             module Concentration = OrderVariable.Concentration
             module Quantity = OrderVariable.Quantity
+            module QuantityAdjust = OrderVariable.QuantityAdjust
             module Total = OrderVariable.Total
             module Rate = OrderVariable.Rate
             module Literals = EquationMapping.Literals
@@ -657,14 +658,16 @@ module Order =
             /// <param name="n">The name of the Item</param>
             /// <param name="cmp_qty">The quantity of the item in the Component</param>
             /// <param name="orb_qty">The quantity of the item in the Orderable</param>
+            /// <param name="orb_qty_adj">The quantity of the item in the Orderable per adjust unit</param>
             /// <param name="cmp_cnc">The concentration of the item in the Component</param>
             /// <param name="orb_cnc">The concentration of the item in the Orderable</param>
             /// <param name="dos">The dose of the item</param>
-            let create n cmp_qty orb_qty cmp_cnc orb_cnc dos =
+            let create n cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos =
                 {
                     Name = n
                     ComponentQuantity = cmp_qty
                     OrderableQuantity = orb_qty
+                    OrderableQuantityAdjust = orb_qty_adj
                     ComponentConcentration = cmp_cnc
                     OrderableConcentration = orb_cnc
                     Dose = dos
@@ -682,11 +685,12 @@ module Order =
 
                 let cmp_qty = let n = n |> Name.add Literals.cmp in Quantity.create n un
                 let orb_qty = let n = n |> Name.add Literals.orb in Quantity.create n un
+                let orb_qty_adj = let n = n |> Name.add Literals.orb in QuantityAdjust.create n un un
                 let cmp_cnc = let n = n |> Name.add Literals.cmp in Concentration.create n un un
                 let orb_cnc = let n = n |> Name.add Literals.orb in Concentration.create n un un
                 let dos = Dose.createNew n
 
-                create (itmN |> Name.fromString) cmp_qty orb_qty cmp_cnc orb_cnc dos
+                create (itmN |> Name.fromString) cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos
 
 
             /// Get the Name of an Item
@@ -700,12 +704,14 @@ module Order =
             let toOrdVars itm =
                 let itm_cmp_qty = (itm |> inf).ComponentQuantity |> Quantity.toOrdVar
                 let itm_orb_qty = itm.OrderableQuantity |> Quantity.toOrdVar
+                let itm_orb_qty_adj = itm.OrderableQuantityAdjust |> QuantityAdjust.toOrdVar
                 let itm_cmp_cnc = itm.ComponentConcentration |> Concentration.toOrdVar
                 let itm_orb_cnc = itm.OrderableConcentration |> Concentration.toOrdVar
 
                 [
                     itm_cmp_qty
                     itm_orb_qty
+                    itm_orb_qty_adj
                     itm_cmp_cnc
                     itm_orb_cnc
                     yield! itm.Dose |> Dose.toOrdVars
@@ -721,11 +727,12 @@ module Order =
             let fromOrdVars ovars itm =
                 let cmp_qty = (itm |> inf).ComponentQuantity |> Quantity.fromOrdVar ovars
                 let orb_qty = itm.OrderableQuantity |> Quantity.fromOrdVar ovars
+                let orb_qty_adj = itm.OrderableQuantityAdjust |> QuantityAdjust.fromOrdVar ovars
                 let cmp_cnc = itm.ComponentConcentration |> Concentration.fromOrdVar ovars
                 let orb_cnc = itm.OrderableConcentration |> Concentration.fromOrdVar ovars
                 let dos = itm.Dose |> Dose.fromOrdVars ovars
 
-                create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
+                create itm.Name cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos
 
 
             /// <summary>
@@ -735,11 +742,12 @@ module Order =
             let applyConstraints itm =
                 let cmp_qty = (itm |> inf).ComponentQuantity |> Quantity.applyConstraints
                 let orb_qty = itm.OrderableQuantity |> Quantity.applyConstraints
+                let orb_qty_adj = itm.OrderableQuantityAdjust |> QuantityAdjust.applyConstraints
                 let cmp_cnc = itm.ComponentConcentration |> Concentration.applyConstraints
                 let orb_cnc = itm.OrderableConcentration |> Concentration.applyConstraints
                 let dos = itm.Dose |> Dose.applyConstraints
 
-                create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
+                create itm.Name cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos
 
 
             /// Get the Item dose
@@ -885,6 +893,7 @@ module Order =
                 module Id = WrappedString.Id
                 module Name = WrappedString.Name
                 module Quantity = OrderVariable.Quantity
+                module QuantityAdjust = OrderVariable.QuantityAdjust
                 module Concentration = OrderVariable.Concentration
 
 
@@ -892,6 +901,7 @@ module Order =
                     member val Name = "" with get, set
                     member val ComponentQuantity = OrderVariable.Dto.dto () with get, set
                     member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
+                    member val OrderableQuantityAdjust = OrderVariable.Dto.dto () with get, set
                     member val ComponentConcentration = OrderVariable.Dto.dto () with get, set
                     member val OrderableConcentration = OrderVariable.Dto.dto () with get, set
                     member val Dose = Dose.Dto.dto () with get, set
@@ -901,11 +911,12 @@ module Order =
                     let n = dto.Name |> Name.fromString
                     let cmp_qty = dto.ComponentQuantity |> Quantity.fromDto
                     let orb_qty = dto.OrderableQuantity |> Quantity.fromDto
+                    let orb_qty_adj = dto.OrderableQuantityAdjust |> QuantityAdjust.fromDto
                     let cmp_cnc = dto.ComponentConcentration |> Concentration.fromDto
                     let orb_cnc = dto.OrderableConcentration |> Concentration.fromDto
                     let dos = dto.Dose |> Dose.Dto.fromDto
 
-                    create n cmp_qty orb_qty cmp_cnc orb_cnc dos
+                    create n cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos
 
 
                 let toDto (itm: Item) =
@@ -914,6 +925,7 @@ module Order =
                     dto.Name <- itm.Name |> Name.toString
                     dto.ComponentQuantity <- itm.ComponentQuantity |> Quantity.toDto
                     dto.OrderableQuantity <- itm.OrderableQuantity |> Quantity.toDto
+                    dto.OrderableQuantityAdjust <- itm.OrderableQuantityAdjust |> QuantityAdjust.toDto
                     dto.ComponentConcentration <- itm.ComponentConcentration |> Concentration.toDto
                     dto.OrderableConcentration <- itm.OrderableConcentration |> Concentration.toDto
                     dto.Dose <- itm.Dose |> Dose.Dto.toDto

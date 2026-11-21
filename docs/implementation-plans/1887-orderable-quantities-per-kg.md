@@ -242,7 +242,15 @@ All checks are warnings in the resource messages, like the other rule checks.
   wire Item (`Shared/Types.fs:256`).
 - The stored order plan JSON gets the new variable, so its structure version goes from 17 to 18, with a
   version 18 fixture and a test that a version 17 row loads as unreadable.
-- Estimate: 50 to 70 lines.
+- `OrderVariableReference` gets `ItemOrderableQuantityAdjust`, and `Readjust` sets back `[itm]_orb_qty_adj`
+  with the component quantities per adjust unit and the adjusted doses.
+- The orderable quantity adjust equations of the component and the item are selected together, so an order
+  with only a component limit per adjust unit also gets the item equation, without a constraint on the item
+  variable. The solver then calculates the item value per adjust unit for such an order.
+- The equations table of the tests gets the new equation as row 70. The Equations sheet itself needs the
+  same row by hand.
+- The golden orders print one more line per item, the new variable without a value.
+- Built: 65 changed lines under `src/`.
 
 ### Step 9: the item limit per adjust (GenORDER)
 

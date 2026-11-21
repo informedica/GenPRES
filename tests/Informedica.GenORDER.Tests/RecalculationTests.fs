@@ -80,13 +80,13 @@ module Fixture =
 
     let scenario = DataUpdateFixtures.scenario
 
-    /// The order of the medication with at most 1 mL/kg on its first component, solved for a child of 10 kg at
-    /// its maximum component quantity.
-    let solvedAtMaximum med =
+    /// The order of the medication with the limit applied, solved for a child of 10 kg at its maximum component
+    /// quantity.
+    let solvedAtMaximum limit med =
         med
         |> Tests.TestOrder.toOrder
-        |> Tests.ComponentOrderableQuantityAdjustTests.withComponentMaximum 1N
-        |> Tests.ComponentOrderableQuantityAdjustTests.solve
+        |> limit
+        |> Tests.OrderableQuantityAdjustTests.solve
         |> Tests.TestOrder.solve (fun o -> ChangeProperty(o, SetMaxComponentOrderableQuantity "paracetamol"))
 
     /// The quantity in the orderable and per adjust unit of the first component.
@@ -95,6 +95,13 @@ module Fixture =
 
         cmp.OrderableQuantity |> OrderVariable.Quantity.toString,
         cmp.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toString
+
+    /// The quantity in the orderable and per adjust unit of the first item of the first component.
+    let itemQuantities (ord: Order) =
+        let itm = ord.Orderable.Components |> List.head |> _.Items |> List.head
+
+        itm.OrderableQuantity |> OrderVariable.Quantity.toString,
+        itm.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toString
 
     /// One suppository of 240 mg at 10 to 20 mg/kg: from 25 kg no allowed dose exists.
     let suppository240 =
@@ -464,7 +471,9 @@ let tests =
             }
 
             test "10 mL of the paracetamol drink at 1 mL/kg readjusts to 20 kg as 10 mL at 0,5 mL/kg" {
-                let ord = Scenarios.pcmDrink |> Fixture.solvedAtMaximum
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withComponentMaximum 1N)
 
                 // the order must have adjusted dose constraints for this test to say anything
                 ord |> EquationMapping.usesAdjust |> Expect.isTrue "adjusted dose constraints"
@@ -488,8 +497,54 @@ let tests =
             test "an order with only the component limit per kg is readjusted too" {
                 let ord =
                     Scenarios.pcmDrink
-                    |> Tests.ComponentOrderableQuantityAdjustTests.withoutAdjustedDose
-                    |> Fixture.solvedAtMaximum
+                    |> Tests.OrderableQuantityAdjustTests.withoutAdjustedDose
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withComponentMaximum 1N)
+
+                // the order must have no adjusted dose constraints for this test to say anything
+                ord
+                |> EquationMapping.usesAdjust
+                |> Expect.isFalse "no adjusted dose constraints"
+
+                let readjusted = ord |> Fixture.readjusted (20N |> Fixture.kg)
+
+                readjusted
+                |> Fixture.componentQuantities
+                |> snd
+                |> Expect.equal "0,5 mL/kg" "[paracetamol drank.paracetamol]_orb_qty_adj [0,5 mL/kg]"
+
+                // the item equation is selected with the component equation, so the item value is calculated too
+                readjusted
+                |> Fixture.itemQuantities
+                |> snd
+                |> Expect.equal "12 mg/kg" "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]"
+            }
+
+            test "240 mg of paracetamol at 24 mg/kg readjusts to 20 kg as 240 mg at 12 mg/kg" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withItemMaximum 24N)
+
+                ord
+                |> Fixture.itemQuantities
+                |> Expect.equal
+                    "240 mg at 24 mg/kg"
+                    ("[paracetamol drank.paracetamol.paracetamol]_orb_qty [240 mg]",
+                     "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [24 mg/kg]")
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.itemQuantities
+                |> Expect.equal
+                    "240 mg at 12 mg/kg"
+                    ("[paracetamol drank.paracetamol.paracetamol]_orb_qty [240 mg]",
+                     "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]")
+            }
+
+            test "an order with only the item limit per kg is readjusted too" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Tests.OrderableQuantityAdjustTests.withoutAdjustedDose
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withItemMaximum 24N)
 
                 // the order must have no adjusted dose constraints for this test to say anything
                 ord
@@ -498,9 +553,9 @@ let tests =
 
                 ord
                 |> Fixture.readjusted (20N |> Fixture.kg)
-                |> Fixture.componentQuantities
+                |> Fixture.itemQuantities
                 |> snd
-                |> Expect.equal "0,5 mL/kg" "[paracetamol drank.paracetamol]_orb_qty_adj [0,5 mL/kg]"
+                |> Expect.equal "12 mg/kg" "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]"
             }
 
             test "after a change of weight the dose quantity can be stepped" {

@@ -866,11 +866,12 @@ module Models =
 
         module Item =
 
-            let create n cmp_qty orb_qty cmp_cnc orb_cnc dos add =
+            let create n cmp_qty orb_qty orb_qty_adj cmp_cnc orb_cnc dos add =
                 {
                     Name = n
                     ComponentQuantity = cmp_qty
                     OrderableQuantity = orb_qty
+                    OrderableQuantityAdjust = orb_qty_adj
                     ComponentConcentration = cmp_cnc
                     OrderableConcentration = orb_cnc
                     Dose = dos
