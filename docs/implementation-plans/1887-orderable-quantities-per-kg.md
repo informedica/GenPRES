@@ -172,13 +172,17 @@ All checks are warnings in the resource messages, like the other rule checks.
 
 ### Step 5: the adjust unit of the order (GenORDER)
 
-- `Medication.fromRule` (`Medication.fs:1047`) takes the adjust unit of the pair: the adjust unit of the
-  dose rule, else the adjust unit of the solution rule of the medication. The kg fallback goes: without
-  an adjust unit, `Medication.Adjust` stays `None` (`Medication.fs:1035`).
+- `Medication.create` takes the adjust unit of the pair: the adjust unit of the dose rule, else the
+  adjust unit of the solution rule of the medication. It loses its adjust unit parameter, so each
+  medication of `Medication.fromRule` adjusts by its own pair. The kg fallback in `fromRule` goes:
+  without an adjust unit, `Medication.Adjust` stays `None`.
+- The patient value comes from `PatientData.adjustValue`, which GenFORM uses for the same choice.
 - Tests: an order of a dose rule without an adjust unit and a solution rule per m2 adjusts by body
-  surface area; an order without an adjust unit has no adjust quantity; the golden orders stay the
-  same.
-- Estimate: 15 to 30 lines.
+  surface area, and one per kg by the weight; an order without an adjust unit has no adjust quantity;
+  each medication takes the adjust unit of its own solution rule; the golden orders stay the same.
+- The plan test of a workbench order at another weight used a rule without an adjust unit, which
+  followed the weight only through the kg fallback. It now uses a rule per kg.
+- Built: 22 changed lines under `src/`.
 
 ### Step 6: the component quantity per adjust in the order model (GenORDER)
 
