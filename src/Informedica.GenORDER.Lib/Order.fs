@@ -3627,7 +3627,6 @@ module Order =
         | OnceTimed _ -> Mapping.Literals.onceTimed
         | Discontinuous _ -> Mapping.Literals.discontinuous
         | Timed _ -> Mapping.Literals.timed
-        |> Mapping.getEquations
         |> Mapping.getEqsMapping ord
 
 

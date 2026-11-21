@@ -3422,89 +3422,77 @@ module EquationsTests =
     open TestOrder
 
 
-    // Golden reference: the full "Equations" sheet. Each entry is the equation
-    // string ("Short Name" column) and a 5-char marker for which dose types mark
-    // it with an "x", in column order discontinuous, continuous, timed, once,
-    // onceTimed ('x' = applies, '.' = blank). This is an independent transcription
-    // of the source sheet, except that the component and orderable dose totals
-    // follow the item dose total: the total by per time on the dose types with a
-    // frequency and the total by rate on a continuous order only. The sheet had
-    // both on a timed order, which a timed order with a duration cannot satisfy.
-    // The test fails if the hardcoded EquationMapping.equations list drifts from
-    // it (wrong equation text, wrong dose-type assignment, or order).
+    // Golden reference: the "Equations" sheet. Each entry is the equation ("Short Name" column), a 5-char marker for
+    // the dose types in column order discontinuous, continuous, timed, once and onceTimed, and a 7-char marker for
+    // the marks in column order dosAdjust, orbQtyAdjust, tie, itmCnc, noTimedCnc, noOnceTimedCnc and sum ('x' =
+    // marked, '.' = blank). This is an independent transcription of the 63 rows of the sheet, in the order of the
+    // EquationMapping.equations list. The tests fail if the list drifts from it: wrong equation text, wrong dose
+    // types, wrong marks or another order.
     let private golden =
         [
-            "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", "xxxxx"
-            "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty", "xxxxx"
-            "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_dos_rte * [ord]_sch_tme", "....."
-            "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm", "x.x.."
-            "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm", "x.x.."
-            "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte", ".xx.x"
-            "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte", ".xx.x"
-            "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty", ".xx.x"
-            "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme", ".x..."
-            "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj", "xxxxx"
-            "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj", "xxxxx"
-            "[itm]_dos_qty_adj = [itm]_dos_rte_adj * [ord]_sch_tme", "....."
-            "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj", "xxx.."
-            "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj", "xxx.."
-            "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj", ".x..."
-            "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj", ".x..."
-            "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme", "x.x.."
-            "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme", ".x..."
-            "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty", "xxxxx"
-            "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", "xxxxx"
-            "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", "xxxxx"
-            "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", "xxxxx"
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", ".x..."
-            "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", "xxxxx"
-            "[cmp]_dos_qty = [cmp]_dos_rte * [ord]_sch_tme", "....."
-            "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", "x.x.."
-            "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", ".x..."
-            "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", ".x..."
-            "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", "xxxxx"
-            "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", ".x..."
-            "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj", "x.x.."
-            "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", ".x..."
-            "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", "xxxxx"
-            "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", "xxxxx"
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", ".x..."
-            "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", ".xx.x"
-            "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", ".xx.x"
-            "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", ".x..."
-            "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", "..x.."
-            "[orb]_orb_qty = sum([cmp]_orb_qty)", "xxxxx"
-            "[orb]_dos_qty = sum([cmp]_dos_qty)", "....."
-            "[orb]_dos_ptm = sum([cmp]_dos_ptm)", "....."
-            "[orb]_dos_rte = sum([cmp]_dos_rte)", "....."
-            "[orb]_dos_tot = sum([cmp]_dos_tot)", "....."
-            "[orb]_dos_qty_adj = sum([cmp]_dos_qty_adj)", "....."
-            "[orb]_dos_ptm_adj = sum([cmp]_dos_ptm_adj)", "....."
-            "[orb]_dos_rte_adj = sum([cmp]_dos_rte_adj)", "....."
-            "[orb]_dos_tot_adj = sum([cmp]_dos_tot_adj)", "....."
-            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx"
-            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx"
-            "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
+            "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", "xxxxx", "......."
+            "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty", "xxxxx", "...x..."
+            "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty", "xxxxx", "......."
+            "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty", "xxxxx", "......."
+            "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty", "xxxxx", "...x..."
+            "[itm]_dos_qty = [itm]_dos_rte * [ord]_sch_tme", ".....", "......."
+            "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm", "x.x..", "......."
+            "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm", "x.x..", "...x..."
+            "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte", ".xx.x", "......."
+            "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte", ".xx.x", "...x..."
+            "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty", ".xx.x", "x......"
+            "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj", "xxxxx", "x......"
+            "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj", "xxxxx", "x..x..."
+            "[itm]_dos_qty_adj = [itm]_dos_rte_adj * [ord]_sch_tme", ".....", "x......"
+            "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj", "xxx..", "x......"
+            "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj", "xxx..", "x..x..."
+            "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj", ".x...", "x......"
+            "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj", ".x...", "x..x..."
+            "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme", "x.x..", "x......"
+            "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme", ".x...", "x......"
+            "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty", "xxxxx", "......."
+            "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", "xxxxx", "......."
+            "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", "xxxxx", "......."
+            "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", "xxxxx", "......."
+            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", "xxxxx", "......."
+            "[cmp]_dos_qty = [cmp]_dos_rte * [ord]_sch_tme", ".....", "......."
+            "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", "x.x..", "......."
+            "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", ".x...", "....xx."
+            "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", ".x...", "x......"
+            "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", "xxxxx", "x......"
+            "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", ".x...", "x......"
+            "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj", "x.x..", "x......"
+            "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", ".x...", "x......"
+            "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", "xxxxx", "......."
+            "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", "xxxxx", "......."
+            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", ".xx.x", "......."
+            "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", ".xx.x", "x......"
+            "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", ".x...", "x......"
+            "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", "..x..", "......."
+            "[orb]_orb_qty = sum([cmp]_orb_qty)", "xxxxx", "......x"
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx", "..x...."
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx", "..x...x"
+            "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
+            "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
+            "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
         ]
 
     // (dose-type index used by getEquations, position in the marker string, name)
@@ -3517,15 +3505,93 @@ module EquationsTests =
             EquationMapping.Literals.onceTimed, 4, "onceTimed"
         ]
 
-    let private expectedFor pos =
-        golden |> List.filter (fun (_, m) -> m[pos] = 'x') |> List.map fst
+    // The marks in the column order of the sheet.
+    let private marks =
+        [
+            EquationMapping.Mark.DoseAdjust
+            EquationMapping.Mark.OrderableQuantityAdjust
+            EquationMapping.Mark.Tie
+            EquationMapping.Mark.ItemConcentration
+            EquationMapping.Mark.NoItemConcentrationTimed
+            EquationMapping.Mark.NoItemConcentrationOnceTimed
+            EquationMapping.Mark.Sum
+        ]
+
+    // The golden rows of the dose type at position pos.
+    let private goldenFor pos = golden |> List.filter (fun (_, dts, _) -> dts[pos] = 'x')
+
+    let private expectedFor pos = goldenFor pos |> List.map (fun (eq, _, _) -> eq)
+
+
+    let private marked xs (s: string) =
+        xs |> List.indexed |> List.filter (fun (i, _) -> s[i] = 'x') |> List.map snd
+
+
+    // The rows of the golden table that apply to a dose type, as equation rows.
+    let private goldenRows =
+        golden
+        |> List.filter (fun (_, dts, _) -> dts |> String.contains "x")
+        |> List.map (fun (eq, dts, ms) ->
+            EquationMapping.row eq (marked (doseTypes |> List.map (fun (indx, _, _) -> indx)) dts) (marked marks ms)
+        )
+
+
+    // Every combination of the conditions that an order can have: an adjusted dose constraint, an orderable
+    // quantity adjust constraint, more than one component, and the item concentration products left out. An order
+    // that leaves out the item concentration products has more than two components.
+    let private conditionCases =
+        [
+            for adj in [ false; true ] do
+                for orbAdj in [ false; true ] do
+                    for more in [ false; true ] do
+                        for leavesOut in [ false; true ] do
+                            if more || not leavesOut then
+                                adj, orbAdj, more, leavesOut
+        ]
+
+
+    // The sum and product equations the golden table gives for the dose type at position pos and a condition case.
+    let private expectedSelection indx pos (adj, orbAdj, more, leavesOut) =
+        let has i (ms: string) = ms[i] = 'x'
+
+        let added =
+            match indx with
+            | _ when not leavesOut -> []
+            | EquationMapping.Literals.timed -> golden |> List.filter (fun (_, _, ms) -> ms |> has 4)
+            | EquationMapping.Literals.onceTimed -> golden |> List.filter (fun (_, _, ms) -> ms |> has 5)
+            | _ -> []
+
+        let sums, prods =
+            goldenFor pos @ added
+            |> List.filter (fun (_, _, ms) ->
+                (not (ms |> has 0) || adj)
+                && (not (ms |> has 1) || orbAdj)
+                && (not (ms |> has 2) || more)
+                && (not (ms |> has 3) || not leavesOut)
+            )
+            |> List.partition (fun (_, _, ms) -> ms |> has 6)
+
+        sums |> List.map (fun (eq, _, _) -> eq), prods |> List.map (fun (eq, _, _) -> eq)
+
+
+    let private marksOf (adj, orbAdj, more, leavesOut) =
+        [
+            if adj then
+                EquationMapping.Mark.DoseAdjust
+            if orbAdj then
+                EquationMapping.Mark.OrderableQuantityAdjust
+            if more then
+                EquationMapping.Mark.Tie
+            if not leavesOut then
+                EquationMapping.Mark.ItemConcentration
+        ]
 
 
     let private items (ord: Order) = ord.Orderable.Components |> List.collect _.Items
 
 
     let private mappedEquations indx ord =
-        match EquationMapping.getEquations indx |> EquationMapping.getEqsMapping ord with
+        match indx |> EquationMapping.getEqsMapping ord with
         | SumMapping s, ProductMapping p -> s @ p
         | _ -> []
 
@@ -3550,15 +3616,30 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 71 sheet rows" {
-                    golden |> List.length |> Expect.equal "71 rows transcribed" 71
+                test "golden table has all 63 sheet rows" {
+                    golden |> List.length |> Expect.equal "63 rows transcribed" 63
+                }
+
+                test "the equations table equals the sheet rows with a dose type" {
+                    EquationMapping.equations
+                    |> Expect.equal "the same rows, marks and order" goldenRows
                 }
 
                 for indx, pos, name in doseTypes do
                     test $"getEquations {name} matches the Equations sheet" {
                         EquationMapping.getEquations indx
+                        |> List.map _.Equation
                         |> Expect.equal $"embedded {name} equations equal the sheet" (expectedFor pos)
                     }
+
+                    for (adj, orbAdj, more, leavesOut) as case in conditionCases do
+                        test
+                            $"the selection for {name} follows the marks of the sheet: adjusted dose %b{adj}, orderable quantity adjust %b{orbAdj}, more components %b{more}, item concentration products left out %b{leavesOut}" {
+                            EquationMapping.selectEquations indx (marksOf case)
+                            |> Expect.equal
+                                "the same sums and products in the same order"
+                                (expectedSelection indx pos case)
+                        }
 
                 for name, med, expected in [ "pcmSupp", Scenarios.pcmSupp, false; "amfo", Scenarios.amfo, true ] do
                     test $"the tie equations are mapped for %s{name}: %b{expected}" {
@@ -3566,8 +3647,7 @@ module EquationsTests =
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             let sumEqs, prodEqs =
-                                EquationMapping.getEquations EquationMapping.Literals.discontinuous
-                                |> EquationMapping.getEqsMapping ord
+                                EquationMapping.Literals.discontinuous |> EquationMapping.getEqsMapping ord
 
                             let eqs =
                                 match sumEqs, prodEqs with
@@ -3722,13 +3802,13 @@ module OrderableQuantityAdjustTests =
         | [] -> ord
 
 
+    /// Whether the mapped equation e has an orderable quantity per adjust variable.
+    let hasOrderableQuantityAdjust e = e |> String.contains "_orb_qty_adj"
+
+
     /// The product equations of a discontinuous order.
     let productEquations (ord: Order) =
-        match
-            EquationMapping.Literals.discontinuous
-            |> EquationMapping.getEquations
-            |> EquationMapping.getEqsMapping ord
-        with
+        match EquationMapping.Literals.discontinuous |> EquationMapping.getEqsMapping ord with
         | _, ProductMapping eqs -> eqs
         | _ -> failtest "no product mapping"
 
@@ -3929,10 +4009,7 @@ module OrderableQuantityAdjustTests =
                     ord
                     |> withComponentMaximum 5N
                     |> productEquations
-                    |> List.filter (fun e ->
-                        e |> String.contains "_adj"
-                        && e |> EquationMapping.isOrderableQuantityAdjustEquation |> not
-                    )
+                    |> List.filter (fun e -> e |> String.contains "_adj" && e |> hasOrderableQuantityAdjust |> not)
                     |> Expect.isEmpty "no dose adjust equations"
                 }
 
@@ -4250,7 +4327,7 @@ module OrderableQuantityAdjustTests =
                         med
                         |> TestOrder.toOrder
                         |> productEquations
-                        |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
+                        |> List.filter hasOrderableQuantityAdjust
                         |> Expect.isEmpty "none"
                     }
 
@@ -4266,7 +4343,7 @@ module OrderableQuantityAdjustTests =
 
                             ord
                             |> productEquations
-                            |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
+                            |> List.filter hasOrderableQuantityAdjust
                             |> List.length
                             |> Expect.equal "one each" (ord |> quantityAdjustEquationCount)
                         }
@@ -4277,7 +4354,7 @@ module OrderableQuantityAdjustTests =
                             ord
                             |> limit
                             |> productEquations
-                            |> List.filter (EquationMapping.isOrderableQuantityAdjustEquation >> not)
+                            |> List.filter (hasOrderableQuantityAdjust >> not)
                             |> Expect.equal "the same other equations" (ord |> productEquations)
                         }
             ]
