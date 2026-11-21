@@ -3716,6 +3716,50 @@ module ComponentOrderableQuantityAdjustTests =
         }
 
 
+    let mL = Units.Volume.milliLiter
+
+
+    let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
+
+
+    let mLPerM2 = mL |> ValueUnit.per Units.BSA.m2
+
+
+    /// The medication with a maximum of max in unit u on its first component, as a limit per adjust only.
+    let withComponentLimitAdjust max u (med: Medication) =
+        match med.Components with
+        | pc :: rest ->
+            let dilutionLimit =
+                { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
+                    QuantityAdjust =
+                        { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+                }
+
+            { med with Components = { pc with Dilution = Some dilutionLimit } :: rest }
+        | [] -> med
+
+
+    /// The orderable quantity per adjust of the first component of the order of the medication.
+    let firstQuantityAdjust med =
+        med
+        |> TestOrder.toOrder
+        |> _.Orderable.Components
+        |> List.head
+        |> _.OrderableQuantityAdjust
+        |> OrderVariable.QuantityAdjust.toOrdVar
+
+
+    /// The orderable quantity of the first component of the solved order of the medication, as text.
+    let solvedComponentQuantity med =
+        med
+        |> TestOrder.toOrder
+        |> solve
+        |> _.Orderable.Components
+        |> List.head
+        |> _.OrderableQuantity
+        |> OrderVariable.Quantity.toString
+
+
     let tests =
         testList
             "the component quantity per adjust"
@@ -3815,6 +3859,57 @@ module ComponentOrderableQuantityAdjustTests =
                     |> OrderVariable.Quantity.toString
                     |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
                 }
+
+                testList
+                    "the component limit per adjust"
+                    [
+                        test "the limit per adjust is a constraint on the component quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> firstQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isTrue "has the limit"
+                        }
+
+                        test "a component without a dilution limit has no constraint on the quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> firstQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isFalse "no constraint"
+                        }
+
+                        test
+                            "a dilution limit of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                            Scenarios.pcmDrink
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> solvedComponentQuantity
+                            |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                        }
+
+                        test
+                            "a dilution limit of 20 mL/m2 limits the paracetamol drink of a child of 0,5 m2 to 1 to 10 mL" {
+                            { Scenarios.pcmDrink with
+                                Adjust = 1N / 2N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+                            }
+                            |> withoutAdjustedDose
+                            |> withComponentLimitAdjust 20N mLPerM2
+                            |> solvedComponentQuantity
+                            // without a dose the minimum is the step of 1 mL
+                            |> Expect.equal
+                                "1 to 10 mL"
+                                "[paracetamol drank.paracetamol]_orb_qty [1;2;3;4;5;6;7;8;9;10 mL]"
+                        }
+
+                        // UseAdjust of an order scenario is set from EquationMapping.usesAdjust
+                        test "an order with only the component limit per adjust shows no doses per adjust" {
+                            Scenarios.pcmDrink
+                            |> withoutAdjustedDose
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                            |> Expect.isFalse "UseAdjust stays false"
+                        }
+                    ]
             ]
 
 
@@ -5592,7 +5687,7 @@ module SolutionDoseCountTests =
 
     let withRule doseFraction =
         Scenarios.amfo
-        |> Medication.addSolutionRule OrderLogging.noOp PatientData.unknown (doseFraction |> solutionRule |> Some)
+        |> Medication.addSolutionRule OrderLogging.noOp (doseFraction |> solutionRule |> Some)
 
 
     let solved doseFraction =
