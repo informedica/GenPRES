@@ -1100,6 +1100,7 @@ module DoseRuleToDataTests =
                     "Component"
                     "Substance"
                     "Unit"
+                    "AdjustUnit"
                     "Quantities"
                     "MinQty"
                     "MaxQty"
@@ -3912,6 +3913,7 @@ module Tests =
                                 DoseType = NoDoseType
                                 PatientCategory = { PatientCategory.empty with Access = access }
                                 Dose = MinMax.empty
+                                AdjustUnit = None
                                 Diluents = [||]
                                 SolutionLimit = SolutionRule.SolutionLimit.empty
                                 DilutionLimits = [||]
@@ -6424,6 +6426,7 @@ module Tests =
                                 MaxVol = None
                                 MinVolAdj = None
                                 MaxVolAdj = None
+                                AdjustUnit = ""
                                 MinPerc = None
                                 MaxPerc = None
                                 Component = ""
@@ -6488,6 +6491,7 @@ module Tests =
                                 DoseType = NoDoseType
                                 PatientCategory = { PatientCategory.empty with Department = dep }
                                 Dose = MinMax.empty
+                                AdjustUnit = None
                                 Diluents = [||]
                                 SolutionLimit = SolutionRule.SolutionLimit.empty
                                 DilutionLimits = [||]
@@ -6697,6 +6701,7 @@ module Tests =
                 DoseType = NoDoseType
                 PatientCategory = patCat
                 Dose = MinMax.empty
+                AdjustUnit = None
                 Diluents = [||]
                 SolutionLimit = SolutionRule.SolutionLimit.empty
                 DilutionLimits = [||]
@@ -7686,6 +7691,7 @@ module Tests =
                 DoseType = NoDoseType
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
+                AdjustUnit = None
                 Diluents = [||]
                 SolutionLimit =
                     { SolutionRule.SolutionLimit.empty with
@@ -8272,6 +8278,7 @@ module Tests =
                 DoseType = NoDoseType
                 PatientCategory = PatientCategory.empty
                 Dose = MinMax.empty
+                AdjustUnit = None
                 Diluents = [||]
                 SolutionLimit = SolutionRule.SolutionLimit.empty
                 DilutionLimits =
@@ -8446,6 +8453,7 @@ module Tests =
                 MaxVol = None
                 MinVolAdj = None
                 MaxVolAdj = None
+                AdjustUnit = ""
                 MinPerc = None
                 MaxPerc = None
                 Component = ""
@@ -11929,6 +11937,68 @@ module Tests =
                 ]
 
 
+    module SolutionRuleAdjustUnitTests =
+
+        module ColumnContract = DoseRuleToDataTests.ColumnContract
+
+
+        /// A solution rule row with the adjust unit cell and a volume per adjust.
+        let adjustRow cell =
+            { RuleCheckTests.solutionRow "gen" [] with
+                AdjustUnit = cell
+                MaxVolAdj = Some 10N
+            }
+
+
+        /// Maps the rows into solution rules.
+        let rules rows = rows |> SolutionRule.map [||] [||] [||]
+
+
+        let tests =
+            testList
+                "the AdjustUnit of a solution rule"
+                [
+                    test "parseSolutionRuleData reads the AdjustUnit column" {
+                        let _, columns, _, overrides, _ =
+                            ColumnContract.sheets
+                            |> List.find (fun (name, _, _, _, _) -> name = "SolutionRules")
+
+                        columns
+                        |> ColumnContract.mkSheet (("AdjustUnit", "kg") :: overrides)
+                        |> SolutionRule.parseSolutionRuleData
+                        |> Result.map (Array.map _.AdjustUnit)
+                        |> Expect.equal "the cell is read" (Ok [| "kg" |])
+                    }
+
+                    testList
+                        "map"
+                        [
+                            for cell, expected in
+                                [ "kg", Some Units.Weight.kiloGram; "m2", Some Units.BSA.m2; "", None ] do
+                                test $"the adjust unit cell '%s{cell}' gives %A{expected}" {
+                                    [| adjustRow cell |]
+                                    |> rules
+                                    |> Result.map (Array.map _.AdjustUnit)
+                                    |> Expect.equal "the rule has the adjust unit" (Ok [| expected |])
+                                }
+
+                            test "the rows of one rule with the same adjust unit give one rule" {
+                                [| adjustRow "kg"; adjustRow "kg" |]
+                                |> rules
+                                |> Result.map Array.length
+                                |> Expect.equal "one rule" (Ok 1)
+                            }
+
+                            test "the rows of one rule with different adjust units give two rules" {
+                                [| adjustRow "kg"; adjustRow "" |]
+                                |> rules
+                                |> Result.map Array.length
+                                |> Expect.equal "two rules" (Ok 2)
+                            }
+                        ]
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -11973,4 +12043,5 @@ module Tests =
                 LoadWithoutLimitsTests.tests
                 ConflictingLimitTests.tests
                 RepeatedTargetTests.tests
+                SolutionRuleAdjustUnitTests.tests
             ]

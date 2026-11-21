@@ -102,6 +102,7 @@ module SolutionRule =
                         MaxVol = get "MaxVol" |> toBrOpt
                         MinVolAdj = get "MinVolAdj" |> toBrOpt
                         MaxVolAdj = get "MaxVolAdj" |> toBrOpt
+                        AdjustUnit = get "AdjustUnit"
                         MinPerc = get "MinPerc" |> toBrOpt
                         MaxPerc = get "MaxPerc" |> toBrOpt
                         // dilution limit section
@@ -182,6 +183,7 @@ module SolutionRule =
                         GestAge = (r.MinGestAge, r.MaxGestAge) |> fromTupleInclExcl (Some Units.day)
                     }
                 Dose = (r.MinDose, r.MaxDose) |> fromTupleInclIncl du
+                AdjustUnit = r.AdjustUnit |> Units.adjustUnit
                 DoseType = DoseType.fromString r.DoseType r.DoseText
                 // Keep the order of the cell: an order takes the first diluent when no diluent is chosen.
                 Diluents =
