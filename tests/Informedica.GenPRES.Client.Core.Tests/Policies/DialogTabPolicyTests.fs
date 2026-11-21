@@ -32,6 +32,7 @@ let twoComponents =
             Form = ""
             ComponentQuantity = ovar
             OrderableQuantity = ovar
+            OrderableQuantityAdjust = ovar
             OrderableCount = ovar
             OrderQuantity = ovar
             OrderCount = ovar

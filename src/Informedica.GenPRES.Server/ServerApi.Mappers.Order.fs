@@ -193,6 +193,7 @@ module Mappers =
                 dto.Form
                 (dto.ComponentQuantity |> mapToOrderVariable)
                 (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.OrderableCount |> mapToOrderVariable)
                 (dto.OrderQuantity |> mapToOrderVariable)
                 (dto.OrderCount |> mapToOrderVariable)
@@ -209,6 +210,7 @@ module Mappers =
             dto.Form <- comp.Form
             dto.ComponentQuantity <- comp.ComponentQuantity |> mapFromOrderVariable
             dto.OrderableQuantity <- comp.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- comp.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.OrderableCount <- comp.OrderableCount |> mapFromOrderVariable
             dto.OrderQuantity <- comp.OrderQuantity |> mapFromOrderVariable
             dto.OrderCount <- comp.OrderCount |> mapFromOrderVariable

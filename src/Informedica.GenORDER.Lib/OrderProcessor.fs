@@ -286,6 +286,9 @@ module OrderProcessor =
                 tryComponent c |> Option.map (_.ComponentQuantity >> Quantity.toOrdVar)
             | OrderVariableReference.ComponentOrderableQuantity c ->
                 tryComponent c |> Option.map (_.OrderableQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ComponentOrderableQuantityAdjust c ->
+                tryComponent c
+                |> Option.map (_.OrderableQuantityAdjust >> QuantityAdjust.toOrdVar)
             | OrderVariableReference.ComponentOrderableCount c ->
                 tryComponent c |> Option.map (_.OrderableCount >> Count.toOrdVar)
             | OrderVariableReference.ComponentOrderableConcentration c ->
@@ -317,12 +320,16 @@ module OrderProcessor =
             | _ -> false
 
 
-        /// Returns the references to the adjusted dose variables, per kg or per m2, of the orderable,
-        /// every component and every item.
+        /// Returns the references to the per kg or per m2 variables: the component quantity in the orderable
+        /// per adjust unit of every component, and the adjusted doses of the orderable, every component and
+        /// every item.
         let adjusted (ord: Order) =
             let name = WrappedString.Name.toString
 
             [
+                for c in ord.Orderable.Components do
+                    OrderVariableReference.ComponentOrderableQuantityAdjust(c.Name |> name)
+
                 for p in
                     [
                         DoseProperty.QuantityAdjust
@@ -1377,10 +1384,17 @@ module OrderProcessor =
                             OrderEffect.SolveOrder SolveMode.Values
                             OrderEffect.DropImpossibleValues ovarRef
                         ]
-            | OrderAction.Readjust when ord |> EquationMapping.usesAdjust |> not -> Ok []
+            // An order without a per kg or per m2 limit is not changed by another adjust value.
+            | OrderAction.Readjust when
+                not (
+                    ord |> EquationMapping.usesAdjust
+                    || ord |> EquationMapping.usesOrderableQuantityAdjust
+                )
+                ->
+                Ok []
             | OrderAction.Readjust ->
-                // The dose values are given, so each per kg or per m2 value is calculated from them, also
-                // when it falls outside its constraints or off its increment.
+                // The dose values and the component quantities are given, so each per kg or per m2 value is
+                // calculated from them, also when it falls outside its constraints or off its increment.
                 Ok
                     [
                         OrderEffect.RecalculateConstraints calculateConstraints

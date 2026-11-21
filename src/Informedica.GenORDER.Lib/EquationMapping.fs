@@ -105,19 +105,21 @@ module EquationMapping =
     let timedOnly = [ Literals.timed ]
 
 
-    /// The item concentration in the orderable equals the item concentration in the component times the component
-    /// concentration in the orderable, and the component concentrations in the orderable add up to one. Used only
-    /// for an order with more than one component; with one component the other equations already relate the items.
-    let tieEquations =
-        [
-            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc"
-            "[orb]_orb_cnc = sum([cmp]_orb_cnc)"
-        ]
+    /// Whether the equation is a tie equation: the item concentration in the orderable as the item concentration in
+    /// the component times the component concentration in the orderable, or the orderable concentration as the sum of
+    /// the component concentrations.
+    let isTieEquation e =
+        e |> String.startsWith "[itm]_orb_cnc ="
+        || e |> String.startsWith "[orb]_orb_cnc ="
 
 
-    /// The component dose rate equals the component concentration in the orderable times the orderable dose rate.
-    /// Used for a continuous order, and for a timed or once timed order without the item concentration products.
-    let componentRateEquation = "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
+    /// Whether the equation gives the orderable quantity from the orderable quantity per adjust unit.
+    let isOrderableQuantityAdjustEquation e = e |> String.contains "_orb_qty_adj"
+
+
+    /// Whether the equation gives the component dose rate as the component concentration in the orderable times the
+    /// orderable dose rate.
+    let isComponentRateEquation e = e |> String.startsWith "[cmp]_dos_rte = [cmp]_orb_cnc"
 
 
     /// The order equations, each with the dose types it applies to. The equations are fixed in code.
@@ -158,7 +160,8 @@ module EquationMapping =
             "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            componentRateEquation, contOnly
+            // Also used for a timed or once timed order without the item concentration products.
+            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", contOnly
             "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", contOnly
             "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", allDoseTypes
             "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", contOnly
@@ -182,8 +185,18 @@ module EquationMapping =
             // The schedule count is at most 1, so one administration ends before the next starts.
             "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", timedOnly
             "[orb]_orb_qty = sum([cmp]_orb_qty)", allDoseTypes
-            yield! tieEquations |> List.map (fun e -> e, allDoseTypes)
+            // The tie equations apply only to an order with more than one component; with one component the other
+            // equations already relate the items.
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", allDoseTypes
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", allDoseTypes
+            // Applies only to an order with a constraint on the component quantity in the orderable per adjust unit.
+            "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
         ]
+
+
+    /// The component rate equation of the equations list, which a timed or once timed order without the item
+    /// concentration products also gets.
+    let componentRateEquations = equations |> List.map fst |> List.filter isComponentRateEquation
 
 
     let private getEquations_ indx =
@@ -240,21 +253,40 @@ module EquationMapping =
         |> List.exists OrderVariable.hasConstraints
 
 
+    /// Returns true when the component quantity in the orderable per adjust unit has constraints for a component of
+    /// the order.
+    let usesOrderableQuantityAdjust (ord: Order) =
+        ord.Orderable.Components
+        |> List.exists (
+            _.OrderableQuantityAdjust
+            >> OrderVariable.QuantityAdjust.toOrdVar
+            >> OrderVariable.hasConstraints
+        )
+
+
     /// Returns the sum mapping and the product mapping of the order, with the placeholders in the equations eqs
     /// replaced by the order, orderable, component and item names.
     let getEqsMapping (ord: Order) (eqs: string list) =
-        // An order without adjusted dose constraints leaves out every equation with an adjusted variable.
+        let hasAdjustedDose = ord |> usesAdjust
+        let hasOrderableQuantityAdjust = ord |> usesOrderableQuantityAdjust
+
+        // The adjusted dose equations apply only to an order with adjusted dose constraints, and the orderable
+        // quantity adjust equations only to an order with orderable quantity adjust constraints. The orderable
+        // quantity adjust case comes first, because its equation also contains "_adj".
         let eqs =
-            if ord |> usesAdjust then
-                eqs
-            else
-                eqs |> List.filter (String.contains $"_%s{Literals.adj}" >> not)
+            eqs
+            |> List.filter (fun e ->
+                match e with
+                | _ when e |> isOrderableQuantityAdjustEquation -> hasOrderableQuantityAdjust
+                | _ when e |> String.contains $"_%s{Literals.adj}" -> hasAdjustedDose
+                | _ -> true
+            )
 
         let eqs =
             if ord.Orderable.Components |> List.length > 1 then
                 eqs
             else
-                eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
+                eqs |> List.filter (isTieEquation >> not)
 
         // The equations with the item concentration in the orderable only add cross products, because the tie
         // equations give the same values. A timed or once timed order then gets the component rate equation,
@@ -264,11 +296,11 @@ module EquationMapping =
                 eqs
             else
                 eqs
-                |> List.filter (fun e -> e.Contains "[itm]_orb_cnc" |> not || tieEquations |> List.contains e)
+                |> List.filter (fun e -> e.Contains "[itm]_orb_cnc" |> not || e |> isTieEquation)
                 |> fun eqs ->
                     match ord.Schedule with
                     | Timed _
-                    | OnceTimed _ -> eqs @ [ componentRateEquation ]
+                    | OnceTimed _ -> eqs @ componentRateEquations
                     | _ -> eqs
 
         let sumEqs = eqs |> List.filter (String.contains "sum")

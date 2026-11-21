@@ -54,6 +54,7 @@ Orderable
 [paracetamol]_dos_tot_adj <0 ..>
 [paracetamol.paracetamol]_cmp_qty [1 stuk]
 [paracetamol.paracetamol]_orb_qty [1 stuk]
+[paracetamol.paracetamol]_orb_qty_adj <0 ..>
 [paracetamol.paracetamol]_orb_cnt [1 x]
 [paracetamol.paracetamol]_orb_cnc [1 x]
 [paracetamol.paracetamol]_ord_qty <0 stuk..>
@@ -107,6 +108,7 @@ Orderable
 [amfotericine b liposomaal]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_cmp_qty [1 mL]
 [amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty [11;12;13;14;15;16;17 mL]
+[amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnt [11;12;13;14;15;16;17 x]
 [amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,0506;0,0521;0,053 x .. 0,231;0,242;0,254 x]
 [amfotericine b liposomaal.amfotericine b liposomaal]_ord_qty <0 mL..>
@@ -145,6 +147,7 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%]_cmp_qty [1 mL]
 [amfotericine b liposomaal.gluc 10%]_orb_qty [50;100;150;200;250;300 mL]
+[amfotericine b liposomaal.gluc 10%]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%]_orb_cnt [50;100;150;200;250;300 x]
 [amfotericine b liposomaal.gluc 10%]_orb_cnc [0,746;0,758;0,769 x .. 0,947;0,948;0,949 x]
 [amfotericine b liposomaal.gluc 10%]_ord_qty <0 mL..>
@@ -210,6 +213,7 @@ Orderable
 [morfine]_dos_tot_adj <0 ..>
 [morfine.morfine]_cmp_qty [1 mL]
 [morfine.morfine]_orb_qty [1;10 mL]
+[morfine.morfine]_orb_qty_adj <0 ..>
 [morfine.morfine]_orb_cnt [1;10 x]
 [morfine.morfine]_orb_cnc [0,02;0,2 x]
 [morfine.morfine]_ord_qty <0 mL..>
@@ -236,6 +240,7 @@ Orderable
 [morfine.morfine.morfin]_dos_tot_adj <0 ..>
 [morfine.gluc 10%]_cmp_qty [1 mL]
 [morfine.gluc 10%]_orb_qty [40;49 mL]
+[morfine.gluc 10%]_orb_qty_adj <0 ..>
 [morfine.gluc 10%]_orb_cnt [40;49 x]
 [morfine.gluc 10%]_orb_cnc [0,8;0,98 x]
 [morfine.gluc 10%]_ord_qty <0 mL..>
@@ -301,6 +306,7 @@ Orderable
 [paracetamol drank]_dos_tot_adj <0 ..>
 [paracetamol drank.paracetamol]_cmp_qty [5 mL]
 [paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10;11;12 mL]
+[paracetamol drank.paracetamol]_orb_qty_adj <0 ..>
 [paracetamol drank.paracetamol]_orb_cnt [1;1,2;1,4;1,6;1,8;2;2,2;2,4 x]
 [paracetamol drank.paracetamol]_orb_cnc [1 x]
 [paracetamol drank.paracetamol]_ord_qty <0 mL..>
@@ -354,6 +360,7 @@ Orderable
 [cotrimoxazol]_dos_tot_adj <0 ..>
 [cotrimoxazol.cotrimoxazol]_cmp_qty [1 mL]
 [cotrimoxazol.cotrimoxazol]_orb_qty [7 mL]
+[cotrimoxazol.cotrimoxazol]_orb_qty_adj <0 ..>
 [cotrimoxazol.cotrimoxazol]_orb_cnt [7 x]
 [cotrimoxazol.cotrimoxazol]_orb_cnc [1 x]
 [cotrimoxazol.cotrimoxazol]_ord_qty <0 mL..>
@@ -420,6 +427,7 @@ Orderable
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
+[samenstelling c.Samenstelling C]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C]_orb_cnt [150;200;250 x]
 [samenstelling c.Samenstelling C]_orb_cnc [0,181;0,189 x .. 0,579;0,58;0,581 x]
 [samenstelling c.Samenstelling C]_ord_qty <0 mL..>
@@ -470,6 +478,7 @@ Orderable
 [samenstelling c.Samenstelling C.kalium]_dos_tot_adj <0 ..>
 [samenstelling c.NaCl 3%]_cmp_qty [1 mL]
 [samenstelling c.NaCl 3%]_orb_qty [60;65;70 mL]
+[samenstelling c.NaCl 3%]_orb_qty_adj <0 ..>
 [samenstelling c.NaCl 3%]_orb_cnt [60;65;70 x]
 [samenstelling c.NaCl 3%]_orb_cnc [0,0723;0,0756;0,0757 x .. 0,183;0,184 x]
 [samenstelling c.NaCl 3%]_ord_qty <0 mL..>
@@ -496,6 +505,7 @@ Orderable
 [samenstelling c.NaCl 3%.natrium]_dos_tot_adj <0 ..>
 [samenstelling c.KCl 7,4%]_cmp_qty [1 mL]
 [samenstelling c.KCl 7,4%]_orb_qty [20;21;22;23;24 mL]
+[samenstelling c.KCl 7,4%]_orb_qty_adj <0 ..>
 [samenstelling c.KCl 7,4%]_orb_cnt [20;21;22;23;24 x]
 [samenstelling c.KCl 7,4%]_orb_cnc [0,0241 x..0,0632 x]
 [samenstelling c.KCl 7,4%]_ord_qty <0 mL..>
@@ -522,6 +532,7 @@ Orderable
 [samenstelling c.KCl 7,4%.kalium]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
 [samenstelling c.gluc 10%]_orb_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_orb_qty_adj <0 ..>
 [samenstelling c.gluc 10%]_orb_cnt [150;300;450;600 x]
 [samenstelling c.gluc 10%]_orb_cnc [0,181 x..0,723 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
@@ -576,6 +587,7 @@ Orderable
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
+[samenstelling c.Samenstelling C]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C]_orb_cnt [150;200;250 x]
 [samenstelling c.Samenstelling C]_orb_cnc [0,181;0,189 x .. 0,579;0,58;0,581 x]
 [samenstelling c.Samenstelling C]_ord_qty <0 mL..>
@@ -686,6 +698,7 @@ Orderable
 [samenstelling c.Samenstelling C.chloor]_dos_tot_adj <0 ..>
 [samenstelling c.NaCl 3%]_cmp_qty [1 mL]
 [samenstelling c.NaCl 3%]_orb_qty [60;65;70 mL]
+[samenstelling c.NaCl 3%]_orb_qty_adj <0 ..>
 [samenstelling c.NaCl 3%]_orb_cnt [60;65;70 x]
 [samenstelling c.NaCl 3%]_orb_cnc [0,0723;0,0756;0,0757 x .. 0,183;0,184 x]
 [samenstelling c.NaCl 3%]_ord_qty <0 mL..>
@@ -724,6 +737,7 @@ Orderable
 [samenstelling c.NaCl 3%.chloor]_dos_tot_adj <0 ..>
 [samenstelling c.KCl 7,4%]_cmp_qty [1 mL]
 [samenstelling c.KCl 7,4%]_orb_qty [20;21;22;23;24 mL]
+[samenstelling c.KCl 7,4%]_orb_qty_adj <0 ..>
 [samenstelling c.KCl 7,4%]_orb_cnt [20;21;22;23;24 x]
 [samenstelling c.KCl 7,4%]_orb_cnc [0,0241 x..0,0632 x]
 [samenstelling c.KCl 7,4%]_ord_qty <0 mL..>
@@ -762,6 +776,7 @@ Orderable
 [samenstelling c.KCl 7,4%.chloor]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
 [samenstelling c.gluc 10%]_orb_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_orb_qty_adj <0 ..>
 [samenstelling c.gluc 10%]_orb_cnt [150;300;450;600 x]
 [samenstelling c.gluc 10%]_orb_cnc [0,181 x..0,723 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
@@ -828,6 +843,7 @@ Orderable
 [Test Medication Complete]_dos_tot_adj <0 ..>
 [Test Medication Complete.Main Component]_cmp_qty [1 mL]
 [Test Medication Complete.Main Component]_orb_qty [10 mL]
+[Test Medication Complete.Main Component]_orb_qty_adj <0 ..>
 [Test Medication Complete.Main Component]_orb_cnt [10 x]
 [Test Medication Complete.Main Component]_orb_cnc [0,2 x]
 [Test Medication Complete.Main Component]_ord_qty <0 mL..>
@@ -854,6 +870,7 @@ Orderable
 [Test Medication Complete.Main Component.Active Substance]_dos_tot_adj <0 ..>
 [Test Medication Complete.Diluent Component]_cmp_qty [1 mL]
 [Test Medication Complete.Diluent Component]_orb_qty [40 mL]
+[Test Medication Complete.Diluent Component]_orb_qty_adj <0 ..>
 [Test Medication Complete.Diluent Component]_orb_cnt [40 x]
 [Test Medication Complete.Diluent Component]_orb_cnc [0,8 x]
 [Test Medication Complete.Diluent Component]_ord_qty <0 mL..>

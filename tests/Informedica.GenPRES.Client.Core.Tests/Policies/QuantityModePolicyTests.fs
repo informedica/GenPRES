@@ -66,6 +66,7 @@ module QuantityModePolicyTests =
             solvedVar
             solvedVar
             solvedVar
+            solvedVar
             (dose solvedVar)
             [||]
             [||]
