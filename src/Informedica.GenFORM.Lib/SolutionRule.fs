@@ -156,6 +156,7 @@ module SolutionRule =
         data
         |> Array.groupBy (fun r ->
             let du = r.Unit |> UnitsParse.fromString
+            let au = r.AdjustUnit |> Units.adjustUnit
 
             {
                 Generic = r.Generic
@@ -183,7 +184,7 @@ module SolutionRule =
                         GestAge = (r.MinGestAge, r.MaxGestAge) |> fromTupleInclExcl (Some Units.day)
                     }
                 Dose = (r.MinDose, r.MaxDose) |> fromTupleInclIncl du
-                AdjustUnit = r.AdjustUnit |> Units.adjustUnit
+                AdjustUnit = au
                 DoseType = DoseType.fromString r.DoseType r.DoseText
                 // Keep the order of the cell: an order takes the first diluent when no diluent is chosen.
                 Diluents =
@@ -202,7 +203,7 @@ module SolutionRule =
                         Volume = (r.MinVol, r.MaxVol) |> fromTupleInclIncl (Some Units.mL)
                         VolumeAdjust =
                             (r.MinVolAdj, r.MaxVolAdj)
-                            |> fromTupleInclIncl (Units.mL |> ValueUnit.per Units.Weight.kiloGram |> Some)
+                            |> fromTupleInclIncl (au |> Option.map (fun adj -> Units.mL |> ValueUnit.per adj))
                         DripRate =
                             (r.MinDrip, r.MaxDrip)
                             |> fromTupleInclIncl (Some(Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
@@ -218,7 +219,8 @@ module SolutionRule =
                     |> expandDiluentRows (solRule.Diluents |> Array.map _.Generic)
                     |> Array.map (fun l ->
                         let u = l.Unit |> UnitsParse.fromString
-                        let au = u |> Option.map (ValueUnit.per Units.Weight.kiloGram)
+                        // a quantity per adjust needs the adjust unit of the rule
+                        let uAdj = Option.map2 (fun u adj -> u |> ValueUnit.per adj) u solRule.AdjustUnit
 
                         {
                             DilutionLimitTarget =
@@ -227,7 +229,7 @@ module SolutionRule =
                                 | _, c when c |> String.notEmpty -> c |> DilutionTarget.Component
                                 | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
-                            QuantityAdjust = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl au
+                            QuantityAdjust = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl uAdj
                             Quantities =
                                 if l.Quantities |> Array.isEmpty then
                                     None
@@ -442,6 +444,17 @@ module SolutionRule =
     let canMeetDoseRule routeMapping (dr: DoseRule) (solRule: SolutionRule) =
         dr |> appliesToDoseRule routeMapping solRule
         && PatientCategory.canShare solRule.PatientCategory dr.PatientCategory
+
+
+    /// Leaves out the solution rules whose adjust unit differs from the adjust unit of the dose rule. A solution
+    /// rule stays when it or the dose rule has no adjust unit.
+    let forDoseRule (dr: DoseRule) solRules =
+        solRules
+        |> Array.filter (fun (solRule: SolutionRule) ->
+            match dr.AdjustUnit, solRule.AdjustUnit with
+            | Some du, Some su -> du |> Units.eqsUnit su
+            | _ -> true
+        )
 
 
     /// Returns the range of the number of doses in the preparation: the reciprocal of the dose

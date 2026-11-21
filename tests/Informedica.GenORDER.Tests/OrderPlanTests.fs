@@ -1268,7 +1268,7 @@ module Electrolytes =
                             (16000N |> ValueUnit.singleWithUnit gram |> Limit.exclusive |> Some)
                 }
             Dose = MinMax.empty
-            AdjustUnit = None
+            AdjustUnit = Some kg
             Diluents = [||]
             SolutionLimit =
                 { SolutionRule.SolutionLimit.empty with

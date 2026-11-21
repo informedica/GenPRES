@@ -2173,6 +2173,11 @@ module Tests =
         /// Sets an estimated weight in kg.
         let withEstimatedWeightInKg kg = withWeightFrom Estimated kg
 
+        /// Sets the body surface area in m2. The body surface area is not calculated again from the weight and
+        /// the height.
+        let withBsa bsa (pat: PatientData) =
+            { pat with BodySurfaceArea = Some(LanguagePrimitives.DecimalWithMeasure bsa) }
+
         /// Sets an undated height in cm. The source is Measured or Estimated.
         let withHeightFrom source cm (pat: PatientData) =
             let height = cm |> BigRational.toDecimal |> HeightValue.heightInCm |> HeightAtDate.undated
@@ -9328,6 +9333,7 @@ module Tests =
                                     Unit = "mL"
                                     MinConc = None
                                     MaxConc = None
+                                    AdjustUnit = "kg"
                                     MinQtyPerKg = Some 36N
                                     MaxQtyPerKg = Some 44N
                                 }
@@ -9351,7 +9357,9 @@ module Tests =
 
                             test "a diluent row gives one component limit per diluent, named after the diluent" {
                                 let cell = [ "gluc 20%"; "gluc 30%" ]
-                                let solRule = [| solutionRow "samenstelling c" cell; diluentRow cell |] |> mapped
+                                // every row of a rule repeats the adjust unit of the diluent row
+                                let substanceRow = { solutionRow "samenstelling c" cell with AdjustUnit = "kg" }
+                                let solRule = [| substanceRow; diluentRow cell |] |> mapped
 
                                 solRule
                                 |> targets
@@ -10562,13 +10570,16 @@ module Tests =
                 |]
 
 
-        /// A solution rule that limits both components per kg only, as the production sheet does.
+        /// A solution rule with the adjust unit kg that limits both components per kg only, as the production
+        /// sheet does.
         let limitsBothPerKg =
-            solutionRule
-                [|
-                    dilutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
-                    dilutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
-                |]
+            { solutionRule
+                  [|
+                      dilutionLimit "NaCl 3%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 6N) None
+                      dilutionLimit "KCl 7,4%" MinMax.empty (range (mL |> ValueUnit.per kg) 0N 2N) None
+                  |] with
+                AdjustUnit = Some kg
+            }
 
 
         let limitsNone = solutionRule [||]
@@ -11314,6 +11325,7 @@ module Tests =
             { RuleCheckTests.solutionRule "electrolyt/glucose mengsel" MinMax.empty with
                 Indication = Some "Parenterale suppletie"
                 PatientCategory = { PatientCategory.empty with Department = Some "ICK" }
+                AdjustUnit = Some kg
                 SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = fraction None (Some 1N) }
                 DilutionLimits = limits
             }
@@ -11942,12 +11954,22 @@ module Tests =
         module ColumnContract = DoseRuleToDataTests.ColumnContract
 
 
-        /// A solution rule row with the adjust unit cell and a volume per adjust.
+        /// A solution rule row with the adjust unit cell, a volume per adjust and a quantity per adjust.
         let adjustRow cell =
             { RuleCheckTests.solutionRow "gen" [] with
                 AdjustUnit = cell
                 MaxVolAdj = Some 10N
+                MaxQtyPerKg = Some 5N
             }
+
+
+        /// The units of the maximum volume per adjust and the maximum quantity per adjust of a solution rule.
+        let unitsPerAdjust (solRule: SolutionRule) =
+            [
+                solRule.SolutionLimit.VolumeAdjust.Max
+                yield! solRule.DilutionLimits |> Array.map _.QuantityAdjust.Max
+            ]
+            |> List.map (Option.map (Limit.getValueUnit >> ValueUnit.getUnit))
 
 
         /// Maps the rows into solution rules.
@@ -11982,6 +12004,30 @@ module Tests =
                                     |> Expect.equal "the rule has the adjust unit" (Ok [| expected |])
                                 }
 
+                            for cell, adj in [ "kg", Units.Weight.kiloGram; "m2", Units.BSA.m2 ] do
+                                test
+                                    $"the limits per adjust of a rule with the adjust unit cell '%s{cell}' are per %s{cell}" {
+                                    [| adjustRow cell |]
+                                    |> rules
+                                    |> Result.map (Array.map unitsPerAdjust)
+                                    |> Expect.equal
+                                        "mL and mg per adjust unit"
+                                        (Ok
+                                            [|
+                                                [
+                                                    Some(Units.Volume.milliLiter |> ValueUnit.per adj)
+                                                    Some(Units.Mass.milliGram |> ValueUnit.per adj)
+                                                ]
+                                            |])
+                                }
+
+                            test "a rule without an adjust unit has no limits per adjust" {
+                                [| adjustRow "" |]
+                                |> rules
+                                |> Result.map (Array.map unitsPerAdjust)
+                                |> Expect.equal "no limits per adjust" (Ok [| [ None; None ] |])
+                            }
+
                             test "the rows of one rule with the same adjust unit give one rule" {
                                 [| adjustRow "kg"; adjustRow "kg" |]
                                 |> rules
@@ -11994,6 +12040,115 @@ module Tests =
                                 |> rules
                                 |> Result.map Array.length
                                 |> Expect.equal "two rules" (Ok 2)
+                            }
+                        ]
+                ]
+
+
+    module SolutionRuleAdjustUnitPairTests =
+
+
+        let kg = Units.Weight.kiloGram
+        let m2 = Units.BSA.m2
+        let mg = Units.Mass.milliGram
+        let mL = Units.Volume.milliLiter
+        let range = RuleCheckTests.range
+
+
+        /// A dose rule with the adjust unit au.
+        let doseRule au = { RuleCheckTests.doseRule "gen" [||] with AdjustUnit = au }
+
+
+        /// A solution rule with the adjust unit au, a volume of 10 to 20 mL per au and a quantity of 1 to 2 mg
+        /// per au of the component "gen". Without an adjust unit the rule has no limits per adjust.
+        let solutionRule au =
+            let perAdjust u min max =
+                au
+                |> Option.map (fun adj -> range (u |> ValueUnit.per adj) min max)
+                |> Option.defaultValue MinMax.empty
+
+            { RuleCheckTests.solutionRule "gen" MinMax.empty with
+                AdjustUnit = au
+                SolutionLimit = { SolutionRule.SolutionLimit.empty with VolumeAdjust = perAdjust mL 10N 20N }
+                DilutionLimits =
+                    [|
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component "gen") with
+                            QuantityAdjust = perAdjust mg 1N 2N
+                        }
+                    |]
+            }
+
+
+        /// The volume and the quantity of a solution rule.
+        let absoluteLimits (solRule: SolutionRule) = solRule.SolutionLimit.Volume, solRule.DilutionLimits[0].Quantity
+
+
+        /// A patient with a weight of 10 kg and a body surface area of 0.5 m2, or no body surface area.
+        let patient withBsa =
+            let pat = TestPatient.unknown |> TestPatient.withWeightInKg 10N
+            if withBsa then pat |> TestPatient.withBsa 0.5m else pat
+
+
+        let tests =
+            testList
+                "the adjust unit of a dose rule and solution rule pair"
+                [
+                    testList
+                        "forDoseRule"
+                        [
+                            for du, su, kept in
+                                [
+                                    Some kg, Some kg, true
+                                    Some m2, Some m2, true
+                                    Some kg, Some m2, false
+                                    Some m2, Some kg, false
+                                    Some m2, None, true
+                                    None, Some m2, true
+                                    None, None, true
+                                ] do
+                                test $"dose rule %A{du} and solution rule %A{su}: kept %b{kept}" {
+                                    [| solutionRule su |]
+                                    |> SolutionRule.forDoseRule (doseRule du)
+                                    |> Array.isEmpty
+                                    |> Expect.equal "kept" (not kept)
+                                }
+                        ]
+
+                    test "the prescription rule filter leaves out a solution rule per kg for a dose rule per m2" {
+                        let dr = { LimitingSolutionRuleTests.withoutLimits with AdjustUnit = Some m2 }
+
+                        { Filter.doseFilter with PatientData = patient true }
+                        |> PrescriptionRule.filter
+                            (fun _ -> false)
+                            [| dr |]
+                            [| LimitingSolutionRuleTests.limitsBothPerKg |]
+                            [||]
+                            RuleCheckTests.ivRouteMapping
+                        |> Result.map Array.length
+                        |> Expect.equal "no prescription rule" (Ok 0)
+                    }
+
+                    testList
+                        "adjustSolutionRuleToPatient"
+                        [
+                            test "a rule per kg gives the limits times the weight" {
+                                solutionRule (Some kg)
+                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient true)
+                                |> absoluteLimits
+                                |> Expect.equal "10 kg" (range mL 100N 200N, range mg 10N 20N)
+                            }
+
+                            test "a rule per m2 gives the limits times the body surface area" {
+                                solutionRule (Some m2)
+                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient true)
+                                |> absoluteLimits
+                                |> Expect.equal "0.5 m2" (range mL 5N 10N, range mg (1N / 2N) 1N)
+                            }
+
+                            test "a rule per m2 without a body surface area keeps its limits" {
+                                solutionRule (Some m2)
+                                |> PrescriptionRule.adjustSolutionRuleToPatient (patient false)
+                                |> Expect.equal "unchanged" (solutionRule (Some m2))
                             }
                         ]
                 ]
@@ -12044,4 +12199,5 @@ module Tests =
                 ConflictingLimitTests.tests
                 RepeatedTargetTests.tests
                 SolutionRuleAdjustUnitTests.tests
+                SolutionRuleAdjustUnitPairTests.tests
             ]
