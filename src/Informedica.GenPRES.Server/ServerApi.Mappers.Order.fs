@@ -228,6 +228,7 @@ module Mappers =
             Models.Order.Orderable.create
                 dto.Name
                 (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.OrderQuantity |> mapToOrderVariable)
                 (dto.OrderCount |> mapToOrderVariable)
                 (dto.DoseCount |> mapToOrderVariable)
@@ -238,6 +239,7 @@ module Mappers =
         let mapFromOrderable id n (orderable: Orderable) : Order.Orderable.Dto.Dto =
             let dto = Order.Orderable.Dto.dto id n
             dto.OrderableQuantity <- orderable.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- orderable.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.OrderQuantity <- orderable.OrderQuantity |> mapFromOrderVariable
             dto.OrderCount <- orderable.OrderCount |> mapFromOrderVariable
             dto.DoseCount <- orderable.DoseCount |> mapFromOrderVariable

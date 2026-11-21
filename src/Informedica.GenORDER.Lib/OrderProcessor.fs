@@ -273,6 +273,8 @@ module OrderProcessor =
                 | Timed(_, tme) -> tme |> Time.toOrdVar |> Some
                 | _ -> None
             | OrderVariableReference.OrderableQuantity -> ord.Orderable.OrderableQuantity |> Quantity.toOrdVar |> Some
+            | OrderVariableReference.OrderableQuantityAdjust ->
+                ord.Orderable.OrderableQuantityAdjust |> QuantityAdjust.toOrdVar |> Some
             | OrderVariableReference.OrderableDoseCount -> ord.Orderable.DoseCount |> Count.toOrdVar |> Some
             | OrderVariableReference.OrderableOrderCount -> ord.Orderable.OrderCount |> Count.toOrdVar |> Some
             | OrderVariableReference.OrderDuration -> ord.Duration |> Time.toOrdVar |> Some
@@ -323,12 +325,14 @@ module OrderProcessor =
 
 
         /// Returns the references to the per kg or per m2 variables: the quantity in the orderable per adjust
-        /// unit of every component and every item, and the adjusted doses of the orderable, every component and
-        /// every item.
+        /// unit of the orderable, every component and every item, and the adjusted doses of the orderable, every
+        /// component and every item.
         let adjusted (ord: Order) =
             let name = WrappedString.Name.toString
 
             [
+                OrderVariableReference.OrderableQuantityAdjust
+
                 for c in ord.Orderable.Components do
                     OrderVariableReference.ComponentOrderableQuantityAdjust(c.Name |> name)
 
