@@ -221,14 +221,19 @@ All checks are warnings in the resource messages, like the other rule checks.
   minimum and maximum of the new variable.
 - Delete the dead match in `Medication.addSolutionRule` (`Medication.fs:985`), with the sentence about
   the weight in its comment. The match is the only use of the `patientData` parameter, so the parameter
-  goes as well, with its argument at the call (`Medication.fs:1041`).
+  goes as well, with its argument at the call (`Medication.fs:1041`). The match is dead because GenFORM
+  (`PrescriptionRule.adjustSolutionRuleToPatient`) already sets the absolute limit whenever the patient
+  has the value for the adjust unit of the rule. The match acts only for a rule per m2 with a known
+  weight and no body surface area, and then it wrongly multiplies the limit by the weight. That rule does
+  not reach an order either: `PrescriptionRule.isPrescribable` leaves it out, because a limit per m2
+  needs the body surface area.
 - The medication type does not change: `ProductComponent.Dilution` and `SubstanceItem.Dilution` hold the
   GenFORM `DilutionLimit`, which has `QuantityAdjust`, and the medication Dto and
   `docs/domain/medication.schema.json` already carry it. The same holds for step 9.
 - Tests: a component with only a limit per adjust gets that limit times the adjust quantity on its
   orderable quantity, for an order that adjusts by weight and for one that adjusts by body surface
   area; such an order shows no doses per adjust (`UseAdjust` stays false).
-- Estimate: 20 to 40 lines.
+- Built: 49 changed lines under `src/`.
 
 ### Step 8: the item quantity per adjust in the order model (GenORDER)
 

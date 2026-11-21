@@ -13,8 +13,6 @@ module Medication =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
-    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
-
     /// Checks that the unit of a dose limit field has the adjust unit and the time unit the field needs.
     module UnitValidation =
 
@@ -924,9 +922,8 @@ module Medication =
 
     /// Applies a solution rule, when there is one, to a medication. The medication gets the drip rate as a dose
     /// rate in mL, the volumes, the Div and the dose count of the rule, and a component for the first diluent.
-    /// Each substance and component gets its dilution limit. When the weight is known, an empty component
-    /// quantity limit takes the adjusted quantity limit times the weight in kg.
-    let addSolutionRule logger (patientData: PatientData) solRule med =
+    /// Each substance and component gets its dilution limit.
+    let addSolutionRule logger solRule med =
         match solRule with
         | None -> med
         | Some solRule ->
@@ -974,33 +971,7 @@ module Medication =
                             |> Informedica.GenOrder.Lib.Logging.logWarning logger
 
                             ps
-                    |> List.map (fun pc ->
-                        { pc with
-                            Dilution =
-                                solRule
-                                |> SolutionRule.componentLimit pc.Name
-                                |> Option.map (fun dilutionLimit ->
-                                    { dilutionLimit with
-                                        Quantity =
-                                            match patientData |> CorePatientData.weightInKg with
-                                            | None -> dilutionLimit.Quantity
-                                            | Some w ->
-                                                match
-                                                    dilutionLimit.Quantity |> MinMax.isEmpty,
-                                                    dilutionLimit.QuantityAdjust |> MinMax.isEmpty
-                                                with
-                                                | true, false -> dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w)
-                                                | true, true ->
-                                                    [
-                                                        dilutionLimit.Quantity
-                                                        dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w)
-                                                    ]
-                                                    |> MinMax.foldMinimize
-                                                | _ -> dilutionLimit.Quantity
-                                    }
-                                )
-                        }
-                    )
+                    |> List.map (fun pc -> { pc with Dilution = solRule |> SolutionRule.componentLimit pc.Name })
             }
 
 
@@ -1038,7 +1009,7 @@ module Medication =
                 |> Option.orElse (solRule |> Option.bind _.AdjustUnit)
                 |> PatientData.adjustValue patientData
         }
-        |> addSolutionRule logger patientData solRule
+        |> addSolutionRule logger solRule
 
 
     /// Creates a medication for every solution rule of the prescription rule, or one medication when it has no
@@ -1190,9 +1161,10 @@ module Medication =
             }
 
 
-        /// Sets the dilution limit on a component: the values, minimum and maximum of the orderable quantity, and
-        /// the minimum and maximum of the orderable concentration. The only component of a medication gets no
-        /// orderable concentration limit, because that component is the whole orderable.
+        /// Sets the dilution limit on a component: the values, minimum and maximum of the orderable quantity,
+        /// the minimum and maximum of the orderable quantity per adjust unit, and the minimum and maximum of the
+        /// orderable concentration. The only component of a medication gets no orderable concentration limit,
+        /// because that component is the whole orderable.
         let withComponentDilutionLimit single (dilutionLimit: DilutionLimit) (cmp: Types.Component) =
             let con f = OrderVariable.mapConstraints f
 
@@ -1204,6 +1176,11 @@ module Medication =
                             OrderVariable.Constraints.setValues dilutionLimit.Quantities
                             >> OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity
                         )
+                    )
+                OrderableQuantityAdjust =
+                    cmp.OrderableQuantityAdjust
+                    |> OrderVariable.QuantityAdjust.apply (
+                        con (OrderVariable.Constraints.setMinMax false dilutionLimit.QuantityAdjust)
                     )
                 OrderableConcentration =
                     if single then
