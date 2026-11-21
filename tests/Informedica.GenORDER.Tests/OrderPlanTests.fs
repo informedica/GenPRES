@@ -1162,6 +1162,7 @@ type UndilutedVancomycin() =
             DoseType = NoDoseType
             PatientCategory = PatientCategory.empty
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            AdjustUnit = None
             Diluents = [||]
             SolutionLimit = SolutionRule.SolutionLimit.empty
             DilutionLimits =
@@ -1267,6 +1268,7 @@ module Electrolytes =
                             (16000N |> ValueUnit.singleWithUnit gram |> Limit.exclusive |> Some)
                 }
             Dose = MinMax.empty
+            AdjustUnit = None
             Diluents = [||]
             SolutionLimit =
                 { SolutionRule.SolutionLimit.empty with
@@ -2030,6 +2032,7 @@ let scenarioAccessTests =
             DoseType = NoDoseType
             PatientCategory = { PatientCategory.empty with Access = access }
             Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            AdjustUnit = None
             Diluents = [||]
             SolutionLimit = SolutionRule.SolutionLimit.empty
             DilutionLimits = [||]

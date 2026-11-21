@@ -5412,6 +5412,7 @@ module SolutionDoseCountTests =
             DoseType = NoDoseType
             PatientCategory = PatientCategory.empty
             Dose = MinMax.empty
+            AdjustUnit = None
             Diluents = [||]
             SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
             DilutionLimits = [||]

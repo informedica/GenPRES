@@ -553,6 +553,8 @@ module Types =
             PatientCategory: PatientCategory
             /// The MinMax Dose range of the SolutionRule
             Dose: MinMax
+            /// The unit to adjust the limits of the SolutionRule with; None when the sheet gives no adjust unit
+            AdjustUnit: Unit option
             /// The diluents to use, from the column "Diluents" of the SolutionRules sheet. A rule
             /// without diluents gives the medication undiluted.
             Diluents: ProductComponent[]
@@ -1133,6 +1135,9 @@ module Types =
                 /// volume bounds per kg, in mL/kg
                 MinVolAdj: BigRational option
                 MaxVolAdj: BigRational option
+                /// the patient adjustment unit (kg, m2). Rows belong to one rule only when this cell is the same,
+                /// so every row of a rule repeats the cell.
+                AdjustUnit: string
                 /// administration fraction: the fraction of the preparation that makes up one dose,
                 /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
