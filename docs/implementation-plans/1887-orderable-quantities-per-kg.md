@@ -339,3 +339,6 @@ All checks are warnings in the resource messages, like the other rule checks.
 - The sheet is live configuration, so the rename and the release of step 15 go together: before the
   rename, the mapper of step 15 finds no MinQtyAdj and MaxQtyAdj columns.
 - No code change.
+- Done in the new rules sheet "GenPRES - NewSolutionRules": the columns are renamed, after step 15
+  was merged. The sheet reads with the code of step 15: 802 rows, 137 of them with a quantity per
+  adjust.
