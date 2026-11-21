@@ -601,7 +601,7 @@ module SolutionRule =
 
 
     /// Whether the solution rule can limit the component for some patient: the first dilution limit of
-    /// the component has a maximum quantity, a maximum quantity per kg or a list of quantities.
+    /// the component has a maximum quantity, a maximum quantity per adjust unit or a list of quantities.
     let canLimitComponent (solRule: SolutionRule) name =
         solRule
         |> componentLimit name
@@ -887,32 +887,6 @@ module SolutionRule =
             dataUrlId |> getData |> Result.bind (map routeMapping parenteral products)
         with exn ->
             Result.createError "Error in SolutionRule.getResult: " exn
-
-
-    /// Clears the volume when a volume per kg is set, and the quantity when a quantity per kg is set,
-    /// because the rule lookup calculates those from the weight. One rule then compares equal at every
-    /// weight.
-    let withoutPatientAmounts (solRule: SolutionRule) =
-        let sl = solRule.SolutionLimit
-
-        { solRule with
-            SolutionLimit =
-                { sl with
-                    Volume =
-                        if sl.VolumeAdjust |> MinMax.isEmpty then
-                            sl.Volume
-                        else
-                            MinMax.empty
-                }
-            DilutionLimits =
-                solRule.DilutionLimits
-                |> Array.map (fun dilutionLimit ->
-                    if dilutionLimit.QuantityAdjust |> MinMax.isEmpty then
-                        dilutionLimit
-                    else
-                        { dilutionLimit with Quantity = MinMax.empty }
-                )
-        }
 
 
     /// Returns the solution rules that match the filter. The department is checked only when given, and

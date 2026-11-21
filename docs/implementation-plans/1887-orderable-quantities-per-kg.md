@@ -301,18 +301,22 @@ All checks are warnings in the resource messages, like the other rule checks.
 ### Step 13: GenFORM passes the limits per adjust on (GenFORM)
 
 - `adjustSolutionRuleToPatient` no longer multiplies `SolutionLimit.VolumeAdjust` and
-  `DilutionLimit.QuantityAdjust` by the weight or the body surface area. If nothing is left for it to
-  do, it is deleted with its call (`PrescriptionRule.fs:423`). The adjust unit of step 3 stays.
+  `DilutionLimit.QuantityAdjust` by the weight or the body surface area. Nothing is left for it to do, so
+  it is deleted with its call (`PrescriptionRule.fs:423`). The adjust unit of step 3 stays.
 - `SolutionRule.withoutPatientAmounts` (`SolutionRule.fs:781`, used at `PrescriptionRule.fs:229`) only
   undoes that multiplication for the rule comparison, so it goes with it.
-- Nothing else reads the absolute limit that GenFORM computed: `Check.fs` reads only the dose limit
-  `QuantityAdjust`, and neither the formulary export nor the MCP tools read the solution limits. The
-  solution rule checks in `SolutionRule.fs` (`boundsPreparation` at line 347, `openDoseCounts` at 356,
-  `canLimitComponent` at 494, `pairConflicts` at 540) run on the rules as loaded.
-- Tests: no test calls `adjustSolutionRuleToPatient` directly; the tests of the prescription rules
-  with a solution limit per adjust change to the limit per adjust; the GenORDER golden orders stay
-  the same.
+- One other function reads the absolute limit that GenFORM computed: `PrescriptionRule.limitsComponent`,
+  which decides whether a solution rule limits a component without a dose limit. It now counts a maximum
+  quantity per adjust unit when the patient of the prescription rule has the value for the adjust unit of
+  the solution rule, so a rule per kg still limits only for a patient with a weight. `Check.fs` reads
+  only the dose limit `QuantityAdjust`, and neither the formulary export nor the MCP tools read the
+  solution limits. The solution rule checks in `SolutionRule.fs` (`boundsPreparation` at line 347,
+  `openDoseCounts` at 356, `canLimitComponent` at 494, `pairConflicts` at 540) run on the rules as loaded.
+- Tests: the tests of `adjustSolutionRuleToPatient` and of `withoutPatientAmounts` go with them;
+  `limitsComponent` gets tests for a patient with and without the value for the adjust unit; the GenORDER
+  golden orders stay the same.
 - Estimate: 20 to 50 lines, mostly deleted.
+- Built: 111 changed lines under `src/`, 86 of them deleted.
 
 ### Step 14: the wire (Shared, Server)
 

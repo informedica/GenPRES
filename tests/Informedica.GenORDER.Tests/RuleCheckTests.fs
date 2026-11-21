@@ -278,35 +278,5 @@ let tests =
                         PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withSolutionRules) rules
                         |> Expect.isTrue "the same rules"
                     }
-
-                    test "the amount a per kg limit gives at a weight does not count" {
-                        let at (w: BigRational) (sr: SolutionRule) =
-                            { sr with
-                                DilutionLimits =
-                                    sr.DilutionLimits
-                                    |> Array.map (fun dl ->
-                                        let perKg =
-                                            5N
-                                            |> ValueUnit.singleWithUnit (
-                                                Units.Volume.milliLiter |> ValueUnit.per Units.Weight.kiloGram
-                                            )
-
-                                        let amount = 5N * w |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-
-                                        { dl with
-                                            QuantityAdjust = MinMax.createExact perKg
-                                            Quantity = MinMax.createExact amount
-                                        }
-                                    )
-                            }
-
-                        let atWeight w =
-                            Fixture.rules ()
-                            |> Fixture.withSolutionRules
-                            |> Array.map (fun r -> { r with SolutionRules = r.SolutionRules |> Array.map (at w) })
-
-                        PrescriptionRule.sameRules Fixture.counted (atWeight 10N) (atWeight 20N)
-                        |> Expect.isTrue "one rule"
-                    }
                 ]
         ]
