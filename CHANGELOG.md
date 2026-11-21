@@ -1,5 +1,5 @@
 ---
-last_commit_released: 44f041c208f5c9fa24de4d0f1d7c4bb05f59e074
+last_commit_released: 9d20165ef4e45546b288dc7dc0cf81e4c9cb4d99
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,25 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.60 - 2026-11-21
+
+### 🚀 Features
+
+* *(genform)* Read the adjust unit of a solution rule ([82f42507](https://github.com/informedica/GenPRES/commit/82f42507bfc0ae1125cf784686b275cbcfd50ae5))
+* *(genform)* Read solution limits in their adjust unit ([12b44b09](https://github.com/informedica/GenPRES/commit/12b44b0993ed396b1b2c4247eb9672d2f6a626eb))
+* *(genform)* Check the adjust units of solution rules ([78027420](https://github.com/informedica/GenPRES/commit/78027420791df31a9abe3722e9c63a42a7b7c6b7))
+* *(genorder)* Take the order adjust unit from the rules ([3bfe8cc6](https://github.com/informedica/GenPRES/commit/3bfe8cc6dda8e82415ed0f1c1521e5e45c16fb4b))
+* *(genorder)* Add the component quantity per adjust ([78ea3a59](https://github.com/informedica/GenPRES/commit/78ea3a59e825262e85494313e3e78e5a07329e31))
+* *(genorder)* Set the component limit per adjust ([ccaa292c](https://github.com/informedica/GenPRES/commit/ccaa292c2af95d93d39c8d520b48e2498777242c))
+* *(genorder)* Add the item quantity per adjust ([1580315f](https://github.com/informedica/GenPRES/commit/1580315fe0a3de1c174a6f89742aef987fb56791))
+
+### 🐞 Bug Fixes
+
+* *(genform)* Tell diluents apart in adjust unit checks ([b30bbdc5](https://github.com/informedica/GenPRES/commit/b30bbdc5eeb577a40a6d35182d28d1ddd30db4af))
+* *(genorder)* Readjust the component quantity per adjust ([3ea39ac3](https://github.com/informedica/GenPRES/commit/3ea39ac36b853cb29e053ef079b0c95bd13690d1))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/44f041c208f5c9fa24de4d0f1d7c4bb05f59e074..9d20165ef4e45546b288dc7dc0cf81e4c9cb4d99)</small></strong>
 
 ## 0.1.2-alpha.59 - 2026-11-20
 
