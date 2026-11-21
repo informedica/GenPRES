@@ -678,6 +678,9 @@ module Resources =
                 // - a diluent whose Formulary product is not marked IsDiluent
                 // - a solution rule with a diluent row but no diluent
                 // - a solution rule with more than one dilution limit for the same component or substance
+                // - a solution rule with a volume or a quantity per adjust but no adjust unit
+                // - the rows of a solution rule that give different adjust units
+                // - a dose rule and a solution rule with different adjust units
                 // - a dose rule and a solution rule whose ranges for a component no order can meet
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,
@@ -689,6 +692,10 @@ module Resources =
                        |> SolutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.missingAdjustUnits (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
@@ -702,6 +709,8 @@ module Resources =
                        |> SolutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.adjustUnitMismatches (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                 )
 
                 // The G-Standaard dose rules as a function that depends only on the route mappings;

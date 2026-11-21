@@ -148,25 +148,33 @@ unit, and a row with a limit per adjust loses it while the sheet gives it no adj
 
 ### Step 4: the load checks of the adjust unit (GenFORM)
 
-- A load check warns for a dose rule and solution rule pair with different adjust units, and reports a
-  sheet error for a solution rule with a limit per adjust in a pair without an adjust unit.
-- `canMeetDoseRule` (`SolutionRule.fs:442`) is false for a pair with different adjust units, so the load
-  checks that use it (`anyLimitsDoseRule`, `conflictingLimits`, `unlimitedDoseRules`) agree with the
-  prescription rule filter of step 3.
-- A load check reports the rows of one solution rule, the rows with the same rule fields apart from
-  the adjust unit, that have different adjust units.
-- `conflictingLimits` (`SolutionRule.fs:568`, called at `Resources.fs:704`) compares the limits per
-  adjust in the adjust unit of the solution rule, which the mapper reads them in since step 3, so a
-  limit per adjust is also compared with a dose rule per m2. The warning text says "per kg" or "per m2" by the unit instead of the fixed "quantity per kg"
-  (`SolutionRule.fs:554`).
-- Tests for each check.
-- Estimate: 40 to 70 lines.
+All checks are warnings in the resource messages, like the other rule checks.
+
+- `adjustUnitsMatch` holds when the adjust units of a dose rule and a solution rule are the same, or one
+  of them has none. `forDoseRule` and `canMeetDoseRule` (`SolutionRule.fs:442`) both use it, so the load
+  checks that use `canMeetDoseRule` (`anyLimitsDoseRule`, `conflictingLimits`, `unlimitedDoseRules`)
+  agree with the prescription rule filter of step 3.
+- `canShareDoseRule` holds when a solution rule applies to a dose rule and can meet a patient of that
+  dose rule. `canMeetDoseRule` adds `adjustUnitsMatch` to it, and `adjustUnitMismatches` warns when it
+  holds but the adjust units differ, so the solution rule does not apply.
+- `ruleOfRow` maps one row on its own to its rule, for the checks on the rows: `missingDiluents`,
+  `diluentRowsWithoutDiluent` and the two below.
+- `missingAdjustUnits` warns for a solution rule with a row that has a volume or a quantity per adjust
+  but no adjust unit the sheet can read, so the limit is left out.
+- `mixedAdjustUnits` warns for the rows of one solution rule, the rows with the same rule fields apart
+  from the adjust unit, that give different adjust units, so they form separate rules.
+- `pairConflicts` says "quantity per kg" or "quantity per m2" by the adjust unit of the solution rule,
+  instead of the fixed "quantity per kg" (`SolutionRule.fs:554`).
+- On the live sheets, `missingAdjustUnits` reports 32 rules of the demo sheet (Samenstelling B to E,
+  Primene, NICU mix) and 2 of the new rules sheet (calcium/magnesium); `mixedAdjustUnits` reports none.
+- Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1887AdjustUnitChecks.fsx`.
+- Estimate: 60 to 90 lines; built in 140 changed lines.
 
 ### Step 5: the adjust unit of the order (GenORDER)
 
 - `Medication.fromRule` (`Medication.fs:1047`) takes the adjust unit of the pair: the adjust unit of the
-  dose rule, else the adjust unit of the solution rule of the medication. The kg fallback goes: without an adjust unit, `Medication.Adjust`
-  stays `None` (`Medication.fs:1035`).
+  dose rule, else the adjust unit of the solution rule of the medication. The kg fallback goes: without
+  an adjust unit, `Medication.Adjust` stays `None` (`Medication.fs:1035`).
 - Tests: an order of a dose rule without an adjust unit and a solution rule per m2 adjusts by body
   surface area; an order without an adjust unit has no adjust quantity; the golden orders stay the
   same.
