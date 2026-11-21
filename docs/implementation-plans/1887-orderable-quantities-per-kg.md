@@ -47,15 +47,18 @@ Approach 2, with the decisions recorded in the issue and in review:
   equation `[x]_orb_qty = [x]_orb_qty_adj * [ord]_adj_qty`, for all dose types.
 - **Adjust unit column.** The SolutionRules sheet gets an AdjustUnit column, like the dose rules. It
   holds one adjust unit per solution rule, for the volume per adjust and for every dilution limit per
-  adjust of the rule, so all rows of one rule have the same value.
+  adjust of the rule, so all rows of one rule have the same value. A row with a limit per adjust needs
+  the adjust unit: the mapper reads the limits per adjust in the adjust unit of the rule, and leaves
+  them out without one. Nothing in the code assumes kg.
 - **Adjust unit of a dose rule and solution rule pair.**
   - Only the dose rule has an adjust unit: the pair uses it.
   - Only the solution rule has an adjust unit: the pair uses it.
   - Both have one and they are the same: the pair uses it.
   - Both have one and they differ: a load check reports the pair as a sheet warning, and the solution
     rule does not apply to that dose rule.
-  - Neither has one: the order has no adjust. A solution rule with a limit per adjust in such a pair
-    is a sheet error, and the limit is left out.
+  - Neither has one: the order has no adjust.
+  - A solution rule without an adjust unit has no limits per adjust; a row with a limit per adjust and
+    no adjust unit is a sheet error, and the limit is left out.
 - **Adjust unit of the order.** The order takes the adjust unit of the pair. `Medication.fromRule`
   (`Medication.fs:1047`) no longer falls back to kg: without an adjust unit, `Medication.Adjust` stays
   `None`.
@@ -89,8 +92,8 @@ rule. Until step 13, GenFORM still multiplies the limit by the patient value, so
 an order holds a limit per adjust twice: as the absolute limit GenFORM computed, and as the new
 variable per adjust. Both give the same bound.
 
-Orders change only in step 3: for a dose rule that adjusts by body surface area, a limit per adjust in
-the sheet is per m2 instead of per kg.
+Orders change only in step 3: a solution rule no longer applies to a dose rule with another adjust
+unit, and a row with a limit per adjust loses it while the sheet gives it no adjust unit.
 
 ### Step 1: the AdjustUnit column in the solution rule sheet (sheet)
 
@@ -117,43 +120,52 @@ the sheet is per m2 instead of per kg.
 - Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1887SolutionRuleAdjustUnit.fsx`.
 - Estimate: 20 to 40 lines.
 
-### Step 3: the adjust unit of a dose rule and solution rule pair (GenFORM)
+### Step 3: the limits per adjust in the adjust unit of the solution rule (GenFORM)
 
-- Where the prescription rule holds the dose rule with its solution rules (`PrescriptionRule.fs:423`),
-  `SolutionLimit.VolumeAdjust` and `DilutionLimit.QuantityAdjust` take the adjust unit of the pair, by
-  the rules in the chosen approach, in place of the fixed kg.
-- The `///` comments on the `SolutionRuleData` fields MinVolAdj and MaxVolAdj ("volume bounds per kg,
-  in mL/kg") and MinQtyPerKg and MaxQtyPerKg ("quantity per kg body weight") change to per AdjustUnit.
-- A solution rule whose adjust unit differs from the adjust unit of the dose rule does not apply to that
-  dose rule (`canMeetDoseRule`, `SolutionRule.fs:440`). A pair without an adjust unit leaves out the
-  limits per adjust.
-- `adjustSolutionRuleToPatient` multiplies by the patient value for the adjust unit,
+- The mapper reads `SolutionLimit.VolumeAdjust` and `DilutionLimit.QuantityAdjust` in the adjust unit
+  of the rule instead of the fixed kg (`SolutionRule.fs:203`, `:219`). A rule without an adjust unit gets
+  no limits per adjust, because `MinMax.fromTuple` gives an empty range without a unit.
+- `SolutionRule.forDoseRule` leaves out the solution rules whose adjust unit differs from the adjust unit
+  of the dose rule. The prescription rule filter calls it after the renal rules, because a renal rule
+  can give a dose rule without an adjust unit one (`RenalRule.adjustDoseRule`). The filter selects the
+  solution rules with `SolutionRule.filter`, not with `canMeetDoseRule`; `canMeetDoseRule`
+  (`SolutionRule.fs:442`) serves only the load checks and gets the check in step 4.
+- `adjustSolutionRuleToPatient` multiplies by the patient value for the adjust unit of the solution rule,
   `PatientData.adjustValue` (`Patient.fs:514`), the weight or the body surface area, so the absolute
   limit stays correct until step 13 removes the multiplication.
 - `isPrescribable` derives the measurement from the unit of the limit (`RenalRule.measureOf`), so it
   asks for the body surface area without a code change.
-- Tests: a solution limit gets the adjust unit of a dose rule per kg and per m2, of the solution rule
-  when only that one has it, and none without one; a pair with different adjust units does not
-  combine; the absolute limit is the limit times the weight or times the body surface area.
-- Estimate: 40 to 70 lines.
+- The `///` comments on the limits per adjust say per AdjustUnit: the `SolutionRuleData` fields
+  MinVolAdj, MaxVolAdj, MinQtyPerKg and MaxQtyPerKg, `SolutionLimit.VolumeAdjust` and
+  `DilutionLimit.QuantityAdjust`.
+- Before release, every row with a limit per adjust has an adjust unit in every sheet the app reads:
+  56 rows in the new rules sheet (calcium/magnesium, Na/K samenstelling, natrium/kalium) and the rows
+  of the demo sheet. A row without one loses its limits per adjust. This is the maintainer's step.
+- Tests: the mapper reads the limits per kg and per m2 and leaves them out without an adjust unit;
+  `forDoseRule` for every combination of adjust units; the filter leaves out a solution rule per kg for
+  a dose rule per m2; the absolute limit is the limit times the weight or times the body surface area.
+- Estimate: 30 to 50 lines.
 
 ### Step 4: the load checks of the adjust unit (GenFORM)
 
 - A load check warns for a dose rule and solution rule pair with different adjust units, and reports a
   sheet error for a solution rule with a limit per adjust in a pair without an adjust unit.
+- `canMeetDoseRule` (`SolutionRule.fs:442`) is false for a pair with different adjust units, so the load
+  checks that use it (`anyLimitsDoseRule`, `conflictingLimits`, `unlimitedDoseRules`) agree with the
+  prescription rule filter of step 3.
 - A load check reports the rows of one solution rule, the rows with the same rule fields apart from
   the adjust unit, that have different adjust units.
-- `conflictingLimits` (`SolutionRule.fs:568`, called at `Resources.fs:704`) gives the solution limit
-  the adjust unit of the pair, as step 3 does, so a limit per adjust is also compared with a dose rule
-  per m2. The warning text says "per kg" or "per m2" by the unit instead of the fixed "quantity per kg"
+- `conflictingLimits` (`SolutionRule.fs:568`, called at `Resources.fs:704`) compares the limits per
+  adjust in the adjust unit of the solution rule, which the mapper reads them in since step 3, so a
+  limit per adjust is also compared with a dose rule per m2. The warning text says "per kg" or "per m2" by the unit instead of the fixed "quantity per kg"
   (`SolutionRule.fs:554`).
 - Tests for each check.
 - Estimate: 40 to 70 lines.
 
 ### Step 5: the adjust unit of the order (GenORDER)
 
-- `Medication.fromRule` (`Medication.fs:1047`) takes the adjust unit of the pair: the dose rule, else the
-  solution rule of the medication. The kg fallback goes: without an adjust unit, `Medication.Adjust`
+- `Medication.fromRule` (`Medication.fs:1047`) takes the adjust unit of the pair: the adjust unit of the
+  dose rule, else the adjust unit of the solution rule of the medication. The kg fallback goes: without an adjust unit, `Medication.Adjust`
   stays `None` (`Medication.fs:1035`).
 - Tests: an order of a dose rule without an adjust unit and a solution rule per m2 adjusts by body
   surface area; an order without an adjust unit has no adjust quantity; the golden orders stay the
