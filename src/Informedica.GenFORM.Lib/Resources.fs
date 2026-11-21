@@ -692,8 +692,10 @@ module Resources =
                        |> SolutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
-                    @ (r.Get Keys.solutionRuleData |> SolutionRule.missingAdjustUnits)
-                    @ (r.Get Keys.solutionRuleData |> SolutionRule.mixedAdjustUnits)
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.missingAdjustUnits (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)

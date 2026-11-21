@@ -436,11 +436,11 @@ module SolutionRule =
 
     /// One warning per solution rule with a row that has a volume or a quantity per adjust but no adjust unit,
     /// so the limit is left out. A rule of several such rows gives one warning.
-    let missingAdjustUnits (data: SolutionRuleData[]) =
+    let missingAdjustUnits parenteral (data: SolutionRuleData[]) =
         data
         |> Array.filter (fun r -> r |> hasLimitPerAdjust && r.AdjustUnit |> Units.adjustUnit |> Option.isNone)
         |> Array.choose (
-            ruleOfRow [||]
+            ruleOfRow parenteral
             >> Option.map (fun solRule -> { solRule with DilutionLimits = [||] })
         )
         |> Array.distinct
@@ -455,10 +455,10 @@ module SolutionRule =
 
     /// One warning per solution rule whose rows give different adjust units, so the rows form separate rules.
     /// Each row is mapped on its own and grouped by the rule without its adjust unit and its limits per adjust.
-    let mixedAdjustUnits (data: SolutionRuleData[]) =
+    let mixedAdjustUnits parenteral (data: SolutionRuleData[]) =
         data
         |> Array.choose (
-            ruleOfRow [||]
+            ruleOfRow parenteral
             >> Option.map (fun solRule ->
                 { solRule with
                     AdjustUnit = None

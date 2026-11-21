@@ -12170,6 +12170,18 @@ module Tests =
             }
 
 
+        /// A solution rule row as row makes it, with the single diluent dil.
+        let rowIn dil cell maxQtyAdj = { row cell maxQtyAdj with Diluents = [ dil ] }
+
+
+        /// The parenteral products saline and glucose.
+        let parenteral =
+            [|
+                RuleCheckTests.parenteral "NaCl 0,9%"
+                RuleCheckTests.parenteral "glucose 5%"
+            |]
+
+
         /// The texts of the warnings.
         let texts = List.map RuleCheckTests.warningText
 
@@ -12227,7 +12239,7 @@ module Tests =
                         [
                             test "a row with a quantity per adjust and no adjust unit gives one warning" {
                                 [| row "" (Some 5N) |]
-                                |> SolutionRule.missingAdjustUnits
+                                |> SolutionRule.missingAdjustUnits [||]
                                 |> texts
                                 |> Expect.equal
                                     "one warning"
@@ -12239,13 +12251,19 @@ module Tests =
 
                             test "an adjust unit the sheet cannot read counts as none" {
                                 [| row "lb" (Some 5N) |]
-                                |> SolutionRule.missingAdjustUnits
+                                |> SolutionRule.missingAdjustUnits [||]
                                 |> Expect.hasLength "one warning" 1
+                            }
+
+                            test "rules that differ by diluent give a warning each" {
+                                [| rowIn "NaCl 0,9%" "" (Some 5N); rowIn "glucose 5%" "" (Some 5N) |]
+                                |> SolutionRule.missingAdjustUnits parenteral
+                                |> Expect.hasLength "two warnings" 2
                             }
 
                             test "a row with an adjust unit, or without a limit per adjust, gives no warning" {
                                 [| row "kg" (Some 5N); row "" None |]
-                                |> SolutionRule.missingAdjustUnits
+                                |> SolutionRule.missingAdjustUnits [||]
                                 |> Expect.isEmpty "no warning"
                             }
                         ]
@@ -12255,7 +12273,7 @@ module Tests =
                         [
                             test "rows of one rule with kg and none give one warning" {
                                 [| row "kg" (Some 5N); row "" None |]
-                                |> SolutionRule.mixedAdjustUnits
+                                |> SolutionRule.mixedAdjustUnits [||]
                                 |> texts
                                 |> Expect.equal
                                     "one warning"
@@ -12265,9 +12283,15 @@ module Tests =
                                     ]
                             }
 
+                            test "rules that differ by diluent may have different adjust units" {
+                                [| rowIn "NaCl 0,9%" "kg" (Some 5N); rowIn "glucose 5%" "m2" (Some 5N) |]
+                                |> SolutionRule.mixedAdjustUnits parenteral
+                                |> Expect.isEmpty "no warning"
+                            }
+
                             test "rows of one rule with the same adjust unit give no warning" {
                                 [| row "kg" (Some 5N); row "kg" None |]
-                                |> SolutionRule.mixedAdjustUnits
+                                |> SolutionRule.mixedAdjustUnits [||]
                                 |> Expect.isEmpty "no warning"
                             }
                         ]
