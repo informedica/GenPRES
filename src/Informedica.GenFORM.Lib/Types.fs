@@ -502,7 +502,7 @@ module Types =
             DilutionLimitTarget: DilutionTarget
             /// The MinMax Quantity of the component or substance in the solution
             Quantity: MinMax
-            /// The MinMax Quantity per kg of the component or substance in the solution
+            /// The MinMax Quantity of the component or substance in the solution per adjust unit of the solution rule
             QuantityAdjust: MinMax
             /// The possible Quantities of the component or substance in the solution
             Quantities: ValueUnit option
@@ -524,7 +524,7 @@ module Types =
             Volumes: ValueUnit option
             /// The MinMax Volume of the solution
             Volume: MinMax
-            /// The MinMax Volume per kg of the solution
+            /// The MinMax Volume of the solution per adjust unit of the solution rule
             VolumeAdjust: MinMax
             /// The MinMax Drip Rate of the solution
             DripRate: MinMax
@@ -1132,11 +1132,11 @@ module Types =
                 /// total volume bounds in mL
                 MinVol: BigRational option
                 MaxVol: BigRational option
-                /// volume bounds per kg, in mL/kg
+                /// volume bounds in mL per AdjustUnit
                 MinVolAdj: BigRational option
                 MaxVolAdj: BigRational option
-                /// the patient adjustment unit (kg, m2). Rows belong to one rule only when this cell is the same,
-                /// so every row of a rule repeats the cell.
+                /// the patient adjustment unit (kg, m2). A row with a volume or a quantity per adjust needs it. Rows
+                /// belong to one rule only when this cell is the same, so every row of a rule repeats the cell.
                 AdjustUnit: string
                 /// administration fraction: the fraction of the preparation that makes up one dose,
                 /// for example 0.5 for half the preparation and 1 for the whole preparation
@@ -1154,9 +1154,9 @@ module Types =
                 Quantities: BigRational array
                 MinQty: BigRational option
                 MaxQty: BigRational option
-                /// the minimum quantity per kg body weight; sheet column "MinQtyPerKg"
+                /// the minimum quantity per AdjustUnit; sheet column "MinQtyPerKg"
                 MinQtyPerKg: BigRational option
-                /// the maximum quantity per kg body weight; sheet column "MaxQtyPerKg"
+                /// the maximum quantity per AdjustUnit; sheet column "MaxQtyPerKg"
                 MaxQtyPerKg: BigRational option
                 /// infusion (drip) rate bounds in mL/hour
                 MinDrip: BigRational option

@@ -7,8 +7,6 @@ module PrescriptionRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
-    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
-
     /// Returns the measurement units that the per kg and per m2 bounds of a dose limit need: a weight unit
     /// for a per kg bound and a BSA unit for a per m2 bound. A limit with only absolute bounds needs none.
     let doseLimitMeasures (dl: DoseLimit) =
@@ -183,10 +181,13 @@ module PrescriptionRule =
                 | _ -> dl
 
 
+    /// Multiplies the limits per adjust of the solution rule by the patient value for its adjust unit, the weight
+    /// or the body surface area, and keeps the tighter of that and the absolute limit. Returns the rule unchanged
+    /// without an adjust unit or without that patient value.
     let adjustSolutionRuleToPatient (patientData: PatientData) (solRule: SolutionRule) =
-        match patientData |> CorePatientData.weightInKg with
+        match solRule.AdjustUnit |> PatientData.adjustValue patientData with
         | None -> solRule
-        | Some w ->
+        | Some adj ->
             let sl = solRule.SolutionLimit
 
             { solRule with
@@ -196,7 +197,7 @@ module PrescriptionRule =
                             if sl.VolumeAdjust |> MinMax.isEmpty then
                                 sl.Volume
                             else
-                                [ sl.VolumeAdjust |> MinMax.apply ((*) w); sl.Volume ] |> MinMax.foldMinimize
+                                [ sl.VolumeAdjust |> MinMax.apply ((*) adj); sl.Volume ] |> MinMax.foldMinimize
                     }
                 DilutionLimits =
                     solRule.DilutionLimits
@@ -206,7 +207,10 @@ module PrescriptionRule =
                         else
                             { dilutionLimit with
                                 Quantity =
-                                    [ dilutionLimit.QuantityAdjust |> MinMax.apply ((*) w); dilutionLimit.Quantity ]
+                                    [
+                                        dilutionLimit.QuantityAdjust |> MinMax.apply ((*) adj)
+                                        dilutionLimit.Quantity
+                                    ]
                                     |> MinMax.foldMinimize
                             }
                     )
@@ -274,7 +278,8 @@ module PrescriptionRule =
 
     /// Returns true when the first dilution limit of the component has a maximum quantity or a list of
     /// quantities; the order uses only that dilution limit. A minimum alone does not limit the component.
-    /// Expects a solution rule adjusted to the patient, so a per kg quantity counts only with a weight.
+    /// Expects a solution rule adjusted to the patient, so a per kg or per m2 quantity counts only with
+    /// a weight or a body surface area.
     let limitsComponent (solRule: SolutionRule) name =
         solRule
         |> SolutionRule.componentLimit name
@@ -436,6 +441,9 @@ module PrescriptionRule =
                     }
                 )
         )
+        // A renal rule can give a dose rule without an adjust unit one, so the solution rules are matched to the
+        // adjust unit of the dose rule after the renal rules.
+        |> Array.map (fun pr -> { pr with SolutionRules = pr.SolutionRules |> SolutionRule.forDoseRule pr.DoseRule })
         // This step comes last, after the solution rules are adjusted to the patient. The renal rules
         // change only substance limits, so a component without a limit still has none after them.
         |> Array.choose withLimitingSolutionRules
