@@ -301,6 +301,8 @@ module OrderProcessor =
                 tryItem c i |> Option.map (_.ComponentConcentration >> Concentration.toOrdVar)
             | OrderVariableReference.ItemOrderableQuantity(c, i) ->
                 tryItem c i |> Option.map (_.OrderableQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ItemOrderableQuantityAdjust(c, i) ->
+                tryItem c i |> Option.map (_.OrderableQuantityAdjust >> QuantityAdjust.toOrdVar)
             | OrderVariableReference.ItemOrderableConcentration(c, i) ->
                 tryItem c i |> Option.map (_.OrderableConcentration >> Concentration.toOrdVar)
             | OrderVariableReference.ItemDose(c, i, p) -> tryItem c i |> Option.map (_.Dose >> Dose.toOrdVar p)
@@ -320,8 +322,8 @@ module OrderProcessor =
             | _ -> false
 
 
-        /// Returns the references to the per kg or per m2 variables: the component quantity in the orderable
-        /// per adjust unit of every component, and the adjusted doses of the orderable, every component and
+        /// Returns the references to the per kg or per m2 variables: the quantity in the orderable per adjust
+        /// unit of every component and every item, and the adjusted doses of the orderable, every component and
         /// every item.
         let adjusted (ord: Order) =
             let name = WrappedString.Name.toString
@@ -329,6 +331,9 @@ module OrderProcessor =
             [
                 for c in ord.Orderable.Components do
                     OrderVariableReference.ComponentOrderableQuantityAdjust(c.Name |> name)
+
+                    for i in c.Items do
+                        OrderVariableReference.ItemOrderableQuantityAdjust(c.Name |> name, i.Name |> name)
 
                 for p in
                     [

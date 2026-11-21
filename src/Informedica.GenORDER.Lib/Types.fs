@@ -162,6 +162,8 @@ module Types =
             ComponentQuantity: Quantity
             /// The quantity of an Item in an Orderable
             OrderableQuantity: Quantity
+            /// The quantity of an Item in an Orderable per adjust unit of the order
+            OrderableQuantityAdjust: QuantityAdjust
             /// The Item concentration in a Component
             ComponentConcentration: Concentration
             /// The Item concentration in an Orderable
@@ -428,6 +430,7 @@ module Types =
         | ItemComponentQuantity of cmp: string * itm: string
         | ItemComponentConcentration of cmp: string * itm: string
         | ItemOrderableQuantity of cmp: string * itm: string
+        | ItemOrderableQuantityAdjust of cmp: string * itm: string
         | ItemOrderableConcentration of cmp: string * itm: string
         | ItemDose of cmp: string * itm: string * DoseProperty
 

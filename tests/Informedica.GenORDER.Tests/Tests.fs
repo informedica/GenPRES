@@ -2412,6 +2412,7 @@ module ReferenceTests =
                     OrderVariableReference.ItemComponentQuantity(c', i')
                     OrderVariableReference.ItemComponentConcentration(c', i')
                     OrderVariableReference.ItemOrderableQuantity(c', i')
+                    OrderVariableReference.ItemOrderableQuantityAdjust(c', i')
                     OrderVariableReference.ItemOrderableConcentration(c', i')
 
                     for p in props do
@@ -3481,6 +3482,7 @@ module EquationsTests =
             "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx"
             "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx"
             "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
+            "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", "xxxxx"
         ]
 
     // (dose-type index used by getEquations, position in the marker string, name)
@@ -3526,8 +3528,8 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 69 sheet rows" {
-                    golden |> List.length |> Expect.equal "69 rows transcribed" 69
+                test "golden table has all 70 sheet rows" {
+                    golden |> List.length |> Expect.equal "70 rows transcribed" 70
                 }
 
                 for indx, pos, name in doseTypes do
@@ -3649,9 +3651,9 @@ module EquationsTests =
             ]
 
 
-/// The component quantity in the orderable per adjust unit: the variable [cmp]_orb_qty_adj and its equation, which
-/// applies only when the variable has a constraint.
-module ComponentOrderableQuantityAdjustTests =
+/// The quantity in the orderable per adjust unit of a component and an item: the variables [cmp]_orb_qty_adj and
+/// [itm]_orb_qty_adj and their equations, which apply only when a variable has a constraint.
+module OrderableQuantityAdjustTests =
 
     open Informedica.GenCore.Lib.Ranges
 
@@ -3662,21 +3664,27 @@ module ComponentOrderableQuantityAdjustTests =
         |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
 
 
+    let mL = Units.Volume.milliLiter
+
+
+    let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
+
+
+    let mLPerM2 = mL |> ValueUnit.per Units.BSA.m2
+
+
+    let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
+
+
+    /// Sets a maximum of max in unit u on a quantity per adjust unit.
+    let maximumOf u max =
+        let mm = { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+        OrderVariable.QuantityAdjust.apply (OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false mm))
+
+
     /// The order with a maximum of max mL/kg on the orderable quantity per adjust of the first component.
     let withComponentMaximum max (ord: Order) =
-        let mm =
-            { MinMax.empty with
-                Max =
-                    max
-                    |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Weight.kiloGram)
-                    |> Limit.inclusive
-                    |> Some
-            }
-
-        let limit =
-            OrderVariable.QuantityAdjust.apply (
-                OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false mm)
-            )
+        let limit = maximumOf mLPerKg max
 
         match ord.Orderable.Components with
         | cmp :: rest ->
@@ -3716,15 +3724,6 @@ module ComponentOrderableQuantityAdjustTests =
         }
 
 
-    let mL = Units.Volume.milliLiter
-
-
-    let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
-
-
-    let mLPerM2 = mL |> ValueUnit.per Units.BSA.m2
-
-
     /// The medication with a maximum of max in unit u on its first component, as a limit per adjust only.
     let withComponentLimitAdjust max u (med: Medication) =
         match med.Components with
@@ -3760,7 +3759,42 @@ module ComponentOrderableQuantityAdjustTests =
         |> OrderVariable.Quantity.toString
 
 
-    let tests =
+    /// The number of components plus the number of items of the order.
+    let componentAndItemCount (ord: Order) =
+        let cmps = ord.Orderable.Components
+        cmps.Length + (cmps |> List.sumBy _.Items.Length)
+
+
+    /// The orderable quantity per adjust of every item of the order, as order variables.
+    let itemQuantityAdjusts (ord: Order) =
+        ord.Orderable.Components
+        |> List.collect _.Items
+        |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+
+
+    /// The order with a maximum of max mg/kg on the orderable quantity per adjust of the first item of the first
+    /// component.
+    let withItemMaximum max (ord: Order) =
+        let limit = maximumOf mgPerKg max
+
+        match ord.Orderable.Components with
+        | cmp :: cmps ->
+            match cmp.Items with
+            | itm :: itms ->
+                { ord with
+                    Order.Orderable.Components =
+                        { cmp with
+                            Items =
+                                { itm with OrderableQuantityAdjust = itm.OrderableQuantityAdjust |> limit }
+                                :: itms
+                        }
+                        :: cmps
+                }
+            | [] -> ord
+        | [] -> ord
+
+
+    let componentTests =
         testList
             "the component quantity per adjust"
             [
@@ -3796,39 +3830,6 @@ module ComponentOrderableQuantityAdjustTests =
                     |> componentQuantityAdjusts
                     |> Expect.equal "the same variables" (ord |> componentQuantityAdjusts)
                 }
-
-                testList
-                    "the equation selection"
-                    [
-                        for golden in GoldenOrders.all do
-                            test $"%s{golden.Name}: without a constraint there is no orderable quantity adjust equation" {
-                                golden.Medication
-                                |> TestOrder.toOrder
-                                |> productEquations
-                                |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
-                                |> Expect.isEmpty "none"
-                            }
-
-                            test $"%s{golden.Name}: a constraint gives the equation once per component" {
-                                let ord = golden.Medication |> TestOrder.toOrder |> withComponentMaximum 5N
-
-                                ord
-                                |> productEquations
-                                |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
-                                |> List.length
-                                |> Expect.equal "one per component" ord.Orderable.Components.Length
-                            }
-
-                            test $"%s{golden.Name}: the constraint leaves the dose adjust equations as they were" {
-                                let ord = golden.Medication |> TestOrder.toOrder
-
-                                ord
-                                |> withComponentMaximum 5N
-                                |> productEquations
-                                |> List.filter (EquationMapping.isOrderableQuantityAdjustEquation >> not)
-                                |> Expect.equal "the same other equations" (ord |> productEquations)
-                            }
-                    ]
 
                 test "an order with only the component limit gets no dose adjust equations" {
                     let ord = Scenarios.pcmSupp |> withoutAdjustedDose |> TestOrder.toOrder
@@ -3911,6 +3912,99 @@ module ComponentOrderableQuantityAdjustTests =
                         }
                     ]
             ]
+
+
+    let itemTests =
+        testList
+            "the item quantity per adjust"
+            [
+                test "a new item has the variable [itm]_orb_qty_adj, without constraints" {
+                    let ovar =
+                        Order.Orderable.Item.createNew "o" "orb" "cmp" "itm"
+                        |> _.OrderableQuantityAdjust
+                        |> OrderVariable.QuantityAdjust.toOrdVar
+
+                    ovar.Variable.Name
+                    |> Variable.Name.toString
+                    |> Expect.equal "the name" "[o.orb.cmp.itm]_orb_qty_adj"
+
+                    ovar |> OrderVariable.hasConstraints |> Expect.isFalse "no constraints"
+                }
+
+                test "the item Dto round trip keeps the variable and its constraint" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withItemMaximum 24N
+
+                    ord.Orderable.Components
+                    |> List.collect _.Items
+                    |> List.map (Order.Orderable.Item.Dto.toDto >> Order.Orderable.Item.Dto.fromDto)
+                    |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+                    |> Expect.equal "the same variables" (ord |> itemQuantityAdjusts)
+                }
+
+                test "the order Dto round trip keeps the variable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withItemMaximum 24N
+
+                    ord
+                    |> Order.Dto.toDto
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"the Dto does not read: %A{e}")
+                    |> itemQuantityAdjusts
+                    |> Expect.equal "the same variables" (ord |> itemQuantityAdjusts)
+                }
+
+                test "a maximum of 24 mg/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                    Scenarios.pcmDrink
+                    |> TestOrder.toOrder
+                    |> withItemMaximum 24N
+                    |> solve
+                    |> _.Orderable.Components
+                    |> List.head
+                    |> _.OrderableQuantity
+                    |> OrderVariable.Quantity.toString
+                    |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                }
+            ]
+
+
+    let equationSelectionTests =
+        testList
+            "the equation selection"
+            [
+                for golden in GoldenOrders.all do
+                    test $"%s{golden.Name}: without a constraint there is no orderable quantity adjust equation" {
+                        golden.Medication
+                        |> TestOrder.toOrder
+                        |> productEquations
+                        |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
+                        |> Expect.isEmpty "none"
+                    }
+
+                    for limitName, limit in [ "a component", withComponentMaximum 5N; "an item", withItemMaximum 24N ] do
+                        test
+                            $"%s{golden.Name}: a constraint on %s{limitName} gives the equation once per component and item" {
+                            let ord = golden.Medication |> TestOrder.toOrder |> limit
+
+                            ord
+                            |> productEquations
+                            |> List.filter EquationMapping.isOrderableQuantityAdjustEquation
+                            |> List.length
+                            |> Expect.equal "one per component and item" (ord |> componentAndItemCount)
+                        }
+
+                        test $"%s{golden.Name}: a constraint on %s{limitName} leaves the other equations as they were" {
+                            let ord = golden.Medication |> TestOrder.toOrder
+
+                            ord
+                            |> limit
+                            |> productEquations
+                            |> List.filter (EquationMapping.isOrderableQuantityAdjustEquation >> not)
+                            |> Expect.equal "the same other equations" (ord |> productEquations)
+                        }
+            ]
+
+
+    let tests =
+        testList "the orderable quantity per adjust" [ componentTests; itemTests; equationSelectionTests ]
 
 
 module ScheduleCountTests =
@@ -6131,7 +6225,7 @@ let tests =
             RecipeTests.reCalcTests
             ConstraintsTests.tests
             GoldenOrderTests.tests
-            ComponentOrderableQuantityAdjustTests.tests
+            OrderableQuantityAdjustTests.tests
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
             RateAfterQuantityTests.tests

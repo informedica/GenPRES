@@ -189,8 +189,10 @@ module EquationMapping =
             // equations already relate the items.
             "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", allDoseTypes
             "[orb]_orb_cnc = sum([cmp]_orb_cnc)", allDoseTypes
-            // Applies only to an order with a constraint on the component quantity in the orderable per adjust unit.
+            // The orderable quantity adjust equations apply only to an order with a constraint on a component or
+            // item quantity in the orderable per adjust unit.
             "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
+            "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", allDoseTypes
         ]
 
 
@@ -253,15 +255,17 @@ module EquationMapping =
         |> List.exists OrderVariable.hasConstraints
 
 
-    /// Returns true when the component quantity in the orderable per adjust unit has constraints for a component of
-    /// the order.
+    /// Returns true when the quantity in the orderable per adjust unit has constraints for a component or an item
+    /// of the order.
     let usesOrderableQuantityAdjust (ord: Order) =
-        ord.Orderable.Components
-        |> List.exists (
-            _.OrderableQuantityAdjust
-            >> OrderVariable.QuantityAdjust.toOrdVar
-            >> OrderVariable.hasConstraints
-        )
+        [
+            for c in ord.Orderable.Components do
+                c.OrderableQuantityAdjust
+
+                for i in c.Items do
+                    i.OrderableQuantityAdjust
+        ]
+        |> List.exists (OrderVariable.QuantityAdjust.toOrdVar >> OrderVariable.hasConstraints)
 
 
     /// Returns the sum mapping and the product mapping of the order, with the placeholders in the equations eqs

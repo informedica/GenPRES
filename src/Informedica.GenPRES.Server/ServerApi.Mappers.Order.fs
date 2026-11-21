@@ -130,6 +130,7 @@ module Mappers =
                 dto.Name
                 (dto.ComponentQuantity |> mapToOrderVariable)
                 (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.ComponentConcentration |> mapToOrderVariable)
                 (dto.OrderableConcentration |> mapToOrderVariable)
                 (dto.Dose |> mapToDose)
@@ -142,6 +143,7 @@ module Mappers =
             dto.Name <- item.Name
             dto.ComponentQuantity <- item.ComponentQuantity |> mapFromOrderVariable
             dto.OrderableQuantity <- item.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- item.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.ComponentConcentration <- item.ComponentConcentration |> mapFromOrderVariable
             dto.OrderableConcentration <- item.OrderableConcentration |> mapFromOrderVariable
             dto.Dose <- item.Dose |> mapFromDose

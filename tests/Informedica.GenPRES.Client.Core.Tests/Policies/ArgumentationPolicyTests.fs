@@ -47,6 +47,7 @@ let tests =
                         Name = "i"
                         ComponentQuantity = ovar
                         OrderableQuantity = ovar
+                        OrderableQuantityAdjust = ovar
                         ComponentConcentration = ovar
                         OrderableConcentration = ovar
                         Dose = ord.Orderable.Dose

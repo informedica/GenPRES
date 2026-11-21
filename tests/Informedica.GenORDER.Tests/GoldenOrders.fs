@@ -69,6 +69,7 @@ Orderable
 [paracetamol.paracetamol]_dos_tot_adj <0 ..>
 [paracetamol.paracetamol.paracetamol]_cmp_qty [180;240;250 mg]
 [paracetamol.paracetamol.paracetamol]_orb_qty [180;240;250 mg]
+[paracetamol.paracetamol.paracetamol]_orb_qty_adj <0 ..>
 [paracetamol.paracetamol.paracetamol]_cmp_cnc [180;240;250 mg/stuk]
 [paracetamol.paracetamol.paracetamol]_orb_cnc [180;240;250 mg/stuk]
 [paracetamol.paracetamol.paracetamol]_dos_qty [180;240;250 mg]
@@ -123,6 +124,7 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_qty [72 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
+[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_cnc [72 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_cnc [3,65;3,75;3,82 mg/mL .. 16,6;17,5;18,3 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
@@ -135,6 +137,7 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_cmp_qty [4 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty [44;48;52;56;60;64;68 mg]
+[amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_cmp_cnc [4 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,203;0,209;0,212 mg/mL .. 0,923;0,97;1,01 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_dos_qty [44;48;52;56;60;64;68 mg]
@@ -162,6 +165,7 @@ Orderable
 [amfotericine b liposomaal.gluc 10%]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%.energie]_cmp_qty [0,4 kCal]
 [amfotericine b liposomaal.gluc 10%.energie]_orb_qty [20;40;60;80;100;120 kCal]
+[amfotericine b liposomaal.gluc 10%.energie]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
 [amfotericine b liposomaal.gluc 10%.energie]_orb_cnc [0,299;0,303;0,308 kCal/mL .. 0,379;0,38 kCal/mL]
 [amfotericine b liposomaal.gluc 10%.energie]_dos_qty [20;40;60;80;100;120 kCal]
@@ -174,6 +178,7 @@ Orderable
 [amfotericine b liposomaal.gluc 10%.energie]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_qty [5;10;15;20;25;30 g]
+[amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_cnc [0,0746;0,0758;0,0769 g/mL .. 0,0947;0,0948;0,0949 g/mL]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_dos_qty [5;10;15;20;25;30 g]
@@ -228,6 +233,7 @@ Orderable
 [morfine.morfine]_dos_tot_adj <0 ..>
 [morfine.morfine.morfin]_cmp_qty [1;10 mg]
 [morfine.morfine.morfin]_orb_qty [10 mg]
+[morfine.morfine.morfin]_orb_qty_adj <0 ..>
 [morfine.morfine.morfin]_cmp_cnc [1;10 mg/mL]
 [morfine.morfine.morfin]_orb_cnc [0,2 mg/mL]
 [morfine.morfine.morfin]_dos_qty [10 mg]
@@ -255,6 +261,7 @@ Orderable
 [morfine.gluc 10%]_dos_tot_adj <0 ..>
 [morfine.gluc 10%.energie]_cmp_qty [0,4 kCal]
 [morfine.gluc 10%.energie]_orb_qty [16;19,6 kCal]
+[morfine.gluc 10%.energie]_orb_qty_adj <0 ..>
 [morfine.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
 [morfine.gluc 10%.energie]_orb_cnc [0,32;0,392 kCal/mL]
 [morfine.gluc 10%.energie]_dos_qty [16;19,6 kCal]
@@ -267,6 +274,7 @@ Orderable
 [morfine.gluc 10%.energie]_dos_tot_adj <0 ..>
 [morfine.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [morfine.gluc 10%.koolhydraat]_orb_qty [4;4,9 g]
+[morfine.gluc 10%.koolhydraat]_orb_qty_adj <0 ..>
 [morfine.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
 [morfine.gluc 10%.koolhydraat]_orb_cnc [0,08;0,098 g/mL]
 [morfine.gluc 10%.koolhydraat]_dos_qty [4;4,9 g]
@@ -321,6 +329,7 @@ Orderable
 [paracetamol drank.paracetamol]_dos_tot_adj <0 ..>
 [paracetamol drank.paracetamol.paracetamol]_cmp_qty [120 mg]
 [paracetamol drank.paracetamol.paracetamol]_orb_qty [120;144;168;192;216;240;264;288 mg]
+[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj <0 ..>
 [paracetamol drank.paracetamol.paracetamol]_cmp_cnc [24 mg/mL]
 [paracetamol drank.paracetamol.paracetamol]_orb_cnc [24 mg/mL]
 [paracetamol drank.paracetamol.paracetamol]_dos_qty [120;144;168;192;216;240;264;288 mg]
@@ -375,6 +384,7 @@ Orderable
 [cotrimoxazol.cotrimoxazol]_dos_tot_adj <0 ..>
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_cmp_qty [40 mg]
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_orb_qty [280 mg]
+[cotrimoxazol.cotrimoxazol.sulfamethoxazol]_orb_qty_adj <0 ..>
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_cmp_cnc [40 mg/mL]
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_orb_cnc [40 mg/mL]
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_dos_qty [280 mg]
@@ -387,6 +397,7 @@ Orderable
 [cotrimoxazol.cotrimoxazol.sulfamethoxazol]_dos_tot_adj <0 ..>
 [cotrimoxazol.cotrimoxazol.trimethoprim]_cmp_qty [8 mg]
 [cotrimoxazol.cotrimoxazol.trimethoprim]_orb_qty [56 mg]
+[cotrimoxazol.cotrimoxazol.trimethoprim]_orb_qty_adj <0 ..>
 [cotrimoxazol.cotrimoxazol.trimethoprim]_cmp_cnc [8 mg/mL]
 [cotrimoxazol.cotrimoxazol.trimethoprim]_orb_cnc [8 mg/mL]
 [cotrimoxazol.cotrimoxazol.trimethoprim]_dos_qty [56 mg]
@@ -442,6 +453,7 @@ Orderable
 [samenstelling c.Samenstelling C]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.eiwit]_cmp_qty [0,08 g]
 [samenstelling c.Samenstelling C.eiwit]_orb_qty [12;16;20 g]
+[samenstelling c.Samenstelling C.eiwit]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.eiwit]_cmp_cnc [0,08 g/mL]
 [samenstelling c.Samenstelling C.eiwit]_orb_cnc [0,0145;0,0151 g/mL .. 0,0463;0,0464;0,0465 g/mL]
 [samenstelling c.Samenstelling C.eiwit]_dos_qty [12;16;20 g]
@@ -454,6 +466,7 @@ Orderable
 [samenstelling c.Samenstelling C.eiwit]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.natrium]_cmp_qty [0,01 mmol]
 [samenstelling c.Samenstelling C.natrium]_orb_qty [1,5;2;2,5 mmol]
+[samenstelling c.Samenstelling C.natrium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.natrium]_cmp_cnc [0,01 mmol/mL]
 [samenstelling c.Samenstelling C.natrium]_orb_cnc [0,00181;0,00189 mmol/mL .. 0,00579;0,0058;0,00581 mmol/mL]
 [samenstelling c.Samenstelling C.natrium]_dos_qty [1,5;2;2,5 mmol]
@@ -466,6 +479,7 @@ Orderable
 [samenstelling c.Samenstelling C.natrium]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.kalium]_cmp_qty [0,02 mmol]
 [samenstelling c.Samenstelling C.kalium]_orb_qty [3;4;5 mmol]
+[samenstelling c.Samenstelling C.kalium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.kalium]_cmp_cnc [0,02 mmol/mL]
 [samenstelling c.Samenstelling C.kalium]_orb_cnc [0,00361;0,00378 mmol/mL .. 0,0116 mmol/mL]
 [samenstelling c.Samenstelling C.kalium]_dos_qty [3;4;5 mmol]
@@ -493,6 +507,7 @@ Orderable
 [samenstelling c.NaCl 3%]_dos_tot_adj <0 ..>
 [samenstelling c.NaCl 3%.natrium]_cmp_qty [0,5 mmol]
 [samenstelling c.NaCl 3%.natrium]_orb_qty [30;32,5;35 mmol]
+[samenstelling c.NaCl 3%.natrium]_orb_qty_adj <0 ..>
 [samenstelling c.NaCl 3%.natrium]_cmp_cnc [0,5 mmol/mL]
 [samenstelling c.NaCl 3%.natrium]_orb_cnc [0,0361;0,0378 mmol/mL .. 0,0916;0,0919;0,0921 mmol/mL]
 [samenstelling c.NaCl 3%.natrium]_dos_qty [30;32,5;35 mmol]
@@ -520,6 +535,7 @@ Orderable
 [samenstelling c.KCl 7,4%]_dos_tot_adj <0 ..>
 [samenstelling c.KCl 7,4%.kalium]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.kalium]_orb_qty [20;21;22;23;24 mmol]
+[samenstelling c.KCl 7,4%.kalium]_orb_qty_adj <0 ..>
 [samenstelling c.KCl 7,4%.kalium]_cmp_cnc [1 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,0241 mmol/mL..0,0632 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_dos_qty [20;21;22;23;24 mmol]
@@ -547,6 +563,7 @@ Orderable
 [samenstelling c.gluc 10%]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [samenstelling c.gluc 10%.koolhydraat]_orb_qty [15;30;45;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_orb_qty_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,0181 g/mL..0,0723 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty [15;30;45;60 g]
@@ -602,6 +619,7 @@ Orderable
 [samenstelling c.Samenstelling C]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.energie]_cmp_qty [0,32 kCal]
 [samenstelling c.Samenstelling C.energie]_orb_qty [48;64;80 kCal]
+[samenstelling c.Samenstelling C.energie]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.energie]_cmp_cnc [0,32 kCal/mL]
 [samenstelling c.Samenstelling C.energie]_orb_cnc [0,0578;0,0605 kCal/mL .. 0,185;0,186 kCal/mL]
 [samenstelling c.Samenstelling C.energie]_dos_qty [48;64;80 kCal]
@@ -614,6 +632,7 @@ Orderable
 [samenstelling c.Samenstelling C.energie]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.eiwit]_cmp_qty [0,08 g]
 [samenstelling c.Samenstelling C.eiwit]_orb_qty [12;16;20 g]
+[samenstelling c.Samenstelling C.eiwit]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.eiwit]_cmp_cnc [0,08 g/mL]
 [samenstelling c.Samenstelling C.eiwit]_orb_cnc [0,0145;0,0151 g/mL .. 0,0463;0,0464;0,0465 g/mL]
 [samenstelling c.Samenstelling C.eiwit]_dos_qty [12;16;20 g]
@@ -626,6 +645,7 @@ Orderable
 [samenstelling c.Samenstelling C.eiwit]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.natrium]_cmp_qty [0,01 mmol]
 [samenstelling c.Samenstelling C.natrium]_orb_qty [1,5;2;2,5 mmol]
+[samenstelling c.Samenstelling C.natrium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.natrium]_cmp_cnc [0,01 mmol/mL]
 [samenstelling c.Samenstelling C.natrium]_orb_cnc [0,00181;0,00189 mmol/mL .. 0,00579;0,0058;0,00581 mmol/mL]
 [samenstelling c.Samenstelling C.natrium]_dos_qty [1,5;2;2,5 mmol]
@@ -638,6 +658,7 @@ Orderable
 [samenstelling c.Samenstelling C.natrium]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.kalium]_cmp_qty [0,02 mmol]
 [samenstelling c.Samenstelling C.kalium]_orb_qty [3;4;5 mmol]
+[samenstelling c.Samenstelling C.kalium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.kalium]_cmp_cnc [0,02 mmol/mL]
 [samenstelling c.Samenstelling C.kalium]_orb_cnc [0,00361;0,00378 mmol/mL .. 0,0116 mmol/mL]
 [samenstelling c.Samenstelling C.kalium]_dos_qty [3;4;5 mmol]
@@ -650,6 +671,7 @@ Orderable
 [samenstelling c.Samenstelling C.kalium]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.calcium]_cmp_qty [0,03 mmol]
 [samenstelling c.Samenstelling C.calcium]_orb_qty [4,5;6;7,5 mmol]
+[samenstelling c.Samenstelling C.calcium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.calcium]_cmp_cnc [0,03 mmol/mL]
 [samenstelling c.Samenstelling C.calcium]_orb_cnc [0,00542;0,00567 mmol/mL .. 0,0174 mmol/mL]
 [samenstelling c.Samenstelling C.calcium]_dos_qty [4,5;6;7,5 mmol]
@@ -662,6 +684,7 @@ Orderable
 [samenstelling c.Samenstelling C.calcium]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.fosfaat]_cmp_qty [0,02 mmol]
 [samenstelling c.Samenstelling C.fosfaat]_orb_qty [3;4;5 mmol]
+[samenstelling c.Samenstelling C.fosfaat]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.fosfaat]_cmp_cnc [0,02 mmol/mL]
 [samenstelling c.Samenstelling C.fosfaat]_orb_cnc [0,00361;0,00378 mmol/mL .. 0,0116 mmol/mL]
 [samenstelling c.Samenstelling C.fosfaat]_dos_qty [3;4;5 mmol]
@@ -674,6 +697,7 @@ Orderable
 [samenstelling c.Samenstelling C.fosfaat]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.magnesium]_cmp_qty [0,01 mmol]
 [samenstelling c.Samenstelling C.magnesium]_orb_qty [1,5;2;2,5 mmol]
+[samenstelling c.Samenstelling C.magnesium]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.magnesium]_cmp_cnc [0,01 mmol/mL]
 [samenstelling c.Samenstelling C.magnesium]_orb_cnc [0,00181;0,00189 mmol/mL .. 0,00579;0,0058;0,00581 mmol/mL]
 [samenstelling c.Samenstelling C.magnesium]_dos_qty [1,5;2;2,5 mmol]
@@ -686,6 +710,7 @@ Orderable
 [samenstelling c.Samenstelling C.magnesium]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C.chloor]_cmp_qty [0,07 mmol]
 [samenstelling c.Samenstelling C.chloor]_orb_qty [10,5;14;17,5 mmol]
+[samenstelling c.Samenstelling C.chloor]_orb_qty_adj <0 ..>
 [samenstelling c.Samenstelling C.chloor]_cmp_cnc [0,07 mmol/mL]
 [samenstelling c.Samenstelling C.chloor]_orb_cnc [0,0127;0,0132 mmol/mL .. 0,0405;0,0406;0,0407 mmol/mL]
 [samenstelling c.Samenstelling C.chloor]_dos_qty [10,5;14;17,5 mmol]
@@ -713,6 +738,7 @@ Orderable
 [samenstelling c.NaCl 3%]_dos_tot_adj <0 ..>
 [samenstelling c.NaCl 3%.natrium]_cmp_qty [0,5 mmol]
 [samenstelling c.NaCl 3%.natrium]_orb_qty [30;32,5;35 mmol]
+[samenstelling c.NaCl 3%.natrium]_orb_qty_adj <0 ..>
 [samenstelling c.NaCl 3%.natrium]_cmp_cnc [0,5 mmol/mL]
 [samenstelling c.NaCl 3%.natrium]_orb_cnc [0,0361;0,0378 mmol/mL .. 0,0916;0,0919;0,0921 mmol/mL]
 [samenstelling c.NaCl 3%.natrium]_dos_qty [30;32,5;35 mmol]
@@ -725,6 +751,7 @@ Orderable
 [samenstelling c.NaCl 3%.natrium]_dos_tot_adj <0 ..>
 [samenstelling c.NaCl 3%.chloor]_cmp_qty [0,5 mmol]
 [samenstelling c.NaCl 3%.chloor]_orb_qty [30;32,5;35 mmol]
+[samenstelling c.NaCl 3%.chloor]_orb_qty_adj <0 ..>
 [samenstelling c.NaCl 3%.chloor]_cmp_cnc [0,5 mmol/mL]
 [samenstelling c.NaCl 3%.chloor]_orb_cnc [0,0361;0,0378 mmol/mL .. 0,0916;0,0919;0,0921 mmol/mL]
 [samenstelling c.NaCl 3%.chloor]_dos_qty [30;32,5;35 mmol]
@@ -752,6 +779,7 @@ Orderable
 [samenstelling c.KCl 7,4%]_dos_tot_adj <0 ..>
 [samenstelling c.KCl 7,4%.kalium]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.kalium]_orb_qty [20;21;22;23;24 mmol]
+[samenstelling c.KCl 7,4%.kalium]_orb_qty_adj <0 ..>
 [samenstelling c.KCl 7,4%.kalium]_cmp_cnc [1 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,0241 mmol/mL..0,0632 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_dos_qty [20;21;22;23;24 mmol]
@@ -764,6 +792,7 @@ Orderable
 [samenstelling c.KCl 7,4%.kalium]_dos_tot_adj <0 ..>
 [samenstelling c.KCl 7,4%.chloor]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.chloor]_orb_qty [20;21;22;23;24 mmol]
+[samenstelling c.KCl 7,4%.chloor]_orb_qty_adj <0 ..>
 [samenstelling c.KCl 7,4%.chloor]_cmp_cnc [1 mmol/mL]
 [samenstelling c.KCl 7,4%.chloor]_orb_cnc [0,0241 mmol/mL..0,0632 mmol/mL]
 [samenstelling c.KCl 7,4%.chloor]_dos_qty [20;21;22;23;24 mmol]
@@ -791,6 +820,7 @@ Orderable
 [samenstelling c.gluc 10%]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.energie]_cmp_qty [0,4 kCal]
 [samenstelling c.gluc 10%.energie]_orb_qty [60;120;180;240 kCal]
+[samenstelling c.gluc 10%.energie]_orb_qty_adj <0 ..>
 [samenstelling c.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
 [samenstelling c.gluc 10%.energie]_orb_cnc [0,0723 kCal/mL..0,289 kCal/mL]
 [samenstelling c.gluc 10%.energie]_dos_qty [60;120;180;240 kCal]
@@ -803,6 +833,7 @@ Orderable
 [samenstelling c.gluc 10%.energie]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [samenstelling c.gluc 10%.koolhydraat]_orb_qty [15;30;45;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_orb_qty_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,0181 g/mL..0,0723 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty [15;30;45;60 g]
@@ -858,6 +889,7 @@ Orderable
 [Test Medication Complete.Main Component]_dos_tot_adj <0 ..>
 [Test Medication Complete.Main Component.Active Substance]_cmp_qty [10 mg]
 [Test Medication Complete.Main Component.Active Substance]_orb_qty [100 mg]
+[Test Medication Complete.Main Component.Active Substance]_orb_qty_adj <0 ..>
 [Test Medication Complete.Main Component.Active Substance]_cmp_cnc [10 mg/mL]
 [Test Medication Complete.Main Component.Active Substance]_orb_cnc [2 mg/mL]
 [Test Medication Complete.Main Component.Active Substance]_dos_qty [10;12;14;16;18;20 mg]
@@ -885,6 +917,7 @@ Orderable
 [Test Medication Complete.Diluent Component]_dos_tot_adj <0 ..>
 [Test Medication Complete.Diluent Component.natrium]_cmp_qty [0,154 mmol]
 [Test Medication Complete.Diluent Component.natrium]_orb_qty [6,16 mmol]
+[Test Medication Complete.Diluent Component.natrium]_orb_qty_adj <0 ..>
 [Test Medication Complete.Diluent Component.natrium]_cmp_cnc [0,154 mmol/mL]
 [Test Medication Complete.Diluent Component.natrium]_orb_cnc [0,123 mmol/mL]
 [Test Medication Complete.Diluent Component.natrium]_dos_qty [0,616;0,739;0,862;0,986;1,11;1,23 mmol]
