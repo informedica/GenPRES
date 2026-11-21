@@ -191,10 +191,25 @@ All checks are warnings in the resource messages, like the other rule checks.
 - Add `[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty` to `EquationMapping.equations`.
 - `getEqsMapping` selects the dose adjust equations and the orderable quantity adjust equations
   independently, as in the chosen approach. `usesAdjust` stays as it is for its other callers.
+- The wire: add the variable to the wire Component (`Shared/Types.fs:290`), to
+  `Models.Order.Component.create` (`Shared/Models.fs:882`) and to the server mapper
+  (`ServerApi.Mappers.Order.fs:189`, `:205`). The server rebuilds the GenORDER Dto from the wire
+  field by field, and a Dto variable without a name does not read, so the variable goes on the wire
+  in the step that adds it. It does not go into `ItemProperty`; the client shows nothing new.
+- The equations list holds every equation, the tie equations and the component rate equation included.
+  `getEqsMapping` recognises the tie equations, the component rate equation and the orderable quantity
+  adjust equation by their text.
+- `OrderVariableReference` gets `ComponentOrderableQuantityAdjust`, so every variable of an order has a
+  reference.
+- The stored order plan JSON has the new variable, so its structure version goes from 16 to 17. A row
+  of version 16 loads as unreadable.
+- The equations table of the tests, a copy of the Equations sheet, gets the new equation as row 69. The
+  Equations sheet itself needs the same row by hand.
 - Tests: the Dto round trip with the new variable; an order with only a limit on the new variable gets
-  the orderable quantity adjust equation and no dose adjust equations; an order with only an adjusted
-  dose limit gets no orderable quantity adjust equation; the golden orders stay the same.
-- Estimate: 50 to 80 lines.
+  the orderable quantity adjust equation and no dose adjust equations; a limit on the new variable
+  leaves the other equations as they are; a limit of 1 mL/kg bounds the orderable quantity. The golden
+  orders print one more line per component, the new variable without a value; no other line changes.
+- Built: 122 changed lines under `src/`.
 
 ### Step 7: the component limit per adjust (GenORDER)
 
@@ -214,7 +229,10 @@ All checks are warnings in the resource messages, like the other rule checks.
 ### Step 8: the item quantity per adjust in the order model (GenORDER)
 
 - As step 6, for the item: `OrderableQuantityAdjust` on the item, the equation
-  `[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty`, and the orderable quantity adjust selection.
+  `[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty`, the orderable quantity adjust selection, and the
+  wire Item (`Shared/Types.fs:256`).
+- The stored order plan JSON gets the new variable, so its structure version goes from 17 to 18, with a
+  version 18 fixture and a test that a version 17 row loads as unreadable.
 - Estimate: 50 to 70 lines.
 
 ### Step 9: the item limit per adjust (GenORDER)
@@ -238,7 +256,10 @@ All checks are warnings in the resource messages, like the other rule checks.
 ### Step 11: the orderable quantity per adjust in the order model (GenORDER)
 
 - As step 6, for the orderable: `OrderableQuantityAdjust` on the orderable, the equation
-  `[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty`, and the orderable quantity adjust selection.
+  `[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty`, the orderable quantity adjust selection, and the
+  wire Orderable (`Shared/Types.fs:308`).
+- The stored order plan JSON gets the new variable, so its structure version goes from 18 to 19, with a
+  version 19 fixture and a test that a version 18 row loads as unreadable.
 - Estimate: 50 to 70 lines.
 
 ### Step 12: the orderable limit per adjust (GenORDER)
@@ -265,11 +286,7 @@ All checks are warnings in the resource messages, like the other rule checks.
 
 ### Step 14: the wire (Shared, Server)
 
-- Add the three variables to the wire Item (`Shared/Types.fs:256`), Component (`:290`) and Orderable
-  (`:308`), to `Shared/Models.fs`, and to the server mapper (`ServerApi.Mappers.Order.fs`). They do
-  not go into `ItemProperty` (`Shared/Types.fs:469`), which holds the values a user can pick.
-- The client compiles and shows nothing new.
-- Estimate: 40 to 70 lines.
+- Done in steps 6, 8 and 11: each variable goes on the wire in the step that adds it to the order model.
 
 ### Step 15: the column names (GenFORM)
 
