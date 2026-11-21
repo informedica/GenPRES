@@ -212,7 +212,8 @@ let tests =
             }
 
             test "an order from the workbench at another weight and back is the same order" {
-                let p = Fixture.provider ()
+                // a rule per kg, so the order depends on the weight
+                let p = Fixture.perKgWithMaximum ()
                 let start = Fixture.adult 40N
                 let ctx = Fixture.contextAt p 40N
                 let signed = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication ctx |]

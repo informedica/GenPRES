@@ -1004,9 +1004,10 @@ module Medication =
             }
 
 
-    /// Creates a medication from the patient data, the adjust unit, the dose limit, a dose rule and an optional
-    /// solution rule. Without a solution rule the dose count is 1.
-    let create logger (patientData: PatientData) au dose (dr: DoseRule) (solRule: SolutionRule option) =
+    /// Creates a medication from the patient data, the dose limit, a dose rule and an optional solution rule.
+    /// The medication adjusts by the adjust unit of the dose rule, else that of the solution rule, and not at
+    /// all when neither rule has one. Without a solution rule the dose count is 1.
+    let create logger (patientData: PatientData) dose (dr: DoseRule) (solRule: SolutionRule option) =
         { template with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> Generic.toString
@@ -1033,22 +1034,17 @@ module Medication =
                 | DoseType.NoDoseType -> AnyOrder
             Dose = dose
             Adjust =
-                if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
-                    patientData |> CorePatientData.weightInKg
-                else
-                    patientData |> CorePatientData.bodySurfaceArea
+                dr.AdjustUnit
+                |> Option.orElse (solRule |> Option.bind _.AdjustUnit)
+                |> PatientData.adjustValue patientData
         }
         |> addSolutionRule logger patientData solRule
 
 
     /// Creates a medication for every solution rule of the prescription rule, or one medication when it has no
-    /// solution rules, and logs each medication. The adjust unit is kg when the dose rule gives none.
+    /// solution rules, and logs each medication.
     let fromRule logger (pr: PrescriptionRule) =
-        let au = pr.DoseRule.AdjustUnit |> Option.defaultValue Units.Weight.kiloGram
-
-        let dose = pr.DoseRule.FormLimit
-
-        let create = create logger pr.PatientData au dose pr.DoseRule
+        let create = create logger pr.PatientData pr.DoseRule.FormLimit pr.DoseRule
 
         let meds =
             if pr.SolutionRules |> Array.isEmpty then
