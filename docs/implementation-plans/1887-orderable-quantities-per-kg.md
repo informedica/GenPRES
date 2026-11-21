@@ -329,6 +329,9 @@ All checks are warnings in the resource messages, like the other rule checks.
   the column-contract test (`tests/Informedica.GenFORM.Tests/Tests.fs:1106`), and the tests that build
   the `Data` record (`Tests.fs:6435`, `:8457`, `:9323`).
 - Estimate: 10 to 20 lines.
+- A test checks that MinQtyAdj and MaxQtyAdj are read into the new fields. The column contract already
+  checks that a sheet without them, such as one with the old names, does not read.
+- Built: 16 changed lines under `src/`.
 
 ### Step 16: the data sheet columns (solution rule sheet)
 

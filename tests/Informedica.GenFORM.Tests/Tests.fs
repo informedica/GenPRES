@@ -1104,8 +1104,8 @@ module DoseRuleToDataTests =
                     "Quantities"
                     "MinQty"
                     "MaxQty"
-                    "MinQtyPerKg"
-                    "MaxQtyPerKg"
+                    "MinQtyAdj"
+                    "MaxQtyAdj"
                     "MinDrip"
                     "MaxDrip"
                     "MinConc"
@@ -1195,6 +1195,20 @@ module DoseRuleToDataTests =
                                             $"%s{name}.%s{col} is declared optional but the parser requires it"
                                     }
                             ]
+
+                    test "SolutionRules reads the quantity per adjust unit from MinQtyAdj and MaxQtyAdj" {
+                        let columns =
+                            sheets
+                            |> List.pick (fun (name, columns, _, _, _) ->
+                                if name = "SolutionRules" then Some columns else None
+                            )
+
+                        columns
+                        |> mkSheet [ "MinQtyAdj", "1"; "MaxQtyAdj", "2" ]
+                        |> SolutionRule.parseSolutionRuleData
+                        |> Result.map (Array.map (fun r -> r.MinQtyAdj, r.MaxQtyAdj))
+                        |> Expect.equal "1 and 2" (Ok [| Some 1N, Some 2N |])
+                    }
 
                     test "Totals reads the gestational age bounds" {
                         let cells =
@@ -6447,8 +6461,8 @@ module Tests =
                                 Quantities = [||]
                                 MinQty = None
                                 MaxQty = None
-                                MinQtyPerKg = None
-                                MaxQtyPerKg = None
+                                MinQtyAdj = None
+                                MaxQtyAdj = None
                                 MinDrip = None
                                 MaxDrip = None
                                 MinConc = None
@@ -8462,8 +8476,8 @@ module Tests =
                 Quantities = [||]
                 MinQty = None
                 MaxQty = None
-                MinQtyPerKg = None
-                MaxQtyPerKg = None
+                MinQtyAdj = None
+                MaxQtyAdj = None
                 MinDrip = None
                 MaxDrip = None
                 MinConc = Some(1N / 10N)
@@ -9332,8 +9346,8 @@ module Tests =
                                     MinConc = None
                                     MaxConc = None
                                     AdjustUnit = "kg"
-                                    MinQtyPerKg = Some 36N
-                                    MaxQtyPerKg = Some 44N
+                                    MinQtyAdj = Some 36N
+                                    MaxQtyAdj = Some 44N
                                 }
 
                             let mapped rows =
@@ -12008,7 +12022,7 @@ module Tests =
             { RuleCheckTests.solutionRow "gen" [] with
                 AdjustUnit = cell
                 MaxVolAdj = Some 10N
-                MaxQtyPerKg = Some 5N
+                MaxQtyAdj = Some 5N
             }
 
 
@@ -12187,7 +12201,7 @@ module Tests =
         let row cell maxQtyAdj =
             { RuleCheckTests.solutionRow "gen" [] with
                 AdjustUnit = cell
-                MaxQtyPerKg = maxQtyAdj
+                MaxQtyAdj = maxQtyAdj
             }
 
 

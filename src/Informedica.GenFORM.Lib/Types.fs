@@ -1154,10 +1154,10 @@ module Types =
                 Quantities: BigRational array
                 MinQty: BigRational option
                 MaxQty: BigRational option
-                /// the minimum quantity per AdjustUnit; sheet column "MinQtyPerKg"
-                MinQtyPerKg: BigRational option
-                /// the maximum quantity per AdjustUnit; sheet column "MaxQtyPerKg"
-                MaxQtyPerKg: BigRational option
+                /// the minimum quantity per AdjustUnit; sheet column "MinQtyAdj"
+                MinQtyAdj: BigRational option
+                /// the maximum quantity per AdjustUnit; sheet column "MaxQtyAdj"
+                MaxQtyAdj: BigRational option
                 /// infusion (drip) rate bounds in mL/hour
                 MinDrip: BigRational option
                 MaxDrip: BigRational option
