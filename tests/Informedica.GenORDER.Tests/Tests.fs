@@ -3705,11 +3705,11 @@ module ComponentOrderableQuantityAdjustTests =
         |> List.fold (fun o cmd -> o |> TestOrder.solve cmd) ord
 
 
-    /// The paracetamol suppository without its dose per kg, so the order has no adjusted dose constraints.
-    let pcmSuppWithoutAdjustedDose =
-        { Scenarios.pcmSupp with
+    /// The medication without the doses of its substances, so its order has no adjusted dose constraints.
+    let withoutAdjustedDose (med: Medication) =
+        { med with
             Components =
-                Scenarios.pcmSupp.Components
+                med.Components
                 |> List.map (fun pc ->
                     { pc with Substances = pc.Substances |> List.map (fun si -> { si with Dose = None }) }
                 )
@@ -3787,7 +3787,7 @@ module ComponentOrderableQuantityAdjustTests =
                     ]
 
                 test "an order with only the component limit gets no dose adjust equations" {
-                    let ord = pcmSuppWithoutAdjustedDose |> TestOrder.toOrder
+                    let ord = Scenarios.pcmSupp |> withoutAdjustedDose |> TestOrder.toOrder
 
                     // the order must have no adjusted dose constraints for this test to say anything
                     ord

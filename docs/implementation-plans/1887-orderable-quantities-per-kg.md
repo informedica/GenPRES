@@ -69,10 +69,11 @@ Approach 2, with the decisions recorded in the issue and in review:
     limit.
 
   An order whose only limit per adjust is a solution limit gets no dose adjust equations, so no
-  adjusted dose is calculated. The other callers of `usesAdjust` keep looking only at the adjusted
+  adjusted dose is calculated. Two other callers of `usesAdjust` keep looking only at the adjusted
   doses: `UseAdjust` (`OrderContext.fs:205`, whether the table and the client show doses per kg or per
-  m2), `hasNoAdjustedDose` (`OrderContext.fs:1831`, the `NoAdjustedDose` refusal) and the `Readjust`
-  skip (`OrderProcessor.fs:1380`).
+  m2) and `hasNoAdjustedDose` (`OrderContext.fs:1831`, the `NoAdjustedDose` refusal). `Readjust` skips
+  only an order with neither an adjusted dose limit nor an orderable quantity adjust limit, and sets
+  back the orderable quantity adjust variables with the adjusted doses.
 - **Wire only.** The three variables go into the order Dto, the wire types and the server mapper. The
   client receives them and shows nothing new.
 
@@ -182,7 +183,7 @@ All checks are warnings in the resource messages, like the other rule checks.
   each medication takes the adjust unit of its own solution rule; the golden orders stay the same.
 - The plan test of a workbench order at another weight used a rule without an adjust unit, which
   followed the weight only through the kg fallback. It now uses a rule per kg.
-- Built: 22 changed lines under `src/`.
+- Built: 143 changed lines under `src/`.
 
 ### Step 6: the component quantity per adjust in the order model (GenORDER)
 
@@ -201,6 +202,9 @@ All checks are warnings in the resource messages, like the other rule checks.
   adjust equation by their text.
 - `OrderVariableReference` gets `ComponentOrderableQuantityAdjust`, so every variable of an order has a
   reference.
+- `Readjust` sets back `[cmp]_orb_qty_adj` with the adjusted doses, so after a weight change the order
+  keeps its component quantity and calculates the new value per adjust unit. It skips only an order with
+  neither an adjusted dose limit nor a component limit per adjust unit.
 - The stored order plan JSON has the new variable, so its structure version goes from 16 to 17. A row
   of version 16 loads as unreadable.
 - The equations table of the tests, a copy of the Equations sheet, gets the new equation as row 69. The
@@ -209,7 +213,7 @@ All checks are warnings in the resource messages, like the other rule checks.
   the orderable quantity adjust equation and no dose adjust equations; a limit on the new variable
   leaves the other equations as they are; a limit of 1 mL/kg bounds the orderable quantity. The golden
   orders print one more line per component, the new variable without a value; no other line changes.
-- Built: 122 changed lines under `src/`.
+- Built: 143 changed lines under `src/`.
 
 ### Step 7: the component limit per adjust (GenORDER)
 
