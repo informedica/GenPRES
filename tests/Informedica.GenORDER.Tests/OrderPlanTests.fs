@@ -12,6 +12,7 @@ open Expecto.Flip
 
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
@@ -3818,5 +3819,94 @@ let refusalWithoutLimitsTests =
                 Electrolytes.patient "ICK" 20N
                 |> refusal 3000N
                 |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
+            }
+        ]
+
+
+/// The adjust of an order: the adjust unit of the dose rule, else that of the solution rule, and no adjust
+/// when neither rule gives one.
+let orderAdjustUnitTests =
+    let kg = Units.Weight.kiloGram
+    let m2 = Units.BSA.m2
+
+    // a child of 20 kg and 120 cm, so with a body surface area
+    let child =
+        PatientData.unknown
+        |> SamplePatients.withWeightInKg 20m
+        |> SamplePatients.withHeightInCm 120m
+
+    let weight = child |> CorePatientData.weightInKg
+    let bsa = child |> CorePatientData.bodySurfaceArea
+
+    let doseRuleOf row = [| row |] |> RuleFixtures.rules |> Array.exactlyOne
+
+    // the paracetamol dose rule at most 100 mg, without an adjust unit
+    let doseRuleWithoutAdjust = RuleFixtures.row "" |> doseRuleOf
+
+    // the paracetamol dose rule at most 20 mg/kg
+    let doseRulePerKg = RuleFixtures.perKgRow "" |> doseRuleOf
+
+    let solutionRule au =
+        { Electrolytes.solutionRule 3000N with
+            AdjustUnit = au
+            DilutionLimits = [||]
+        }
+
+    // the adjust of each medication of the prescription rule for the patient
+    let adjustsFor pat dr solRules =
+        {
+            PatientData = pat
+            DoseRule = dr
+            SolutionRules = solRules
+            RenalRules = [||]
+        }
+        |> Medication.fromRule OrderLogging.noOp
+        |> Array.map _.Adjust
+
+    let adjusts = adjustsFor child
+
+    testList
+        "the adjust unit of the order"
+        [
+            // without a weight and a body surface area, an expected weight or body surface area is None
+            // and the tests below could pass on None = None
+            test "the child has a weight and a body surface area" {
+                weight |> Expect.isSome "a weight"
+                bsa |> Expect.isSome "a body surface area"
+            }
+
+            test "a dose rule without an adjust unit and no solution rule gives no adjust" {
+                adjusts doseRuleWithoutAdjust [||] |> Expect.equal "no adjust" [| None |]
+            }
+
+            test "a dose rule per kg adjusts by the weight" {
+                adjusts doseRulePerKg [||] |> Expect.equal "the weight" [| weight |]
+            }
+
+            test "a dose rule without an adjust unit and a solution rule per m2 adjusts by the body surface area" {
+                adjusts doseRuleWithoutAdjust [| solutionRule (Some m2) |]
+                |> Expect.equal "the body surface area" [| bsa |]
+            }
+
+            test "a dose rule without an adjust unit and a solution rule per kg adjusts by the weight" {
+                adjusts doseRuleWithoutAdjust [| solutionRule (Some kg) |]
+                |> Expect.equal "the weight" [| weight |]
+            }
+
+            test "neither rule with an adjust unit gives no adjust" {
+                adjusts doseRuleWithoutAdjust [| solutionRule None |]
+                |> Expect.equal "no adjust" [| None |]
+            }
+
+            test "each medication takes the adjust unit of its own solution rule" {
+                adjusts doseRuleWithoutAdjust [| solutionRule (Some kg); solutionRule (Some m2); solutionRule None |]
+                |> Expect.equal "weight, body surface area, none" [| weight; bsa; None |]
+            }
+
+            test "a solution rule per m2 for a patient with only a weight gives no adjust" {
+                let pat = PatientData.unknown |> SamplePatients.withWeightInKg 20m
+
+                adjustsFor pat doseRuleWithoutAdjust [| solutionRule (Some m2) |]
+                |> Expect.equal "no adjust" [| None |]
             }
         ]

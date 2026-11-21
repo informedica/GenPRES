@@ -5845,6 +5845,7 @@ let tests =
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
             OrderPlanTests.refusalWithoutLimitsTests
+            OrderPlanTests.orderAdjustUnitTests
             OrderPlanTests.listsOfOtherPicksTests
             OrderPlanTests.argumentationTests
             OrderPlanTests.linkTests
