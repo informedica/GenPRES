@@ -880,13 +880,14 @@ module Models =
 
         module Component =
 
-            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii pp =
+            let create id nm sh cmp_qty orb_qty orb_qty_adj orb_cnt ord_qty ord_cnt orb_cnc dos ii pp =
                 {
                     Id = id
                     Name = nm
                     Form = sh
                     ComponentQuantity = cmp_qty
                     OrderableQuantity = orb_qty
+                    OrderableQuantityAdjust = orb_qty_adj
                     OrderableCount = orb_cnt
                     OrderQuantity = ord_qty
                     OrderCount = ord_cnt

@@ -286,6 +286,9 @@ module OrderProcessor =
                 tryComponent c |> Option.map (_.ComponentQuantity >> Quantity.toOrdVar)
             | OrderVariableReference.ComponentOrderableQuantity c ->
                 tryComponent c |> Option.map (_.OrderableQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ComponentOrderableQuantityAdjust c ->
+                tryComponent c
+                |> Option.map (_.OrderableQuantityAdjust >> QuantityAdjust.toOrdVar)
             | OrderVariableReference.ComponentOrderableCount c ->
                 tryComponent c |> Option.map (_.OrderableCount >> Count.toOrdVar)
             | OrderVariableReference.ComponentOrderableConcentration c ->

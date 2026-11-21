@@ -294,6 +294,8 @@ module Types =
             Form: string
             ComponentQuantity: OrderVariable
             OrderableQuantity: OrderVariable
+            /// The quantity of the component in the orderable per adjust unit of the order
+            OrderableQuantityAdjust: OrderVariable
             OrderableCount: OrderVariable
             OrderQuantity: OrderVariable
             OrderCount: OrderVariable
