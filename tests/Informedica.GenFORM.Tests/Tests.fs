@@ -2129,6 +2129,18 @@ module Tests =
     type PatientDataError = Informedica.GenCore.Lib.Patients.PatientDataError
 
 
+    /// The units the tests use most.
+    module TestUnits =
+
+        let kg = Units.Weight.kiloGram
+        let m2 = Units.BSA.m2
+        let mg = Units.Mass.milliGram
+        let mL = Units.Volume.milliLiter
+
+
+    open TestUnits
+
+
     /// Builds the patient data of the tests. Each function sets one value of a patient.
     module TestPatient =
 
@@ -2308,9 +2320,7 @@ module Tests =
 
         let mkLimit v u = Limit.Inclusive(ValueUnit.singleWithUnit u v)
 
-        let mg = Units.Mass.milliGram
         let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
-        let kg = Units.Weight.kiloGram
         let day = Units.Time.day
         let mgPerDay = mg |> ValueUnit.per day
         let mgPerKgPerDay = mgPerKg |> ValueUnit.per day
@@ -2526,7 +2536,6 @@ module Tests =
     /// frequency (otherwise the solver fails with an empty frequency set).
     module MaxQtyConflictTests =
 
-        let kg = Units.Weight.kiloGram
 
         // --- build DoseRuleData rows programmatically, by column NAME ---
 
@@ -4974,9 +4983,7 @@ module Tests =
         open System.IO
 
 
-        let mg = Units.Mass.milliGram
         let gram = Units.Mass.gram
-        let kg = Units.Weight.kiloGram
         let day = Units.Time.day
         let perDay u = u |> ValueUnit.per day
         let perKg u = u |> ValueUnit.per kg
@@ -6689,7 +6696,6 @@ module Tests =
 
 
         let day = Units.Time.day
-        let kg = Units.Weight.kiloGram
 
 
         let range u min max =
@@ -7620,8 +7626,6 @@ module Tests =
 
         module RR = RenalReductionTests
 
-        let private mL = Units.Volume.milliLiter
-        let private m2 = Units.BSA.m2
         let private perM2 u = u |> ValueUnit.per m2
 
         let private years n = ValueUnit.singleWithUnit RR.day (n * 365N)
@@ -7648,13 +7652,13 @@ module Tests =
 
         let private doseLimit adjustUnit = { RR.doseLimit with AdjustUnit = adjustUnit }
 
-        let private absoluteLimit = { doseLimit None with Quantity = RR.range RR.mg (Some 500N) (Some 1000N) }
+        let private absoluteLimit = { doseLimit None with Quantity = RR.range mg (Some 500N) (Some 1000N) }
 
         let private perKgLimit =
-            { doseLimit (Some RR.kg) with QuantityAdjust = RR.range (RR.perKg RR.mg) (Some 10N) (Some 20N) }
+            { doseLimit (Some kg) with QuantityAdjust = RR.range (RR.perKg mg) (Some 10N) (Some 20N) }
 
         let private perM2Limit =
-            { doseLimit (Some m2) with PerTimeAdjust = RR.range (RR.mg |> perM2 |> RR.perDay) None (Some 500N) }
+            { doseLimit (Some m2) with PerTimeAdjust = RR.range (mg |> perM2 |> RR.perDay) None (Some 500N) }
 
         /// A demo dose rule of paracetamol for a child of 5 years, whatever the weight.
         let private paracetamol =
@@ -7738,18 +7742,18 @@ module Tests =
                     test "a limit needs a measurement only for a per kg or per m2 bound" {
                         [
                             absoluteLimit
-                            { absoluteLimit with AdjustUnit = Some RR.kg }
+                            { absoluteLimit with AdjustUnit = Some kg }
                             perKgLimit
                             perM2Limit
                         ]
                         |> List.map PrescriptionRule.doseLimitMeasures
                         |> Expect.equal
                             "absolute, an adjust unit with absolute bounds, per kg, per m2"
-                            [ []; []; [ RR.kg ]; [ m2 ] ]
+                            [ []; []; [ kg ]; [ m2 ] ]
                     }
 
                     test "a limit with an adjust unit and only absolute bounds is unchanged without a weight" {
-                        let dl = { absoluteLimit with AdjustUnit = Some RR.kg }
+                        let dl = { absoluteLimit with AdjustUnit = Some kg }
 
                         dl
                         |> PrescriptionRule.adjustDoseLimitToPatient None noWeight
@@ -7758,7 +7762,7 @@ module Tests =
 
                     test "a per kg limit is adjusted with a weight and unchanged without one" {
                         // 10 to 20 mg/kg with at most 200 mg: at 30 kg the per kg minimum, 300 mg, conflicts
-                        let dl = { perKgLimit with Quantity = RR.range RR.mg None (Some 200N) }
+                        let dl = { perKgLimit with Quantity = RR.range mg None (Some 200N) }
 
                         dl
                         |> PrescriptionRule.adjustDoseLimitToPatient None noWeight
@@ -7768,11 +7772,11 @@ module Tests =
                         adjusted.QuantityAdjust
                         |> Expect.equal "the per kg range is pinned" MinMax.empty
                         adjusted.Quantity
-                        |> Expect.equal "to 200 mg" (RR.range RR.mg (Some 200N) (Some 200N))
+                        |> Expect.equal "to 200 mg" (RR.range mg (Some 200N) (Some 200N))
                     }
 
                     test "a per m2 limit is unchanged for a patient with a weight and no height" {
-                        let dl = { perM2Limit with PerTime = RR.range (RR.perDay RR.mg) None (Some 100N) }
+                        let dl = { perM2Limit with PerTime = RR.range (RR.perDay mg) None (Some 100N) }
 
                         dl
                         |> PrescriptionRule.adjustDoseLimitToPatient None weightOnly
@@ -7831,18 +7835,18 @@ module Tests =
                             { ruleWith noWeight absoluteLimit with RenalRules = [| RR.reducedRule limit |] }
 
                         [
-                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg RR.mg) None (Some 10N)))
+                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg mg) None (Some 10N)))
                             |> PrescriptionRule.isPrescribable noWeight
-                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg RR.mg) None (Some 10N)))
+                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg mg) None (Some 10N)))
                             |> PrescriptionRule.isPrescribable weightOnly
-                            withRenal (renalLimit (RR.range RR.mg None (Some 500N)) MinMax.empty)
+                            withRenal (renalLimit (RR.range mg None (Some 500N)) MinMax.empty)
                             |> PrescriptionRule.isPrescribable noWeight
                         ]
                         |> Expect.equal "per kg without and with a weight, absolute without" [ false; true; true ]
                     }
 
                     test "strict: a replacing renal rule keeps the per kg bounds of the dose rule without a weight" {
-                        let rr = RR.reducedRule (renalLimit (RR.range RR.mg (Some 500N) (Some 750N)) MinMax.empty)
+                        let rr = RR.reducedRule (renalLimit (RR.range mg (Some 500N) (Some 750N)) MinMax.empty)
 
                         // the prescription rule of the patient after the renal step
                         let adjusted pat =
@@ -7853,7 +7857,7 @@ module Tests =
 
                         let noWeightLimit = dl noWeight
                         noWeightLimit.Quantity
-                        |> Expect.equal "500 to 750 mg" (RR.range RR.mg (Some 500N) (Some 750N))
+                        |> Expect.equal "500 to 750 mg" (RR.range mg (Some 500N) (Some 750N))
                         noWeightLimit.QuantityAdjust
                         |> Expect.equal "10 to 20 mg/kg stays" perKgLimit.QuantityAdjust
 
@@ -7863,7 +7867,7 @@ module Tests =
 
                         let weightLimit = dl weightOnly
                         weightLimit.Quantity
-                        |> Expect.equal "500 to 750 mg at 30 kg" (RR.range RR.mg (Some 500N) (Some 750N))
+                        |> Expect.equal "500 to 750 mg at 30 kg" (RR.range mg (Some 500N) (Some 750N))
                         weightLimit.QuantityAdjust |> Expect.equal "the per kg range goes" MinMax.empty
                     }
 
@@ -7871,7 +7875,7 @@ module Tests =
                         let rr =
                             RR.reducedRule
                                 { renalLimit MinMax.empty MinMax.empty with
-                                    PerTime = RR.range (RR.perDay RR.mg) None (Some 2000N)
+                                    PerTime = RR.range (RR.perDay mg) None (Some 2000N)
                                 }
 
                         let dl = (ruleWith noWeight perKgLimit).DoseRule |> RenalRule.adjustDoseRule noWeight rr
@@ -7884,22 +7888,20 @@ module Tests =
                         let rr =
                             RR.reducedRule
                                 { renalLimit MinMax.empty MinMax.empty with
-                                    PerTime = RR.range (RR.perDay RR.mg) None (Some 2000N)
+                                    PerTime = RR.range (RR.perDay mg) None (Some 2000N)
                                 }
 
                         let dr =
                             (ruleWith
                                 noWeight
-                                { absoluteLimit with PerTime = RR.range (RR.perDay RR.mg) (Some 1000N) (Some 4000N) })
+                                { absoluteLimit with PerTime = RR.range (RR.perDay mg) (Some 1000N) (Some 4000N) })
                                 .DoseRule
 
                         for pat in [ noWeight; measured ] do
                             let dl = dr |> RenalRule.adjustDoseRule pat rr |> DoseRule.allLimits |> Array.head
 
                             dl.PerTime
-                            |> Expect.equal
-                                "1,000 to 2,000 mg/day"
-                                (RR.range (RR.perDay RR.mg) (Some 1000N) (Some 2000N))
+                            |> Expect.equal "1,000 to 2,000 mg/day" (RR.range (RR.perDay mg) (Some 1000N) (Some 2000N))
                             dl.PerTimeAdjust |> Expect.equal "no per kg range" MinMax.empty
                     }
 
@@ -8212,7 +8214,6 @@ module Tests =
         open Informedica.GenForm.Lib.Resources
 
 
-        let mg = Units.Mass.milliGram
         let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
 
 
@@ -8295,9 +8296,6 @@ module Tests =
             }
 
 
-        let mL = Units.Volume.milliLiter
-
-
         let times n =
             n |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
 
@@ -8307,9 +8305,6 @@ module Tests =
                 Min = min
                 Max = max
             }
-
-
-        let kg = Units.Weight.kiloGram
 
 
         /// A dose fraction from min to max, each optional, as times.
@@ -8503,13 +8498,13 @@ module Tests =
 
 
         // The entry of the default registry, run on hand-built dose rules and solution rules.
-        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) =
+        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) (rows: SolutionRuleData[]) =
             let reg =
                 Map
                     [
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
-                        Keys.solutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
+                        Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
                         Keys.formularyProducts.Name, ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                         Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
@@ -9157,13 +9152,13 @@ module Tests =
                             }
 
                             test "the rule checks at load report a product without a Divisible" {
-                                ruleCheckWarnings [| withProducts [| pieceProduct "1" None |] |] [||]
+                                ruleCheckWarnings [| withProducts [| pieceProduct "1" None |] |] [||] [||]
                                 |> List.exists (String.contains "no Divisible")
                                 |> Expect.isTrue "reported"
                             }
 
                             test "the rule checks at load report the rule" {
-                                ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |] [||]
                                 |> List.exists (String.contains "given undiluted")
                                 |> Expect.isTrue "reported"
                             }
@@ -9315,7 +9310,10 @@ module Tests =
                             test "the rule checks at load report the pair" {
                                 let dr = ivDoseRule "samenstelling c" injection [||]
 
-                                ruleCheckWarnings [| { dr with DoseType = day1 } |] [| rule NoDoseType; rule day1 |]
+                                ruleCheckWarnings
+                                    [| { dr with DoseType = day1 } |]
+                                    [| rule NoDoseType; rule day1 |]
+                                    [||]
                                 |> List.exists (String.contains "one dose rule and one patient")
                                 |> Expect.isTrue "reported"
                             }
@@ -9483,7 +9481,7 @@ module Tests =
                             }
 
                             test "the rule checks at load report the pair" {
-                                ruleCheckWarnings [| withGlucose |] [| withDiluent "gluc 30%" |]
+                                ruleCheckWarnings [| withGlucose |] [| withDiluent "gluc 30%" |] [||]
                                 |> List.exists (String.contains "is also a component")
                                 |> Expect.isTrue "reported"
                             }
@@ -11539,8 +11537,6 @@ module Tests =
     /// A dose rule and a solution rule whose ranges for a component no order can meet.
     module ConflictingLimitTests =
 
-        let mL = Units.Volume.milliLiter
-        let kg = Units.Weight.kiloGram
         let mLPerKg = mL |> ValueUnit.per kg
 
 
@@ -11587,6 +11583,9 @@ module Tests =
             { RuleCheckTests.solutionRule "Samenstelling C" MinMax.empty with
                 Indication = Some "Standaard Totale Parenterale Voeding"
                 DoseType = Timed "dag 2"
+                // the limits per kg need the adjust unit kg, as the sheet gives it, and the dose rule per kg
+                // then can meet the rule
+                AdjustUnit = Some kg
                 SolutionLimit = { SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
                 DilutionLimits =
                     [|
@@ -12048,10 +12047,6 @@ module Tests =
     module SolutionRuleAdjustUnitPairTests =
 
 
-        let kg = Units.Weight.kiloGram
-        let m2 = Units.BSA.m2
-        let mg = Units.Mass.milliGram
-        let mL = Units.Volume.milliLiter
         let range = RuleCheckTests.range
 
 
@@ -12154,6 +12149,191 @@ module Tests =
                 ]
 
 
+    module SolutionRuleAdjustUnitCheckTests =
+
+        open LimitingSolutionRuleTests
+
+
+        /// The electrolyte mixture dose rule with the adjust unit au.
+        let doseRule au = { withoutLimits with AdjustUnit = au }
+
+
+        /// The electrolyte mixture solution rule without dilution limits, with the adjust unit au.
+        let solutionRule au = { limitsNone with AdjustUnit = au }
+
+
+        /// A solution rule row with the adjust unit cell and a maximum quantity per adjust, or none.
+        let row cell maxQtyAdj =
+            { RuleCheckTests.solutionRow "gen" [] with
+                AdjustUnit = cell
+                MaxQtyPerKg = maxQtyAdj
+            }
+
+
+        /// The texts of the warnings.
+        let texts = List.map RuleCheckTests.warningText
+
+
+        let tests =
+            testList
+                "the load checks of the adjust unit"
+                [
+                    testList
+                        "canMeetDoseRule"
+                        [
+                            for du, su, expected in
+                                [
+                                    Some kg, Some kg, true
+                                    Some m2, Some m2, true
+                                    Some m2, Some kg, false
+                                    Some kg, Some m2, false
+                                    Some m2, None, true
+                                    None, Some kg, true
+                                    None, None, true
+                                ] do
+                                test $"dose rule %A{du} and solution rule %A{su}: %b{expected}" {
+                                    solutionRule su
+                                    |> SolutionRule.canMeetDoseRule RuleCheckTests.ivRouteMapping (doseRule du)
+                                    |> Expect.equal "can meet" expected
+                                }
+                        ]
+
+                    testList
+                        "adjustUnitMismatches"
+                        [
+                            test "a solution rule per kg for a dose rule per m2 gives one warning" {
+                                [| solutionRule (Some kg) |]
+                                |> SolutionRule.adjustUnitMismatches
+                                    RuleCheckTests.ivRouteMapping
+                                    [| doseRule (Some m2) |]
+                                |> texts
+                                |> RuleCheckTests.single
+                                |> String.contains
+                                    "the adjust unit kg differs from m2, so the solution rule does not apply"
+                                |> Expect.isTrue "the adjust units in the warning"
+                            }
+
+                            test "matching adjust units give no warning" {
+                                [| solutionRule (Some kg); solutionRule None |]
+                                |> SolutionRule.adjustUnitMismatches
+                                    RuleCheckTests.ivRouteMapping
+                                    [| doseRule (Some kg); doseRule None |]
+                                |> Expect.isEmpty "no warning"
+                            }
+                        ]
+
+                    testList
+                        "missingAdjustUnits"
+                        [
+                            test "a row with a quantity per adjust and no adjust unit gives one warning" {
+                                [| row "" (Some 5N) |]
+                                |> SolutionRule.missingAdjustUnits
+                                |> texts
+                                |> Expect.equal
+                                    "one warning"
+                                    [
+                                        "solution rule gen, INTRAVENEUS: a volume or a quantity per adjust without "
+                                        + "an adjust unit, so the limit is left out"
+                                    ]
+                            }
+
+                            test "an adjust unit the sheet cannot read counts as none" {
+                                [| row "lb" (Some 5N) |]
+                                |> SolutionRule.missingAdjustUnits
+                                |> Expect.hasLength "one warning" 1
+                            }
+
+                            test "a row with an adjust unit, or without a limit per adjust, gives no warning" {
+                                [| row "kg" (Some 5N); row "" None |]
+                                |> SolutionRule.missingAdjustUnits
+                                |> Expect.isEmpty "no warning"
+                            }
+                        ]
+
+                    testList
+                        "mixedAdjustUnits"
+                        [
+                            test "rows of one rule with kg and none give one warning" {
+                                [| row "kg" (Some 5N); row "" None |]
+                                |> SolutionRule.mixedAdjustUnits
+                                |> texts
+                                |> Expect.equal
+                                    "one warning"
+                                    [
+                                        "solution rule gen, INTRAVENEUS: the rows give the adjust units kg, none, "
+                                        + "so they form separate rules"
+                                    ]
+                            }
+
+                            test "rows of one rule with the same adjust unit give no warning" {
+                                [| row "kg" (Some 5N); row "kg" None |]
+                                |> SolutionRule.mixedAdjustUnits
+                                |> Expect.isEmpty "no warning"
+                            }
+                        ]
+
+                    testList
+                        "through the rule checks of the resources"
+                        [
+                            let warns doseRules solutionRules rows =
+                                RuleCheckTests.ruleCheckWarnings doseRules solutionRules rows
+
+                            test "a solution rule per kg for a dose rule per m2 gives the mismatch warning" {
+                                warns [| doseRule (Some m2) |] [| solutionRule (Some kg) |] [||]
+                                |> List.exists (String.contains "the adjust unit kg differs from m2")
+                                |> Expect.isTrue "the mismatch warning"
+                            }
+
+                            test "a row with a quantity per adjust and no adjust unit gives the missing warning" {
+                                warns [||] [||] [| row "" (Some 5N) |]
+                                |> List.exists (
+                                    String.contains "a volume or a quantity per adjust without an adjust unit"
+                                )
+                                |> Expect.isTrue "the missing warning"
+                            }
+
+                            test "rows of one rule with kg and none give the mixed warning" {
+                                warns [||] [||] [| row "kg" (Some 5N); row "" None |]
+                                |> List.exists (String.contains "the rows give the adjust units kg, none")
+                                |> Expect.isTrue "the mixed warning"
+                            }
+                        ]
+
+                    test "pairConflicts names the adjust unit m2 of the solution rule" {
+                        let perM2 = mL |> ValueUnit.per m2
+
+                        let dr =
+                            { LimitingSolutionRuleTests.doseRule
+                                  [|
+                                      componentLimit
+                                          "NaCl 3%"
+                                          (Some
+                                              { doseLimit "NaCl 3%" 10N with
+                                                  Quantity = MinMax.empty
+                                                  AdjustUnit = Some m2
+                                                  QuantityAdjust = RuleCheckTests.range perM2 10N 20N
+                                              })
+                                  |] with
+                                AdjustUnit = Some m2
+                            }
+
+                        // at most 2 mL/m2 in a preparation of one dose, for a dose of at least 10 mL/m2
+                        let solRule =
+                            { LimitingSolutionRuleTests.solutionRule
+                                  [|
+                                      dilutionLimit "NaCl 3%" MinMax.empty (RuleCheckTests.range perM2 1N 2N) None
+                                  |] with
+                                AdjustUnit = Some m2
+                            }
+
+                        SolutionRule.pairConflicts solRule dr
+                        |> RuleCheckTests.single
+                        |> String.contains "the dose quantity per m2"
+                        |> Expect.isTrue "per m2"
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -12200,4 +12380,5 @@ module Tests =
                 RepeatedTargetTests.tests
                 SolutionRuleAdjustUnitTests.tests
                 SolutionRuleAdjustUnitPairTests.tests
+                SolutionRuleAdjustUnitCheckTests.tests
             ]

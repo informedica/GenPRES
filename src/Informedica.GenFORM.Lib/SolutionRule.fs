@@ -378,6 +378,13 @@ module SolutionRule =
         |> List.map Warning
 
 
+    /// Maps one SolutionRules row on its own to its solution rule; None when the row does not map.
+    let ruleOfRow parenteral r =
+        match [| r |] |> map [||] parenteral [||] with
+        | Ok [| solRule |] -> Some solRule
+        | _ -> None
+
+
     /// One warning per solution rule whose Diluents cell names no parenteral product, so the rule
     /// loads without diluents. Each row is mapped on its own and grouped by the rule without its
     /// dilution limits, so a rule of several rows gives one warning.
@@ -385,10 +392,10 @@ module SolutionRule =
         data
         |> Array.filter (fun r -> r.Diluents |> List.exists String.notEmpty)
         |> Array.choose (fun r ->
-            match [| r |] |> map [||] parenteral [||] with
-            | Ok [| solRule |] when solRule.Diluents |> Array.isEmpty ->
-                Some({ solRule with DilutionLimits = [||] }, r.Diluents)
-            | _ -> None
+            r
+            |> ruleOfRow parenteral
+            |> Option.filter (_.Diluents >> Array.isEmpty)
+            |> Option.map (fun solRule -> { solRule with DilutionLimits = [||] }, r.Diluents)
         )
         |> Array.groupBy fst
         |> Array.map (fun (solRule, xs) ->
@@ -409,14 +416,76 @@ module SolutionRule =
     let diluentRowsWithoutDiluent parenteral (data: SolutionRuleData[]) =
         data
         |> Array.filter isDiluentRow
-        |> Array.choose (fun r ->
-            match [| r |] |> map [||] parenteral [||] with
-            | Ok [| solRule |] when solRule.Diluents |> Array.isEmpty -> Some { solRule with DilutionLimits = [||] }
-            | _ -> None
+        |> Array.choose (
+            ruleOfRow parenteral
+            >> Option.filter (_.Diluents >> Array.isEmpty)
+            >> Option.map (fun solRule -> { solRule with DilutionLimits = [||] })
         )
         |> Array.distinct
         |> Array.map (fun solRule ->
             Warning $"%s{solRule |> label}: a diluent row but no diluent, so the diluent row limits nothing"
+        )
+        |> Array.toList
+
+
+    /// Whether a SolutionRules row has a volume or a quantity per adjust.
+    let hasLimitPerAdjust (r: SolutionRuleData) =
+        [ r.MinVolAdj; r.MaxVolAdj; r.MinQtyPerKg; r.MaxQtyPerKg ]
+        |> List.exists Option.isSome
+
+
+    /// One warning per solution rule with a row that has a volume or a quantity per adjust but no adjust unit,
+    /// so the limit is left out. A rule of several such rows gives one warning.
+    let missingAdjustUnits (data: SolutionRuleData[]) =
+        data
+        |> Array.filter (fun r -> r |> hasLimitPerAdjust && r.AdjustUnit |> Units.adjustUnit |> Option.isNone)
+        |> Array.choose (
+            ruleOfRow [||]
+            >> Option.map (fun solRule -> { solRule with DilutionLimits = [||] })
+        )
+        |> Array.distinct
+        |> Array.map (fun solRule ->
+            Warning(
+                $"%s{solRule |> label}: a volume or a quantity per adjust without an adjust unit, "
+                + "so the limit is left out"
+            )
+        )
+        |> Array.toList
+
+
+    /// One warning per solution rule whose rows give different adjust units, so the rows form separate rules.
+    /// Each row is mapped on its own and grouped by the rule without its adjust unit and its limits per adjust.
+    let mixedAdjustUnits (data: SolutionRuleData[]) =
+        data
+        |> Array.choose (
+            ruleOfRow [||]
+            >> Option.map (fun solRule ->
+                { solRule with
+                    AdjustUnit = None
+                    SolutionLimit = { solRule.SolutionLimit with VolumeAdjust = MinMax.empty }
+                    DilutionLimits = [||]
+                },
+                solRule.AdjustUnit
+            )
+        )
+        |> Array.groupBy fst
+        |> Array.choose (fun (solRule, xs) ->
+            let units = xs |> Array.map snd |> Array.distinct
+
+            if units |> Array.length > 1 then
+                let text =
+                    units
+                    |> Array.map (fun u ->
+                        match DoseRule.adjStr u with
+                        | "" -> "none"
+                        | s -> s
+                    )
+                    |> String.concat ", "
+
+                Warning $"%s{solRule |> label}: the rows give the adjust units %s{text}, so they form separate rules"
+                |> Some
+            else
+                None
         )
         |> Array.toList
 
@@ -440,21 +509,48 @@ module SolutionRule =
                    DoseType.eqs solRule.DoseType dr.DoseType)
 
 
+    /// Whether the adjust unit of the solution rule fits the adjust unit of the dose rule: the two are the same,
+    /// or the dose rule or the solution rule has none.
+    let adjustUnitsMatch (dr: DoseRule) (solRule: SolutionRule) =
+        match dr.AdjustUnit, solRule.AdjustUnit with
+        | Some du, Some su -> du |> Units.eqsUnit su
+        | _ -> true
+
+
     /// Whether a solution rule applies to a dose rule and can meet a patient of that dose rule.
-    let canMeetDoseRule routeMapping (dr: DoseRule) (solRule: SolutionRule) =
+    let canShareDoseRule routeMapping (dr: DoseRule) (solRule: SolutionRule) =
         dr |> appliesToDoseRule routeMapping solRule
         && PatientCategory.canShare solRule.PatientCategory dr.PatientCategory
 
 
+    /// Whether a solution rule applies to a dose rule, can meet a patient of that dose rule, and fits its adjust
+    /// unit.
+    let canMeetDoseRule routeMapping dr solRule =
+        canShareDoseRule routeMapping dr solRule && adjustUnitsMatch dr solRule
+
+
     /// Leaves out the solution rules whose adjust unit differs from the adjust unit of the dose rule. A solution
     /// rule stays when it or the dose rule has no adjust unit.
-    let forDoseRule (dr: DoseRule) solRules =
-        solRules
-        |> Array.filter (fun (solRule: SolutionRule) ->
-            match dr.AdjustUnit, solRule.AdjustUnit with
-            | Some du, Some su -> du |> Units.eqsUnit su
-            | _ -> true
+    let forDoseRule dr solRules = solRules |> Array.filter (adjustUnitsMatch dr)
+
+
+    /// One warning per dose rule and solution rule that apply to each other and can meet the same patient, but
+    /// whose adjust units differ, so the solution rule does not apply to the dose rule.
+    let adjustUnitMismatches routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun solRule ->
+            doseRules
+            |> Array.toList
+            |> List.filter (fun dr -> canShareDoseRule routeMapping dr solRule && adjustUnitsMatch dr solRule |> not)
+            |> List.map (fun dr ->
+                $"%s{solRule |> label} and %s{dr |> DoseRule.label}: the adjust unit "
+                + $"%s{solRule.AdjustUnit |> DoseRule.adjStr} differs from "
+                + $"%s{dr.AdjustUnit |> DoseRule.adjStr}, so the solution rule does not apply"
+            )
         )
+        |> List.distinct
+        |> List.map Warning
 
 
     /// Returns the range of the number of doses in the preparation: the reciprocal of the dose
@@ -550,7 +646,7 @@ module SolutionRule =
 
 
     /// Returns a warning per component that both rules limit, when the dose range and the range in the
-    /// preparation meet for no dose count of the solution rule. Quantities and quantities per kg are
+    /// preparation meet for no dose count of the solution rule. Quantities and quantities per adjust are
     /// compared separately, with the first dilution limit of the component.
     let pairConflicts (solRule: SolutionRule) (dr: DoseRule) =
         let count = solRule |> doseCountRange
@@ -566,7 +662,10 @@ module SolutionRule =
         |> List.collect (fun (name, doseLimit, dilutionLimit) ->
             [
                 name, "quantity", doseLimit.Quantity, dilutionLimit.Quantity
-                name, "quantity per kg", doseLimit.QuantityAdjust, dilutionLimit.QuantityAdjust
+                name,
+                $"quantity per %s{solRule.AdjustUnit |> DoseRule.adjStr}",
+                doseLimit.QuantityAdjust,
+                dilutionLimit.QuantityAdjust
             ]
         )
         |> List.filter (fun (_, _, dose, prep) -> noDoseCountMeets count dose prep)
