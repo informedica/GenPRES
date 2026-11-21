@@ -294,6 +294,9 @@ All checks are warnings in the resource messages, like the other rule checks.
 - The medication `QuantityAdjust` sets the minimum and maximum of `[orb]_orb_qty_adj`.
 - Tests as in step 7, for a volume limit.
 - Estimate: 20 to 40 lines.
+- `Scenarios.fullMedication` has a volume per adjust since step 10, so its golden order now shows the
+  values per adjust unit. The equation selection tests start from each golden medication without it.
+- Built: 12 changed lines under `src/`.
 
 ### Step 13: GenFORM passes the limits per adjust on (GenFORM)
 

@@ -1492,9 +1492,10 @@ module Medication =
                 | _ -> None
 
 
-        /// Sets the dose count and the orderable quantity of the medication on the orderable. The orderable
-        /// quantity gets the quantities of the medication when it has them, otherwise a minimum above zero, and
-        /// then the quantity range of the medication.
+        /// Sets the dose count, the orderable quantity and the orderable quantity per adjust unit of the
+        /// medication on the orderable. The orderable quantity gets the quantities of the medication when it has
+        /// them, otherwise a minimum above zero, and then the quantity range of the medication. The orderable
+        /// quantity per adjust unit gets the range per adjust unit of the medication.
         let withOrderableQuantity (med: Medication) (ord: Order) =
             let zero = med |> orderableUnit |> Option.bind (fun u -> 0N |> singleOrNone u)
             let con f = OrderVariable.mapConstraints f
@@ -1514,6 +1515,11 @@ module Medication =
                                      | Some _ -> cs |> OrderVariable.Constraints.setValues med.Quantities)
                                     |> OrderVariable.Constraints.setMinMax false med.Quantity
                                 )
+                            )
+                        OrderableQuantityAdjust =
+                            ord.Orderable.OrderableQuantityAdjust
+                            |> OrderVariable.QuantityAdjust.apply (
+                                con (OrderVariable.Constraints.setMinMax false med.QuantityAdjust)
                             )
                     }
             }
