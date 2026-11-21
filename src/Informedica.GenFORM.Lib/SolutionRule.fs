@@ -112,8 +112,8 @@ module SolutionRule =
                         Quantities = get "Quantities" |> BigRational.toBrs
                         MinQty = get "MinQty" |> toBrOpt
                         MaxQty = get "MaxQty" |> toBrOpt
-                        MinQtyPerKg = get "MinQtyPerKg" |> toBrOpt
-                        MaxQtyPerKg = get "MaxQtyPerKg" |> toBrOpt
+                        MinQtyAdj = get "MinQtyAdj" |> toBrOpt
+                        MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
                         MinDrip = get "MinDrip" |> toBrOpt
                         MaxDrip = get "MaxDrip" |> toBrOpt
                         MinConc = get "MinConc" |> toBrOpt
@@ -229,7 +229,7 @@ module SolutionRule =
                                 | _, c when c |> String.notEmpty -> c |> DilutionTarget.Component
                                 | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
-                            QuantityAdjust = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl uAdj
+                            QuantityAdjust = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl uAdj
                             Quantities =
                                 if l.Quantities |> Array.isEmpty then
                                     None
@@ -430,7 +430,7 @@ module SolutionRule =
 
     /// Whether a SolutionRules row has a volume or a quantity per adjust.
     let hasLimitPerAdjust (r: SolutionRuleData) =
-        [ r.MinVolAdj; r.MaxVolAdj; r.MinQtyPerKg; r.MaxQtyPerKg ]
+        [ r.MinVolAdj; r.MaxVolAdj; r.MinQtyAdj; r.MaxQtyAdj ]
         |> List.exists Option.isSome
 
 
