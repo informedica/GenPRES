@@ -212,6 +212,7 @@ module Product =
                                 ExpansionVolume = get "ExpansionVol" |> toBrOpt |> Option.map toMl
                                 Solvent = solvent
                                 Notes = getOpt "Notes"
+                                SolventSubstances = [||]
                             }
                     | _ -> None
                 )
@@ -222,6 +223,21 @@ module Product =
 
         let get dataUrlId : Result<_, _> =
             Web.getDataFromSheet dataUrlId "Reconstitution" |> parseReconstitution
+
+
+        /// Gives each reconstitution the substances of the parenteral product whose generic name equals the
+        /// solvent, ignoring case. A solvent without a parenteral product has no substances.
+        let withSolventSubstances (parenteral: ProductComponent[]) (rs: Reconstitution[]) =
+            rs
+            |> Array.map (fun r ->
+                { r with
+                    SolventSubstances =
+                        parenteral
+                        |> Array.tryFind (_.Generic >> String.equalsCapInsens r.Solvent)
+                        |> Option.map _.Substances
+                        |> Option.defaultValue [||]
+                }
+            )
 
 
         /// Whether a reconstitution applies to a location, a department and a route. The route must match
@@ -611,6 +627,8 @@ module Product =
         (genPresProducts: Informedica.ZIndex.Lib.Types.GenPresProduct[])
         : ProductComponent[]
         =
+        let reconstitution = reconstitution |> Reconstitution.withSolventSubstances parenteral
+
         // A lookup from GPK to Formulary row, built once, so each generic product is matched in constant time.
         let formByGpk =
             formularyProducts
@@ -823,8 +841,11 @@ module Product =
     /// <returns>
     /// The product unchanged when it requires no reconstitution, else one product per matching
     /// reconstitution rule, with each concentration and molar concentration multiplied by 1 mL and
-    /// divided by the solvent volume plus the expansion volume. Also returns a warning when no
-    /// reconstitution rule matches.
+    /// divided by the solvent volume plus the expansion volume. The substances of the solvent are
+    /// multiplied by the solvent volume and divided by the total volume. Each one is added to the product
+    /// substance with the same name, or else added as a new substance; a concentration in another unit
+    /// group than the one of the product is not added. Also returns a warning when no reconstitution rule
+    /// matches.
     /// </returns>
     let reconstitute mapping loc dep fits rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
@@ -854,19 +875,45 @@ module Product =
                             |> Option.defaultValue r.SolventVolume
 
                         let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
-                        let dilute q = one * q / vol
+
+                        let scale qty (s: SubstanceItem) =
+                            { s with
+                                Concentration = s.Concentration |> Option.map (fun q -> qty * q / vol)
+                                MolarConcentration = s.MolarConcentration |> Option.map (fun q -> qty * q / vol)
+                            }
+
+                        // a value in another unit group, such as mg against mmol, cannot be added, so the
+                        // product value is used
+                        let add a b =
+                            match a, b with
+                            | Some a, Some b when ValueUnit.eqsGroup a b -> Some(a + b)
+                            | _ -> a |> Option.orElse b
+
+                        // adds a solvent substance to the substance of the product with the same name, or else
+                        // appends it
+                        let addSolvent (substs: SubstanceItem[]) (solvent: SubstanceItem) =
+                            match substs |> Array.tryFindIndex (_.Name >> String.equalsCapInsens solvent.Name) with
+                            | Some i ->
+                                let s = substs[i]
+
+                                substs
+                                |> Array.updateAt
+                                    i
+                                    { s with
+                                        Concentration = add s.Concentration solvent.Concentration
+                                        MolarConcentration = add s.MolarConcentration solvent.MolarConcentration
+                                    }
+                            | None -> Array.append substs [| solvent |]
+
+                        let substs = prod.Substances |> Array.map (scale one)
 
                         { prod with
                             FormUnit = Units.Volume.milliLiter
                             FormQuantities = vol
                             Substances =
-                                prod.Substances
-                                |> Array.map (fun s ->
-                                    { s with
-                                        Concentration = s.Concentration |> Option.map dilute
-                                        MolarConcentration = s.MolarConcentration |> Option.map dilute
-                                    }
-                                )
+                                r.SolventSubstances
+                                |> Array.map (scale r.SolventVolume)
+                                |> Array.fold addSolvent substs
                         }
                     )
             |]

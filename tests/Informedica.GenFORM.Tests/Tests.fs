@@ -4121,6 +4121,7 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
                 Notes = None
+                SolventSubstances = [||]
             }
 
 
@@ -4275,6 +4276,7 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "water"
                 Notes = None
+                SolventSubstances = [||]
             }
 
 
@@ -4452,6 +4454,138 @@ module Tests =
                             [||]
                             { Filter.doseFilter with PatientData = unknown |> TestPatient.withAgeInDays 365 }
                         |> Expect.isEmpty "left out"
+                    }
+                ]
+
+
+    /// The substances of the solvent, added to a reconstituted product.
+    module SolventSubstanceTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+        open ReconstitutionPatientTests
+
+
+        let mmol n = n |> ValueUnit.singleWithUnit mmolPerMl |> Some
+
+
+        /// A substance in mmol/mL, with the same concentration and molar concentration, as the Formulary
+        /// gives it.
+        let molar name n : SubstanceItem =
+            {
+                Name = name
+                Concentration = mmol n
+                MolarConcentration = mmol n
+            }
+
+
+        /// The parenteral products water, without substances, and NaCl 0,9%, with 0.155 mmol/mL natrium and
+        /// chloor.
+        let parenterals =
+            [|
+                { powder with
+                    Generic = "water"
+                    Substances = [||]
+                }
+                { powder with
+                    Generic = "NaCl 0,9%"
+                    Substances = [| molar "natrium" (155N / 1000N); molar "chloor" (155N / 1000N) |]
+                }
+            |]
+
+
+        let antibiotic = powder.Substances[0]
+
+
+        /// The powder with the substances, reconstituted in 10 mL of the solvent for every patient.
+        let reconstituted substs solvent (expansion: ValueUnit option) =
+            let r =
+                { reconstitution with
+                    Solvent = solvent
+                    ExpansionVolume = expansion
+                }
+
+            { powder with
+                Substances = substs
+                Reconstitution = [| r |] |> Product.Reconstitution.withSolventSubstances parenterals
+            }
+            |> Product.reconstitute [||] None None (fun _ -> true) ""
+            |> fst
+            |> Array.collect _.Substances
+            |> Array.map (fun s -> s.Name, s.Concentration, s.MolarConcentration)
+
+
+        let onlyNatrium = Array.filter (fun (n, _, _) -> n = "natrium")
+
+
+        let tests =
+            testList
+                "the substances of the solvent"
+                [
+                    test "Reconstitution.withSolventSubstances finds NaCl 0,9% apart from capitals" {
+                        [| { reconstitution with Solvent = "nacl 0,9%" } |]
+                        |> Product.Reconstitution.withSolventSubstances parenterals
+                        |> Array.collect _.SolventSubstances
+                        |> Array.map _.Name
+                        |> Expect.equal "natrium and chloor" [| "natrium"; "chloor" |]
+                    }
+
+                    test "Reconstitution.withSolventSubstances gives no substances for an unknown solvent" {
+                        [| { reconstitution with Solvent = "unknown" } |]
+                        |> Product.Reconstitution.withSolventSubstances parenterals
+                        |> Array.collect _.SolventSubstances
+                        |> Expect.isEmpty "no substances"
+                    }
+
+                    test "water adds no substances" {
+                        reconstituted [| antibiotic |] "water" None
+                        |> Array.map (fun (n, _, _) -> n)
+                        |> Expect.equal "the antibiotic only" [| "antibioticum" |]
+                    }
+
+                    test "10 mL NaCl 0,9% without expansion gives 0.155 mmol/mL natrium and chloor" {
+                        reconstituted [| antibiotic |] "NaCl 0,9%" None
+                        |> Expect.equal
+                            "the antibiotic, natrium and chloor"
+                            [|
+                                "antibioticum", 10N |> ValueUnit.singleWithUnit mgPerMl |> Some, None
+                                "natrium", mmol (155N / 1000N), mmol (155N / 1000N)
+                                "chloor", mmol (155N / 1000N), mmol (155N / 1000N)
+                            |]
+                    }
+
+                    test "an expansion volume of 2 mL divides the solvent substances by 12 mL" {
+                        reconstituted [| antibiotic |] "NaCl 0,9%" (2N |> ValueUnit.singleWithUnit mL |> Some)
+                        |> onlyNatrium
+                        |> Expect.equal
+                            "0.155 * 10 / 12 mmol/mL"
+                            [| "natrium", mmol (155N / 1200N), mmol (155N / 1200N) |]
+                    }
+
+                    test "a natrium in mg/mL of the product is not added to the natrium in mmol/mL of the solvent" {
+                        let mgNatrium =
+                            { molar "natrium" 1N with
+                                Concentration = 23N |> ValueUnit.singleWithUnit mgPerMl |> Some
+                                MolarConcentration = None
+                            }
+
+                        // 23 mg in 10 mL gives 2.3 mg/mL; the molar concentration comes from the solvent only
+                        reconstituted [| antibiotic; mgNatrium |] "NaCl 0,9%" None
+                        |> onlyNatrium
+                        |> Expect.equal
+                            "2.3 mg/mL and 0.155 mmol/mL"
+                            [|
+                                "natrium", 23N / 10N |> ValueUnit.singleWithUnit mgPerMl |> Some, mmol (155N / 1000N)
+                            |]
+                    }
+
+                    test "the natrium of the product and of the solvent are added up" {
+                        // 1 mmol natrium in the vial, in 10 mL, gives 0.1 mmol/mL, plus 0.155 mmol/mL
+                        reconstituted [| antibiotic; molar "natrium" 1N |] "NaCl 0,9%" None
+                        |> onlyNatrium
+                        |> Expect.equal "0.255 mmol/mL" [| "natrium", mmol (255N / 1000N), mmol (255N / 1000N) |]
                     }
                 ]
 
@@ -6737,6 +6871,7 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
                 Notes = None
+                SolventSubstances = [||]
             }
 
 
@@ -8728,6 +8863,7 @@ module Tests =
                             ExpansionVolume = None
                             Solvent = "water"
                             Notes = None
+                            SolventSubstances = [||]
                         }
                     |]
             }
@@ -12842,6 +12978,7 @@ module Tests =
                 AccessDeviceTests.tests
                 DepartmentTests.tests
                 ReconstitutionPatientTests.tests
+                SolventSubstanceTests.tests
                 FilterOptionsTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
