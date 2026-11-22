@@ -225,7 +225,7 @@ module Types =
     /// </remarks>
     type FormularyProduct =
         {
-            /// The GPK code. A row with GPKODE "0" is a dummy and is dropped.
+            /// The GPK code.
             GPKODE: string
             /// The type of product; sheet column "Type", one of "medication", "enteral" or "parenteral".
             /// Any other value gives NoProduct.

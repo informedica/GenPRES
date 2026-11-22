@@ -114,8 +114,6 @@ module Product =
                         CanBeUsedAsAdditive = getFlag "IsAdditive"
                     }
                 )
-                // leave out the dummy row with GPKODE 0
-                |> Array.filter (fun fp -> fp.GPKODE <> "0")
 
             Ok products
         with exn ->

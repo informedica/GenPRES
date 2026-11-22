@@ -40,7 +40,7 @@ Adopt the SAFE Stack (Saturn, Azure, Fable, Elmish) as the technology foundation
 
 Two further foundational choices follow from it and are recorded here because they are equally hard to reverse:
 
-- **Google Spreadsheets as the configuration store.** Medication rules and constraints are authored in spreadsheets, downloaded as CSV and parsed at runtime. This lets clinical staff maintain the rule base without a developer, at the cost of coupling the system to an external service. Note that `GENPRES_URL_ID` selects the *server's* sheet only; the client reads a few of its own sheets from IDs hard-coded in `Client/Utils.fs`, so it is not a single switch over all sheet-sourced data.
+- **Google Spreadsheets as the configuration store.** Medication rules and constraints are authored in spreadsheets, downloaded by the server as one xlsx workbook and parsed at runtime. This lets clinical staff maintain the rule base without a developer, at the cost of coupling the system to an external service. Note that `GENPRES_URL_ID` selects the *server's* sheet only; the client reads a few of its own sheets from IDs hard-coded in `Client/Utils.fs`, so it is not a single switch over all sheet-sourced data.
 - **Docker as the production delivery mechanism.**
 
 ### Dependency rule and effects — amended 2026-09-06

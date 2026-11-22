@@ -53,7 +53,7 @@ Toolchain, the full targets table, Docker, release automation and the environmen
 
 ## Configuration and Resources
 
-- Medication rules and constraints live in Google Spreadsheets, downloaded as CSV and parsed at runtime. `GENPRES_URL_ID` selects the spreadsheet; local cache files give offline access
+- Medication rules and constraints live in Google Spreadsheets. The server downloads a spreadsheet as one xlsx workbook per resource load and parses the sheets at runtime. `GENPRES_URL_ID` selects the spreadsheet; local cache files give offline access
 - Sheets are read with `Web.getDataFromSheet dataUrlId "SheetName"`; mappers read columns by name through the `get` delegate (`let get = getColumn row in get "Generic"`) and parse with `BigRational.toBrs` / `getFloat`. Optional numeric columns use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`
 - Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`), a map from `ResourceKey` to `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`; derive one resource from others with `derive` / `deriveWith` (dependencies declared with `r.Get Keys.x`, resolved lazily, once). Callers reach the result through `IResourceProvider` (`Api.fs`)
 - To change a sheet mapping: adjust the mapper (`Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`, ...), the `///` field comments on the matching `Data` record, and the column list in the column-contract test

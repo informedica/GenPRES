@@ -1419,11 +1419,6 @@ module FormularyProductTests =
                             | Ok _ -> failtest "expected an error"
                         }
                     ]
-
-                test "the dummy row with GPKODE 0 is dropped" {
-                    parse [ "GPKODE", "0"; "AltName", "DUMMY ALTNAME" ]
-                    |> Expect.equal "no products" (Ok [||])
-                }
             ]
 
 
