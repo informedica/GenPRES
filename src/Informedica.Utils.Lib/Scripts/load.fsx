@@ -34,4 +34,5 @@
 #load "../Console.fs"
 #load "../ConsoleTables.fs"
 #load "../StopWatch.fs"
+#load "../Xlsx.fs"
 #load "../Web.fs"
