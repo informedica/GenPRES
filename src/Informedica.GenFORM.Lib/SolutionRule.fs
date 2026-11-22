@@ -831,17 +831,19 @@ module SolutionRule =
 
 
     /// One warning per solution rule without diluents whose concentration limit allows no strength of
-    /// the products of a dose rule it applies to. Only a dose rule with one component is checked,
+    /// the products of a dose rule it applies to and can share a patient with. Only a dose rule with one component is checked,
     /// because a second component can dilute the first. The products are reconstituted for the
     /// location of the solution rule and the department of the solution rule, else of the dose rule.
     /// When neither rule names a department, the products are reconstituted for each department their
-    /// reconstitution rules name, and for no department.
+    /// reconstitution rules name, and for no department. A reconstitution is used when one patient can be
+    /// in its age and weight ranges and in the patient categories of both the solution rule and the dose
+    /// rule.
     let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         let substances (solRule: SolutionRule) =
             doseRules
             |> Array.filter (fun dr ->
                 dr.ComponentLimits |> Array.length = 1
-                && dr |> appliesToDoseRule routeMapping solRule
+                && solRule |> canShareDoseRule routeMapping dr
             )
             |> Array.collect (fun dr ->
                 let departments =
@@ -858,7 +860,15 @@ module SolutionRule =
 
                 departments
                 |> Array.collect (fun dep ->
-                    let dr, _ = dr |> DoseRule.reconstitute routeMapping solRule.PatientCategory.Location dep
+                    let fits r =
+                        let cat = r |> Product.Reconstitution.patientCategory
+
+                        cat |> PatientCategory.canShare solRule.PatientCategory
+                        && cat |> PatientCategory.canShare dr.PatientCategory
+
+                    let dr, _ =
+                        dr
+                        |> DoseRule.reconstitute routeMapping solRule.PatientCategory.Location dep fits
 
                     solRule
                     |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)

@@ -8,10 +8,12 @@ module Product =
     open Informedica.Utils.Lib
     open Informedica.Logging.Lib
     open Informedica.GenUnits.Lib
+    open Informedica.GenCore.Lib.Ranges
 
     open Utils
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
     module ATCGroup = Informedica.ZIndex.Lib.ATCGroup
 
 
@@ -236,14 +238,43 @@ module Product =
             && PatientCategory.departmentMatches r.Department dep
 
 
+        /// Returns the age range in days and the weight range in grams of a reconstitution as a patient
+        /// category. Each range has an inclusive minimum and an exclusive maximum.
+        let patientCategory (r: Reconstitution) =
+            { PatientCategory.empty with
+                Age =
+                    (r.MinAge, r.MaxAge)
+                    |> MinMax.fromTuple Inclusive Exclusive (Some Units.day)
+                    |> AbsoluteAge
+                Weight =
+                    (r.MinWeight, r.MaxWeight)
+                    |> MinMax.fromTuple Inclusive Exclusive (Some Units.weightGram)
+            }
+
+
+        /// Whether the age and the weight of a patient are in the ranges of a reconstitution. A patient
+        /// without an age or a weight does not match a range for that value. A patient matched as an adult
+        /// has the age of 18 years and matches only an age range without a maximum, as in the dose rules.
+        let matchesPatient dat r =
+            let dat, ageHolds = dat |> PatientData.forAdultMatch
+            let cat = r |> patientCategory
+            let age = cat |> PatientCategory.getAge
+
+            age |> ageHolds
+            && dat |> CorePatientData.ageInDays |> MinMax.inRange age
+            && dat |> CorePatientData.weightInKg |> MinMax.inRange cat.Weight
+
+
         let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
             rs
-            |> Array.filter (
-                matches
+            |> Array.filter (fun r ->
+                r
+                |> matches
                     routeMapping
                     filter.PatientData.Location
                     (filter.PatientData |> PatientData.department)
                     filter.Route
+                && r |> matchesPatient filter.PatientData
             )
 
 
@@ -786,14 +817,16 @@ module Product =
     /// <param name="mapping">The route mapping.</param>
     /// <param name="loc">The venous access location.</param>
     /// <param name="dep">The department.</param>
+    /// <param name="fits">Whether a reconstitution applies to the patient.</param>
     /// <param name="rte">The route; an empty route is not checked.</param>
     /// <param name="prod">The product.</param>
     /// <returns>
     /// The product unchanged when it requires no reconstitution, else one product per matching
-    /// reconstitution rule, with each concentration multiplied by 1 mL and divided by the solvent volume
-    /// plus the expansion volume. Also returns a warning when no reconstitution rule matches.
+    /// reconstitution rule, with each concentration and molar concentration multiplied by 1 mL and
+    /// divided by the solvent volume plus the expansion volume. Also returns a warning when no
+    /// reconstitution rule matches.
     /// </returns>
-    let reconstitute mapping loc dep rte (prod: ProductComponent) =
+    let reconstitute mapping loc dep fits rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
 
         // an empty route asks for no route
@@ -807,7 +840,7 @@ module Product =
                 else
                     // calculate the reconstituted products
                     prod.Reconstitution
-                    |> Array.filter (Reconstitution.matches mapping loc dep rte')
+                    |> Array.filter (fun r -> r |> Reconstitution.matches mapping loc dep rte' && r |> fits)
                     |> fun xs ->
                         if xs |> Array.isEmpty then
                             warnings.Add
@@ -820,6 +853,9 @@ module Product =
                             |> Option.map (fun v -> v + r.SolventVolume)
                             |> Option.defaultValue r.SolventVolume
 
+                        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
+                        let dilute q = one * q / vol
+
                         { prod with
                             FormUnit = Units.Volume.milliLiter
                             FormQuantities = vol
@@ -827,12 +863,8 @@ module Product =
                                 prod.Substances
                                 |> Array.map (fun s ->
                                     { s with
-                                        Concentration =
-                                            s.Concentration
-                                            |> Option.map (fun q ->
-                                                let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
-                                                one * q / vol
-                                            )
+                                        Concentration = s.Concentration |> Option.map dilute
+                                        MolarConcentration = s.MolarConcentration |> Option.map dilute
                                     }
                                 )
                         }

@@ -118,7 +118,27 @@ Parts of step 1, one pull request each:
    live sheet stay out of the test project, which does not download; the migration checked them once:
    598 rows load from "GenPRES - NewSolutionRules", and the demo workbook, with the old header, does not
    load.
-2. The other decisions of this step, still to be divided into parts.
+2. **The age, the weight and the molar concentration.** A reconstitution applies only to a patient in its
+   age and weight range. A patient without an age or a weight does not match a range for that value,
+   and a patient matched as an adult has the age of 18 years, as in the dose rules. `PrescriptionRule.filter` and `OrderContext` pass the patient. The load check
+   `SolutionRule.undilutableRules` uses a reconstitution that can share a patient with both the solution
+   rule and the dose rule. A reconstitution scales the molar concentration with the concentration.
+   The check whether the rules still apply after a patient data update compares the products of each
+   component, so that a different reconstitution gives the notice. The load check pairs a solution rule
+   only with a dose rule it can share a patient with (`SolutionRule.canShareDoseRule`).
+   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1950ReconstitutionPatient.fsx`, deleted by the
+   migration.
+   Built: 102 changed lines under `src/`. The age and weight ranges of a reconstitution form a patient
+   category (`Reconstitution.patientCategory`), so that the load check reuses `PatientCategory.canShare`.
+3. **The substances of the solvent.** A reconstituted product gets the substances of its solvent from the
+   Formulary, scaled by SolventVol divided by SolventVol plus ExpansionVol. The reconstitution then needs
+   the Formulary products as an input.
+4. **The reconstitution as product data.** The GenFORM product carries the solvent, the solvent volume
+   and the expansion volume, and gets an identity beyond the GPK.
+5. **One scenario per reconstitution.** A prescription rule is split into one rule per reconstitution of
+   its products, as `splitByDivisible` splits it.
+6. **The reconstitution in the order.** `ComponentProduct`, the order Dto with a new JSON version, and the
+   preparation text.
 
 ### Step 2: #1554 predilution rules for a liquid, next to the reconstitution rules
 

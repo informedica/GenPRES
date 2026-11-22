@@ -1681,7 +1681,11 @@ Scenarios: {scenarios}
                 let pat = filter.PatientData |> Api.withDefaultDepartment provider
 
                 dr
-                |> DoseRule.reconstitute (Api.getRouteMapping provider) pat.Location (pat |> PatientData.department)
+                |> DoseRule.reconstitute
+                    (Api.getRouteMapping provider)
+                    pat.Location
+                    (pat |> PatientData.department)
+                    (Product.Reconstitution.matchesPatient pat)
                 |> fst
                 |> _.ComponentLimits
                 |> Array.collect _.Products
