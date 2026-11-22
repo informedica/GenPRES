@@ -167,6 +167,18 @@ module Mappers =
                             }
                         )
                     )
+                Reconstitution =
+                    dto.Reconstitution
+                    |> Option.bind (fun r ->
+                        r.SolventVolume
+                        |> Option.map (fun vol ->
+                            {
+                                Solvent = r.Solvent
+                                SolventVolume = vol |> mapToValueUnit
+                                ExpansionVolume = r.ExpansionVolume |> Option.map mapToValueUnit
+                            }
+                        )
+                    )
             }
 
 
@@ -183,6 +195,16 @@ module Mappers =
                     s.Substance <- ps.Substance
                     s.Strength <- ps.Strength |> mapFromValueUnit |> Some
                     s
+                )
+
+            dto.Reconstitution <-
+                p.Reconstitution
+                |> Option.map (fun r ->
+                    let d = Order.Orderable.Component.Dto.ReconstitutionDto()
+                    d.Solvent <- r.Solvent
+                    d.SolventVolume <- r.SolventVolume |> mapFromValueUnit |> Some
+                    d.ExpansionVolume <- r.ExpansionVolume |> Option.map mapFromValueUnit
+                    d
                 )
 
             dto

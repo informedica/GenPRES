@@ -630,7 +630,9 @@ module OrderContext =
         /// Returns the split rules in which every component limit with products holds a picked product.
         /// Returns all split rules when none does, so a pick of another medication hides nothing.
         let pickedGroups products groups =
-            let isPicked (p: Product) = products |> Array.contains p.GPK
+            let isPicked (p: Product) =
+                products
+                |> Array.contains (p |> Medication.reconstitutionOf |> Order.pickId p.GPK)
 
             let holdsPick (cl: ComponentLimit) =
                 cl.Products |> Array.isEmpty || cl.Products |> Array.exists isPicked

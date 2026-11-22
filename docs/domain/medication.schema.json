@@ -228,6 +228,9 @@
           "items": {
             "$ref": "#/definitions/StrengthDto"
           }
+        },
+        "Reconstitution": {
+          "$ref": "#/definitions/ReconstitutionDto"
         }
       }
     },
@@ -240,6 +243,22 @@
           "type": "string"
         },
         "Strength": {
+          "$ref": "#/definitions/ValueDto"
+        }
+      }
+    },
+    "ReconstitutionDto": {
+      "type": "object",
+      "description": "The reconstitution a product was made with.",
+      "additionalProperties": false,
+      "properties": {
+        "Solvent": {
+          "type": "string"
+        },
+        "SolventVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "ExpansionVolume": {
           "$ref": "#/definitions/ValueDto"
         }
       }
