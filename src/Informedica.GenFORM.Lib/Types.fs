@@ -133,9 +133,16 @@ module Types =
             Solvent: string
             /// Free text about the reconstitution; None when the cell is empty.
             Notes: string option
+        }
+
+
+    /// A reconstitution of a product: a reconstitution rule with the substances of its solvent.
+    type ProductReconstitution =
+        {
+            /// The reconstitution rule: the route, location, department and patient ranges it applies to,
+            /// the solvent and the volumes.
+            Rule: Reconstitution
             /// The substances per mL of the solvent, from the Formulary product with the solvent as its name.
-            /// This is not a sheet column: the parser leaves it empty, and it is filled when the products are
-            /// built.
             SolventSubstances: SubstanceItem[]
         }
 
@@ -188,8 +195,9 @@ module Types =
             FormUnit: Unit
             /// Whether the pharmaceutical form of the Product requires reconstitution
             RequiresReconstitution: bool
-            /// The possible reconstitution rules for the Product
-            Reconstitution: Reconstitution[]
+            /// The possible reconstitutions of the Product, each a reconstitution rule with the substances of
+            /// its solvent. A reconstituted Product holds only the reconstitution it was made with.
+            Reconstitution: ProductReconstitution[]
             /// The number of equal parts one unit of the Product can be divided into, from the Formulary row or
             /// else from the pharmaceutical form. A tablet in 4 parts has the value 4 and a step of 1/4 tablet.
             /// For a droplet form the value is the number of drops per mL: it sets the size of the droplet unit,

@@ -854,7 +854,7 @@ module SolutionRule =
                         dr.ComponentLimits
                         |> Array.collect _.Products
                         |> Array.collect _.Reconstitution
-                        |> Array.map _.Department
+                        |> Array.map _.Rule.Department
                         |> Array.append [| None |]
                         |> Array.distinct
 
@@ -1135,8 +1135,8 @@ module SolutionRule =
                         else
                             p.Reconstitution
                             |> Array.map (fun r ->
-                                $"{p.Label} oplossen in %s{r.SolventVolume |> Utils.ValueUnit.toString -1} voor {r.Route}"
-                                |> product_md
+                                let vol = r.Rule.SolventVolume |> Utils.ValueUnit.toString -1
+                                $"%s{p.Label} oplossen in %s{vol} voor %s{r.Rule.Route}" |> product_md
                             )
                     )
                     |> Array.distinct

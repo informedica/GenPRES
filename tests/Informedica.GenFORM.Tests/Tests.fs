@@ -4121,7 +4121,6 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
                 Notes = None
-                SolventSubstances = [||]
             }
 
 
@@ -4276,7 +4275,6 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "water"
                 Notes = None
-                SolventSubstances = [||]
             }
 
 
@@ -4318,6 +4316,7 @@ module Tests =
                             SolventVolume = 5N |> ValueUnit.singleWithUnit mL
                         }
                     |]
+                    |> Array.map (Product.ProductReconstitution.create [||])
                 Divisible = None
                 Substances =
                     [|
@@ -4509,7 +4508,7 @@ module Tests =
 
             { powder with
                 Substances = substs
-                Reconstitution = [| r |] |> Product.Reconstitution.withSolventSubstances parenterals
+                Reconstitution = [| r |] |> Array.map (Product.ProductReconstitution.create parenterals)
             }
             |> Product.reconstitute [||] None None (fun _ -> true) ""
             |> fst
@@ -4524,19 +4523,49 @@ module Tests =
             testList
                 "the substances of the solvent"
                 [
-                    test "Reconstitution.withSolventSubstances finds NaCl 0,9% apart from capitals" {
-                        [| { reconstitution with Solvent = "nacl 0,9%" } |]
-                        |> Product.Reconstitution.withSolventSubstances parenterals
-                        |> Array.collect _.SolventSubstances
+                    test "ProductReconstitution.create finds NaCl 0,9% ignoring case" {
+                        { reconstitution with Solvent = "nacl 0,9%" }
+                        |> Product.ProductReconstitution.create parenterals
+                        |> _.SolventSubstances
                         |> Array.map _.Name
                         |> Expect.equal "natrium and chloor" [| "natrium"; "chloor" |]
                     }
 
-                    test "Reconstitution.withSolventSubstances gives no substances for an unknown solvent" {
-                        [| { reconstitution with Solvent = "unknown" } |]
-                        |> Product.Reconstitution.withSolventSubstances parenterals
-                        |> Array.collect _.SolventSubstances
+                    test "ProductReconstitution.create gives no substances for an unknown solvent" {
+                        { reconstitution with Solvent = "unknown" }
+                        |> Product.ProductReconstitution.create parenterals
+                        |> _.SolventSubstances
                         |> Expect.isEmpty "no substances"
+                    }
+
+                    test "ProductReconstitution.create keeps the rule" {
+                        let rule = { reconstitution with Solvent = "NaCl 0,9%" }
+
+                        rule
+                        |> Product.ProductReconstitution.create parenterals
+                        |> _.Rule
+                        |> Expect.equal "the rule" rule
+                    }
+
+                    test "each reconstituted product holds only the reconstitution it was made with" {
+                        { powder with
+                            Reconstitution =
+                                [| reconstitution; { reconstitution with Solvent = "NaCl 0,9%" } |]
+                                |> Array.map (Product.ProductReconstitution.create parenterals)
+                        }
+                        |> Product.reconstitute [||] None None (fun _ -> true) ""
+                        |> fst
+                        |> Array.map (_.Reconstitution >> Array.map _.Rule.Solvent)
+                        |> Expect.equal "water and NaCl 0,9%" [| [| "water" |]; [| "NaCl 0,9%" |] |]
+                    }
+
+                    test "a product that requires no reconstitution is returned unchanged" {
+                        let prod = { powder with RequiresReconstitution = false }
+
+                        prod
+                        |> Product.reconstitute [||] None None (fun _ -> true) ""
+                        |> fst
+                        |> Expect.equal "the product" [| prod |]
                     }
 
                     test "water adds no substances" {
@@ -6871,7 +6900,6 @@ module Tests =
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
                 Notes = None
-                SolventSubstances = [||]
             }
 
 
@@ -8863,9 +8891,9 @@ module Tests =
                             ExpansionVolume = None
                             Solvent = "water"
                             Notes = None
-                            SolventSubstances = [||]
                         }
                     |]
+                    |> Array.map (Product.ProductReconstitution.create [||])
             }
 
 
@@ -9621,7 +9649,7 @@ module Tests =
 
                                     { p with
                                         Reconstitution =
-                                            p.Reconstitution |> Array.map (fun r -> { r with MaxAge = Some 28N })
+                                            p.Reconstitution |> Array.map (fun r -> { r with Rule.MaxAge = Some 28N })
                                     }
 
                                 let fromOneYear =
