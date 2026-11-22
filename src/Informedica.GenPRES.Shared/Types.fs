@@ -277,6 +277,18 @@ module Types =
         }
 
 
+    /// The reconstitution a product was made with: the solvent and its volumes.
+    type ComponentReconstitution =
+        {
+            /// The name of the solvent the product is dissolved in.
+            Solvent: string
+            /// The volume of the solvent.
+            SolventVolume: ValueUnit
+            /// The volume the dissolved product adds to the solvent volume, when known.
+            ExpansionVolume: ValueUnit option
+        }
+
+
     /// A product a component can be made of, with the strength of each substance.
     type ComponentProduct =
         {
@@ -286,6 +298,8 @@ module Types =
             FormQuantities: ValueUnit option
             /// The strength of each substance of the product
             Strengths: ProductStrength[]
+            /// The reconstitution the product was made with; none for a product that is not reconstituted.
+            Reconstitution: ComponentReconstitution option
         }
 
 

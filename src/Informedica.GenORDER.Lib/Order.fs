@@ -1509,11 +1509,19 @@ module Order =
                     member val Strength: ValueUnit.Dto.Dto option = None with get, set
 
 
+                /// The reconstitution a product was made with.
+                type ReconstitutionDto() =
+                    member val Solvent = "" with get, set
+                    member val SolventVolume: ValueUnit.Dto.Dto option = None with get, set
+                    member val ExpansionVolume: ValueUnit.Dto.Dto option = None with get, set
+
+
                 /// A product a component can be made of.
                 type ProductDto() =
                     member val Id = "" with get, set
                     member val FormQuantities: ValueUnit.Dto.Dto option = None with get, set
                     member val Strengths: StrengthDto list = [] with get, set
+                    member val Reconstitution: ReconstitutionDto option = None with get, set
 
 
                 let productToDto (p: ComponentProduct) =
@@ -1532,6 +1540,16 @@ module Order =
                             s
                         )
 
+                    dto.Reconstitution <-
+                        p.Reconstitution
+                        |> Option.map (fun r ->
+                            let d = ReconstitutionDto()
+                            d.Solvent <- r.Solvent
+                            d.SolventVolume <- r.SolventVolume |> vuToDto
+                            d.ExpansionVolume <- r.ExpansionVolume |> Option.bind vuToDto
+                            d
+                        )
+
                     dto
 
 
@@ -1548,6 +1566,19 @@ module Order =
                                     {
                                         Substance = s.Substance
                                         Strength = vu
+                                    }
+                                )
+                            )
+                        Reconstitution =
+                            dto.Reconstitution
+                            |> Option.bind (fun r ->
+                                r.SolventVolume
+                                |> Option.bind ValueUnit.Dto.fromDto
+                                |> Option.map (fun vol ->
+                                    {
+                                        Solvent = r.Solvent
+                                        SolventVolume = vol
+                                        ExpansionVolume = r.ExpansionVolume |> Option.bind ValueUnit.Dto.fromDto
                                     }
                                 )
                             )
@@ -3171,11 +3202,19 @@ module Order =
         ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
 
 
-    /// The ids of the products that apply to the values of the components of an order.
+    /// The id of a product in a product pick: the product id, followed by the solvent of its reconstitution, so
+    /// that two reconstitutions of one product have different ids.
+    let pickId id (reconstitution: ComponentReconstitution option) =
+        match reconstitution with
+        | Some r -> $"%s{id} %s{r.Solvent}"
+        | None -> id
+
+
+    /// The pick ids of the products that apply to the values of the components of an order.
     let productIds ord =
         (ord |> inf).Orderable.Components
         |> List.collect Orderable.Component.productsThatApply
-        |> List.map _.Id
+        |> List.map (fun p -> p.Reconstitution |> pickId p.Id)
         |> List.toArray
 
 
@@ -4093,6 +4132,23 @@ module Order =
                     | Alert _ -> s |> Alert
 
 
+        /// The preparation row with the solvent volume and the solvent, when exactly one product applies and
+        /// that product is reconstituted. Returns no row otherwise.
+        let printReconstitution (products: ComponentProduct list) =
+            match products with
+            | [ { Reconstitution = Some r } ] ->
+                [|
+                    [|
+                        "oplossen in" |> Valid
+                        $"%s{r.SolventVolume |> ValueUnit.toStringDecimalDutchShortWithPrec -1} %s{r.Solvent}"
+                        |> Valid
+                        "" |> Valid
+                        "" |> Valid
+                    |]
+                |]
+            | _ -> [||]
+
+
         let printPrep printMd sns (ord: Order) =
             let hasCompQty =
                 // Print the component quantity only when the first component has a single quantity above 1.
@@ -4131,6 +4187,8 @@ module Order =
                     |> List.toArray
 
                 [|
+                    c |> Orderable.Component.productsThatApply |> printReconstitution
+
                     if i1 > 0 || cItms |> Array.isEmpty then
                         [|
                             [|

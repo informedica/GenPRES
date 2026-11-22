@@ -160,6 +160,16 @@ Parts of step 1, one pull request each:
    are not split per solvent, and a product pick still compares the GPK only, until part 6.
 6. **The reconstitution in the order.** `ComponentProduct`, the order Dto with a new JSON version, and the
    preparation text. The product pick (`OrderContext.pickedGroups`) compares the GPK and the solvent.
+   Script: `src/Informedica.GenORDER.Lib/Scripts/Issue1950ReconstitutionOrder.fsx`, deleted by the
+   migration.
+   Built: 177 changed lines under `src/`. `ComponentProduct` gets `Reconstitution`, a
+   `ComponentReconstitution` with the solvent, the solvent volume and the expansion volume, filled from the
+   product's single reconstitution (`Medication.reconstitutionOf`). The medication Dto, the order Dto and the
+   Shared type carry it. The JSON version stays 19: the field is optional, and a stored order without it
+   reads as before. The preparation text comes from `Order.Print.printPrep`, not from
+   `Order.preparationNames`; it gets the row "oplossen in" with the solvent volume and the solvent when
+   exactly one product of a component applies. A product pick id is the GPK, followed by the solvent for a
+   reconstituted product (`Order.pickId`), in `Order.productIds` and in `pickedGroups`.
 
 ### Step 2: #1554 predilution rules for a liquid, next to the reconstitution rules
 

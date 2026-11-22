@@ -28,6 +28,7 @@
     <Compile Include="DivisibilityTests.fs" />
     <Compile Include="StrictPreparationTests.fs" />
     <Compile Include="SplitByDivisibleTests.fs" />
+    <Compile Include="ReconstitutionOrderTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="OrderReCalcTests.fs" />
     <Compile Include="DataUpdateFixtures.fs" />

@@ -181,6 +181,24 @@ module Medication =
             )
 
 
+    /// Returns the reconstitution a product was made with: the single reconstitution of a product that
+    /// requires reconstitution. Returns None for a product that requires no reconstitution, or that does not have
+    /// exactly one reconstitution.
+    let reconstitutionOf (p: Product) =
+        if p.RequiresReconstitution then
+            p.Reconstitution
+            |> Array.tryExactlyOne
+            |> Option.map (fun r ->
+                {
+                    Solvent = r.Rule.Solvent
+                    SolventVolume = r.Rule.SolventVolume
+                    ExpansionVolume = r.Rule.ExpansionVolume
+                }
+            )
+        else
+            None
+
+
     /// An empty medication record.
     let template =
         {
@@ -261,12 +279,21 @@ module Medication =
             member val Strength: ValueDto = null with get, set
 
 
+        /// The reconstitution a product was made with.
+        [<AllowNullLiteral>]
+        type ReconstitutionDto() =
+            member val Solvent: string = null with get, set
+            member val SolventVolume: ValueDto = null with get, set
+            member val ExpansionVolume: ValueDto = null with get, set
+
+
         /// A product a component can be made of.
         [<AllowNullLiteral>]
         type ProductDto() =
             member val Id: string = null with get, set
             member val FormQuantities: ValueDto = null with get, set
             member val Strengths: StrengthDto[] = [||] with get, set
+            member val Reconstitution: ReconstitutionDto = null with get, set
 
 
         /// A substance of a component.
@@ -393,11 +420,20 @@ module Medication =
             StrengthDto(Substance = ps.Substance, Strength = (ps.Strength |> valueToDto))
 
 
+        let reconstitutionToDto (r: ComponentReconstitution) =
+            ReconstitutionDto(
+                Solvent = r.Solvent,
+                SolventVolume = (r.SolventVolume |> valueToDto),
+                ExpansionVolume = (r.ExpansionVolume |> valueOptToDto)
+            )
+
+
         let productToDto (p: ComponentProduct) =
             ProductDto(
                 Id = p.Id,
                 FormQuantities = (p.FormQuantities |> valueOptToDto),
-                Strengths = (p.Strengths |> List.map strengthToDto |> List.toArray)
+                Strengths = (p.Strengths |> List.map strengthToDto |> List.toArray),
+                Reconstitution = (p.Reconstitution |> Option.map reconstitutionToDto |> Option.toObj)
             )
 
 
@@ -615,17 +651,39 @@ module Medication =
             )
 
 
+        /// Reads the reconstitution of a product; a null Dto is a product that is not reconstituted.
+        let reconstitutionFromDto path (dto: ReconstitutionDto) =
+            if isNull dto then
+                Ok None
+            else
+                validation {
+                    let volPath = $"%s{path}.SolventVolume"
+                    let! vol = Nested.required volPath dto.SolventVolume (valueFromDto volPath)
+                    and! exp = dto.ExpansionVolume |> valueOptFromDto $"%s{path}.ExpansionVolume"
+
+                    return
+                        Some
+                            {
+                                Solvent = dto.Solvent |> DtoResult.orBlank
+                                SolventVolume = vol
+                                ExpansionVolume = exp
+                            }
+                }
+
+
         let productFromDto path (dto: ProductDto) =
             validation {
                 // A placeholder product, made when no product matches, has no id.
                 let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
                 and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
+                and! recon = dto.Reconstitution |> reconstitutionFromDto $"%s{path}.Reconstitution"
 
                 return
                     {
                         Id = dto.Id |> DtoResult.orBlank
                         FormQuantities = qts
                         Strengths = strengths
+                        Reconstitution = recon
                     }
             }
 
@@ -885,6 +943,7 @@ module Medication =
                         {
                             Id = p.GPK
                             FormQuantities = if perMl then Some oneMl else Some p.FormQuantities
+                            Reconstitution = p |> reconstitutionOf
                             Strengths =
                                 p.Substances
                                 |> Array.choose (fun sub ->

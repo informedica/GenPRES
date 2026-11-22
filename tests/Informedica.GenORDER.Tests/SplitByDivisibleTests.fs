@@ -96,6 +96,7 @@ module Fixture =
     /// The product without a Divisible with the GPK, reconstituted with the solvent.
     let reconstituted gpk solvent =
         { product gpk 100N None with
+            RequiresReconstitution = true
             Reconstitution =
                 [|
                     {
@@ -182,6 +183,18 @@ let tests =
                 |]
                 |> groupsOf
                 |> Expect.equal "each rule holds both GPKs once" [| [| "1"; "2" |]; [| "1"; "2" |] |]
+            }
+
+            test "a pick of a GPK with a solvent keeps only the rule with that solvent" {
+                [| reconstituted "1" "water"; reconstituted "1" "NaCl 0,9%" |]
+                |> rule
+                |> OrderContext.Helpers.splitByDivisible id
+                |> OrderContext.Helpers.pickedGroups [| "1 water" |]
+                |> Array.map (
+                    _.DoseRule.ComponentLimits
+                    >> Array.collect (_.Products >> Array.collect (_.Reconstitution >> Array.map _.Rule.Solvent))
+                )
+                |> Expect.equal "the water rule" [| [| "water" |] |]
             }
 
             test "the drop size is set per group" {
