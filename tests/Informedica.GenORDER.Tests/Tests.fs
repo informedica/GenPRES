@@ -708,6 +708,15 @@ module ProductNarrowingTests =
                     |> Expect.equal "the text" (Some "10 mL water")
                 }
 
+                test "the preparation shows the concentration of an item without markup" {
+                    reconstitutedAmoxClav ()
+                    |> Order.Print.printPrep true [| "amoxicilline" |]
+                    |> Array.tryFind (fun row -> row |> Array.contains (Valid "amoxicilline"))
+                    |> Option.map (fun row -> row[3])
+                    |> Expect.equal "the concentration" (Some(Valid "50 mg/mL"))
+                }
+
+
                 test "an order without a reconstituted product gives no reconstitution text" {
                     Scenarios.amoxClavText
                     |> parse

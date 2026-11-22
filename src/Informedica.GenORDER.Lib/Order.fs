@@ -4229,7 +4229,10 @@ module Order =
 
                                     let itmConc =
                                         itm
-                                        |> Orderable.Item.Print.itemComponentConcentrationTo false -1
+                                        |> Orderable.Item.Print.itemComponentConcentrationTo true -1
+                                        // Uses the markdown format without the markup, so the concentration is not shown as a value.
+                                        |> String.replace "#" ""
+                                        |> String.replace "|" ""
                                         |> wrap Warning [ itm.ComponentConcentration |> Concentration.toOrdVar ]
 
                                     if itmConc |> textBlockIsEmpty |> not then
