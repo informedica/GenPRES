@@ -293,10 +293,11 @@ module DoseRule =
     /// <param name="mapping">The route mapping.</param>
     /// <param name="loc">The venous access location that selects the reconstitution.</param>
     /// <param name="dep">The department that selects the reconstitution.</param>
+    /// <param name="fits">Whether a reconstitution applies to the patient.</param>
     /// <param name="dr">The dose rule.</param>
-    let reconstitute mapping loc dep (dr: DoseRule) =
+    let reconstitute mapping loc dep fits (dr: DoseRule) =
         let warns = ResizeArray<string>()
-        let reconstitute = Product.reconstitute mapping loc dep
+        let reconstitute = Product.reconstitute mapping loc dep fits
 
         let dr =
             { dr with

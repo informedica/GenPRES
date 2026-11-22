@@ -312,7 +312,11 @@ module PrescriptionRule =
         |> Array.map (fun dr ->
             let dr, newWarns =
                 dr
-                |> DoseRule.reconstitute routeMapping pat.Location (pat |> PatientData.department)
+                |> DoseRule.reconstitute
+                    routeMapping
+                    pat.Location
+                    (pat |> PatientData.department)
+                    (Product.Reconstitution.matchesPatient pat)
 
             warns.AddRange(newWarns)
 

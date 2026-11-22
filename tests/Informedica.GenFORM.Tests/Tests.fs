@@ -4232,6 +4232,230 @@ module Tests =
                 ]
 
 
+    /// The age and weight ranges of a reconstitution, matched against the patient.
+    module ReconstitutionPatientTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+
+        let mL = Units.Volume.milliLiter
+
+
+        let mmolPerMl = Units.Molar.milliMole |> ValueUnit.per mL
+
+
+        let mgPerMl = Units.Mass.milliGram |> ValueUnit.per mL
+
+
+        let unknown = TestPatient.unknown
+
+
+        let neonate = unknown |> TestPatient.withAgeInDays 10
+
+
+        /// A patient of 17 years, about 6300 days, marked as an adult.
+        let markedSeventeen = unknown |> TestPatient.withAgeInDays 6300 |> TestPatient.markedAsAdult
+
+
+        /// A reconstitution with 10 mL water for every patient.
+        let reconstitution: Reconstitution =
+            {
+                GPK = "1"
+                Route = "iv"
+                Location = None
+                Department = None
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
+                SolventVolume = 10N |> ValueUnit.singleWithUnit mL
+                ExpansionVolume = None
+                Solvent = "water"
+                Notes = None
+            }
+
+
+        /// A reconstitution for a patient younger than 28 days.
+        let forNeonate = { reconstitution with MaxAge = Some 28N }
+
+
+        /// A reconstitution from a weight of 1000 g up to 3000 g.
+        let lowWeight =
+            { reconstitution with
+                MinWeight = Some 1000N
+                MaxWeight = Some 3000N
+            }
+
+
+        /// A powder of 100 mg/mL with 1 mmol/mL sodium, reconstituted in 10 mL before 28 days and in 5 mL from
+        /// 28 days.
+        let powder: ProductComponent =
+            {
+                GPK = "1"
+                ATC = ""
+                MainGroup = ""
+                SubGroup = ""
+                Generic = "antibioticum"
+                TallMan = ""
+                Synonyms = [||]
+                ProductLabels = []
+                Label = "antibioticum"
+                Form = "poeder voor injectievloeistof"
+                Routes = [| "iv" |]
+                FormQuantities = 1N |> ValueUnit.singleWithUnit mL
+                FormUnit = mL
+                RequiresReconstitution = true
+                Reconstitution =
+                    [|
+                        forNeonate
+                        { reconstitution with
+                            MinAge = Some 28N
+                            SolventVolume = 5N |> ValueUnit.singleWithUnit mL
+                        }
+                    |]
+                Divisible = None
+                Substances =
+                    [|
+                        {
+                            Name = "antibioticum"
+                            Concentration = 100N |> ValueUnit.singleWithUnit mgPerMl |> Some
+                            MolarConcentration = None
+                        }
+                        {
+                            Name = "natrium"
+                            Concentration = None
+                            MolarConcentration = 1N |> ValueUnit.singleWithUnit mmolPerMl |> Some
+                        }
+                    |]
+                TradeProducts = []
+            }
+
+
+        /// Reconstitutes the powder for the patient; the empty route is not checked.
+        let reconstituteFor pat =
+            powder
+            |> Product.reconstitute [||] None None (Product.Reconstitution.matchesPatient pat) ""
+
+
+        let tests =
+            testList
+                "a reconstitution for the patient"
+                [
+                    testList
+                        "Reconstitution.matchesPatient"
+                        [
+                            test "a reconstitution without ranges applies to a patient with nothing known" {
+                                reconstitution
+                                |> Product.Reconstitution.matchesPatient unknown
+                                |> Expect.isTrue "applies"
+                            }
+
+                            test "a neonate of 10 days is in the age range" {
+                                forNeonate
+                                |> Product.Reconstitution.matchesPatient neonate
+                                |> Expect.isTrue "applies"
+                            }
+
+                            test "a patient of 28 days is not in the age range, the maximum is exclusive" {
+                                forNeonate
+                                |> Product.Reconstitution.matchesPatient (unknown |> TestPatient.withAgeInDays 28)
+                                |> Expect.isFalse "does not apply"
+                            }
+
+                            test "a patient without an age does not match an age range" {
+                                forNeonate
+                                |> Product.Reconstitution.matchesPatient unknown
+                                |> Expect.isFalse "does not apply"
+                            }
+
+                            test "a patient of 2 kg is in the weight range of 1000 g up to 3000 g" {
+                                lowWeight
+                                |> Product.Reconstitution.matchesPatient (unknown |> TestPatient.withWeightInKg 2N)
+                                |> Expect.isTrue "applies"
+                            }
+
+                            test "a patient of 3 kg is not in the weight range of 1000 g up to 3000 g" {
+                                lowWeight
+                                |> Product.Reconstitution.matchesPatient (unknown |> TestPatient.withWeightInKg 3N)
+                                |> Expect.isFalse "does not apply"
+                            }
+
+                            test "a patient without a weight does not match a weight range" {
+                                lowWeight
+                                |> Product.Reconstitution.matchesPatient unknown
+                                |> Expect.isFalse "does not apply"
+                            }
+
+                            test "a marked patient of 17 years matches a range from 6400 days as an adult" {
+                                { reconstitution with MinAge = Some 6400N }
+                                |> Product.Reconstitution.matchesPatient markedSeventeen
+                                |> Expect.isTrue "applies"
+                            }
+
+                            test "a marked patient of 17 years does not match a range with a maximum age" {
+                                { reconstitution with MaxAge = Some 6574N }
+                                |> Product.Reconstitution.matchesPatient markedSeventeen
+                                |> Expect.isFalse "does not apply"
+                            }
+
+                            test "a marked patient without an age matches a range from 6400 days as an adult" {
+                                { reconstitution with MinAge = Some 6400N }
+                                |> Product.Reconstitution.matchesPatient (unknown |> TestPatient.markedAsAdult)
+                                |> Expect.isTrue "applies"
+                            }
+                        ]
+
+                    testList
+                        "Product.reconstitute"
+                        [
+                            test "a neonate gets the reconstitution in 10 mL" {
+                                reconstituteFor neonate
+                                |> fst
+                                |> Array.map _.FormQuantities
+                                |> Expect.equal "10 mL" [| 10N |> ValueUnit.singleWithUnit mL |]
+                            }
+
+                            test "a patient of 1 year gets the reconstitution in 5 mL" {
+                                reconstituteFor (unknown |> TestPatient.withAgeInDays 365)
+                                |> fst
+                                |> Array.map _.FormQuantities
+                                |> Expect.equal "5 mL" [| 5N |> ValueUnit.singleWithUnit mL |]
+                            }
+
+                            test "a patient without an age gets no reconstitution and a warning" {
+                                let prods, warns = reconstituteFor unknown
+
+                                prods |> Expect.isEmpty "no products"
+                                warns |> Expect.isNonEmpty "a warning"
+                            }
+
+                            test "the concentration and the molar concentration are divided by 10 mL" {
+                                reconstituteFor neonate
+                                |> fst
+                                |> Array.collect _.Substances
+                                |> Array.map (fun s -> s.Concentration, s.MolarConcentration)
+                                |> Expect.equal
+                                    "10 mg/mL and 1/10 mmol/mL"
+                                    [|
+                                        10N |> ValueUnit.singleWithUnit mgPerMl |> Some, None
+                                        None, 1N / 10N |> ValueUnit.singleWithUnit mmolPerMl |> Some
+                                    |]
+                            }
+                        ]
+
+                    test "Reconstitution.filter leaves out a reconstitution for another age" {
+                        [| forNeonate |]
+                        |> Product.Reconstitution.filter
+                            [||]
+                            { Filter.doseFilter with PatientData = unknown |> TestPatient.withAgeInDays 365 }
+                        |> Expect.isEmpty "left out"
+                    }
+                ]
+
+
     /// The filter options of a set of prescription rules, and the warning when no rule matches a dose filter.
     module FilterOptionsTests =
 
@@ -9254,6 +9478,42 @@ module Tests =
                                 |> Expect.equal "one" 1
                             }
 
+                            test "a rule from 1 year gives no warning for a powder reconstituted only for a neonate" {
+                                // 400 mg in 3 mL is about 133 mg/mL, reconstituted only before 28 days
+                                let neonatePowder =
+                                    let p = powder "teicoplanine" 400N 3N None
+
+                                    { p with
+                                        Reconstitution =
+                                            p.Reconstitution |> Array.map (fun r -> { r with MaxAge = Some 28N })
+                                    }
+
+                                let fromOneYear =
+                                    { PatientCategory.empty with
+                                        Age =
+                                            { MinMax.empty with
+                                                Min =
+                                                    365N
+                                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                                    |> Limit.inclusive
+                                                    |> Some
+                                            }
+                                            |> AbsoluteAge
+                                    }
+
+                                [|
+                                    { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = fromOneYear }
+                                |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| neonatePowder |]
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
                             test "a rule without a department gives no warning when the powder fits in that department" {
                                 // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
                                 [| solutionRule "teicoplanine" (maxConc 10N) |]
@@ -12521,6 +12781,7 @@ module Tests =
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests
+                ReconstitutionPatientTests.tests
                 FilterOptionsTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
