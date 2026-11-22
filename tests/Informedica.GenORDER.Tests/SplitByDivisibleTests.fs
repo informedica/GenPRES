@@ -93,6 +93,41 @@ module Fixture =
     let without = product "3" 100N None
 
 
+    /// The product without a Divisible with the GPK, reconstituted with the solvent.
+    let reconstituted gpk solvent =
+        { product gpk 100N None with
+            Reconstitution =
+                [|
+                    {
+                        GPK = gpk
+                        Route = "iv"
+                        Location = None
+                        Department = None
+                        MinAge = None
+                        MaxAge = None
+                        MinWeight = None
+                        MaxWeight = None
+                        SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
+                        ExpansionVolume = None
+                        Solvent = solvent
+                        Notes = None
+                    }
+                    |> Product.ProductReconstitution.create [||]
+                |]
+        }
+
+
+    /// The solvents of the products of each split rule.
+    let solventsOf products =
+        products
+        |> rule
+        |> OrderContext.Helpers.splitByDivisible id
+        |> Array.map (
+            _.DoseRule.ComponentLimits
+            >> Array.collect (_.Products >> Array.collect (_.Reconstitution >> Array.map _.Rule.Solvent))
+        )
+
+
 open Fixture
 
 
@@ -130,6 +165,23 @@ let tests =
                 [| one; { one with GPK = "4" }; two |]
                 |> groupsOf
                 |> Expect.equal "two groups" [| [| "1"; "4" |]; [| "2" |] |]
+            }
+
+            test "two reconstitutions of one GPK give a rule per solvent, sorted by solvent" {
+                [| reconstituted "1" "water"; reconstituted "1" "NaCl 0,9%" |]
+                |> solventsOf
+                |> Expect.equal "a rule per solvent" [| [| "NaCl 0,9%" |]; [| "water" |] |]
+            }
+
+            test "two GPKs with the same solvent stay in one rule" {
+                [|
+                    reconstituted "1" "water"
+                    reconstituted "2" "water"
+                    reconstituted "1" "NaCl 0,9%"
+                    reconstituted "2" "NaCl 0,9%"
+                |]
+                |> groupsOf
+                |> Expect.equal "each rule holds both GPKs once" [| [| "1"; "2" |]; [| "1"; "2" |] |]
             }
 
             test "the drop size is set per group" {
