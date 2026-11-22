@@ -593,11 +593,15 @@ module OrderContext =
         open Informedica.Logging.Lib
 
 
-        /// Splits a component limit into one limit per Divisible of its products, sorted by Divisible so
-        /// the scenarios come in a fixed order; the products without a Divisible come first. A limit whose
-        /// products all have the same Divisible is not split.
+        /// Splits a component limit into one limit per Divisible and solvent of its products, sorted by
+        /// Divisible and solvent so the scenarios come in a fixed order; the products without a Divisible
+        /// come first. A limit whose products all have the same Divisible and solvents is not split.
         let limitsByDivisible (cl: ComponentLimit) =
-            match cl.Products |> Array.groupBy _.Divisible |> Array.sortBy fst with
+            match
+                cl.Products
+                |> Array.groupBy (fun p -> p.Divisible, p.Reconstitution |> Array.map _.Rule.Solvent)
+                |> Array.sortBy fst
+            with
             | [||]
             | [| _ |] -> [| cl |]
             | groups -> groups |> Array.map (fun (_, ps) -> { cl with Products = ps })

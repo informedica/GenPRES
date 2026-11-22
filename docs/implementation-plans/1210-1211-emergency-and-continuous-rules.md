@@ -153,6 +153,11 @@ Parts of step 1, one pull request each:
    `ProductReconstitution.create`.
 5. **One scenario per reconstitution.** A prescription rule is split into one rule per reconstitution of
    its products, as `splitByDivisible` splits it.
+   Script: `src/Informedica.GenORDER.Lib/Scripts/Issue1950ReconstitutionSplit.fsx`, deleted by the
+   migration.
+   Built: 12 changed lines under `src/`. `limitsByDivisible` groups the products on the Divisible and
+   the solvent together, so `splitByDivisible` does not change. The rules evaluated without the Divisible
+   are not split per solvent, and a product pick still compares the GPK only, until part 6.
 6. **The reconstitution in the order.** `ComponentProduct`, the order Dto with a new JSON version, and the
    preparation text. The product pick (`OrderContext.pickedGroups`) compares the GPK and the solvent.
 
