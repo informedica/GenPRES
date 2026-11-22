@@ -12,6 +12,16 @@ module Xlsx =
     open Informedica.Utils.Lib.BCL
 
 
+    /// A sheet of a workbook.
+    type Sheet =
+        {
+            /// The rows that are not hidden, the header row first, every row as wide as the widest row.
+            Rows: string[][]
+            /// The number of rows with text that a filter or the user hides.
+            HiddenRows: int
+        }
+
+
     /// The namespace of the worksheet, workbook and shared strings elements.
     let mainNs = XNamespace.Get "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
@@ -78,8 +88,8 @@ module Xlsx =
         | _, v -> numberText v.Value
 
 
-    /// Reads the rows of one worksheet, the header row first, every row as wide as the widest row. Rows marked
-    /// hidden and rows without any text are left out, and the cells are trimmed.
+    /// Reads one worksheet. Rows marked hidden are left out and, when they have text, counted. Rows without
+    /// any text are left out, and the cells are trimmed.
     let readSheet shared (doc: XDocument) =
         let isHidden (row: XElement) =
             match row.Attribute "hidden" with
@@ -101,21 +111,24 @@ module Xlsx =
             |> Seq.filter (snd >> String.notEmpty)
             |> Seq.toArray
 
-        let visible =
-            doc.Descendants(mainNs + "row")
-            |> Seq.toArray
-            |> Array.filter (isHidden >> not)
-            |> Array.map cells
-            |> Array.filter (Array.isEmpty >> not)
+        let withText rows = rows |> Array.map cells |> Array.filter (Array.isEmpty >> not)
+
+        let hidden, shown = doc.Descendants(mainNs + "row") |> Seq.toArray |> Array.partition isHidden
+
+        let visible = shown |> withText
 
         let width = visible |> Array.collect (Array.map (fst >> (+) 1)) |> Array.fold max 0
 
-        visible
-        |> Array.map (fun cs ->
-            let row = Array.create width ""
-            cs |> Array.iter (fun (i, s) -> row[i] <- s)
-            row
-        )
+        {
+            Rows =
+                visible
+                |> Array.map (fun cs ->
+                    let row = Array.create width ""
+                    cs |> Array.iter (fun (i, s) -> row[i] <- s)
+                    row
+                )
+            HiddenRows = hidden |> withText |> Array.length
+        }
 
 
     /// Returns the folder of an entry name: xl/workbook.xml gives xl, a name without a folder gives the empty text.

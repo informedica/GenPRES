@@ -71,7 +71,7 @@ module Web =
         // The workbooks read since the last clear, by spreadsheet id. Callers that ask at the same time share
         // one download.
         let private workbooks =
-            ConcurrentDictionary<string, Lazy<Task<Result<Map<string, string[][]>, string>>>>()
+            ConcurrentDictionary<string, Lazy<Task<Result<Map<string, Xlsx.Sheet>, string>>>>()
 
 
         /// Forgets the workbooks read so far, so the next sheet read downloads the workbook again.
@@ -98,34 +98,48 @@ module Web =
         let sheetRows rows = rows |> Array.map (Array.map (String.replace "\"" ""))
 
 
-        /// Returns the rows of a sheet as text, the header row first. Returns an error when the workbook
-        /// cannot be loaded or has no sheet with that name.
-        let getRowsFromSheet dataUrlId sheet =
+        /// Returns a sheet of the workbook of the spreadsheet with the given id. Returns an error when the
+        /// workbook cannot be loaded or has no sheet with that name.
+        let getSheet dataUrlId name =
             async {
                 let! workbook = getWorkbookWith downloadWorkbook dataUrlId
 
                 return
                     workbook
                     |> Result.bind (fun sheets ->
-                        match sheets |> Map.tryFind sheet with
-                        | Some rows -> rows |> sheetRows |> Ok
+                        match sheets |> Map.tryFind name with
+                        | Some sheet -> Ok sheet
                         | None ->
                             let names = sheets |> Map.keys |> String.concat ", "
-                            Error $"The workbook has no sheet '%s{sheet}'. The sheets are: %s{names}."
+                            Error $"The workbook has no sheet '%s{name}'. The sheets are: %s{names}."
                     )
                     |> Result.mapError (fun err ->
-                        $"Failed to load sheet '%s{sheet}' using URL ID '%s{dataUrlId}'.\n%s{err}"
+                        $"Failed to load sheet '%s{name}' using URL ID '%s{dataUrlId}'.\n%s{err}"
                     )
             }
 
 
-        /// Returns the rows of a sheet as getRowsFromSheet does, waiting for the result, and writes an
-        /// error to the console.
-        let getRowsFromSheetSync dataUrlId sheet =
-            getRowsFromSheet dataUrlId sheet
+        /// Returns the warning for the sheet with the given name when it has hidden rows, or None when no row
+        /// is hidden.
+        let hiddenRowsWarning name (sheet: Xlsx.Sheet) =
+            if sheet.HiddenRows = 0 then
+                None
+            else
+                Some $"Sheet '%s{name}': %i{sheet.HiddenRows} rows are hidden, so those rows are not loaded."
+
+
+        /// Returns the rows of a sheet as text, the header row first, waiting for the result. Returns an error
+        /// when the workbook cannot be loaded or has no sheet with that name. Writes an error to the console, and
+        /// a warning when the sheet has hidden rows.
+        let getRowsFromSheetSync dataUrlId name =
+            getSheet dataUrlId name
             |> Async.RunSynchronously
             |> function
-                | Ok result -> result |> Ok
+                | Ok sheet ->
+                    hiddenRowsWarning name sheet
+                    |> Option.iter (fun msg -> ConsoleWriter.writeWarningMessage msg true false)
+
+                    sheet.Rows |> sheetRows |> Ok
                 | Error msg ->
                     ConsoleWriter.writeErrorMessage msg true false
                     msg |> Error
