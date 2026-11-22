@@ -2540,3 +2540,306 @@ module Tests =
                         Optic.set snd_ "z" (1, "a") |> equals (1, "z") "set snd"
                     }
                 ]
+
+
+    module XlsxTests =
+
+        open System.IO
+        open System.IO.Compression
+        open Expecto.Flip
+
+        module Fixture =
+
+            let relType kind =
+                $"http://schemas.openxmlformats.org/officeDocument/2006/relationships/%s{kind}"
+
+
+            let relationshipsXml (rels: (string * string * string) list) =
+                let items =
+                    rels
+                    |> List.map (fun (id, kind, target) ->
+                        $"""<Relationship Id="%s{id}" Type="%s{relType kind}" Target="%s{target}"/>"""
+                    )
+                    |> String.concat ""
+
+                $"""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">%s{items}</Relationships>"""
+
+
+            let sheetXml (rows: string) =
+                $"""<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>%s{rows}</sheetData></worksheet>"""
+
+
+            /// Returns the entries of an xlsx package, as (entry name, content), with the workbook in the given folder.
+            let parts folder (sheets: (string * string) list) (shared: string list) =
+                let sheetEntries =
+                    sheets
+                    |> List.mapi (fun i (name, _) ->
+                        $"""<sheet name="%s{name}" sheetId="%i{i + 1}" r:id="rId%i{i + 1}"/>"""
+                    )
+                    |> String.concat ""
+
+                let items = shared |> List.map (fun s -> $"<si><t>%s{s}</t></si>") |> String.concat ""
+
+                [
+                    "_rels/.rels", relationshipsXml [ "rId1", "officeDocument", $"%s{folder}/workbook.xml" ]
+                    $"%s{folder}/workbook.xml",
+                    $"""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>%s{sheetEntries}</sheets></workbook>"""
+                    $"%s{folder}/_rels/workbook.xml.rels",
+                    relationshipsXml
+                        [
+                            // The first sheet uses a target from the package root, the others a relative one.
+                            for i in 1 .. sheets.Length do
+                                let target =
+                                    if i = 1 then
+                                        $"/%s{folder}/worksheets/sheet1.xml"
+                                    else
+                                        $"worksheets/sheet%i{i}.xml"
+
+                                $"rId%i{i}", "worksheet", target
+                            "rIdShared", "sharedStrings", "strings/../sharedStrings.xml"
+                        ]
+                    $"%s{folder}/sharedStrings.xml",
+                    $"""<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">%s{items}</sst>"""
+                    for i, (_, xml) in sheets |> List.indexed do
+                        $"%s{folder}/worksheets/sheet%i{i + 1}.xml", xml
+                ]
+
+
+            /// Zips the entries, given as (entry name, content), into the bytes of a package.
+            let package (entries: (string * string) list) =
+                use ms = new MemoryStream()
+
+                do
+                    use zip = new ZipArchive(ms, ZipArchiveMode.Create, true)
+
+                    for path, content in entries do
+                        use w = new StreamWriter(zip.CreateEntry(path).Open())
+                        w.Write content
+
+                ms.ToArray()
+
+
+            /// Builds an xlsx workbook in memory, with the workbook in the xl folder.
+            let workbook sheets shared = parts "xl" sheets shared |> package
+
+
+            // Shared strings: 0 GPKODE, 1 Generic, 2 Mmol, 3 MinGestAge, 4 paracetamol, 5 259 (a number stored as text),
+            // 6 Timed, 7 ibuprofen, 8 a filtered row
+            let shared =
+                [
+                    "GPKODE"
+                    "Generic"
+                    "Mmol"
+                    "MinGestAge"
+                    "paracetamol"
+                    "259"
+                    "Timed"
+                    "ibuprofen"
+                    "a filtered row"
+                ]
+
+
+            // A Formulary-like sheet without a dummy row: the numeric columns of the first data rows are empty.
+            let formulary =
+                sheetXml
+                    """
+        <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c><c r="D1" t="s"><v>3</v></c><c r="E1" t="s"><v>6</v></c></row>
+        <row r="2"><c r="A2"><v>166022.0</v></c><c r="B2" t="s"><v>4</v></c><c r="E2" t="b"><v>0</v></c></row>
+        <row r="3" hidden="1"><c r="A3"><v>1.0</v></c><c r="B3" t="s"><v>8</v></c></row>
+        <row r="4"/>
+        <row r="5"><c r="A5"><v>161144.0</v></c><c r="B5" t="s"><v>7</v></c><c r="C5"><v>6.0E-4</v></c><c r="D5" t="s"><v>5</v></c><c r="E5" t="b"><v>1</v></c></row>
+        <row r="6"><c r="A6"><v>2.4E7</v></c><c r="B6" t="inlineStr"><is><t> inline </t></is></c><c r="C6"><v>6.666666666666667</v></c><c r="D6" t="str"><v>formula text</v></c><c r="E6" t="e"><v>#N/A</v></c></row>
+        """
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Xlsx"
+                [
+                    testList
+                        "columnIndex"
+                        [
+                            for cellRef, expected in [ "A1", 0; "Z9", 25; "AA1", 26; "AB12", 27; "b3", 1 ] do
+                                test $"%s{cellRef} is column %i{expected}" {
+                                    cellRef |> Xlsx.columnIndex |> Expect.equal "zero-based column" expected
+                                }
+                        ]
+
+                    testList
+                        "numberText"
+                        [
+                            for stored, expected in
+                                [
+                                    "30.0", "30"
+                                    "127434.0", "127434"
+                                    "2.4E7", "24000000"
+                                    "6.0E-4", "0.0006"
+                                    "6.666666666666667", "6.66666666666667"
+                                    "0.16699999999999998", "0.167"
+                                    "0.027000000000000003", "0.027"
+                                    "9.129E-5", "0.00009129"
+                                    "-2.5E-3", "-0.0025"
+                                    "1.0E16", "10000000000000000"
+                                    "1.5E16", "15000000000000000"
+                                    "1E-30", "0.000000000000000000000000000001"
+                                    "1.23456789012345E-25", "0.000000000000000000000000123456789012345"
+                                    "0", "0"
+                                    "-1.5", "-1.5"
+                                    "text", "text"
+                                ] do
+                                test $"%s{stored} is written as %s{expected}" {
+                                    stored |> Xlsx.numberText |> Expect.equal "shortest text" expected
+                                }
+                        ]
+
+                    testList
+                        "folderOf"
+                        [
+                            for path, expected in
+                                [
+                                    "xl/workbook.xml", "xl"
+                                    "xl/worksheets/sheet1.xml", "xl/worksheets"
+                                    "workbook.xml", ""
+                                    "", ""
+                                ] do
+                                test $"'%s{path}' is in '%s{expected}'" {
+                                    path |> Xlsx.folderOf |> Expect.equal "folder" expected
+                                }
+                        ]
+
+                    testList
+                        "relationshipsPath"
+                        [
+                            for part, expected in
+                                [
+                                    "", "_rels/.rels"
+                                    "xl/workbook.xml", "xl/_rels/workbook.xml.rels"
+                                    "workbook.xml", "_rels/workbook.xml.rels"
+                                ] do
+                                test $"'%s{part}' has '%s{expected}'" {
+                                    part |> Xlsx.relationshipsPath |> Expect.equal "relationships" expected
+                                }
+                        ]
+
+                    testList
+                        "resolveTarget"
+                        [
+                            for folder, target, expected in
+                                [
+                                    "xl", "worksheets/sheet1.xml", "xl/worksheets/sheet1.xml"
+                                    "xl", "/xl/worksheets/sheet1.xml", "xl/worksheets/sheet1.xml"
+                                    "xl/worksheets", "../sharedStrings.xml", "xl/sharedStrings.xml"
+                                    "xl", "./styles.xml", "xl/styles.xml"
+                                    "", "xl/workbook.xml", "xl/workbook.xml"
+                                ] do
+                                test $"'%s{target}' from '%s{folder}' is '%s{expected}'" {
+                                    target |> Xlsx.resolveTarget folder |> Expect.equal "entry name" expected
+                                }
+                        ]
+
+                    testList
+                        "read"
+                        [
+                            let read () =
+                                Fixture.workbook
+                                    [ "Formulary", Fixture.formulary; "Empty", Fixture.sheetXml "" ]
+                                    Fixture.shared
+                                |> Xlsx.read
+                                |> function
+                                    | Ok sheets -> sheets
+                                    | Error e -> failtest e
+
+                            let sheet =
+                                Fixture.sheetXml
+                                    """<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>2.0</v></c></row>"""
+
+                            test "the workbook is found through _rels/.rels in another folder" {
+                                Fixture.parts "book" [ "First", sheet ] [ "GPKODE" ]
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Result.map (Map.find "First")
+                                |> Expect.equal "the sheet" (Ok [| [| "GPKODE"; "2" |] |])
+                            }
+
+                            test "a package without _rels/.rels gives an error" {
+                                Fixture.parts "xl" [ "First", sheet ] [ "GPKODE" ]
+                                |> List.filter (fst >> (<>) "_rels/.rels")
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Expect.isError "no office document"
+                            }
+
+                            test "a package without the office document gives an error" {
+                                Fixture.parts "xl" [ "First", sheet ] [ "GPKODE" ]
+                                |> List.filter (fst >> (<>) "xl/workbook.xml")
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Expect.isError "office document missing"
+                            }
+
+                            test "every sheet is found by name, also with a target from the package root" {
+                                read ()
+                                |> Map.keys
+                                |> Seq.toList
+                                |> Expect.equal "sheet names" [ "Empty"; "Formulary" ]
+                            }
+
+                            test "the header is kept when the numeric columns of the first data rows are empty" {
+                                (read () |> Map.find "Formulary")[0]
+                                |> Expect.equal "header row" [| "GPKODE"; "Generic"; "Mmol"; "MinGestAge"; "Timed" |]
+                            }
+
+                            test "the first data row is kept" {
+                                (read () |> Map.find "Formulary")[1]
+                                |> Expect.equal "first data row" [| "166022"; "paracetamol"; ""; ""; "FALSE" |]
+                            }
+
+                            test "a number stored as text keeps its value" {
+                                let rows = read () |> Map.find "Formulary"
+                                rows[2][3] |> Expect.equal "MinGestAge" "259"
+                            }
+
+                            test
+                                "numbers, booleans, inline strings and formula strings are written as text, an error cell is empty" {
+                                let rows = read () |> Map.find "Formulary"
+                                rows[2]
+                                |> Expect.equal "second data row" [| "161144"; "ibuprofen"; "0.0006"; "259"; "TRUE" |]
+                                rows[3]
+                                |> Expect.equal
+                                    "third data row"
+                                    [| "24000000"; "inline"; "6.66666666666667"; "formula text"; "" |]
+                            }
+
+                            test "a hidden row and an empty row are left out" {
+                                read ()
+                                |> Map.find "Formulary"
+                                |> Array.length
+                                |> Expect.equal "header and three data rows" 4
+                            }
+
+                            test "an empty formatted cell beyond the data does not widen the rows" {
+                                Fixture.workbook
+                                    [
+                                        "Wide",
+                                        Fixture.sheetXml
+                                            """<row r="1"><c r="A1"><v>1</v></c><c r="XFD1" s="1"/></row><row r="2"><c r="B2"><v>2</v></c><c r="C2" s="1"/></row>"""
+                                    ]
+                                    []
+                                |> Xlsx.read
+                                |> Result.map (Map.find "Wide")
+                                |> Expect.equal "two columns" (Ok [| [| "1"; "" |]; [| ""; "2" |] |])
+                            }
+
+                            test "a sheet without rows has no rows" {
+                                read () |> Map.find "Empty" |> Expect.isEmpty "no rows"
+                            }
+
+                            test "bytes that are not a workbook give an error" {
+                                "<html>Sign in</html>"
+                                |> Text.Encoding.UTF8.GetBytes
+                                |> Xlsx.read
+                                |> Expect.isError "not an xlsx workbook"
+                            }
+                        ]
+                ]

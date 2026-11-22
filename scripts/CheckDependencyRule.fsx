@@ -124,6 +124,7 @@ let allowances =
         allowFile "src/Informedica.Utils.Lib/StopWatch.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/Web.fs" utilsSplit
         allowToken "src/Informedica.Utils.Lib/Path.fs" "System.IO" "Permanent: System.IO.Path string helpers only, no filesystem access"
+        allowToken "src/Informedica.Utils.Lib/Xlsx.fs" "System.IO" "Permanent: reads a zip archive from bytes in memory, no filesystem access"
         allowToken "src/Informedica.Utils.Lib/Memoization.fs" "Stopwatch" "Permanent: timing in an example function, no IO"
         // Logging.Lib
         allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
