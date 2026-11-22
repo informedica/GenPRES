@@ -238,6 +238,15 @@ module OrderContextMapper =
              |> Option.ofObj
              |> Option.bind AccessDevice.tryFromString
              |> Option.bind Patient.accessBack)
+        // the scenario Dto does not store the reconstitution, so it is derived from the order
+        |> fun sc ->
+            { sc with
+                Reconstitution =
+                    dto.Order
+                    |> Order.Dto.fromDto
+                    |> Result.toOption
+                    |> Option.bind Order.reconstitutionText
+            }
 
 
     /// Maps the totals to the Dto. An empty line gives None.

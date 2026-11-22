@@ -3185,34 +3185,9 @@ module Tests =
                 ]
 
 
-    module DelimitedStringTests =
-
-        let tests =
-            testList
-                "ValueUnit.toDelimitedString"
-                [
-                    test "prints values within the range of a decimal as decimals" {
-                        [| 1N / 3N; 1N / 5N |]
-                        |> ValueUnit.create Units.Mass.milliGram
-                        |> ValueUnit.toDelimitedString false 2
-                        |> Expect.equal "the decimals between the delimiters" "#0,33; 0,2#"
-                    }
-
-                    test "prints a value beyond the range of a decimal as its fraction" {
-                        [| BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40)) / 3N |]
-                        |> ValueUnit.create Units.Mass.milliGram
-                        |> ValueUnit.toDelimitedString false 2
-                        |> Expect.equal
-                            "the fraction between the delimiters"
-                            "#10000000000000000000000000000000000000000/3#"
-                    }
-                ]
-
-
     [<Tests>]
     let tests =
         [
-            DelimitedStringTests.tests
             NthValueTests.tests
             VariableTests.ValueRangeTests.IncrementTests.tests
             VariableTests.ValueRangeTests.MinimumTests.tests

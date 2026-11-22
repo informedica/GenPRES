@@ -132,12 +132,13 @@ let tests =
             testList
                 "the preparation row"
                 [
-                    test "one reconstituted product gives the solvent volume and the solvent" {
+                    test
+                        "one reconstituted product puts oplossen in with the solvent volume and the solvent in one cell" {
                         [ product "1" (Some reconstitution) ]
                         |> Order.Print.printReconstitution
                         |> Expect.equal
                             "the row"
-                            [| [| Valid "oplossen in"; Valid "10 mL water"; Valid ""; Valid "" |] |]
+                            [| [| Valid "oplossen in 10 mL water"; Valid ""; Valid ""; Valid "" |] |]
                     }
 
                     test "two products that apply give no row" {

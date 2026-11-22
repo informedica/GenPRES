@@ -1003,6 +1003,7 @@ module Models =
                 NotRecalculated = notRecalculated
                 ProductIds = ids
                 Access = acc
+                Reconstitution = None
             }
 
 

@@ -653,6 +653,30 @@ module ProductNarrowingTests =
         |> solve (fun o -> ChangeProperty(o, SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n)))
 
 
+    let amoxClav500 = "amox-clav-500-50"
+
+
+    /// The amoxicilline/clavulaanzuur order with the 500/50 mg product reconstituted in 10 mL water.
+    let reconstitutedAmoxClav () =
+        let reconstitution =
+            [
+                "        Reconstitution:"
+                "          Solvent: water"
+                "          SolventVolume:"
+                "            Value:"
+                "              - \"10\""
+                "            Unit: ml"
+            ]
+            |> String.concat "\n"
+
+        Scenarios.amoxClavText.Replace(
+            $"      - Id: %s{amoxClav500}\n",
+            $"      - Id: %s{amoxClav500}\n%s{reconstitution}\n"
+        )
+        |> parse
+        |> built
+
+
     let tests =
         testList
             "the products narrow the strengths"
@@ -668,33 +692,28 @@ module ProductNarrowingTests =
                 }
 
                 test "a reconstituted product gives the pick id of the GenFORM product it was made from" {
-                    let gpk = "amox-clav-500-50"
-
-                    let reconstitution =
-                        [
-                            "        Reconstitution:"
-                            "          Solvent: water"
-                            "          SolventVolume:"
-                            "            Value:"
-                            "              - \"10\""
-                            "            Unit: ml"
-                        ]
-                        |> String.concat "\n"
-
-                    let ord =
-                        Scenarios.amoxClavText.Replace(
-                            $"      - Id: %s{gpk}\n",
-                            $"      - Id: %s{gpk}\n%s{reconstitution}\n"
-                        )
-                        |> parse
-                        |> built
-
                     let picked =
-                        SplitByDivisibleTests.Fixture.reconstituted gpk "water"
+                        SplitByDivisibleTests.Fixture.reconstituted amoxClav500 "water"
                         |> Medication.reconstitutionOf
-                        |> Order.pickId gpk
+                        |> Order.pickId amoxClav500
 
-                    ord |> Order.productIds |> Expect.equal "the pick id" [| picked |]
+                    reconstitutedAmoxClav ()
+                    |> Order.productIds
+                    |> Expect.equal "the pick id" [| picked |]
+                }
+
+                test "an order with a reconstituted product gives its reconstitution as text" {
+                    reconstitutedAmoxClav ()
+                    |> Order.reconstitutionText
+                    |> Expect.equal "the text" (Some "10 mL water")
+                }
+
+                test "an order without a reconstituted product gives no reconstitution text" {
+                    Scenarios.amoxClavText
+                    |> parse
+                    |> built
+                    |> Order.reconstitutionText
+                    |> Expect.isNone "no text"
                 }
 
                 test "both strengths of clavulaanzuur keep both products" {

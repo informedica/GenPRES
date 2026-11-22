@@ -600,6 +600,9 @@ module Types =
             /// The access device the solution rule of the scenario prepares for; none when the preparation
             /// fits any access. This is not the access of the patient.
             Access: Access option
+            /// The reconstitution of the product of the first component as text, such as "10 mL NaCl 0,9%";
+            /// none when that product is not reconstituted.
+            Reconstitution: string option
         }
 
 

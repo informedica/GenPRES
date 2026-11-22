@@ -170,6 +170,11 @@ Parts of step 1, one pull request each:
    `Order.preparationNames`; it gets the row "oplossen in" with the solvent volume and the solvent when
    exactly one product of a component applies. A product pick id is the GPK, followed by the solvent for a
    reconstituted product (`Order.pickId`), in `Order.productIds` and in `pickedGroups`.
+   Follow-up: the preparation row reads "oplossen in 10 mL NaCl 0,9%" in one cell, without value markup, and
+   the scenario header reads "poeder voor injectievloeistof in 10 mL NaCl 0,9%".
+   The Shared scenario gets the text as Reconstitution; the server mapper makes it from the order
+   (`Order.reconstitutionText`), so the stored order plan JSON does not change.
+   Script: `src/Informedica.GenORDER.Lib/Scripts/Issue1950ReconstitutionForm.fsx`, deleted by the migration.
 
 ### Step 2: #1554 predilution rules for a liquid, next to the reconstitution rules
 
