@@ -9514,6 +9514,38 @@ module Tests =
                                 |> Expect.isEmpty "none"
                             }
 
+                            test "a dose rule from 1 year gives no warning for a solution rule before 28 days" {
+                                let age min max =
+                                    { PatientCategory.empty with
+                                        Age =
+                                            MinMax.empty
+                                            |> fun mm ->
+                                                { mm with
+                                                    Min =
+                                                        min
+                                                        |> Option.map (
+                                                            ValueUnit.singleWithUnit Units.Time.day >> Limit.inclusive
+                                                        )
+                                                    Max =
+                                                        max
+                                                        |> Option.map (
+                                                            ValueUnit.singleWithUnit Units.Time.day >> Limit.exclusive
+                                                        )
+                                                }
+                                            |> AbsoluteAge
+                                    }
+
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                        PatientCategory = age None (Some 28N)
+                                    }
+                                |]
+                                |> undilutable [| { dr with PatientCategory = age (Some 365N) None } |]
+                                |> Expect.isEmpty "none"
+                            }
+
                             test "a rule without a department gives no warning when the powder fits in that department" {
                                 // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
                                 [| solutionRule "teicoplanine" (maxConc 10N) |]
@@ -11194,6 +11226,34 @@ module Tests =
                                 filterFor (Some 10N) [| limitsBothPerKg |]
                                 |> Result.map (Array.collect _.SolutionRules >> Array.map limits)
                                 |> Expect.equal "the limits per kg" (Ok [| limitsBothPerKg |> limits |])
+                            }
+
+                            test "the rules are not the same when the products of a component differ" {
+                                match filterFor (Some 10N) [| limitsBothPerKg |] with
+                                | Ok at10 ->
+                                    let withPowder (pr: PrescriptionRule) =
+                                        { pr with
+                                            DoseRule =
+                                                { pr.DoseRule with
+                                                    ComponentLimits =
+                                                        pr.DoseRule.ComponentLimits
+                                                        |> Array.map (fun cl ->
+                                                            { cl with
+                                                                Products =
+                                                                    cl.Products
+                                                                    |> Array.append
+                                                                        [| ReconstitutionPatientTests.powder |]
+                                                            }
+                                                        )
+                                                }
+                                        }
+
+                                    PrescriptionRule.sameRules
+                                        SolutionRuleComparison.Counted
+                                        at10
+                                        (at10 |> Array.map withPowder)
+                                    |> Expect.isFalse "not the same"
+                                | other -> failtest $"no rules: %A{other}"
                             }
 
                             test "the rules with a solution rule per kg are the same at 10 kg and at 20 kg" {

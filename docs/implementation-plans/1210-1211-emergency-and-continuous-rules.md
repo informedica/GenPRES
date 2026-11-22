@@ -123,9 +123,12 @@ Parts of step 1, one pull request each:
    and a patient matched as an adult has the age of 18 years, as in the dose rules. `PrescriptionRule.filter` and `OrderContext` pass the patient. The load check
    `SolutionRule.undilutableRules` uses a reconstitution that can share a patient with both the solution
    rule and the dose rule. A reconstitution scales the molar concentration with the concentration.
+   The check whether the rules still apply after a patient data update compares the products of each
+   component, so that a different reconstitution gives the notice. The load check pairs a solution rule
+   only with a dose rule it can share a patient with (`SolutionRule.canShareDoseRule`).
    Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1950ReconstitutionPatient.fsx`, deleted by the
    migration.
-   Built: 87 changed lines under `src/`. The age and weight ranges of a reconstitution form a patient
+   Built: 102 changed lines under `src/`. The age and weight ranges of a reconstitution form a patient
    category (`Reconstitution.patientCategory`), so that the load check reuses `PatientCategory.canShare`.
 3. **The substances of the solvent.** A reconstituted product gets the substances of its solvent from the
    Formulary, scaled by SolventVol divided by SolventVol plus ExpansionVol. The reconstitution then needs

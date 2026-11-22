@@ -181,12 +181,15 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    /// Returns the parts of a prescription rule that are compared: the dose rule id, the renal rules and,
-    /// when solutionRules is Counted, the solution rules. The dose rule itself is compared only when a renal
-    /// rule applies, because a renal rule changes the limits. A dose rule changed for a conflict between its
-    /// limits is still the same rule. The patient is left out, since it differs between any two patients.
+    /// Returns the parts of a prescription rule that are compared: the dose rule id, the products of each
+    /// component, the renal rules and, when solutionRules is Counted, the solution rules. The products are
+    /// compared because the patient selects the reconstitution of a product. The dose rule itself is
+    /// compared only when a renal rule applies, because a renal rule changes the limits. A dose rule changed
+    /// for a conflict between its limits is still the same rule. The patient is left out, since it differs
+    /// between any two patients.
     let comparedRule solutionRules (pr: PrescriptionRule) =
         pr.DoseRule.Id,
+        pr.DoseRule.ComponentLimits |> Array.map _.Products,
         (if pr.RenalRules |> Array.isEmpty then
              None
          else
