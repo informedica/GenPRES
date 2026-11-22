@@ -2682,6 +2682,8 @@ module Tests =
                                     "-2.5E-3", "-0.0025"
                                     "1.0E16", "10000000000000000"
                                     "1.5E16", "15000000000000000"
+                                    "1E-30", "0.000000000000000000000000000001"
+                                    "1.23456789012345E-25", "0.000000000000000000000000123456789012345"
                                     "0", "0"
                                     "-1.5", "-1.5"
                                     "text", "text"
@@ -2814,6 +2816,19 @@ module Tests =
                                 |> Map.find "Formulary"
                                 |> Array.length
                                 |> Expect.equal "header and three data rows" 4
+                            }
+
+                            test "an empty formatted cell beyond the data does not widen the rows" {
+                                Fixture.workbook
+                                    [
+                                        "Wide",
+                                        Fixture.sheetXml
+                                            """<row r="1"><c r="A1"><v>1</v></c><c r="XFD1" s="1"/></row><row r="2"><c r="B2"><v>2</v></c><c r="C2" s="1"/></row>"""
+                                    ]
+                                    []
+                                |> Xlsx.read
+                                |> Result.map (Map.find "Wide")
+                                |> Expect.equal "two columns" (Ok [| [| "1"; "" |]; [| ""; "2" |] |])
                             }
 
                             test "a sheet without rows has no rows" {

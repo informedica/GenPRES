@@ -32,20 +32,18 @@ module Xlsx =
         |> fun n -> n - 1
 
 
+    /// The format that writes a double as a plain decimal with at most 15 significant digits. A double has at
+    /// most 324 decimals before its 15 significant digits end, so 339 decimal places write every double
+    /// without an exponent.
+    let plainFormat = "0." + String.replicate 339 "#"
+
+
     /// Returns a stored number as a plain decimal with at most 15 significant digits, the precision of a
     /// spreadsheet number: 30.0 gives 30, 2.4E7 gives 24000000, 9.129E-5 gives 0.00009129, and the floating
     /// point result 0.16699999999999998 gives 0.167. Text that is not a number is returned unchanged.
     let numberText (s: string) =
         match s |> Double.tryParse with
-        | Some d ->
-            let digits = d.ToString("G15", CultureInfo.InvariantCulture)
-
-            // A decimal is written without an exponent. A number beyond the range of a decimal keeps the
-            // exponent.
-            digits
-            |> Decimal.tryParse
-            |> Option.map _.ToString(CultureInfo.InvariantCulture)
-            |> Option.defaultValue digits
+        | Some d -> d.ToString(plainFormat, CultureInfo.InvariantCulture)
         | None -> s
 
 
@@ -99,6 +97,8 @@ module Xlsx =
 
                 index, (cellText shared c).Trim()
             )
+            // An empty cell can carry formatting far beyond the data, so it does not count for the width.
+            |> Seq.filter (snd >> String.notEmpty)
             |> Seq.toArray
 
         let visible =
@@ -106,7 +106,7 @@ module Xlsx =
             |> Seq.toArray
             |> Array.filter (isHidden >> not)
             |> Array.map cells
-            |> Array.filter (Array.exists (snd >> String.notEmpty))
+            |> Array.filter (Array.isEmpty >> not)
 
         let width = visible |> Array.collect (Array.map (fst >> (+) 1)) |> Array.fold max 0
 
