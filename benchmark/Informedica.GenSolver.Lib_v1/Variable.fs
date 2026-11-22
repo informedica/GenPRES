@@ -567,7 +567,7 @@ module Variable =
                 let b, vu = min |> toBoolValueUnit
 
 
-                $"""{if b then "[" else "<"}{vu |> ValueUnit.toDelimitedString prec}"""
+                $"""{if b then "[" else "<"}{vu |> Utils.ValueUnit.toDelimitedString prec}"""
 
 
         module Maximum =
@@ -870,7 +870,7 @@ module Variable =
             let toMarkdown prec max =
                 let b, vu = max |> toBoolValueUnit
 
-                $"""{vu |> ValueUnit.toDelimitedString prec}{if b then "]" else ">"}"""
+                $"""{vu |> Utils.ValueUnit.toDelimitedString prec}{if b then "]" else ">"}"""
 
 
         module ValueSet =
@@ -1072,11 +1072,11 @@ module Variable =
                 let count = ValueUnit.getValue >> Array.length
 
                 if vu |> count <= 10 then
-                    $"""[{vu |> ValueUnit.toDelimitedString prec}]"""
+                    $"""[{vu |> Utils.ValueUnit.toDelimitedString prec}]"""
                 else
                     let first3 = vu |> ValueUnit.takeFirst 3
                     let last3 = vu |> ValueUnit.takeLast 3
-                    $"[{first3 |> ValueUnit.toDelimitedString prec} .. {last3 |> ValueUnit.toDelimitedString prec}]"
+                    $"[{first3 |> Utils.ValueUnit.toDelimitedString prec} .. {last3 |> Utils.ValueUnit.toDelimitedString prec}]"
 
 
         module Property =

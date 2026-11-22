@@ -354,7 +354,12 @@ module Prescribe =
                         |> Option.map (fun s -> $" (doseer aanpassing volgens {s})")
                         |> Option.defaultValue ""
 
-                    $"{sc.Form}{access}{renal}"
+                    let reconstitution =
+                        sc.Reconstitution
+                        |> Option.map (fun s -> $" in %s{s}")
+                        |> Option.defaultValue ""
+
+                    $"{sc.Form}{reconstitution}{access}{renal}"
 
                 let onClick (sc: OrderScenario) =
                     match pr.Scenarios |> Array.tryFindIndex (fun x -> x.Order.Id = sc.Order.Id) with

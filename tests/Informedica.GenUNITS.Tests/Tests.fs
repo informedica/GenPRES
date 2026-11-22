@@ -1020,6 +1020,28 @@ module Tests =
             ]
 
 
+    let delimitedStringTests =
+        testList
+            "toDelimitedString"
+            [
+                test "prints values within the range of a decimal as decimals" {
+                    [| 1N / 3N; 1N / 5N |]
+                    |> create Units.Mass.milliGram
+                    |> toDelimitedString false 2
+                    |> Expect.equal "the decimals between the delimiters" "#0,33; 0,2#"
+                }
+
+                test "prints a value beyond the range of a decimal as its fraction" {
+                    [| BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40)) / 3N |]
+                    |> create Units.Mass.milliGram
+                    |> toDelimitedString false 2
+                    |> Expect.equal
+                        "the fraction between the delimiters"
+                        "#10000000000000000000000000000000000000000/3#"
+                }
+            ]
+
+
     [<Tests>]
     let tests =
 
@@ -1050,6 +1072,7 @@ module Tests =
                 regressionTests
                 toTokenTests
                 decimalOverflowTests
+                delimitedStringTests
 
                 test "Unquote tests" {
                     try

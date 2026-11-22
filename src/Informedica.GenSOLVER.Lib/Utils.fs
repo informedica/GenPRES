@@ -64,60 +64,6 @@ module Utils =
                 toStringDecimalDutchShortWithPrec 3
 
 
-        /// <summary>
-        /// Print a ValueUnit to a string with a given precision delimited by "#" for Value and "|" for Unit
-        /// </summary>
-        /// <param name="isWithUnit">Whether to print the unit</param>
-        /// <param name="prec">The precision with which value should be printed</param>
-        /// <param name="vu">The ValueUnit to print</param>
-        /// <example>
-        /// <code>
-        /// [| 1N/3N |] |> ValueUnit.create  Units.Mass.milliGram |> toDelimitedString 2
-        /// // returns "#0,33# |mg|"
-        /// [| 1N/3N; 1N/5N |] |> ValueUnit.create  Units.Mass.milliGram |> toDelimitedString 2
-        /// // returns "#0,33#, #0,2# |mg|"
-        /// </code>
-        /// </example>
-        let toDelimitedString isWithUnit prec vu =
-            let u =
-                vu
-                |> getUnit
-                // need the English version to be able to
-                // correctly parse the unit from string
-                |> Units.toStringEngShort
-                |> String.replace "*" "/"
-                |> String.split "/"
-                |> function
-                    | [ u1; u2; u3 ] when u3 |> String.startsWith "kg" -> [ u1; u3; u2 ]
-                    | xs -> xs
-                |> List.choose UnitsParse.fromString
-                |> function
-                    | [] -> vu |> getUnit
-                    | [ u ] -> u
-                    | u :: rest -> rest |> List.fold (fun acc u -> CombiUnit(acc, OpPer, u)) u
-
-            let vu = vu |> getValue |> withUnit u
-
-            let v, u = vu |> get
-
-            let vs =
-                v
-                |> Array.map (BigRational.formatDecimal (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec))
-                |> Array.distinct
-                |> String.concat "; "
-                |> sprintf "#%s#"
-
-            let us =
-                if not isWithUnit then
-                    ""
-                else
-                    let vw = "#"
-                    let uw = "|"
-                    $" %s{u |> unitToReadableDutchStringWithWrappers vw uw}"
-
-            $"{vs}{us}"
-
-
         module Operators =
 
             /// Constant 0

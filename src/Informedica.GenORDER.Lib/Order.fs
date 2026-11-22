@@ -4132,21 +4132,25 @@ module Order =
                     | Alert _ -> s |> Alert
 
 
-        /// The preparation row with the solvent volume and the solvent, when exactly one product applies and
-        /// that product is reconstituted. Returns no row otherwise.
-        let printReconstitution (products: ComponentProduct list) =
+        /// The solvent volume and the solvent of the reconstitution, such as "10 mL NaCl 0,9%", when exactly one
+        /// product applies and that product is reconstituted.
+        let reconstitutionText (products: ComponentProduct list) =
             match products with
             | [ { Reconstitution = Some r } ] ->
+                let vol = r.SolventVolume |> ValueUnit.toStringDecimalDutchShortWithPrec -1
+                Some $"%s{vol} %s{r.Solvent}"
+            | _ -> None
+
+
+        /// The preparation row with the text "oplossen in" and the solvent volume and the solvent in the first
+        /// column, when exactly one product applies and that product is reconstituted. Returns no row otherwise.
+        let printReconstitution products =
+            match products |> reconstitutionText with
+            | Some text ->
                 [|
-                    [|
-                        "oplossen in" |> Valid
-                        $"%s{r.SolventVolume |> ValueUnit.toStringDecimalDutchShortWithPrec -1} %s{r.Solvent}"
-                        |> Valid
-                        "" |> Valid
-                        "" |> Valid
-                    |]
+                    [| $"oplossen in %s{text}" |> Valid; "" |> Valid; "" |> Valid; "" |> Valid |]
                 |]
-            | _ -> [||]
+            | None -> [||]
 
 
         let printPrep printMd sns (ord: Order) =
@@ -4225,7 +4229,10 @@ module Order =
 
                                     let itmConc =
                                         itm
-                                        |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
+                                        |> Orderable.Item.Print.itemComponentConcentrationTo true -1
+                                        // Uses the markdown format without the markup, so the concentration is not shown as a value.
+                                        |> String.replace "#" ""
+                                        |> String.replace "|" ""
                                         |> wrap Warning [ itm.ComponentConcentration |> Concentration.toOrdVar ]
 
                                     if itmConc |> textBlockIsEmpty |> not then
@@ -4817,6 +4824,14 @@ module Order =
         /// administration. The substance names in the array pick the items to print.
         /// </summary>
         let printOrderToMd printAdj = printOrderTo printAdj true
+
+
+    /// The reconstitution of the first component of an order as text, such as "10 mL NaCl 0,9%". Returns None
+    /// when not exactly one product of that component applies or that product is not reconstituted.
+    let reconstitutionText (ord: Order) =
+        ord.Orderable.Components
+        |> List.tryHead
+        |> Option.bind (Orderable.Component.productsThatApply >> Print.reconstitutionText)
 
 
     module Dto =
