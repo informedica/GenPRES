@@ -63,11 +63,12 @@ High. The live comparison covers every sheet the code reads, the filtered RenalR
 
 ### Step 2: read the sheets from the workbook (Utils, GenFORM)
 
-- `Web.GoogleSheets` gets `createWorkbookUrl`, `downloadBytesResult`, `downloadWorkbook`, the workbook cache with
-  `clearWorkbookCache` and `getWorkbookWith`, and `sheetRows`. `getCsvDataFromSheet` reads the sheet from the
-  workbook. `createUrl`, `downloadResult` and `getDataFromSheet` are deleted.
+- `Web.GoogleSheets` gets `createWorkbookUrl`, `downloadWorkbook`, the workbook cache with `clearWorkbookCache` and
+  `getWorkbookWith`, and `sheetRows`. `downloadResult` returns the downloaded bytes instead of text.
+  `getCsvDataFromSheet` reads the sheet from the workbook. `createUrl` and `getDataFromSheet` are deleted.
 - `CachedResourceProvider.loadFresh` (`src/Informedica.GenFORM.Lib/Resources.fs:858`) calls
-  `Web.GoogleSheets.clearWorkbookCache ()` before it loads.
+  `Web.GoogleSheets.clearWorkbookCache ()` before it loads. The dependency rule check allows `Web.` in
+  `Resources.fs`, as it does for the other sheet loaders in GenFORM.
 - The filter of the dummy row (`src/Informedica.GenFORM.Lib/Product.fs:117`), its comment on `GPKODE`
   (`src/Informedica.GenFORM.Lib/Types.fs:228`) and its test (`tests/Informedica.GenFORM.Tests/Tests.fs:1423`) are
   deleted.

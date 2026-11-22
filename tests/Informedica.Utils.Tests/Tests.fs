@@ -2843,3 +2843,92 @@ module Tests =
                             }
                         ]
                 ]
+
+
+    module WebTests =
+
+        open Expecto.Flip
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Web.GoogleSheets"
+                [
+                    testList
+                        "sheetRows"
+                        [
+                            test "the sheet rows have no double quotes" {
+                                [| [| "Name" |]; [| "BOTULINE A TOXINE \"MERZ\"" |] |]
+                                |> Web.GoogleSheets.sheetRows
+                                |> Expect.equal "quotes removed" [| [| "Name" |]; [| "BOTULINE A TOXINE MERZ" |] |]
+                            }
+                        ]
+
+                    // The workbook cache is shared, so these tests run one after the other.
+                    testSequenced
+                    <| testList
+                        "getWorkbookWith"
+                        [
+                            // Counts the calls and returns the result after the delay in milliseconds.
+                            let countingLoad (calls: int ref) (delay: int) result =
+                                fun (_: string) ->
+                                    async {
+                                        Threading.Interlocked.Increment calls |> ignore
+                                        do! Async.Sleep delay
+                                        return result
+                                    }
+
+                            test "the workbook is loaded once until the cache is cleared" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Ok Map.empty)
+
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "one load" 1
+
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "a second load after the clear" 2
+                            }
+
+                            test "each spreadsheet id has its own workbook" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Ok Map.empty)
+
+                                Web.GoogleSheets.getWorkbookWith load "id1" |> Async.RunSynchronously |> ignore
+                                Web.GoogleSheets.getWorkbookWith load "id2" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "two loads" 2
+                            }
+
+                            test "a failed load is not kept" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Error "network down")
+
+                                Web.GoogleSheets.getWorkbookWith load "id"
+                                |> Async.RunSynchronously
+                                |> Expect.isError "failed"
+
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "the load is tried again" 2
+                            }
+
+                            test "callers at the same time share one load" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+
+                                // The delay makes the ten callers overlap.
+                                let load = countingLoad calls 200 (Ok Map.empty)
+
+                                List.replicate 10 (Web.GoogleSheets.getWorkbookWith load "id")
+                                |> Async.Parallel
+                                |> Async.RunSynchronously
+                                |> ignore
+
+                                calls.Value |> Expect.equal "one load" 1
+                            }
+                        ]
+                ]

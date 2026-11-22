@@ -11,6 +11,7 @@ module Resources =
     module CoreEGFRBandOptions = Informedica.GenCore.Lib.Patients.EGFRBandOptions
     module CoreEGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
     module Memoization = Informedica.Utils.Lib.Memoization
+    module GoogleSheets = Informedica.Utils.Lib.Web.GoogleSheets
 
     type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
     type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
@@ -856,6 +857,9 @@ module Resources =
             | Some ttlMinutes -> DateTime.UtcNow.Subtract(timestamp).TotalMinutes > float ttlMinutes
 
         let loadFresh () =
+            // Every load downloads the workbook again, so a reload sees the edits in the spreadsheet.
+            GoogleSheets.clearWorkbookCache ()
+
             match loadAllResources () with
             | Ok loaded ->
                 cached <- Some(loaded, DateTime.UtcNow)
