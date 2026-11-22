@@ -909,6 +909,24 @@ module DoseRuleToDataTests =
             fromHeaders @ [ "Loc" ]
 
 
+        /// The Reconstitution columns, the one list for the contract and for the Reconstitution tests.
+        let reconstitutionColumns =
+            [
+                "GPK"
+                "Route"
+                "Loc"
+                "Dep"
+                "MinAge"
+                "MaxAge"
+                "MinWeight"
+                "MaxWeight"
+                "SolventVol"
+                "ExpansionVol"
+                "Solvent"
+                "Notes"
+            ]
+
+
         /// The Formulary columns, the one list for the contract and for the FormularyProduct tests.
         let formularyColumns =
             [
@@ -1042,9 +1060,10 @@ module DoseRuleToDataTests =
                 (Mapping.parseSheet Mapping.linkRuleRow >> Result.isOk)
 
                 "Reconstitution",
-                [ "GPK"; "Route"; "Loc"; "Dep"; "SolventVol"; "ExpansionVol"; "Solvents" ],
+                reconstitutionColumns,
                 [],
-                [],
+                // a row with a solvent and a solvent volume, so that the parser keeps it and reads every column
+                [ "Solvent", "water"; "SolventVol", "10" ],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
 
                 "Formulary", formularyColumns, [], [], (Product.parseFormularyProducts >> Result.isOk)
@@ -1404,6 +1423,84 @@ module FormularyProductTests =
                 test "the dummy row with GPKODE 0 is dropped" {
                     parse [ "GPKODE", "0"; "AltName", "DUMMY ALTNAME" ]
                     |> Expect.equal "no products" (Ok [||])
+                }
+            ]
+
+
+module ReconstitutionTests =
+
+
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+
+
+    let row =
+        [
+            "GPK", "135569"
+            "Route", "iv"
+            "Loc", "UMCU"
+            "Dep", "ICK"
+            "MinAge", "30"
+            "MaxAge", "6574"
+            "MinWeight", "3000"
+            "MaxWeight", "50000"
+            "SolventVol", "5"
+            "ExpansionVol", "1"
+            "Solvent", "NaCl 0,9%"
+            "Notes", "langzaam oplossen"
+        ]
+
+
+    let parse cells =
+        CC.reconstitutionColumns
+        |> CC.mkSheet cells
+        |> Product.Reconstitution.parseReconstitution
+
+
+    let mL = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    let tests =
+        testList
+            "Reconstitution rows"
+            [
+                test "a row with all columns parses into its fields" {
+                    match row |> parse with
+                    | Ok [| r |] ->
+                        r.GPK |> Expect.equal "GPK" "135569"
+                        r.Location |> Expect.equal "Loc" (Some "UMCU")
+                        r.Department |> Expect.equal "Dep" (Some "ICK")
+                        (r.MinAge, r.MaxAge) |> Expect.equal "age in days" (Some 30N, Some 6574N)
+                        (r.MinWeight, r.MaxWeight)
+                        |> Expect.equal "weight in grams" (Some 3000N, Some 50000N)
+                        r.SolventVolume |> Expect.equal "solvent volume" (5N |> mL)
+                        r.ExpansionVolume |> Expect.equal "expansion volume" (1N |> mL |> Some)
+                        r.Solvent |> Expect.equal "solvent" "NaCl 0,9%"
+                        r.Notes |> Expect.equal "notes" (Some "langzaam oplossen")
+                    | other -> failtest $"expected one row, got %A{other}"
+                }
+
+                test "empty age, weight, expansion volume and notes cells give None" {
+                    match [ "SolventVol", "5"; "Solvent", "NaCl 0,9%" ] |> parse with
+                    | Ok [| r |] ->
+                        [ r.MinAge; r.MaxAge; r.MinWeight; r.MaxWeight ]
+                        |> Expect.allEqual "no limits" None
+                        r.ExpansionVolume |> Expect.isNone "no expansion volume"
+                        r.Notes |> Expect.isNone "no notes"
+                    | other -> failtest $"expected one row, got %A{other}"
+                }
+
+                test "a row without a solvent is left out" {
+                    ("Solvent", " ") :: row |> parse |> Expect.equal "no rows" (Ok [||])
+                }
+
+                test "a row without a solvent volume is left out" {
+                    ("SolventVol", "") :: row |> parse |> Expect.equal "no rows" (Ok [||])
                 }
             ]
 
@@ -4016,9 +4113,14 @@ module Tests =
                 Route = "iv"
                 Location = None
                 Department = department
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
                 SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
-                Solvents = [| "NaCl 0,9%" |]
+                Solvent = "NaCl 0,9%"
+                Notes = None
             }
 
 
@@ -6403,9 +6505,14 @@ module Tests =
                 Route = "iv"
                 Location = None
                 Department = dep
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
                 SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
-                Solvents = [| "NaCl 0,9%" |]
+                Solvent = "NaCl 0,9%"
+                Notes = None
             }
 
 
@@ -8389,9 +8496,14 @@ module Tests =
                             Route = "INTRAVENEUS"
                             Location = None
                             Department = dep
+                            MinAge = None
+                            MaxAge = None
+                            MinWeight = None
+                            MaxWeight = None
                             SolventVolume = vol |> ValueUnit.singleWithUnit mL
                             ExpansionVolume = None
-                            Solvents = [||]
+                            Solvent = "water"
+                            Notes = None
                         }
                     |]
             }
@@ -12417,6 +12529,7 @@ module Tests =
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
+                ReconstitutionTests.tests
                 ProductNameTests.tests
                 VirtualProductTests.tests
                 DoseRuleRoundtripTests.tests

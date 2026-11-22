@@ -180,39 +180,42 @@ module Product =
     module Reconstitution =
 
 
-        let parseReconstitution (data: string[][]) : Result<_, _> =
+        /// Parses the Reconstitution sheet; the first row holds the column names. A row without a solvent or
+        /// a solvent volume is left out. Returns an error when a column is missing.
+        let parseReconstitution data =
             try
+                let getColumn = data |> Array.head |> Csv.getStringColumn
+
                 data
-                |> fun data ->
+                |> Array.tail
+                |> Array.choose (fun r ->
+                    let get = getColumn r >> String.trim
+                    let getOpt = get >> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+                    let toMl = ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                    let getColumn = data |> Array.head |> Csv.getStringColumn
-
-                    data
-                    |> Array.tail
-                    |> Array.map (fun r ->
-                        let get = getColumn r
-                        let toBrOpt = BigRational.toBrs >> Array.tryHead
-
-                        {
-                            GPK = get "GPK"
-                            Route = get "Route"
-                            Location = get "Loc" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
-                            Department = get "Dep" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
-                            SolventVolume =
-                                get "SolventVol"
-                                |> toBrOpt
-                                |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                                |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
-                            ExpansionVolume =
-                                get "ExpansionVol"
-                                |> toBrOpt
-                                |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                            Solvents = get "Solvents" |> String.splitAt ';' |> Array.map String.trim
-                        }
-                    )
+                    match getOpt "Solvent", get "SolventVol" |> toBrOpt with
+                    | Some solvent, Some vol ->
+                        Some
+                            {
+                                GPK = get "GPK"
+                                Route = get "Route"
+                                Location = getOpt "Loc"
+                                Department = getOpt "Dep"
+                                MinAge = get "MinAge" |> toBrOpt
+                                MaxAge = get "MaxAge" |> toBrOpt
+                                MinWeight = get "MinWeight" |> toBrOpt
+                                MaxWeight = get "MaxWeight" |> toBrOpt
+                                SolventVolume = vol |> toMl
+                                ExpansionVolume = get "ExpansionVol" |> toBrOpt |> Option.map toMl
+                                Solvent = solvent
+                                Notes = getOpt "Notes"
+                            }
+                    | _ -> None
+                )
                 |> Ok
             with exn ->
-                Result.createError "Reconstiution.get" exn
+                Result.createError "Reconstitution.parseReconstitution" exn
 
 
         let get dataUrlId : Result<_, _> =

@@ -91,27 +91,36 @@ module Types =
 
     /// <summary>
     /// One row of the "Reconstitution" sheet, parsed by <c>Product.Reconstitution.parseReconstitution</c>:
-    /// the solvent that dissolves a product for administration. Field names equal sheet column names except
-    /// where noted. Every column is required.
+    /// the one solvent that dissolves a product for administration, for a route, a location, a department
+    /// and an age and weight range. Field names equal sheet column names except where noted. Every column
+    /// is required.
     /// </summary>
     type Reconstitution =
         {
-            /// The GPK of the reconstitution
+            /// The GPK of the reconstitution.
             GPK: string
-            /// The route for the reconstitution
+            /// The route for the reconstitution.
             Route: string
-            /// The location for the reconstitution rule; sheet column "Loc"
+            /// The location for the reconstitution rule; sheet column "Loc".
             Location: string option
-            /// The department for the reconstitution; sheet column "Dep"
+            /// The department for the reconstitution; sheet column "Dep".
             Department: string option
+            /// The minimum age in days; None when the cell is empty.
+            MinAge: BigRational option
+            /// The maximum age in days; None when the cell is empty.
+            MaxAge: BigRational option
+            /// The minimum weight in grams; None when the cell is empty.
+            MinWeight: BigRational option
+            /// The maximum weight in grams; None when the cell is empty.
+            MaxWeight: BigRational option
             /// The volume of the solvent, in mL; sheet column "SolventVol".
-            /// Defaults to 1 mL when the cell is empty.
             SolventVolume: ValueUnit
-            /// The increase in total volume, in mL, when the product dissolves; sheet column "ExpansionVol"
+            /// The increase in total volume, in mL, when the product dissolves; sheet column "ExpansionVol".
             ExpansionVolume: ValueUnit option
-            /// The solvents for the reconstitution, ';'-separated in the sheet column
-            /// "Solvents"
-            Solvents: string[]
+            /// The solvent, the name of a product in the Formulary sheet.
+            Solvent: string
+            /// Free text about the reconstitution; None when the cell is empty.
+            Notes: string option
         }
 
 
