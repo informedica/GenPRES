@@ -2649,6 +2649,7 @@ module Tests =
         <row r="4"/>
         <row r="5"><c r="A5"><v>161144.0</v></c><c r="B5" t="s"><v>7</v></c><c r="C5"><v>6.0E-4</v></c><c r="D5" t="s"><v>5</v></c><c r="E5" t="b"><v>1</v></c></row>
         <row r="6"><c r="A6"><v>2.4E7</v></c><c r="B6" t="inlineStr"><is><t> inline </t></is></c><c r="C6"><v>6.666666666666667</v></c><c r="D6" t="str"><v>formula text</v></c><c r="E6" t="e"><v>#N/A</v></c></row>
+        <row r="7" hidden="1"><c r="A7" s="1"/></row>
         """
 
 
@@ -2747,7 +2748,7 @@ module Tests =
                                     Fixture.shared
                                 |> Xlsx.read
                                 |> function
-                                    | Ok sheets -> sheets
+                                    | Ok sheets -> sheets |> Map.map (fun _ s -> s.Rows)
                                     | Error e -> failtest e
 
                             let sheet =
@@ -2758,7 +2759,7 @@ module Tests =
                                 Fixture.parts "book" [ "First", sheet ] [ "GPKODE" ]
                                 |> Fixture.package
                                 |> Xlsx.read
-                                |> Result.map (Map.find "First")
+                                |> Result.map (Map.find "First" >> _.Rows)
                                 |> Expect.equal "the sheet" (Ok [| [| "GPKODE"; "2" |] |])
                             }
 
@@ -2818,6 +2819,13 @@ module Tests =
                                 |> Expect.equal "header and three data rows" 4
                             }
 
+                            test "a hidden row with text is counted, an empty hidden row is not" {
+                                Fixture.workbook [ "Formulary", Fixture.formulary ] Fixture.shared
+                                |> Xlsx.read
+                                |> Result.map (Map.find "Formulary" >> _.HiddenRows)
+                                |> Expect.equal "one hidden row" (Ok 1)
+                            }
+
                             test "an empty formatted cell beyond the data does not widen the rows" {
                                 Fixture.workbook
                                     [
@@ -2827,7 +2835,7 @@ module Tests =
                                     ]
                                     []
                                 |> Xlsx.read
-                                |> Result.map (Map.find "Wide")
+                                |> Result.map (Map.find "Wide" >> _.Rows)
                                 |> Expect.equal "two columns" (Ok [| [| "1"; "" |]; [| ""; "2" |] |])
                             }
 
@@ -2862,6 +2870,30 @@ module Tests =
                                 [| [| "Name" |]; [| "BOTULINE A TOXINE \"MERZ\"" |] |]
                                 |> Web.GoogleSheets.sheetRows
                                 |> Expect.equal "quotes removed" [| [| "Name" |]; [| "BOTULINE A TOXINE MERZ" |] |]
+                            }
+                        ]
+
+                    testList
+                        "hiddenRowsWarning"
+                        [
+                            test "a sheet with hidden rows gives a warning that names the sheet and the count" {
+                                {
+                                    Xlsx.Rows = [||]
+                                    Xlsx.HiddenRows = 248
+                                }
+                                |> Web.GoogleSheets.hiddenRowsWarning "RenalRules"
+                                |> Expect.equal
+                                    "warning"
+                                    (Some "Sheet 'RenalRules': 248 rows are hidden, so those rows are not loaded.")
+                            }
+
+                            test "a sheet without hidden rows gives no warning" {
+                                {
+                                    Xlsx.Rows = [||]
+                                    Xlsx.HiddenRows = 0
+                                }
+                                |> Web.GoogleSheets.hiddenRowsWarning "Units"
+                                |> Expect.isNone "no warning"
                             }
                         ]
 
