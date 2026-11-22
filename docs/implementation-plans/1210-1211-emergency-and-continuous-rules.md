@@ -140,13 +140,21 @@ Parts of step 1, one pull request each:
    Built: 94 changed lines under `src/`. The `Reconstitution` record gets the field SolventSubstances,
    filled once when the products are built (`Reconstitution.withSolventSubstances`), so that the callers
    of `Product.reconstitute` do not change.
-4. **The reconstitution as product data.** The GenFORM product carries the solvent, the solvent volume
-   and the expansion volume, and gets an identity beyond the GPK. The field SolventSubstances moves from the `Reconstitution`
-   record, a row of the sheet, to this product-side reconstitution.
+4. **The reconstitution as product data.** A new record `ProductReconstitution` holds a row of the
+   Reconstitution sheet (`Rule`) and the substances of its solvent (`SolventSubstances`, moved off the
+   sheet row). The product's `Reconstitution` becomes `ProductReconstitution[]`, built when the products
+   are built, and `Product.reconstitute` narrows it to the reconstitution a product was made with. The product gets no id beyond the GPK: within one order the
+   GPK stays unique, and only the product pick needs to tell two reconstitutions of one GPK apart, which
+   it can do by comparing the GPK and the solvent once the order product carries its reconstitution.
+   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1950ReconstitutionProduct.fsx`, deleted by the
+   migration.
+   Built: 76 changed lines under `src/`. The parameter fits of `Product.reconstitute` still takes the
+   sheet row, so its callers do not change; the test products get their reconstitutions through
+   `ProductReconstitution.create`.
 5. **One scenario per reconstitution.** A prescription rule is split into one rule per reconstitution of
    its products, as `splitByDivisible` splits it.
 6. **The reconstitution in the order.** `ComponentProduct`, the order Dto with a new JSON version, and the
-   preparation text.
+   preparation text. The product pick (`OrderContext.pickedGroups`) compares the GPK and the solvent.
 
 ### Step 2: #1554 predilution rules for a liquid, next to the reconstitution rules
 

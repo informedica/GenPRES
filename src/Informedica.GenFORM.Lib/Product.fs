@@ -212,7 +212,6 @@ module Product =
                                 ExpansionVolume = get "ExpansionVol" |> toBrOpt |> Option.map toMl
                                 Solvent = solvent
                                 Notes = getOpt "Notes"
-                                SolventSubstances = [||]
                             }
                     | _ -> None
                 )
@@ -223,21 +222,6 @@ module Product =
 
         let get dataUrlId : Result<_, _> =
             Web.getDataFromSheet dataUrlId "Reconstitution" |> parseReconstitution
-
-
-        /// Gives each reconstitution the substances of the parenteral product whose generic name equals the
-        /// solvent, ignoring case. A solvent without a parenteral product has no substances.
-        let withSolventSubstances (parenteral: ProductComponent[]) (rs: Reconstitution[]) =
-            rs
-            |> Array.map (fun r ->
-                { r with
-                    SolventSubstances =
-                        parenteral
-                        |> Array.tryFind (_.Generic >> String.equalsCapInsens r.Solvent)
-                        |> Option.map _.Substances
-                        |> Option.defaultValue [||]
-                }
-            )
 
 
         /// Whether a reconstitution applies to a location, a department and a route. The route must match
@@ -292,6 +276,23 @@ module Product =
                     filter.Route
                 && r |> matchesPatient filter.PatientData
             )
+
+
+    module ProductReconstitution =
+
+
+        /// Creates the product reconstitution of a reconstitution rule. Its solvent substances are those of the
+        /// parenteral product whose generic name equals the solvent, ignoring case, and none when there is no
+        /// such product.
+        let create (parenteral: ProductComponent[]) (r: Reconstitution) =
+            {
+                Rule = r
+                SolventSubstances =
+                    parenteral
+                    |> Array.tryFind (_.Generic >> String.equalsCapInsens r.Solvent)
+                    |> Option.map _.Substances
+                    |> Option.defaultValue [||]
+            }
 
 
     let createSubstance logger name conc unit formUnit unitMapping =
@@ -456,7 +457,7 @@ module Product =
         unitMapping
         routeMapping
         formRoutes
-        (reconstitution: Reconstitution[])
+        (reconstitution: ProductReconstitution[])
         name
         synonyms
         formQuantities
@@ -528,7 +529,7 @@ module Product =
             FormQuantities = formQuantities |> ValueUnit.withUnit formUnit
             FormUnit = formUnit
             RequiresReconstitution = reqReconst
-            Reconstitution = reconstitution |> Array.filter (fun r -> r.GPK = $"{gp.Id}")
+            Reconstitution = reconstitution |> Array.filter (fun r -> r.Rule.GPK = $"{gp.Id}")
             Divisible =
                 match fpOpt |> Option.map _.Divisible |> Option.defaultValue None with
                 | Some d -> d |> BigRational.fromInt |> Some
@@ -627,7 +628,7 @@ module Product =
         (genPresProducts: Informedica.ZIndex.Lib.Types.GenPresProduct[])
         : ProductComponent[]
         =
-        let reconstitution = reconstitution |> Reconstitution.withSolventSubstances parenteral
+        let reconstitution = reconstitution |> Array.map (ProductReconstitution.create parenteral)
 
         // A lookup from GPK to Formulary row, built once, so each generic product is matched in constant time.
         let formByGpk =
@@ -844,8 +845,8 @@ module Product =
     /// divided by the solvent volume plus the expansion volume. The substances of the solvent are
     /// multiplied by the solvent volume and divided by the total volume. Each one is added to the product
     /// substance with the same name, or else added as a new substance; a concentration in another unit
-    /// group than the one of the product is not added. Also returns a warning when no reconstitution rule
-    /// matches.
+    /// group than the one of the product is not added. A reconstituted product holds only the
+    /// reconstitution it was made with. Also returns a warning when no reconstitution rule matches.
     /// </returns>
     let reconstitute mapping loc dep fits rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
@@ -861,7 +862,7 @@ module Product =
                 else
                     // calculate the reconstituted products
                     prod.Reconstitution
-                    |> Array.filter (fun r -> r |> Reconstitution.matches mapping loc dep rte' && r |> fits)
+                    |> Array.filter (fun r -> r.Rule |> Reconstitution.matches mapping loc dep rte' && r.Rule |> fits)
                     |> fun xs ->
                         if xs |> Array.isEmpty then
                             warnings.Add
@@ -870,9 +871,9 @@ module Product =
                         xs
                     |> Array.map (fun r ->
                         let vol =
-                            r.ExpansionVolume
-                            |> Option.map (fun v -> v + r.SolventVolume)
-                            |> Option.defaultValue r.SolventVolume
+                            r.Rule.ExpansionVolume
+                            |> Option.map (fun v -> v + r.Rule.SolventVolume)
+                            |> Option.defaultValue r.Rule.SolventVolume
 
                         let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
 
@@ -912,8 +913,9 @@ module Product =
                             FormQuantities = vol
                             Substances =
                                 r.SolventSubstances
-                                |> Array.map (scale r.SolventVolume)
+                                |> Array.map (scale r.Rule.SolventVolume)
                                 |> Array.fold addSolvent substs
+                            Reconstitution = [| r |]
                         }
                     )
             |]
