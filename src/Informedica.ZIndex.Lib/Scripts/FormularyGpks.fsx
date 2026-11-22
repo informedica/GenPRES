@@ -44,7 +44,7 @@ let dataUrlId () =
 
 /// The header row and the GPKs of the Formulary sheet.
 let readFormulary dataUrlId =
-    Web.GoogleSheets.getCsvDataFromSheetSync dataUrlId "Formulary"
+    Web.GoogleSheets.getRowsFromSheetSync dataUrlId "Formulary"
     |> Result.map (fun rows ->
         let header = rows |> Array.head
         let gpkColumn = header |> Array.findIndex ((=) "GPKODE")

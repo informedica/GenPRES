@@ -38,7 +38,7 @@ Approach 3, with the decisions made when the issues were picked up:
   that ask at the same time share one download, and a failed download is not kept. The resource provider clears the
   cache before every load, also the load after the time to live, so a reload sees the edits.
 - **The sheet readers do not change.** `getCsvDataFromSheet` and `getCsvDataFromSheetSync` keep their names and
-  signatures.
+  signatures. #1963 renames them afterwards to `getRowsFromSheet` and `getRowsFromSheetSync`.
 - **The dummy row goes.** The code that drops the Formulary row with GPKODE 0 is deleted. The maintainer deletes the
   dummy row from the sheet after the release.
 

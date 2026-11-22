@@ -669,10 +669,10 @@ module ProductNarrowingTests =
             ]
             |> String.concat "\n"
 
-        Scenarios.amoxClavText.Replace(
-            $"      - Id: %s{amoxClav500}\n",
-            $"      - Id: %s{amoxClav500}\n%s{reconstitution}\n"
-        )
+        Scenarios.amoxClavText
+        // a checkout with CRLF line endings holds \r\n in the text
+        |> String.replace "\r\n" "\n"
+        |> String.replace $"      - Id: %s{amoxClav500}\n" $"      - Id: %s{amoxClav500}\n%s{reconstitution}\n"
         |> parse
         |> built
 

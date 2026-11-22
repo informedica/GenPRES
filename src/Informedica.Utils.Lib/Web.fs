@@ -100,7 +100,7 @@ module Web =
 
         /// Returns the rows of a sheet as text, the header row first. Returns an error when the workbook
         /// cannot be loaded or has no sheet with that name.
-        let getCsvDataFromSheet dataUrlId sheet =
+        let getRowsFromSheet dataUrlId sheet =
             async {
                 let! workbook = getWorkbookWith downloadWorkbook dataUrlId
 
@@ -119,10 +119,10 @@ module Web =
             }
 
 
-        /// Returns the rows of a sheet as getCsvDataFromSheet does, waiting for the result, and writes an
+        /// Returns the rows of a sheet as getRowsFromSheet does, waiting for the result, and writes an
         /// error to the console.
-        let getCsvDataFromSheetSync dataUrlId sheet =
-            getCsvDataFromSheet dataUrlId sheet
+        let getRowsFromSheetSync dataUrlId sheet =
+            getRowsFromSheet dataUrlId sheet
             |> Async.RunSynchronously
             |> function
                 | Ok result -> result |> Ok
