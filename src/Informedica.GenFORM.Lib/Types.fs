@@ -89,6 +89,18 @@ module Types =
         | NoDoseType
 
 
+    /// A substance of a product.
+    type SubstanceItem =
+        {
+            /// The name of the substance.
+            Name: string
+            /// The concentration of the substance.
+            Concentration: ValueUnit option
+            /// The molar concentration of the substance.
+            MolarConcentration: ValueUnit option
+        }
+
+
     /// <summary>
     /// One row of the "Reconstitution" sheet, parsed by <c>Product.Reconstitution.parseReconstitution</c>:
     /// the one solvent that dissolves a product for administration, for a route, a location, a department
@@ -121,19 +133,12 @@ module Types =
             Solvent: string
             /// Free text about the reconstitution; None when the cell is empty.
             Notes: string option
+            /// The substances per mL of the solvent, from the Formulary product with the solvent as its name.
+            /// This is not a sheet column: the parser leaves it empty, and it is filled when the products are
+            /// built.
+            SolventSubstances: SubstanceItem[]
         }
 
-
-    /// A substance of a product.
-    type SubstanceItem =
-        {
-            /// The name of the substance
-            Name: string
-            /// The concentration of the substance
-            Concentration: ValueUnit option
-            /// The molar concentration of the substance
-            MolarConcentration: ValueUnit option
-        }
 
     type Brand = string
     type HPK = string

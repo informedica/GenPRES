@@ -131,10 +131,18 @@ Parts of step 1, one pull request each:
    Built: 102 changed lines under `src/`. The age and weight ranges of a reconstitution form a patient
    category (`Reconstitution.patientCategory`), so that the load check reuses `PatientCategory.canShare`.
 3. **The substances of the solvent.** A reconstituted product gets the substances of its solvent from the
-   Formulary, scaled by SolventVol divided by SolventVol plus ExpansionVol. The reconstitution then needs
-   the Formulary products as an input.
+   Formulary, scaled by SolventVol divided by SolventVol plus ExpansionVol. A solvent substance is added
+   to the substance of the product with the same name; the substances of a solvent are always those of
+   the composition columns. A concentration in another unit group than the one of the product, such as
+   mg against mmol, is not added.
+   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1950SolventSubstances.fsx`, deleted by the
+   migration.
+   Built: 94 changed lines under `src/`. The `Reconstitution` record gets the field SolventSubstances,
+   filled once when the products are built (`Reconstitution.withSolventSubstances`), so that the callers
+   of `Product.reconstitute` do not change.
 4. **The reconstitution as product data.** The GenFORM product carries the solvent, the solvent volume
-   and the expansion volume, and gets an identity beyond the GPK.
+   and the expansion volume, and gets an identity beyond the GPK. The field SolventSubstances moves from the `Reconstitution`
+   record, a row of the sheet, to this product-side reconstitution.
 5. **One scenario per reconstitution.** A prescription rule is split into one rule per reconstitution of
    its products, as `splitByDivisible` splits it.
 6. **The reconstitution in the order.** `ComponentProduct`, the order Dto with a new JSON version, and the
