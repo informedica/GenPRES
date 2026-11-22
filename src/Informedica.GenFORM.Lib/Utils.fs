@@ -62,7 +62,7 @@ module Utils =
         /// <param name="sheet">The name of the sheet.</param>
         /// <returns>The rows of cells; an empty array when the download fails.</returns>
         let getDataFromSheet urlId sheet =
-            fun () -> Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet |> Result.defaultValue [||]
+            fun () -> Web.GoogleSheets.getRowsFromSheetSync urlId sheet |> Result.defaultValue [||]
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
 
 

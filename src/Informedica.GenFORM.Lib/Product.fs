@@ -121,7 +121,7 @@ module Product =
 
 
     let getFormularyProducts dataUrlId =
-        Web.GoogleSheets.getCsvDataFromSheetSync dataUrlId "Formulary"
+        Web.GoogleSheets.getRowsFromSheetSync dataUrlId "Formulary"
         |> Result.mapError (fun err -> [ err |> Warning ])
         |> Result.bind parseFormularyProducts
 

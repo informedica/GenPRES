@@ -928,8 +928,8 @@ module Build =
         let urlId = dataUrlId ()
 
         match
-            Web.GoogleSheets.getCsvDataFromSheetSync urlId "SolutionRules",
-            Web.GoogleSheets.getCsvDataFromSheetSync urlId "Formulary"
+            Web.GoogleSheets.getRowsFromSheetSync urlId "SolutionRules",
+            Web.GoogleSheets.getRowsFromSheetSync urlId "Formulary"
         with
         | Ok rules, Ok formulary ->
             let meds = rules |> SheetData.parseSolutionMedications
@@ -948,7 +948,7 @@ module Build =
     /// The GPKs of the cache products that a DoseRules row selects.
     let doseRuleGpks () =
         let urlId = dataUrlId ()
-        let read = Web.GoogleSheets.getCsvDataFromSheetSync urlId
+        let read = Web.GoogleSheets.getRowsFromSheetSync urlId
 
         match read "Formulary", read "DoseRules", read "Routes" with
         | Ok formulary, Ok rules, Ok routes ->
