@@ -239,6 +239,8 @@ module Types =
             /// The possible reconstitutions of the Product, each a reconstitution rule with the substances of
             /// its solvent. A reconstituted Product holds only the reconstitution it was made with.
             Reconstitution: ProductReconstitution[]
+            /// The predilution the Product was made with; None for a Product that is not pre-diluted.
+            Predilution: ProductPredilution option
             /// The number of equal parts one unit of the Product can be divided into, from the Formulary row or
             /// else from the pharmaceutical form. A tablet in 4 parts has the value 4 and a step of 1/4 tablet.
             /// For a droplet form the value is the number of drops per mL: it sets the size of the droplet unit,

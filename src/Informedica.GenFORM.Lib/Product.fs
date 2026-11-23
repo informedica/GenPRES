@@ -458,6 +458,7 @@ module Product =
             FormUnit = formUnit
             RequiresReconstitution = false
             Reconstitution = [||]
+            Predilution = None
             Divisible = Some 10N
             Substances =
                 substs
@@ -537,6 +538,7 @@ module Product =
             FormUnit = NoUnit
             RequiresReconstitution = false
             Reconstitution = [||]
+            Predilution = None
             Divisible = None
             Substances =
                 substs
@@ -634,6 +636,7 @@ module Product =
             FormUnit = formUnit
             RequiresReconstitution = reqReconst
             Reconstitution = reconstitution |> Array.filter (fun r -> r.Rule.GPK = $"{gp.Id}")
+            Predilution = None
             Divisible =
                 match fpOpt |> Option.map _.Divisible |> Option.defaultValue None with
                 | Some d -> d |> BigRational.fromInt |> Some
@@ -1011,6 +1014,7 @@ module Product =
                     Label = $"%s{prod.Label}, 1 mL verdund met %s{diluentVol} %s{p.Rule.Diluent}"
                     FormQuantities = vol
                     Substances = p.DiluentSubstances |> mixSubstances vol prod.Substances p.Rule.DiluentVolume
+                    Predilution = Some p
                 }
             )
 
