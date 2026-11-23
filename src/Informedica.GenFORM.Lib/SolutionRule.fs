@@ -828,15 +828,15 @@ module SolutionRule =
         )
 
 
-    /// One warning per solution rule without diluents whose concentration limit allows no strength of
-    /// the products of a dose rule it applies to and can share a patient with. Only a dose rule with one component is checked,
-    /// because a second component can dilute the first. The products are reconstituted for the
-    /// location of the solution rule and the department of the solution rule, else of the dose rule.
-    /// When neither rule names a department, the products are reconstituted for each department their
-    /// reconstitution rules name, and for no department. A reconstitution is used when one patient can be
-    /// in its age and weight ranges and in the patient categories of both the solution rule and the dose
-    /// rule.
-    let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
+    /// Returns a warning for each solution rule without diluents whose concentration limit allows no strength of
+    /// the products it gives undiluted. A solution rule is checked against each dose rule with one component that
+    /// it applies to and can share a patient with; a dose rule with more components is left out, because a second
+    /// component can dilute the first. The products are reconstituted first, for the location and the department
+    /// of the solution rule, or else of the dose rule. When neither rule names a location, the products are
+    /// reconstituted for each location that their reconstitution rules name, and for no location; the same holds
+    /// for the department. A reconstitution is used only when one patient can be in its age and weight ranges and
+    /// in the patient categories of both rules.
+    let undilutedRulesWithoutAllowedStrength routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         let substances (solRule: SolutionRule) =
             doseRules
             |> Array.filter (fun dr ->
@@ -844,29 +844,29 @@ module SolutionRule =
                 && solRule |> canShareDoseRule routeMapping dr
             )
             |> Array.collect (fun dr ->
-                let departments =
-                    match solRule.PatientCategory.Department, dr.PatientCategory.Department with
-                    | Some dep, _
-                    | None, Some dep -> [| Some dep |]
+                // the value of the solution rule, else of the dose rule; when neither names one, each value that
+                // the reconstitution rules name, and none
+                let settings ofCategory ofReconstitution =
+                    match solRule.PatientCategory |> ofCategory, dr.PatientCategory |> ofCategory with
+                    | Some v, _
+                    | None, Some v -> [| Some v |]
                     | None, None ->
                         dr.ComponentLimits
                         |> Array.collect _.Products
                         |> Array.collect _.Reconstitution
-                        |> Array.map _.Rule.Department
+                        |> Array.map (_.Rule >> ofReconstitution)
                         |> Array.append [| None |]
                         |> Array.distinct
 
-                departments
-                |> Array.collect (fun dep ->
+                Array.allPairs (settings _.Location _.Location) (settings _.Department _.Department)
+                |> Array.collect (fun (loc, dep) ->
                     let fits r =
                         let cat = r |> Product.Reconstitution.patientCategory
 
                         cat |> PatientCategory.canShare solRule.PatientCategory
                         && cat |> PatientCategory.canShare dr.PatientCategory
 
-                    let dr, _ =
-                        dr
-                        |> DoseRule.reconstitute routeMapping solRule.PatientCategory.Location dep fits
+                    let dr, _ = dr |> DoseRule.reconstitute routeMapping loc dep fits
 
                     solRule
                     |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)
@@ -899,8 +899,8 @@ module SolutionRule =
 
     /// Returns the solution rules that match the filter. The generic is checked only when given, the
     /// department only when given, and the other patient data only when set, so a lookup without patient
-    /// data returns the rules of every patient. When the filter names a diluent, each rule keeps only that
-    /// diluent.
+    /// data returns the rules of every patient. With patient data, a rule with a location matches only a
+    /// patient at that location. When the filter names a diluent, each rule keeps only that diluent.
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
@@ -916,8 +916,9 @@ module SolutionRule =
             // don't filter on the rest of the patient if it is not set; a department alone does not set it
             if filter.PatientData |> PatientData.hasDataBesidesDepartment then
                 fun (solRule: SolutionRule) ->
-                    solRule.PatientCategory
-                    |> PatientData.matchesCategoryWithoutLocationAndGender filter.PatientData
+                    PatientCategory.locationMatches solRule.PatientCategory.Location filter.PatientData.Location
+                    && solRule.PatientCategory
+                       |> PatientData.matchesCategoryWithoutLocationAndGender filter.PatientData
             fun (solRule: SolutionRule) -> solRule.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
             fun (solRule: SolutionRule) ->
                 solRule.Indication

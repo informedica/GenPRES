@@ -298,7 +298,7 @@ module DoseRule =
     /// Returns the dose rule and the distinct reconstitution warnings.
     /// </summary>
     /// <param name="mapping">The route mapping.</param>
-    /// <param name="loc">The venous access location that selects the reconstitution.</param>
+    /// <param name="loc">The location that selects the reconstitution.</param>
     /// <param name="dep">The department that selects the reconstitution.</param>
     /// <param name="fits">Whether a reconstitution applies to the patient.</param>
     /// <param name="dr">The dose rule.</param>
