@@ -66,6 +66,8 @@ module Fixtures =
                     unbox<'T>(box rules)
                 elif key.Name = Resources.Keys.isAdditive.Name then
                     unbox<'T>(box (fun (_: string) -> false))
+                elif key.Name = Resources.Keys.productPredilutions.Name then
+                    unbox<'T>(box Array.empty<ProductPredilution>)
                 else
                     raise (System.Collections.Generic.KeyNotFoundException key.Name)
 

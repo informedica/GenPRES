@@ -352,6 +352,8 @@ module Resources =
             RouteMappings: RouteMapping[]
             /// The additive lookup the prescription rules are built from.
             IsAdditive: string -> bool
+            /// The predilution rules the prescription rules are built from.
+            Predilutions: ProductPredilution[]
             /// Returns the cached prescription rules of a patient for the dose rules when the dose rules are the
             /// dose rules or the stand-alone dose rules of the load, the same arrays; None for any other array.
             TryRulesOf: DoseRule[] -> (PatientData -> Result<PrescriptionRule[], Message list>) option
@@ -371,6 +373,7 @@ module Resources =
 
         let reconstitution = ResourceKey.create<Reconstitution[]> "reconstitution"
         let predilution = ResourceKey.create<Predilution[]> "predilution"
+        let productPredilutions = ResourceKey.create<ProductPredilution[]> "productPredilutions"
         let parenteralMeds = ResourceKey.create<ProductComponent[]> "parenteralMeds"
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
@@ -429,8 +432,8 @@ module Resources =
     let maxCachedPatients = 64
 
 
-    /// Builds the prescription rule cache over the solution and renal rules, the route mappings and the additive
-    /// lookup of one load. The dose rules and the stand-alone dose rules of the load each get a memo of at most
+    /// Builds the prescription rule cache over the solution and renal rules, the route mappings, the additive
+    /// lookup and the predilution rules of one load. The dose rules and the stand-alone dose rules of the load each get a memo of at most
     /// maxCachedPatients patients. A reload builds a new, empty cache.
     let prescriptionRuleCacheLoader: ResourceLoader =
         derive (fun r ->
@@ -438,10 +441,11 @@ module Resources =
             let renalRules = r.Get Keys.renalRules
             let routeMappings = r.Get Keys.routeMappings
             let isAdditive = r.Get Keys.isAdditive
+            let predilutions = r.Get Keys.productPredilutions
 
             let memoOf doseRules =
                 doseRules,
-                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules routeMappings
+                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules predilutions routeMappings
                 |> Memoization.memoizeBounded maxCachedPatients
 
             let memos = [ r.Get Keys.doseRules |> memoOf; r.Get Keys.standAloneDoseRules |> memoOf ]
@@ -451,6 +455,7 @@ module Resources =
                 RenalRules = renalRules
                 RouteMappings = routeMappings
                 IsAdditive = isAdditive
+                Predilutions = predilutions
                 TryRulesOf =
                     fun doseRules ->
                         memos
@@ -491,6 +496,13 @@ module Resources =
                 derive (fun r ->
                     r.Get Keys.formularyProducts
                     |> Product.Parenteral.get logger (r.Get Keys.unitMappings) (r.Get Keys.routeMappings)
+                )
+
+                // The predilution rules, each with the substances of its diluent from the parenteral products.
+                Keys.productPredilutions.Name,
+                derive (fun r ->
+                    r.Get Keys.predilution
+                    |> Array.map (Product.ProductPredilution.create (r.Get Keys.parenteralMeds))
                 )
 
                 Keys.enteralFeeding.Name,
@@ -889,9 +901,15 @@ module Resources =
                                 LastReloaded = DateTime.MinValue
                                 IsLoaded = false
                             }
-                        // The rule lookup reads isAdditive, so the empty resources need a lookup that
-                        // always returns false instead of a missing key.
-                        Resolved = Map [ Keys.isAdditive.Name, box (fun (_: string) -> false) ]
+                        // The rule lookup reads isAdditive and the product predilutions, so the empty
+                        // resources need a lookup that always returns false and no predilutions instead of
+                        // missing keys.
+                        Resolved =
+                            Map
+                                [
+                                    Keys.isAdditive.Name, box (fun (_: string) -> false)
+                                    Keys.productPredilutions.Name, box Array.empty<ProductPredilution>
+                                ]
                     }
 
                 cached <- Some(emptyLoaded, DateTime.UtcNow)

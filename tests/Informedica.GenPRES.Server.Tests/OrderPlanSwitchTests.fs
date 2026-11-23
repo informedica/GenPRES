@@ -12,6 +12,9 @@ open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.TestDates
 
+module Resources = Informedica.GenForm.Lib.Resources
+module GenFormTypes = Informedica.GenForm.Lib.Types
+
 
 let patient = StubEhrPatient.contractPatient
 
@@ -30,11 +33,13 @@ let plan: OrderPlan =
 /// A provider holding no rules: what the rule lookup reads answers empty, every other resource
 /// raises.
 type NoRules() =
-    interface Informedica.GenForm.Lib.Resources.IResourceProvider with
+    interface Resources.IResourceProvider with
         // the rule lookup reads the additives; there are none
-        member _.Get(key: Informedica.GenForm.Lib.Resources.ResourceKey<'T>) : 'T =
-            if key.Name = Informedica.GenForm.Lib.Resources.Keys.isAdditive.Name then
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.isAdditive.Name then
                 box (fun (_: string) -> false) :?> 'T
+            elif key.Name = Resources.Keys.productPredilutions.Name then
+                box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
             else
                 raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
@@ -53,7 +58,7 @@ type NoRules() =
         member _.GetRenalRules() = [||]
         member _.GetTotals() = [||]
         member _.GetGStandProvider() = raise (System.NotImplementedException())
-        member _.GetDepartments() = Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+        member _.GetDepartments() = Resources.Departments.ofNamed []
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 

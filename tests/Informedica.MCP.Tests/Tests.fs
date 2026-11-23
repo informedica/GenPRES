@@ -262,6 +262,7 @@ module Tests =
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
         open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
 
         /// The departments the tests prescribe for: two named by rules, the default among them.
         let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
@@ -279,6 +280,8 @@ module Tests =
                         box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
@@ -314,6 +317,8 @@ module Tests =
                         box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
@@ -535,6 +540,7 @@ module Tests =
         open Informedica.GenOrder.Lib
         open Informedica.GenOrder.Lib.Patient.AgeParts
         open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
 
         module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
         module CoreHeight = Informedica.GenCore.Lib.Patients.Height
@@ -571,6 +577,8 @@ module Tests =
                         box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
@@ -818,6 +826,7 @@ module Tests =
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
         open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
 
         /// The vancomycin rule without a diluent, with the growth tables the tool reads for the
         /// patient, here empty because the input gives the weight and the height.
@@ -834,6 +843,8 @@ module Tests =
                         box ([]: CoreEGFRBandOption list) :?> 'T
                     elif key.Name = Keys.isAdditive.Name then
                         box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 

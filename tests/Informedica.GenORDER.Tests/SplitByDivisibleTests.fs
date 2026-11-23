@@ -129,6 +129,48 @@ module Fixture =
         )
 
 
+    /// The product with the GPK, pre-diluted with the product volume and 9 mL gluc 5%.
+    let preDiluted gpk medVol =
+        let mL = Units.Volume.milliLiter
+
+        { product gpk 100N None with
+            Predilution =
+                Some
+                    {
+                        Rule =
+                            {
+                                GPK = gpk
+                                Route = "iv"
+                                Indication = None
+                                Location = None
+                                Department = None
+                                MinAge = None
+                                MaxAge = None
+                                MinWeight = None
+                                MaxWeight = None
+                                MedVolume = mL |> ValueUnit.singleWithValue medVol
+                                DiluentVolume = mL |> ValueUnit.singleWithValue 9N
+                                Diluent = "gluc 5%"
+                            }
+                        DiluentSubstances = [||]
+                    }
+        }
+
+
+    /// The product volumes of the predilutions of the products of each split rule.
+    let predilutionsOf products =
+        products
+        |> rule
+        |> OrderContext.Helpers.splitByDivisible id
+        |> Array.map (
+            _.DoseRule.ComponentLimits
+            >> Array.collect (
+                _.Products
+                >> Array.map (_.Predilution >> Option.map (_.Rule.MedVolume >> ValueUnit.getValue))
+            )
+        )
+
+
 open Fixture
 
 
@@ -183,6 +225,18 @@ let tests =
                 |]
                 |> groupsOf
                 |> Expect.equal "each rule holds both GPKs once" [| [| "1"; "2" |]; [| "1"; "2" |] |]
+            }
+
+            test "the undiluted and the pre-diluted product of one GPK give two rules, the undiluted first" {
+                [| preDiluted "3" 1N; without |]
+                |> predilutionsOf
+                |> Expect.equal "a rule per predilution" [| [| None |]; [| Some [| 1N |] |] |]
+            }
+
+            test "two predilutions of one GPK give a rule per predilution" {
+                [| preDiluted "3" 3N; preDiluted "3" 1N |]
+                |> predilutionsOf
+                |> Expect.equal "a rule per predilution" [| [| Some [| 1N |] |]; [| Some [| 3N |] |] |]
             }
 
             test "a pick of a GPK with a solvent keeps only the rule with that solvent" {

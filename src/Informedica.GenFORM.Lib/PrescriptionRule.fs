@@ -291,12 +291,14 @@ module PrescriptionRule =
 
 
     /// Returns the prescription rules for the filter. isAdditive finds the additives, the components that a
-    /// component selection can leave out.
+    /// component selection can leave out. The products of a dose rule are reconstituted and then pre-diluted
+    /// with the predilutions.
     let filter
         isAdditive
         doseRules
         solutionRules
         renalRules
+        predilutions
         routeMapping
         (filter: DoseFilter)
         : Result<PrescriptionRule array, Message list>
@@ -313,15 +315,23 @@ module PrescriptionRule =
         doseRules
         |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
+            let dep = pat |> PatientData.department
+
             let dr, newWarns =
                 dr
-                |> DoseRule.reconstitute
-                    routeMapping
-                    pat.Location
-                    (pat |> PatientData.department)
-                    (Product.Reconstitution.matchesPatient pat)
+                |> DoseRule.reconstitute routeMapping pat.Location dep (Product.Reconstitution.matchesPatient pat)
 
             warns.AddRange(newWarns)
+
+            // a reconstituted product is a liquid, so it can be pre-diluted after the reconstitution
+            let dr =
+                dr
+                |> DoseRule.predilute
+                    routeMapping
+                    pat.Location
+                    dep
+                    (Product.Predilution.matchesPatient pat)
+                    predilutions
 
             // The solution rules are matched on the generic name, without a brand or a form.
             let generic = dr.Generic |> Generic.genericName
@@ -424,10 +434,18 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient isAdditive doseRules solutionRules renalRules routeMapping (patientData: PatientData) =
+    let getForPatient
+        isAdditive
+        doseRules
+        solutionRules
+        renalRules
+        predilutions
+        routeMapping
+        (patientData: PatientData)
+        =
         Filter.doseFilter
         |> Filter.setPatientData patientData
-        |> filter isAdditive doseRules solutionRules renalRules routeMapping
+        |> filter isAdditive doseRules solutionRules renalRules predilutions routeMapping
 
 
     /// Returns the prescription rules as markdown, after the patient data of the first rule. getLink makes
