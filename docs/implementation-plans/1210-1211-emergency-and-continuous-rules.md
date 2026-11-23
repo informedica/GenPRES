@@ -204,7 +204,7 @@ Decided on 2026-11-22:
 - **What the order shows.** A pre-diluted product carries the predilution as data: the product volume,
   the diluent and the diluent volume, so that the order text and the preparation view can show it. Its
   label also says it, for example "midazolam 5 mg/mL, 1 mL verdund met 9 mL NaCl 0,9%".
-- **Counting.** Replaced on 2026-11-23 by counting per prepared syringe, see below.
+- **Counting.** Replaced on 2026-11-23: counted per mL, see below.
 - **Composition from the Formulary.** The pre-diluted product carries the substances of its diluent,
   from the Formulary row of the diluent, as a reconstituted product does after step 1.
 - **What the new sheet needs.** A Data record with its column comments (`Types.fs`), a resource in the
@@ -219,9 +219,8 @@ Decided on 2026-11-23:
   after a reconstitution of that powder. The sample rows of "GenPRES - NewSolutionRules" have such a
   row: nitroprusside infusiepoeder 60 mg (GPK 185663) is reconstituted with 3 mL water to 20 mg/mL, then
   1 mL is diluted with 9 mL gluc 5% to 2 mg/mL in 10 mL.
-- **Counted per prepared syringe.** GenORDER counts a pre-diluted product per prepared syringe of 1 mL
-  plus DiluentVol, as it counts a reconstituted product per vial. The form quantity of a pre-diluted
-  product is that prepared volume.
+- **Counted per prepared syringe.** Replaced on 2026-11-23: a pre-diluted liquid is counted per mL, as
+  any liquid that is not reconstituted. The form quantity of a pre-diluted product is the prepared volume.
 - **The substances.** A pre-diluted product carries the substances of the product, of the
   reconstitution solvent when the product was reconstituted, and of the predilution diluent; the order
   adds the substances of its own diluent. The substances of the product, with those of the solvent, are
@@ -306,8 +305,12 @@ Decided on 2026-11-23, for the order side:
   label, the pick id, the caption and the preparation row name MedVol instead of 1 mL, for example "3 mL
   verdund met 7 mL gluc 5%". The sample rows of "GenPRES - NewSolutionRules" have MedVol 1 mL, and 3 mL
   with 7 mL gluc 5% for nitroprusside.
-- **One prepared syringe.** An order takes at most the prepared volume of a pre-diluted product, MedVol plus
-  DiluentVol. For a higher dose, the scenario with the undiluted product remains.
+- **One prepared syringe.** Set aside on 2026-11-23, see the open items below.
+- **No count per prepared syringe.** Decided on 2026-11-23. The prototype printed the orders of a premature
+  of 600 g and of 1200 g with and without the count per prepared syringe. Only the package text in the
+  preparation differs, such as "0,1 mg/mL (1 mg/10 mL)" against "0,1 mg/mL"; the prescription, the
+  administration, the product volumes and the concentrations are the same. The count was needed only for
+  the maximum of one syringe, so a pre-diluted liquid is counted per mL.
 
 Parts of the order side, one pull request each:
 
@@ -322,15 +325,18 @@ Parts of the order side, one pull request each:
    version 19, because the field is optional. Nothing calls `DoseRule.predilute` yet, so the orders do not
    change.
 3. **The predilution in the prescription rules.** The call in `PrescriptionRule.filter`, with the
-   predilution rules passed through the prescription rule cache; the counting per prepared syringe with
-   at most one syringe; the split into scenarios. The orders change here. Scripted against the GenORDER
-   of part 2.
+   predilution rules passed in, and the split into scenarios on the predilution. The resource
+   productPredilutions holds the predilution rules with the substances of their diluents, built once per
+   load; the prescription rule cache and its fallback in `Api.fs` read it. The orders change here.
+   Scripted against the GenORDER of part 2.
 
 Open, to decide later:
 
 - Which predilutions the load check `SolutionRule.undilutableRules` takes into account. It has the
   patient category of a solution rule instead of a patient, so it cannot filter on a weight and an
   indication the way an order does.
+- More than one prepared syringe. An order of a pre-diluted product can take more than the prepared
+  volume: the prototype gives noradrenaline 0,9 to 23,9 mL of a prepared 10 mL for a premature of 600 g.
 
 ### Step 3: #1210 the emergency list rules in the rules spreadsheet
 
