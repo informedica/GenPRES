@@ -941,6 +941,7 @@ module DoseRuleToDataTests =
                 "MaxAge"
                 "MinWeight"
                 "MaxWeight"
+                "MedVol"
                 "DiluentVol"
                 "Diluent"
             ]
@@ -1088,8 +1089,8 @@ module DoseRuleToDataTests =
                 "Predilution",
                 predilutionColumns,
                 [],
-                // a rule with a diluent and a diluent volume, so that the parser keeps it and reads every column
-                [ "Diluent", "NaCl 0,9%"; "DiluentVol", "9" ],
+                // a rule with a diluent and both volumes, so that the parser keeps it and reads every column
+                [ "Diluent", "NaCl 0,9%"; "MedVol", "1"; "DiluentVol", "9" ],
                 (Product.Predilution.parsePredilution >> Result.isOk)
 
                 "Formulary", formularyColumns, [], [], (Product.parseFormularyProducts >> Result.isOk)
@@ -1555,6 +1556,7 @@ module PredilutionTests =
             "MaxAge", "28"
             "MinWeight", "500"
             "MaxWeight", "5000"
+            "MedVol", "1"
             "DiluentVol", "9"
             "Diluent", "NaCl 0,9%"
         ]
@@ -1584,13 +1586,14 @@ module PredilutionTests =
                         (r.MinAge, r.MaxAge) |> Expect.equal "age in days" (Some 0N, Some 28N)
                         (r.MinWeight, r.MaxWeight)
                         |> Expect.equal "weight in grams" (Some 500N, Some 5000N)
+                        r.MedVolume |> Expect.equal "product volume" (1N |> mL)
                         r.DiluentVolume |> Expect.equal "diluent volume" (9N |> mL)
                         r.Diluent |> Expect.equal "diluent" "NaCl 0,9%"
                     | other -> failtest $"expected one rule, got %A{other}"
                 }
 
                 test "empty indication, location, department, age and weight cells give None" {
-                    match [ "DiluentVol", "9"; "Diluent", "NaCl 0,9%" ] |> parse with
+                    match [ "MedVol", "1"; "DiluentVol", "9"; "Diluent", "NaCl 0,9%" ] |> parse with
                     | Ok [| r |] ->
                         [ r.Indication; r.Location; r.Department ] |> Expect.allEqual "no text" None
                         [ r.MinAge; r.MaxAge; r.MinWeight; r.MaxWeight ]
@@ -1604,6 +1607,16 @@ module PredilutionTests =
 
                 test "a rule without a diluent volume is left out" {
                     ("DiluentVol", "") :: row |> parse |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a rule without a product volume is left out" {
+                    ("MedVol", "") :: row |> parse |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a rule with a product volume of 0 mL or less is left out" {
+                    [ "0"; "-1" ]
+                    |> List.map (fun vol -> ("MedVol", vol) :: row |> parse)
+                    |> Expect.equal "no rules" [ Ok [||]; Ok [||] ]
                 }
 
                 test "a rule with a diluent volume of 0 mL or less is left out" {
@@ -13156,6 +13169,7 @@ module Tests =
                 MaxAge = None
                 MinWeight = None
                 MaxWeight = None
+                MedVolume = 1N |> ValueUnit.singleWithUnit mL
                 DiluentVolume = 9N |> ValueUnit.singleWithUnit mL
                 Diluent = "NaCl 0,9%"
             }
@@ -13288,6 +13302,45 @@ module Tests =
                             atUmcu |> Product.Predilution.matches [||] loc neo None neonatalInfusion
                         )
                         |> Expect.equal "UMCU, not AMC, any location when none is asked" [ true; false; true ]
+                    }
+
+                    test "3 mL of 100 mg/mL with 7 mL NaCl 0,9% gives 30 mg/mL in 10 mL, labelled with both volumes" {
+                        let preds =
+                            [|
+                                { predilution with
+                                    MedVolume = 3N |> ValueUnit.singleWithUnit mL
+                                    DiluentVolume = 7N |> ValueUnit.singleWithUnit mL
+                                }
+                            |]
+                            |> Array.map (Product.ProductPredilution.create SolventSubstanceTests.parenterals)
+
+                        match liquid |> Product.predilute [||] None neo always "" neonatalInfusion preds with
+                        | [| _; pred |] ->
+                            (pred |> concentration "antibioticum", pred.FormQuantities, pred.Label)
+                            |> Expect.equal
+                                "30 mg/mL in 10 mL"
+                                (mg 30N,
+                                 10N |> ValueUnit.singleWithUnit mL,
+                                 "antibioticum, 3 mL verdund met 7 mL NaCl 0,9%")
+                        | other -> failtest $"expected two products, got %A{other |> Array.map _.Label}"
+                    }
+
+                    test "the natrium of 3 mL of 1 mmol/mL and 7 mL NaCl 0,9% adds up to 0,4085 mmol/mL" {
+                        // 3 x 1 + 7 x 0.155 = 4.085 mmol in 10 mL
+                        let preds =
+                            [|
+                                { predilution with
+                                    MedVolume = 3N |> ValueUnit.singleWithUnit mL
+                                    DiluentVolume = 7N |> ValueUnit.singleWithUnit mL
+                                }
+                            |]
+                            |> Array.map (Product.ProductPredilution.create SolventSubstanceTests.parenterals)
+
+                        { liquid with Substances = powder.Substances }
+                        |> Product.predilute [||] None neo always "" neonatalInfusion preds
+                        |> Array.last
+                        |> molarConcentration "natrium"
+                        |> Expect.equal "0,4085 mmol/mL" (mmol (4085N / 10000N))
                     }
 
                     test "the undiluted product has no predilution, the pre-diluted product has 9 mL NaCl 0,9%" {

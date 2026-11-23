@@ -195,14 +195,12 @@ module Product =
         |> Option.defaultValue [||]
 
 
-    /// Returns the substances of 1 mL of a liquid mixed with a volume of an added liquid, in a total
-    /// volume. Each concentration and molar concentration of the liquid is multiplied by 1 mL, and of the
-    /// added liquid by the added volume, and divided by the total volume. A substance of the added liquid is
-    /// added to the substance of the liquid with the same name, or else added as a new substance; a
-    /// concentration in another unit group, such as mg against mmol, is not added.
-    let mixSubstances total (substs: SubstanceItem[]) addedVol (added: SubstanceItem[]) =
-        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
-
+    /// Returns the substances of a volume of a liquid mixed with a volume of an added liquid, in a total
+    /// volume. Each concentration and molar concentration of the liquid is multiplied by the volume of the
+    /// liquid, and of the added liquid by the added volume, and divided by the total volume. A substance of
+    /// the added liquid is added to the substance of the liquid with the same name, or else added as a new
+    /// substance; a concentration in another unit group, such as mg against mmol, is not added.
+    let mixSubstances total liquidVol (substs: SubstanceItem[]) addedVol (added: SubstanceItem[]) =
         let scale qty (s: SubstanceItem) =
             { s with
                 Concentration = s.Concentration |> Option.map (fun q -> qty * q / total)
@@ -231,7 +229,7 @@ module Product =
 
         added
         |> Array.map (scale addedVol)
-        |> Array.fold addSubstance (substs |> Array.map (scale one))
+        |> Array.fold addSubstance (substs |> Array.map (scale liquidVol))
 
 
     module Reconstitution =
@@ -326,8 +324,8 @@ module Product =
 
 
         /// Parses predilution rules from a table of text whose first row holds the column names. A rule
-        /// without a diluent or a diluent volume above 0 mL is left out. Returns no rules for an empty table, and an
-        /// error when a column is missing from a table that has rules.
+        /// without a diluent, or without a product volume or a diluent volume above 0 mL, is left out. Returns
+        /// no rules for an empty table, and an error when a column is missing from a table that has rules.
         let parsePredilution (data: string[][]) =
             try
                 match data |> Array.tryHead with
@@ -342,11 +340,12 @@ module Product =
                         let getOpt = get >> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
                         let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                        // a diluent volume of 0 mL or less makes no predilution
-                        let diluentVol = get "DiluentVol" |> toBrOpt |> Option.filter (fun v -> v > 0N)
+                        // a volume of 0 mL or less makes no predilution
+                        let volume col = get col |> toBrOpt |> Option.filter (fun v -> v > 0N)
+                        let toMl = ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                        match getOpt "Diluent", diluentVol with
-                        | Some diluent, Some vol ->
+                        match getOpt "Diluent", volume "MedVol", volume "DiluentVol" with
+                        | Some diluent, Some medVol, Some diluentVol ->
                             Some
                                 {
                                     GPK = get "GPK"
@@ -358,7 +357,8 @@ module Product =
                                     MaxAge = get "MaxAge" |> toBrOpt
                                     MinWeight = get "MinWeight" |> toBrOpt
                                     MaxWeight = get "MaxWeight" |> toBrOpt
-                                    DiluentVolume = vol |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                    MedVolume = medVol |> toMl
+                                    DiluentVolume = diluentVol |> toMl
                                     Diluent = diluent
                                 }
                         | _ -> None
@@ -955,6 +955,7 @@ module Product =
     let reconstitute mapping loc dep fits rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
         let rte' = rte |> Mapping.routeOption
+        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
 
         let prods =
             [|
@@ -980,7 +981,9 @@ module Product =
                         { prod with
                             FormUnit = Units.Volume.milliLiter
                             FormQuantities = vol
-                            Substances = r.SolventSubstances |> mixSubstances vol prod.Substances r.Rule.SolventVolume
+                            Substances =
+                                r.SolventSubstances
+                                |> mixSubstances vol one prod.Substances r.Rule.SolventVolume
                             Reconstitution = [| r |]
                         }
                     )
@@ -990,14 +993,14 @@ module Product =
         prods, warnings |> Seq.distinct
 
 
-    /// Returns the product followed by one pre-diluted product per matching predilution of its GPK: 1 mL of
-    /// the product with the diluent volume of diluent, in the prepared volume of 1 mL plus the diluent
-    /// volume, as mixSubstances mixes the substances. The product is a liquid: a liquid product, or a product
-    /// after the reconstitution. The label of a pre-diluted product names the predilution, for example
-    /// "..., 1 mL verdund met 9 mL gluc 5%".
+    /// Returns the product followed by one pre-diluted product per matching predilution of its GPK: the
+    /// product volume of the product with the diluent volume of diluent, in the prepared volume of the two,
+    /// as mixSubstances mixes the substances. The product is a liquid: a liquid product, or a product after
+    /// the reconstitution. The label of a pre-diluted product names the predilution, for example
+    /// "..., 3 mL verdund met 7 mL gluc 5%".
     let predilute mapping loc dep fits rte indication (preds: ProductPredilution[]) (prod: ProductComponent) =
-        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
         let rte' = rte |> Mapping.routeOption
+        let toString = ValueUnit.toStringDecimalDutchShortWithPrec -1
 
         let prediluted =
             preds
@@ -1007,13 +1010,16 @@ module Product =
                 && p.Rule |> fits
             )
             |> Array.map (fun p ->
-                let vol = one + p.Rule.DiluentVolume
-                let diluentVol = p.Rule.DiluentVolume |> ValueUnit.toStringDecimalDutchShortWithPrec -1
+                let vol = p.Rule.MedVolume + p.Rule.DiluentVolume
+                let medVol = p.Rule.MedVolume |> toString
+                let diluentVol = p.Rule.DiluentVolume |> toString
 
                 { prod with
-                    Label = $"%s{prod.Label}, 1 mL verdund met %s{diluentVol} %s{p.Rule.Diluent}"
+                    Label = $"%s{prod.Label}, %s{medVol} verdund met %s{diluentVol} %s{p.Rule.Diluent}"
                     FormQuantities = vol
-                    Substances = p.DiluentSubstances |> mixSubstances vol prod.Substances p.Rule.DiluentVolume
+                    Substances =
+                        p.DiluentSubstances
+                        |> mixSubstances vol p.Rule.MedVolume prod.Substances p.Rule.DiluentVolume
                     Predilution = Some p
                 }
             )

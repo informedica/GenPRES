@@ -258,31 +258,32 @@ What the code does now, checked on 2026-11-23 on `master` at `84ba2f08`:
 - `Order.Print.printPrep` has the row "oplossen in" for a reconstituted product (`printReconstitution`)
   and no row for another preparation step.
 
-Script of 2026-11-23: `src/Informedica.GenFORM.Lib/Scripts/Issue1554PredilutionRows.fsx` on the branch
-`feat/1554-predilution-rows` loads the predilutions (part 1) and applies them after the reconstitution
-(part 2); its 17 tests pass against the live sheets of "GenPRES - NewSolutionRules".
+Script of 2026-11-23: `src/Informedica.GenFORM.Lib/Scripts/Issue1554PredilutionRows.fsx` loaded the
+predilutions and applied them after the reconstitution; #1970 migrated and deleted it.
 
-Prototype of 2026-11-23, not for merging: the worktree branch `proto/1554-genorder-predilution` changes
-GenFORM and GenORDER, 361 lines added and 14 removed under `src/` in 10 files, and prints orders with
-`src/Informedica.GenORDER.Lib/Scripts/Issue1554PredilutionOrders.fsx`. For a premature of 1200 g on
-the NEO with the indication "Continue infusie neonatologie", the orders print:
+Prototype, not for merging: the worktree branch `proto/1554-genorder-predilution` is based on the branch
+of part 1 below without the product volume, and uses the GenFORM of #1970. It adds the order side, 156
+lines added and 16 removed under `src/` in 7 files: the call in `PrescriptionRule.filter`, the counting
+per prepared syringe, the pick id, the split into scenarios, the preparation row and the Dtos. It has
+no scenario caption, no Shared type and no server mappers, it counts no maximum of one syringe, and its
+test projects do not compile. It prints orders with
+`src/Informedica.GenORDER.Lib/Scripts/Issue1554PredilutionOrders.fsx` against the live sheets of
+"GenPRES - NewSolutionRules". For an extremely premature infant of 1 week, 25 weeks gestational age and
+600 g, on the NEO, with the indication "Continue infusie neonatologie", it prints the product volume of
+the order without and with the predilution of 1 mL with 9 mL gluc 5%:
 
-- noradrenaline concentraat: one scenario with noradrenaline 1 mg/mL, and one with "1 mL verdunnen met
-  9 mL gluc 5%" and noradrenaline 0,1 mg/mL (1 mg/10 mL);
-- nitroprusside: one scenario with "oplossen in 3 mL water" and nitroprusside 20 mg/mL (60 mg/3 mL), and
-  one with "oplossen in 3 mL water", "1 mL verdunnen met 9 mL gluc 5%" and nitroprusside 2 mg/mL
-  (20 mg/10 mL);
-- nitroprusside for a child on the NEO with the indication "Hypertensieve crisis", maintenance dose:
-  only the reconstituted product.
+| Medication | Undiluted product | Pre-diluted product |
+|---|---|---|
+| nitroprusside, after "oplossen in 3 mL water" | 0,1 - 0,6 mL of 20 mg/mL | 0,5 - 6,9 mL of 2 mg/mL |
+| noradrenaline | 0,1 - 3,4 mL of 1 mg/mL | 0,9 - 23,9 mL of 0,1 mg/mL |
+| dopamine | 0,1 - 0,8 mL of 40 mg/mL | 0,5 - 8,6 mL of 4 mg/mL |
+| alprostadil | 0,1 - 1,4 mL of 0,5 mg/mL | 0,4 - 14,4 mL of 0,05 mg/mL |
 
-The prototype does the following, which is open for the user to decide: the predilution is applied
-inside `DoseRule.reconstitute`, which gets a second patient check for the predilution; the product field
-`Predilution` holds the predilutions of the GPK when the products are built, and after the predilution
-the pre-diluted product holds only the predilution it was made with and the undiluted product none; the
-label of a pre-diluted product ends with ", 1 mL verdund met 9 mL gluc 5%"; the pick id reads
-"185663 water 1 mL + 9 mL gluc 5%"; the medication Dto and the order Dto carry the predilution as an
-optional field. The test projects of the worktree do not compile: their test records have no field
-Predilution, and the GenORDER tests call `Order.pickId` with two arguments.
+Without the predilution, the product volume of nitroprusside and dopamine stays below 1 mL. The
+scenario with the undiluted product stays next to the scenario with the pre-diluted product. The
+noradrenaline and alprostadil orders go above the prepared 10 mL, which the maximum of one syringe below
+prevents. The scenarios without the products of the Predilution sheet, such as noradrenaline
+infusievloeistof, do not change.
 
 The predilution rules, their matching and `Product.predilute` were merged in #1970.
 
@@ -299,23 +300,29 @@ Decided on 2026-11-23, for the order side:
   product is reconstituted, and then the predilution: "185663 water 1 mL + 9 mL gluc 5%".
 - **The scenario caption.** The caption of a scenario adds the predilution after the reconstitution:
   "infusiepoeder in 3 mL water, 1 mL verdund met 9 mL gluc 5%".
+- **The product volume.** A predilution rule has the column MedVol, required like DiluentVol: MedVol mL of
+  the product is diluted with DiluentVol mL of diluent, in a prepared volume of MedVol plus DiluentVol. A
+  rule without MedVol, or with 0 mL or less, is left out. This replaces the fixed 1 mL of 2026-11-22; the
+  label, the pick id, the caption and the preparation row name MedVol instead of 1 mL, for example "3 mL
+  verdund met 7 mL gluc 5%". The sample rows of "GenPRES - NewSolutionRules" have MedVol 1 mL, and 3 mL
+  with 7 mL gluc 5% for nitroprusside.
+- **One prepared syringe.** An order takes at most the prepared volume of a pre-diluted product, MedVol plus
+  DiluentVol. For a higher dose, the scenario with the undiluted product remains.
 
 Parts of the order side, one pull request each:
 
 1. **The predilution on the product.** The field `Predilution` on the product; every place that builds a
-   product sets None, and `Product.predilute` sets the predilution on the pre-diluted product. Nothing
-   calls `DoseRule.predilute` yet, so the orders do not change.
+   product sets None, and `Product.predilute` sets the predilution on the pre-diluted product. The column
+   MedVol on the predilution rule. Nothing calls `DoseRule.predilute` yet, so the orders do not change.
 2. **The predilution in the order.** GenORDER and the server: the call in `PrescriptionRule.filter`, the
-   counting per prepared syringe, the pick id, the split into scenarios, the preparation row, the
-   scenario caption and the Dtos. Scripted against the GenFORM of part 1.
+   counting per prepared syringe with at most one syringe, the pick id, the split into scenarios, the
+   preparation row, the scenario caption and the Dtos. Scripted against the GenFORM of part 1.
 
 Open, to decide later:
 
 - Which predilutions the load check `SolutionRule.undilutableRules` takes into account. It has the
   patient category of a solution rule instead of a patient, so it cannot filter on a weight and an
   indication the way an order does.
-- More than one prepared syringe. In the prototype the pre-diluted nitroprusside order takes 0,9 to
-  12 mL of the prepared 10 mL, so an order can need two prepared syringes.
 
 ### Step 3: #1210 the emergency list rules in the rules spreadsheet
 
