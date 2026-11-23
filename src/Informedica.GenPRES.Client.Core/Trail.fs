@@ -727,7 +727,6 @@ module Trail =
             match l with
             | Load.Settings -> "Settings"
             | Load.Localization -> "Localization"
-            | Load.Hospitals -> "Hospitals"
             | Load.BolusMedication -> "BolusMedication"
             | Load.ContinuousMedication -> "ContinuousMedication"
             | Load.Products -> "Products"
@@ -1049,6 +1048,7 @@ module Trail =
             | ShellEffect.PageShown p -> $"PageShown %s{Loader.page p}"
             | ShellEffect.PutBackUrl _ -> "PutBackUrl"
             | ShellEffect.EraseLaunch -> "EraseLaunch"
+            | ShellEffect.HospitalShown h -> $"HospitalShown %s{h}"
             | ShellEffect.PresentLaunch _ -> "PresentLaunch"
             | ShellEffect.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
             | ShellEffect.StartOver p -> $"StartOver %s{Part.patientOption p}"

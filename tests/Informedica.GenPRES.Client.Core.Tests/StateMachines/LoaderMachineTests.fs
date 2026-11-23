@@ -163,24 +163,18 @@ let tests =
                 state.Failed |> Expect.isEmpty "not named"
             }
 
-            test "the emergency medication gives the hospitals, each once, a blank one left out" {
+            test "the emergency medication loads" {
                 let state, _ =
                     run
                         [
                             LoaderMsg.Start Load.BolusMedication
-                            LoaderMsg.Landed(
-                                Landing.BolusMedication(Ok [ bolus "UMCU"; bolus "AMC"; bolus "UMCU"; bolus " " ])
-                            )
+                            LoaderMsg.Landed(Landing.BolusMedication(Ok [ bolus "UMCU" ]))
                         ]
 
-                state.Hospitals |> Expect.equal "the hospitals" (Resolved [| "UMCU"; "AMC" |])
-
-                state
-                |> loaded
-                |> Expect.equal "both loaded" [ Load.Hospitals; Load.BolusMedication ]
+                state |> loaded |> Expect.equal "loaded" [ Load.BolusMedication ]
             }
 
-            test "the emergency medication failing leaves the hospitals as they were" {
+            test "the emergency medication failing is named" {
                 let state, _ =
                     run
                         [
@@ -188,7 +182,6 @@ let tests =
                             LoaderMsg.Landed(Landing.BolusMedication(Error "down"))
                         ]
 
-                state.Hospitals |> Expect.equal "not started" HasNotStartedYet
                 state.Failed |> Expect.equal "named" [ Load.BolusMedication ]
             }
 

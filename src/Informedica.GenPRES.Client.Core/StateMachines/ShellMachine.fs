@@ -30,8 +30,9 @@ module ShellMachine =
             ShowDisclaimer: bool
             /// The language shown, and whether the url or the user chose it.
             Language: LanguagePolicy.Language
-            /// The hospital whose lists show.
-            Hospital: string
+            /// The hospital chosen, whose lists show and that is the Location of the patient; None when no
+            /// hospital is chosen.
+            Hospital: string option
             /// Whether the server serves the demo data, shown in the title.
             IsDemo: bool
             /// The error on the banner, with the kind of request that raised it.
@@ -80,7 +81,7 @@ module ShellMachine =
         | HospitalChosen of string
         /// The user accepted the disclaimer.
         | DisclaimerAccepted
-        /// The server settings landed: the demo flag and the default language.
+        /// The server settings landed: the demo flag, the default language and the default hospital.
         | SettingsLanded of ServerSettings
         /// The url of the page load, as segments and as read.
         | PageLoaded of string list * Url.UrlParts
@@ -121,6 +122,8 @@ module ShellMachine =
         | PageShown of Page
         /// Put these segments, the url the app shows, back in the address bar.
         | PutBackUrl of string list
+        /// The user chose this hospital and it shows; the patient follows it.
+        | HospitalShown of string
         /// Replace the launch url in the address bar and the history, so its token survives neither a
         /// reload, the back button nor a copied url.
         | EraseLaunch
@@ -152,7 +155,8 @@ module ShellMachine =
                 ShowDisclaimer = true
                 // the server default replaces this once the settings land, unless the url chose
                 Language = LanguagePolicy.Language.initial None
-                Hospital = "UMCU"
+                // the default hospital of the server replaces this once the settings land
+                Hospital = None
                 IsDemo = false
                 ServerError = None
                 Snackbar = None
@@ -234,6 +238,11 @@ module ShellMachine =
             | UrlPolicy.UrlAction.StartOver -> state |> startedOver sl url
 
 
+    /// Returns the hospital once the server settings land: the hospital chosen, else the default hospital of the
+    /// server; None when there is neither.
+    let hospitalOnServerDefault settings hospital = hospital |> Option.orElse settings.DefaultLocation
+
+
     /// The next state and the effects for a message.
     let transition msg (state: ShellState) =
         match msg with
@@ -250,15 +259,16 @@ module ShellMachine =
             []
         | ShellMsg.HospitalChosen hospital ->
             { state with
-                Hospital = hospital
+                Hospital = Some hospital
                 ShowDisclaimer = true
             },
-            []
+            [ ShellEffect.HospitalShown hospital ]
         | ShellMsg.DisclaimerAccepted -> { state with ShowDisclaimer = false }, []
         | ShellMsg.SettingsLanded settings ->
             { state with
                 IsDemo = settings.IsDemo
                 Language = state.Language |> LanguagePolicy.Language.onServerDefault settings.Language
+                Hospital = state.Hospital |> hospitalOnServerDefault settings
             },
             []
         // a page load with a patient or a medication leaves the session the cookie may hold, one

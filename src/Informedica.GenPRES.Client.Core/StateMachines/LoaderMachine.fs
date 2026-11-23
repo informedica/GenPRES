@@ -3,8 +3,8 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// Loads the data the client needs: the server settings, the localization, the medication lists, the products,
 /// the formulary and parenteralia pages, the interactions and the nutrition totals.
 /// A start while the same load runs does nothing. A failed load returns to not started; a failed required load
-/// is added to the failed loads. The hospitals come from the emergency medication list. The server is checked
-/// until it answers. The medication names are requested again after a failure, up to three failures.
+/// is added to the failed loads. The server is checked until it answers. The medication names are requested
+/// again after a failure, up to three failures.
 /// The formulary and parenteralia pages follow the workbench filter and the patient, and a choice on either
 /// page seeds the workbench filter. Interaction checks and totals queries are numbered, so an answer to an
 /// earlier request is ignored.
@@ -24,7 +24,7 @@ module LoaderMachine =
     /// The state of each load and the required loads that failed.
     type LoaderState =
         {
-            /// The server settings: the default language and the demo flag.
+            /// The server settings: the default language, the demo flag, the departments and the hospitals.
             Settings: Deferred<ServerSettings>
             /// The terms of every language, as rows of the localization sheet.
             Localization: Deferred<string[][]>
@@ -34,8 +34,6 @@ module LoaderMachine =
             ContinuousMedication: Deferred<ContinuousMedication list>
             /// The products.
             Products: Deferred<Product list>
-            /// The distinct hospitals in the emergency medication list.
-            Hospitals: Deferred<string[]>
             /// The medication names the interactions page offers.
             DrugNames: Deferred<string[]>
             /// The interactions found by the last check.
@@ -171,7 +169,6 @@ module LoaderMachine =
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
-                Hospitals = HasNotStartedYet
                 DrugNames = HasNotStartedYet
                 Interactions = HasNotStartedYet
                 InteractionCheck = 0
@@ -196,7 +193,6 @@ module LoaderMachine =
             [
                 Load.Settings, reading state.Settings
                 Load.Localization, reading state.Localization
-                Load.Hospitals, reading state.Hospitals
                 Load.BolusMedication, reading state.BolusMedication
                 Load.ContinuousMedication, reading state.ContinuousMedication
                 Load.Products, reading state.Products
@@ -214,15 +210,6 @@ module LoaderMachine =
 
     /// Returns the loads that have loaded.
     let loaded state = state |> LoaderState.readings |> loadedOf
-
-
-    /// Returns the distinct, non-empty hospital names in the emergency medication list.
-    let hospitals (meds: BolusMedication list) =
-        meds
-        |> List.map _.Hospital
-        |> List.distinct
-        |> List.filter String.notEmpty
-        |> List.toArray
 
 
     /// Returns the load state for an answer: resolved on success, not started on an error.
@@ -375,15 +362,7 @@ module LoaderMachine =
             { state with Localization = reading }, []
         | LoaderMsg.Landed(Landing.BolusMedication result) ->
             let reading, state = state |> settle Load.BolusMedication result
-
-            { state with
-                BolusMedication = reading
-                Hospitals =
-                    match result with
-                    | Ok meds -> Resolved(hospitals meds)
-                    | Error _ -> state.Hospitals
-            },
-            []
+            { state with BolusMedication = reading }, []
         | LoaderMsg.Landed(Landing.ContinuousMedication result) ->
             let reading, state = state |> settle Load.ContinuousMedication result
             { state with ContinuousMedication = reading }, []

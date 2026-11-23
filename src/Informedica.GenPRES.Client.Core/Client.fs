@@ -309,8 +309,8 @@ module Client =
     let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
 
 
-    /// The hospitals to choose from.
-    let hospitals (state: ClientState) = state.Loader.Hospitals
+    /// The hospitals to choose from: the locations of the server settings.
+    let hospitals (state: ClientState) = state.Loader.Settings |> Deferred.map _.Locations
 
 
     /// The resources reload.
@@ -606,6 +606,23 @@ module Client =
         | ClientMsg.TakeEhrData -> becomes [ ClientMsg.Lanes(LanesMsg.Signing SigningMsg.TakeEhrData) ]
 
 
+    /// Returns the edit that sets the hospital as the Location of the patient; None when no hospital is chosen or
+    /// the patient already has that Location.
+    let locationEdit hospital (pat: PatientData) =
+        match hospital with
+        | Some h when pat.Location <> Some h -> Some(PatientDataEdit.SetLocation(Some h))
+        | _ -> None
+
+
+    /// Returns the panel edit that sets the hospital as the Location of the patient, with a new request id; no
+    /// message when the patient needs no edit.
+    let locationFollow newId hospital pat =
+        pat
+        |> locationEdit hospital
+        |> Option.map (fun edit -> ClientMsg.PanelEdited(edit, newId ()))
+        |> Option.toList
+
+
     /// Routes an effect to messages for other parts, using the current state; no messages for an effect that
     /// only leaves the client.
     let route newId effect (state: ClientState) =
@@ -628,10 +645,16 @@ module Client =
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.TellNewerSignedPlan head)) ->
             alert (Alert.Alert.NewerSignedPlan head)
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.Alert a)) -> alert a
+        // A patient whose Location is not the hospital chosen gets the hospital chosen, so the title bar and the
+        // patient data name the same hospital.
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData pat)) ->
             [
                 ClientMsg.Shell ShellMsg.ListFiltersCleared
                 ClientMsg.Loader(LoaderMsg.PatientSet pat)
+                yield!
+                    pat
+                    |> Option.map (locationFollow newId state.Shell.Hospital)
+                    |> Option.defaultValue []
             ]
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.TellError errs)) ->
             alert (Alert.Alert.PatientChangeFailed(first errs))
@@ -681,6 +704,10 @@ module Client =
 
         // Shell effects: the page goes to the loader, the url results to the lanes and the Session.
         | ClientEffect.Shell(ShellEffect.PageShown page) -> [ ClientMsg.Loader(LoaderMsg.PageShown page) ]
+        | ClientEffect.Shell(ShellEffect.HospitalShown hospital) ->
+            draft state
+            |> Option.map (locationFollow newId (Some hospital))
+            |> Option.defaultValue []
         // An empty interaction check ends any check for the old plan, so its answer is ignored.
         | ClientEffect.Shell(ShellEffect.StartOver pat) ->
             [
