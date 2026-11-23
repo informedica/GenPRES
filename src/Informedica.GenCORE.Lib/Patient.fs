@@ -432,8 +432,10 @@ type PatientDataEdit =
     | SetGender of Gender
     /// The renal function; None clears it.
     | SetRenalFunction of RenalFunction option
-    /// The name of the department; None uses the default.
+    /// The name of the department; None clears it.
     | SetDepartment of string option
+    /// The location of the patient; None clears it.
+    | SetLocation of string option
     /// Adds the access; the patient keeps it when the patient already has it.
     | AddAccess of Access
     /// Removes the access; nothing changes when the patient does not have it.
@@ -2892,6 +2894,7 @@ module PatientDataEdit =
             // A fresh department Dto, so no department of another kind stays next to the new name.
             dto.Department <- Department.Dto.dto ()
             dto.Department.OtherDepartment <- name
+        | PatientDataEdit.SetLocation location -> dto.Location <- location
         | PatientDataEdit.AddAccess a ->
             let s = a |> Access.toString
 

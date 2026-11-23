@@ -3854,6 +3854,28 @@ module Tests =
                         |> Expect.equal "no department" (None, None)
                     }
 
+                    test "SetLocation writes, replaces and clears the Location and leaves the rest as it was" {
+                        let dto = agedDto (Some 5) None
+                        dto.Gender <- "female"
+                        dto.Department.OtherDepartment <- Some "ICK"
+
+                        let located = dto |> PatientDataEdit.apply (PatientDataEdit.SetLocation(Some "UMCU"))
+
+                        located
+                        |> PatientData.Dto.fromDto readAt None
+                        |> Result.map _.Location
+                        |> Expect.equal "UMCU" (Ok(Some "UMCU"))
+
+                        (located.Gender, located.Department.OtherDepartment)
+                        |> Expect.equal "the rest as it was" ("female", Some "ICK")
+
+                        (located |> PatientDataEdit.apply (PatientDataEdit.SetLocation(Some "AMC"))).Location
+                        |> Expect.equal "replaced" (Some "AMC")
+
+                        (located |> PatientDataEdit.apply (PatientDataEdit.SetLocation None)).Location
+                        |> Expect.isNone "cleared"
+                    }
+
                     test "the gender, the renal function, the department and the mark are written as Dto strings" {
                         let dto =
                             PatientData.Dto.dto ()

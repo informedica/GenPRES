@@ -475,6 +475,7 @@ module Patient =
             | Some renal -> Some renal |> CoreEdit.SetRenalFunction |> Ok
             | None -> Error [| $"Renal function is unknown: %s{s}" |]
         | ContractEdit.SetDepartment name -> CoreEdit.SetDepartment name |> Ok
+        | ContractEdit.SetLocation location -> CoreEdit.SetLocation location |> Ok
         | ContractEdit.AddAccess a -> a |> coreAccess |> CoreEdit.AddAccess |> Ok
         | ContractEdit.RemoveAccess a -> a |> coreAccess |> CoreEdit.RemoveAccess |> Ok
         | ContractEdit.SetMarkedAdult marked -> CoreEdit.SetMarkedAdult marked |> Ok
