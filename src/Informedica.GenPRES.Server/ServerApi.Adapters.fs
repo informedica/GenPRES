@@ -126,11 +126,8 @@ module Adapters =
 
 
         /// Reads the rule sets from the rule set rows of the provider on every call, so a reload of the sheet is seen.
-        /// Each rule set keeps the rows that apply to the patient, with the default department for a patient
-        /// without one, as for the dose rules.
+        /// Each rule set keeps the rows that apply to the patient.
         let ruleSets (provider: Resources.IResourceProvider) pat =
-            let pat = pat |> Api.withDefaultDepartment provider
-
             provider.Get Resources.Keys.ruleSetData
             |> ofData
             |> Array.map (RuleSet.forPatient pat)

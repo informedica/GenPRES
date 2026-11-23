@@ -862,7 +862,6 @@ module NutritionSlot =
                             isLoading = false
                             enabled = not compositionWaits
                             shape = Components.PickField.Shape.Scroll
-                            placeholder = None
                         |}
 
                 // A row for a component of the order: the label cell, the quantity field and the range.

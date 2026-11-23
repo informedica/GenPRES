@@ -326,7 +326,7 @@ let tests =
                 |> Expect.equal "241 days, 241 days" (Some 241, Some 241)
             }
 
-            test "an empty department stays empty, in the Formulary mapper too: the lookup applies the default" {
+            test "an empty department stays empty, in the Formulary mapper too" {
                 domain stub |> PatientData.department |> Expect.equal "new" None
 
                 Some stub

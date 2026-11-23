@@ -264,7 +264,7 @@ module Tests =
         open Informedica.MCP.Lib.GenOrderTools
         module GenFormTypes = Informedica.GenForm.Lib.Types
 
-        /// The departments the tests prescribe for: two named by rules, the default among them.
+        /// The departments the tests prescribe for, named by rules.
         let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
 
         /// A provider that answers the departments and nothing else: a test that reaches any
@@ -364,11 +364,11 @@ module Tests =
             testList
                 "checkDepartment"
                 [
-                    test "the names are the ones the rules name and the default, sorted" {
-                        departments.Names |> Expect.equal "the names" [| "ICC"; "ICK"; "NEO" |]
+                    test "the names are the ones the rules name, sorted" {
+                        departments |> Expect.equal "the names" [| "ICC"; "NEO" |]
                     }
 
-                    test "no department is Ok and stays none, so the default applies" {
+                    test "no department is Ok and stays none, so only the rules without a department apply" {
                         measured
                         |> checkDepartment departments
                         |> Expect.equal "unchanged" (Ok measured)
@@ -395,20 +395,12 @@ module Tests =
                         |> Expect.equal "ICC" (Ok(Some "ICC"))
                     }
 
-                    test "the default itself is Ok as given" {
-                        { measured with Department = Some "ICK" }
-                        |> checkDepartment departments
-                        |> Result.map _.Department
-                        |> Expect.equal "ICK" (Ok(Some "ICK"))
-                    }
-
                     test "a department the rules do not name is refused, naming the ones they do" {
                         match { measured with Department = Some "PICU" } |> checkDepartment departments with
                         | Ok _ -> failtest "should refuse"
                         | Error msg ->
                             msg |> Expect.stringContains "names the input" "'PICU'"
-                            msg |> Expect.stringContains "names the known" "ICC, ICK, NEO"
-                            msg |> Expect.stringContains "names the default" "ICK"
+                            msg |> Expect.stringContains "names the known" "ICC, NEO"
                     }
 
                     test "when the rules spell a name in two cases, the spelling given wins" {
@@ -848,6 +840,9 @@ module Tests =
                     else
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
+                // the department of the vancomycin rule
+                member _.GetDepartments() = Departments.ofNamed [ Some "ICK" ]
+
 
         let refusals =
             [
@@ -912,7 +907,7 @@ module Tests =
                             WeightKg = Some 70.0
                             HeightCm = Some 175.0
                             Sex = None
-                            Department = None
+                            Department = Some "ICK"
                             Generic = Some "vancomycine"
                             Indication = Some "infectie"
                             Route = None

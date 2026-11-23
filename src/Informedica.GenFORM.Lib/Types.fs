@@ -692,17 +692,6 @@ module Types =
         }
 
 
-    /// The departments a patient can be prescribed for, and the default department.
-    type Departments =
-        {
-            /// Every department a dose rule, a solution rule or a reconstitution names, the
-            /// default included, distinct and sorted.
-            Names: string[]
-            /// The department for a patient without a department.
-            Default: string
-        }
-
-
     /// The components a prescriber selected.
     [<RequireQualifiedAccess>]
     type ComponentSelection =

@@ -30,7 +30,7 @@ module Fixtures =
 
     /// The oral hydrocortison rule of week 1 of the taper, with the dose text of the time of day.
     let rowOf doseText : DoseRuleData =
-        let r = RuleFixtures.row Resources.Departments.defaultDepartment
+        let r = RuleFixtures.row "ICK"
 
         { r with
             Generic = { r.Generic with Name = "hydrocortison" }

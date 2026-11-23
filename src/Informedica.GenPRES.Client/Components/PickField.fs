@@ -27,8 +27,7 @@ module PickField =
 
     /// The label, the options as key and label pairs, the selected key, the change handler, whether
     /// the selection may be cleared, whether the options are loading, whether the caller enables the
-    /// field, the shape, and the key of a suggested option. The suggested option is shown greyed while
-    /// nothing is selected and the list opens on it. It is not selected, so picking it sends a change.
+    /// field, and the shape.
     type Props =
         {|
             label: string
@@ -39,7 +38,6 @@ module PickField =
             isLoading: bool
             enabled: bool
             shape: Shape
-            placeholder: string option
         |}
 
 
@@ -54,16 +52,6 @@ module PickField =
             }
 
         let offer = PickPolicy.offer pick
-
-        // the label of the suggested option, or its key when the options do not contain it
-        let placeholderText =
-            props.placeholder
-            |> Option.map (fun key ->
-                props.options
-                |> Array.tryFind (fst >> (=) key)
-                |> Option.map snd
-                |> Option.defaultValue key
-            )
 
         let trace event effects =
             StepTrail.event
@@ -114,8 +102,8 @@ module PickField =
                     reCalc = None
                     restore = ignore
                     busy = false
-                    placeholder = placeholderText
-                    placeholderValue = props.placeholder
+                    placeholder = None
+                    placeholderValue = None
                 |}
         | Shape.Type ->
             Autocomplete.View
@@ -127,5 +115,5 @@ module PickField =
                     isLoading = props.isLoading
                     disabled = offer.Disabled && not isHeld
                     canClear = hasClear
-                    placeholder = placeholderText
+                    placeholder = None
                 |}

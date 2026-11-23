@@ -7112,8 +7112,7 @@ module Tests =
                     test "the names are what the rules name, distinct and sorted, blanks ignored" {
                         [ Some "NEO"; Some "ICC"; None; Some "NEO"; Some " "; Some "ICC" ]
                         |> Departments.ofNamed
-                        |> _.Names
-                        |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
+                        |> Expect.equal "ICC, NEO" [| "ICC"; "NEO" |]
                     }
 
                     test "the names come from the dose rules, the solution rules and the reconstitutions" {
@@ -7166,31 +7165,16 @@ module Tests =
                             }
 
                         Departments.ofRules [| doseRow |] [| solutionRow |] [| reconstitutionOf (Some "NEO") |]
-                        |> _.Names
-                        |> Expect.equal "ICC, ICK, NEO, PICU" [| "ICC"; "ICK"; "NEO"; "PICU" |]
+                        |> Expect.equal "ICC, NEO, PICU" [| "ICC"; "NEO"; "PICU" |]
                     }
 
-                    test "the default is among the names whether or not a rule names it" {
-                        [] |> Departments.ofNamed |> _.Names |> Expect.equal "ICK alone" [| "ICK" |]
-                        [ Some "ICK" ]
-                        |> Departments.ofNamed
-                        |> _.Names
-                        |> Expect.equal "ICK once" [| "ICK" |]
-                    }
-
-                    test "the default is the one literal" {
-                        ([] |> Departments.ofNamed).Default
-                        |> Expect.equal "ICK" Departments.defaultDepartment
-                    }
-
-                    test "a department is known when a rule names it or it is the default" {
+                    test "a department is known when a rule names it" {
                         let deps = Departments.ofNamed [ Some "NEO" ]
                         "NEO" |> Departments.isKnown deps |> Expect.isTrue "NEO"
-                        "ICK" |> Departments.isKnown deps |> Expect.isTrue "ICK"
                         "ICU" |> Departments.isKnown deps |> Expect.isFalse "ICU"
                     }
 
-                    test "a provider whose rules did not load answers the default department alone" {
+                    test "a provider whose rules did not load answers no departments" {
                         let provider: IResourceProvider =
                             CachedResourceProvider(
                                 Informedica.Logging.Lib.Logging.noOp,
@@ -7198,43 +7182,7 @@ module Tests =
                                 None
                             )
 
-                        provider.GetDepartments()
-                        |> Expect.equal "the default alone" (Departments.ofNamed [])
-                    }
-
-                    test
-                        "the default applied to the matching: a patient without a department takes the default's solution rules and the rules for any" {
-                        let rule dep : SolutionRule =
-                            {
-                                Generic = "paracetamol"
-                                Form = None
-                                Route = "iv"
-                                Indication = None
-                                DoseType = NoDoseType
-                                PatientCategory = { PatientCategory.empty with Department = dep }
-                                Dose = MinMax.empty
-                                AdjustUnit = None
-                                Diluents = [||]
-                                SolutionLimit = SolutionRule.SolutionLimit.empty
-                                DilutionLimits = [||]
-                            }
-
-                        let rules = [| rule (Some "ICK"); rule (Some "NICU"); rule None |]
-                        let deps = Departments.ofNamed [ Some "ICK"; Some "NICU" ]
-
-                        // what getRules does: the default on the filter's patient, never on the patient itself
-                        let matched (department: string option) =
-                            { Filter.solutionFilter with
-                                Generic = Some "paracetamol"
-                                PatientData =
-                                    PatientDtoTests.Fixtures.child
-                                    |> TestPatient.withDepartment (department |> Option.orElse (Some deps.Default))
-                            }
-                            |> fun filter -> rules |> SolutionRule.filter [||] filter
-                            |> Array.map _.PatientCategory.Department
-
-                        matched None |> Expect.equal "ICK and any" [| Some "ICK"; None |]
-                        matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
+                        provider.GetDepartments() |> Expect.isEmpty "no departments"
                     }
 
                     test "the normal-value rows and tables are registered resources over the four sheets" {
@@ -7395,7 +7343,7 @@ module Tests =
                         let deps = engine.Resolve Keys.departments
                         engine.Resolve Keys.departments |> ignore
 
-                        deps.Names |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
+                        deps |> Expect.equal "ICC, NEO" [| "ICC"; "NEO" |]
                         loads |> Expect.equal "the reconstitutions loaded once" 1
                     }
                 ]

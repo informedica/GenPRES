@@ -163,8 +163,7 @@ module RuleSet =
 
     /// Returns the rule set with only the rows that apply to the patient. A row without a location applies to
     /// every patient, and a row with a location only to a patient at that location. A row without a department
-    /// applies to every patient, and a row with a department only to a patient of that department; the caller
-    /// gives a patient without a department the default department first, as for the dose rules.
+    /// applies to every patient, and a row with a department only to a patient of that department.
     let forPatient (pat: PatientData) (set: RuleSet) =
         { set with
             Rows =

@@ -238,7 +238,7 @@ type GenOrderMcpTools() =
             [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
                 Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'"); Optional>] sex: string,
-            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.");
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, only the rules without a department apply.");
               Optional>] department: string,
             [<Description("Generic drug name to pre-filter on"); Optional>] generic: string,
             [<Description("Clinical indication to pre-filter on"); Optional>] indication: string,
@@ -278,7 +278,7 @@ type GenOrderMcpTools() =
             [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
                 Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'"); Optional>] sex: string,
-            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.");
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, only the rules without a department apply.");
               Optional>] department: string,
             [<Description("Generic drug name"); Optional>] generic: string,
             [<Description("Clinical indication"); Optional>] indication: string,

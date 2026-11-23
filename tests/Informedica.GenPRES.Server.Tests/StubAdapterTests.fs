@@ -3855,20 +3855,15 @@ module SessionStubTests =
         testList
             "processLaunch, processCallback and processSession"
             [
-                testAsync "getSettings answers the settings the host composed with, the default alone before a load" {
+                testAsync "getSettings answers the settings the host composed with, no departments before a load" {
                     let settings =
                         {
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
-                            DefaultDepartment = ""
                         }
 
-                    let withDepartments (d: Informedica.GenForm.Lib.Types.Departments) =
-                        { settings with
-                            Departments = d.Names
-                            DefaultDepartment = d.Default
-                        }
+                    let withDepartments departments = { settings with Departments = departments }
 
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
@@ -3876,13 +3871,7 @@ module SessionStubTests =
                     let api = CompositionRoot.compose withDepartments env cookie stateCookie (noEnrolment ())
                     let! answer = api.getSettings ()
 
-                    answer
-                    |> Expect.equal
-                        "the rest as composed, the default alone"
-                        { settings with
-                            Departments = [| "ICK" |]
-                            DefaultDepartment = "ICK"
-                        }
+                    answer |> Expect.equal "the rest as composed, no departments" settings
                 }
 
                 testAsync "getSettings carries the departments once the resources are loaded, the rest as composed" {
@@ -3891,20 +3880,11 @@ module SessionStubTests =
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
-                            DefaultDepartment = ""
                         }
 
-                    let withDepartments (d: Informedica.GenForm.Lib.Types.Departments) =
-                        { settings with
-                            Departments = d.Names
-                            DefaultDepartment = d.Default
-                        }
+                    let withDepartments departments = { settings with Departments = departments }
 
-                    let loaded: Informedica.GenForm.Lib.Types.Departments =
-                        {
-                            Names = [| "ICC"; "ICK"; "NEO" |]
-                            Default = "ICK"
-                        }
+                    let loaded = [| "ICC"; "ICK"; "NEO" |]
 
                     let _, env = envWithStub newStore ()
                     let env = { env with departments = fun () -> loaded }
@@ -3914,12 +3894,7 @@ module SessionStubTests =
                     let! answer = api.getSettings ()
 
                     answer
-                    |> Expect.equal
-                        "the names and the default overlaid"
-                        { settings with
-                            Departments = [| "ICC"; "ICK"; "NEO" |]
-                            DefaultDepartment = "ICK"
-                        }
+                    |> Expect.equal "the names overlaid" { settings with Departments = [| "ICC"; "ICK"; "NEO" |] }
                 }
 
                 testAsync
@@ -4867,7 +4842,6 @@ module SessionStubTests =
                 ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                 IsDemo = true
                 Departments = [||]
-                DefaultDepartment = "ICK"
             }
 
         let request opened : Request<Formulary> =
@@ -5259,7 +5233,6 @@ module AdminTests =
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                             IsDemo = true
                             Departments = [||]
-                            DefaultDepartment = "ICK"
                         }
 
                     let api =

@@ -354,8 +354,7 @@ let languageTests =
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.English
                         IsDemo = true
-                        Departments = [| "ICK" |]
-                        DefaultDepartment = "ICK"
+                        Departments = [||]
                     }
 
                 Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
@@ -366,8 +365,7 @@ let languageTests =
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.Dutch
                         IsDemo = false
-                        Departments = [| "ICK" |]
-                        DefaultDepartment = "ICK"
+                        Departments = [||]
                     }
             }
 

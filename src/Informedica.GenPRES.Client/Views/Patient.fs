@@ -203,8 +203,8 @@ module Patient =
             | SessionMachine.SessionView.Closing _ -> true
             | _ -> false
 
-        // Shows the chosen department, or the server default as placeholder when none is chosen. The
-        // department filters the solution rules, so it is always visible on the panel.
+        // Shows the chosen department. The department filters the rules, so it is always visible on the
+        // panel.
         let departmentField =
             let own = pat |> Option.bind _.Department
 
@@ -221,13 +221,6 @@ module Patient =
                 | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
                 | _ -> names
                 |> Array.map (fun n -> n, n)
-
-            // The default is a greyed placeholder, not a selection, so that picking it is a choice
-            // of the user that the field sends.
-            let placeholder =
-                match own, settings with
-                | None, Resolved s -> Some s.DefaultDepartment
-                | _ -> None
 
             let changeDepartment =
                 fun s ->
@@ -261,43 +254,35 @@ module Patient =
                     options = options
                     selected = own
                     onChange = changeDepartment
-                    // Clearing returns to the default, so the clear button shows only when a department
+                    // Clearing removes the department, so the clear button shows only when a department
                     // is chosen.
                     clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = enabled
                     shape = Components.PickField.Shape.Scroll
-                    placeholder = placeholder
                 |}
 
         // Says where the department comes from: the launch while a session is open, the panel or the
-        // url otherwise, or the server default when none is chosen.
+        // url otherwise. Without a department it says that only the rules without a department apply.
         let departmentNotice =
-            let inForce =
-                match pat |> Option.bind _.Department, settings with
-                | Some d, _ -> Some(d, false)
-                | None, Resolved s -> Some(s.DefaultDepartment, true)
-                | None, _ -> None
+            let message =
+                match pat |> Option.bind _.Department with
+                | None ->
+                    Terms.``Patient Department None``
+                    |> getTerm "No department chosen: only the rules without a department apply"
+                | Some _ when launched ->
+                    Terms.``Patient Department Launched``
+                    |> getTerm "Passed on by the system that opened GenPRES"
+                | Some _ -> Terms.``Patient Department Chosen`` |> getTerm "Chosen for this patient"
 
-            match inForce with
-            | None -> null
-            | Some(_, isDefault) ->
-                Components.Notice.View
-                    {|
-                        kind = Components.Notice.Kind.Info
-                        title = None
-                        message =
-                            if isDefault then
-                                Terms.``Patient Department Default``
-                                |> getTerm "The default department: no department was chosen"
-                            elif launched then
-                                Terms.``Patient Department Launched``
-                                |> getTerm "Passed on by the system that opened GenPRES"
-                            else
-                                Terms.``Patient Department Chosen`` |> getTerm "Chosen for this patient"
-                        action = None
-                        onClose = None
-                    |}
+            Components.Notice.View
+                {|
+                    kind = Components.Notice.Kind.Info
+                    title = None
+                    message = message
+                    action = None
+                    onClose = None
+                |}
 
         // The action bar is narrow and on the left, so a button is not as wide as the panel. Only an
         // anonymous patient has a reset. The buttons are disabled while a request is under way.

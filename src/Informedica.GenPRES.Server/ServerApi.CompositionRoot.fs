@@ -9,7 +9,7 @@ module CompositionRoot =
     /// Builds the server api for one request. The settings and the env are built once per host, the
     /// cookies once per request. The settings get the departments as loaded at the time of the request.
     let compose
-        (settings: Informedica.GenForm.Lib.Types.Departments -> ServerSettings)
+        (settings: string[] -> ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)
@@ -108,7 +108,7 @@ module ApiImpl =
 
     /// Creates the IServerApi implementation for one request using the composition root.
     let createServerApi
-        (settings: Informedica.GenForm.Lib.Types.Departments -> Informedica.GenPRES.Shared.Api.ServerSettings)
+        (settings: string[] -> Informedica.GenPRES.Shared.Api.ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)

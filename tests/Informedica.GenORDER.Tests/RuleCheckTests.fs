@@ -26,7 +26,7 @@ module Fixture =
     /// Rule A up to 10 kg and rule B from 10 kg, with another maximum dose.
     let rows maxB =
         let row max (cat: PatientCategoryData -> PatientCategoryData) =
-            let r = RuleFixtures.row Resources.Departments.defaultDepartment
+            let r = RuleFixtures.row "ICK"
 
             { r with
                 Patient = r.Patient |> cat

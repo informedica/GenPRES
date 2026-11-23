@@ -7,7 +7,6 @@ open Informedica.GenPRES.Shared.Api
 // Aliases for the domain modules that some ports take; the unqualified names below come from the contract model.
 module GenOrder = Informedica.GenOrder.Lib.Types
 module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
-module GenForm = Informedica.GenForm.Lib.Types
 
 
 /// The GenCORE patient: an optional identity, absent for an anonymous patient, and the patient data.
@@ -494,8 +493,8 @@ type AppEnv =
         session: SessionPort
         // Whether the server runs on the demo data; read once at startup and sent with every context to the client.
         demo: bool
-        // The departments the loaded rules name, and the default; only the default while the rules are not loaded.
-        departments: unit -> GenForm.Departments
+        // The departments the loaded rules name; none while the rules are not loaded.
+        departments: unit -> string[]
         // The resources GenCORE completes the patient data with; None until the resources are loaded. Calling it may
         // load them.
         patientDataResources: unit -> CorePatientDataResources option

@@ -265,16 +265,11 @@ module Config =
 
     /// Maps the settings and the departments to the settings sent to the client. Call after validateStartup,
     /// which refuses an invalid language, so the default language is never used as a fallback here.
-    let toServerSettings
-        (settings: Settings)
-        (departments: Informedica.GenForm.Lib.Types.Departments)
-        : Informedica.GenPRES.Shared.Api.ServerSettings
-        =
+    let toServerSettings (settings: Settings) departments : Informedica.GenPRES.Shared.Api.ServerSettings =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
             IsDemo = not settings.IsProd
-            Departments = departments.Names
-            DefaultDepartment = departments.Default
+            Departments = departments
         }
 
 
