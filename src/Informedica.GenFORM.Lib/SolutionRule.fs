@@ -897,15 +897,16 @@ module SolutionRule =
             Result.createError "Error in SolutionRule.getResult: " exn
 
 
-    /// Returns the solution rules that match the filter. The department is checked only when given, and
-    /// the other patient data only when set, so a lookup without patient data returns the rules of every
-    /// patient. When the filter names a diluent, each rule keeps only that diluent.
+    /// Returns the solution rules that match the filter. The generic is checked only when given, the
+    /// department only when given, and the other patient data only when set, so a lookup without patient
+    /// data returns the rules of every patient. When the filter names a diluent, each rule keeps only that
+    /// diluent.
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
 
         [|
-            fun (solRule: SolutionRule) -> solRule.Generic |> String.equalsCapInsens filter.Generic
+            fun (solRule: SolutionRule) -> solRule.Generic |> eqs filter.Generic
             // a rule that names a department is for the patients of that department only
             if filter.PatientData |> PatientData.department |> Option.isSome then
                 fun (solRule: SolutionRule) ->

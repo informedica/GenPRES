@@ -147,7 +147,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
 """
         |> writeDebugMessage
 
-        let dsrs = Formulary.getDoseRules provider filter
+        let dsrs = Api.getDoseRules provider |> Api.filterDoseRules provider filter
 
         writeDebugMessage $"Found: {dsrs |> Array.length} formulary dose rules"
 
@@ -222,7 +222,6 @@ DoseTypes: {form.DoseTypes |> Array.length}
 
 module ParenteraliaService =
 
-    open Informedica.GenOrder.Lib
     open Informedica.GenForm.Lib
 
     type Parenteralia = Informedica.GenPRES.Shared.Types.Parenteralia
@@ -232,7 +231,15 @@ module ParenteraliaService =
         Logging.ServerLogging.Info $"getting parenteralia for {par.Generic}"
         |> Informedica.Logging.Lib.Logging.logInfo logger
 
-        let solRules = Formulary.getSolutionRules provider par.Generic par.Form par.Route
+        let solRules =
+            Api.getSolutionRules provider
+            |> Api.filterSolutionRules
+                provider
+                { Filter.solutionFilter with
+                    Generic = par.Generic
+                    Form = par.Form
+                    Route = par.Route
+                }
 
         let gens = solRules |> SolutionRule.generics
         let shps = solRules |> SolutionRule.forms

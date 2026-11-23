@@ -331,7 +331,8 @@ module PrescriptionRule =
                 DoseRule = dr
                 SolutionRules =
                     let solutionFilter =
-                        { Filter.solutionFilter generic with
+                        { Filter.solutionFilter with
+                            Generic = Some generic
                             PatientData = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
                             Route = dr.Route |> Some
