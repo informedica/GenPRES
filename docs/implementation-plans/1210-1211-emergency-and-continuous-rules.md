@@ -43,12 +43,9 @@ What the code does now:
 - The solvent itself is lost. The column Solvents is parsed into `Reconstitution.Solvents` and read
   nowhere else; the reconstituted product has the substances of the original product only. So the order
   does not say which solvent was used, and the totals miss what the solvent brings in.
-- Every solvent name in the Reconstitution sheet is a parenteral product in the Formulary, marked
-  IsSolvent, with the composition columns Energy kCal to VitD IE. `Product.getAdditionalSubstances`
-  makes these columns substances, such as "natrium mmol", and `Totals.fs` adds substances up by name.
-  Two solvents have a composition: NaCl 0,9% (0.155 mmol sodium and chloride per mL) and gluc 5% (0.05 g
-  carbohydrate and 0.2 kCal per mL). 77 of the 536 reconstitution rows name one of them; 18 of these
-  also name another solvent, such as water.
+- A solvent is a parenteral product in the Formulary, marked IsSolvent, with the composition columns
+  Energy kCal to VitD IE. `Product.getAdditionalSubstances` makes these columns substances, such as
+  "natrium mmol", and `Totals.fs` adds substances up by name.
 - The reconstitution is applied per patient and dose rule in `PrescriptionRule.filter`, and also in the
   load check `SolutionRule.undilutableRules` and in `OrderContext`.
 - GenORDER uses `RequiresReconstitution` to count a liquid per mL and to set the substance quantities
@@ -59,25 +56,18 @@ Decided on 2026-11-22:
 - **Composition from the Formulary.** The composition of a solvent comes from the Formulary row of the
   solvent; the Reconstitution sheet gets no composition columns. The reconstituted product carries the
   substances of the solvent, so that the totals count them.
-- **One row per solvent.** The 47 rows that name more than one solvent are split into one row per
-  solvent, 589 rows in all, and the column Solvents is renamed Solvent. A product then can have more
-  than one reconstitution, one per solvent; today no GPK, route, Loc and Dep has more than one row.
-- **The new columns in one workbook.** The column Solvents is renamed Solvent, and the columns MinAge,
-  MaxAge, MinWeight, MaxWeight and Notes are added, only in "GenPRES - NewSolutionRules", the new
-  production workbook, which is not in use yet. The other workbooks keep the old header, so that they
-  keep working with earlier releases; the demo workbook gets the new columns at the release. The parser reads the column Solvent, so a workbook with
-  the column Solvents no longer loads its reconstitution rules. The `Reconstitution` record
-  documentation (`Types.fs`), the column-contract test and the test fixtures change with the column.
+- **One row per solvent.** A reconstitution row names one solvent in the column Solvent, which replaces
+  the column Solvents. A product then can have more than one reconstitution, one per solvent.
+- **The new columns.** The parser reads the column Solvent and the columns MinAge, MaxAge, MinWeight,
+  MaxWeight and Notes, so a workbook with the column Solvents no longer loads its reconstitution rules.
+  The `Reconstitution` record documentation (`Types.fs`), the column-contract test and the test fixtures
+  change with the columns. Content update: the rules workbooks get the new columns.
 - **The substances of the solvent.** A reconstituted product gets the substances of the parenteral
   product of its solvent (`Product.Parenteral.get`, which leaves out zero values), scaled by SolventVol
   divided by SolventVol plus ExpansionVol. These substances become items of the order, such as natrium
   and chloor in an antibiotic reconstituted with NaCl 0,9%.
-- **Solvens and the bicarbonate mixture.** The Formulary rows of solvens (131 reconstitution rows) and
-  of the bicarbonate mixture get their composition. In "GenPRES - NewSolutionRules" the mixture is split
-  into "1ml natriumbicarbonaat + 5ml NaCl" and "1ml natriumbicarbonaat + 5ml gluc 5%"; the 3 artesunaat
-  reconstitution rows that name "1ml natriumbicarbonaat + 5ml NaCl/gluc" then name these two.
-- **Age and weight.** The Reconstitution sheet of "GenPRES - NewSolutionRules" has the columns MinAge,
-  MaxAge, MinWeight and MaxWeight, so that a reconstitution can apply to an age and a weight range only.
+- **Age and weight.** A reconstitution rule has the columns MinAge, MaxAge, MinWeight and MaxWeight, so
+  that a reconstitution can apply to an age and a weight range only.
   As in the DoseRules sheet, the age is in days and the weight in grams; this holds for the Predilution
   sheet too.
   The reconstitution then matches the patient as well, in `PrescriptionRule.filter` and `OrderContext`;
@@ -110,14 +100,12 @@ Parts of step 1, one pull request each:
    Solvent, the age and weight columns and Notes, and leave out a row without a solvent or a solvent
    volume. Nothing uses the new fields yet, so no order changes. A failed parse fails the whole
    resource load (`Resources.LoadEngine`), so after this part only a workbook with the new columns loads;
-   the current code cannot load "GenPRES - NewSolutionRules", which no longer has the column Solvents.
+   the code before this part cannot load a workbook without the column Solvents.
    Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1950Reconstitution.fsx`, deleted by the
    migration.
    Built: 92 changed lines under `src/`. The parser reads the other columns only for a row that has a
-   solvent and a solvent volume, so a missing column fails once such a row is there. The four tests of the script that read the
-   live sheet stay out of the test project, which does not download; the migration checked them once:
-   598 rows load from "GenPRES - NewSolutionRules", and the demo workbook, with the old header, does not
-   load.
+   solvent and a solvent volume, so a missing column fails once such a row is there. The tests of the
+   script that read the live sheet stay out of the test project, which does not download.
 2. **The age, the weight and the molar concentration.** A reconstitution applies only to a patient in its
    age and weight range. A patient without an age or a weight does not match a range for that value,
    and a patient matched as an adult has the age of 18 years, as in the dose rules. `PrescriptionRule.filter` and `OrderContext` pass the patient. The load check
@@ -179,9 +167,10 @@ Parts of step 1, one pull request each:
 ### Step 2: #1554 predilution rules for a liquid, next to the reconstitution rules
 
 A pre-dilution of a liquid product, in the way a powder has a reconstitution step: 1 mL of the product
-diluted to a ten times lower concentration, which an order then dilutes again or gives. The issue
-describes it for NICU continuous infusions smaller than one compounding step. Step 3 needs it for the
-tenfold dilution of the emergency list.
+diluted to a ten times lower concentration, which an order then dilutes again. The issue describes it
+for NICU continuous infusions smaller than one compounding step. On 2026-11-22 step 3 was thought to
+need it for the tenfold dilution of the emergency list; on 2026-11-23 that became a solution rule, see
+step 3.
 
 Decided on 2026-11-22:
 
@@ -194,9 +183,9 @@ Decided on 2026-11-22:
   FormRoute mark Reconstitute plays no part.
 - **The undiluted product stays.** A predilution adds the pre-diluted product next to the undiluted
   product.
-- **The Predilution sheet.** The sheet Predilution of the workbooks "GenPRES - NewSolutionRules" and
-  "GenPRES Neo" has the columns GPK, Medication, Form, Route, Indication, Loc, Dep, MinWeight,
-  MaxWeight, DiluentVol and Diluent; in "GenPRES - NewSolutionRules" also MinAge and MaxAge. A row names one diluent.
+- **The Predilution sheet.** The parser reads the columns GPK, Route, Indication, Loc, Dep, MinAge,
+  MaxAge, MinWeight, MaxWeight, DiluentVol and Diluent. A row names one diluent. Content update: the
+  rules workbooks get the sheet.
 - **The volumes.** A row dilutes 1 mL of product with DiluentVol of diluent: 1 mL with 9 mL gives a
   ten times lower concentration in 10 mL.
 - **The molar concentration.** A predilution scales the molar concentration with the concentration, as
@@ -216,9 +205,7 @@ Decided on 2026-11-23:
   then dilutes the pre-diluted product: three steps. A predilution applies to a liquid, and a
   reconstituted product is a liquid, so the predilution is applied to the products that the
   reconstitution returns. A Predilution row for a powder names the GPK of the powder and applies only
-  after a reconstitution of that powder. The sample rows of "GenPRES - NewSolutionRules" have such a
-  row: nitroprusside infusiepoeder 60 mg (GPK 185663) is reconstituted with 3 mL water to 20 mg/mL, then
-  1 mL is diluted with 9 mL gluc 5% to 2 mg/mL in 10 mL.
+  after a reconstitution of that powder.
 - **Counted per prepared syringe.** Replaced on 2026-11-23: a pre-diluted liquid is counted per mL, as
   any liquid that is not reconstituted. The form quantity of a pre-diluted product is the prepared volume.
 - **The substances.** A pre-diluted product carries the substances of the product, of the
@@ -260,29 +247,10 @@ What the code does now, checked on 2026-11-23 on `master` at `84ba2f08`:
 Script of 2026-11-23: `src/Informedica.GenFORM.Lib/Scripts/Issue1554PredilutionRows.fsx` loaded the
 predilutions and applied them after the reconstitution; #1970 migrated and deleted it.
 
-Prototype, not for merging: the worktree branch `proto/1554-genorder-predilution` is based on the branch
-of part 1 below without the product volume, and uses the GenFORM of #1970. It adds the order side, 156
-lines added and 16 removed under `src/` in 7 files: the call in `PrescriptionRule.filter`, the counting
-per prepared syringe, the pick id, the split into scenarios, the preparation row and the Dtos. It has
-no scenario caption, no Shared type and no server mappers, it counts no maximum of one syringe, and its
-test projects do not compile. It prints orders with
-`src/Informedica.GenORDER.Lib/Scripts/Issue1554PredilutionOrders.fsx` against the live sheets of
-"GenPRES - NewSolutionRules". For an extremely premature infant of 1 week, 25 weeks gestational age and
-600 g, on the NEO, with the indication "Continue infusie neonatologie", it prints the product volume of
-the order without and with the predilution of 1 mL with 9 mL gluc 5%:
-
-| Medication | Undiluted product | Pre-diluted product |
-|---|---|---|
-| nitroprusside, after "oplossen in 3 mL water" | 0,1 - 0,6 mL of 20 mg/mL | 0,5 - 6,9 mL of 2 mg/mL |
-| noradrenaline | 0,1 - 3,4 mL of 1 mg/mL | 0,9 - 23,9 mL of 0,1 mg/mL |
-| dopamine | 0,1 - 0,8 mL of 40 mg/mL | 0,5 - 8,6 mL of 4 mg/mL |
-| alprostadil | 0,1 - 1,4 mL of 0,5 mg/mL | 0,4 - 14,4 mL of 0,05 mg/mL |
-
-Without the predilution, the product volume of nitroprusside and dopamine stays below 1 mL. The
-scenario with the undiluted product stays next to the scenario with the pre-diluted product. The
-noradrenaline and alprostadil orders go above the prepared 10 mL, which the maximum of one syringe below
-prevents. The scenarios without the products of the Predilution sheet, such as noradrenaline
-infusievloeistof, do not change.
+Prototype, not for merging: the worktree branch `proto/1554-genorder-predilution` added the order side on
+the GenFORM of #1970, and printed orders with `src/Informedica.GenORDER.Lib/Scripts/Issue1554PredilutionOrders.fsx`
+against the live rules. A pre-diluted product gives a scenario next to the scenario with the undiluted
+product; the scenarios of other products do not change.
 
 The predilution rules, their matching and `Product.predilute` were merged in #1970.
 
@@ -293,8 +261,8 @@ Decided on 2026-11-23, for the order side:
   pre-diluted product.
 - **Only the prescription rules are pre-diluted.** `PrescriptionRule.filter` calls `DoseRule.predilute`
   after `DoseRule.reconstitute`. The check for a dose rule without products in `OrderContext` does not,
-  because a predilution only adds products. The load check `SolutionRule.undilutableRules` stays open,
-  see below.
+  because a predilution only adds products. The load check `SolutionRule.undilutableRules` does not
+  either, see below.
 - **The pick id.** The pick id of a pre-diluted product is the GPK, followed by the solvent when the
   product is reconstituted, and then the predilution: "185663 water 1 mL + 9 mL gluc 5%".
 - **The scenario caption.** The caption of a scenario adds the predilution after the reconstitution:
@@ -303,14 +271,13 @@ Decided on 2026-11-23, for the order side:
   the product is diluted with DiluentVol mL of diluent, in a prepared volume of MedVol plus DiluentVol. A
   rule without MedVol, or with 0 mL or less, is left out. This replaces the fixed 1 mL of 2026-11-22; the
   label, the pick id, the caption and the preparation row name MedVol instead of 1 mL, for example "3 mL
-  verdund met 7 mL gluc 5%". The sample rows of "GenPRES - NewSolutionRules" have MedVol 1 mL, and 3 mL
-  with 7 mL gluc 5% for nitroprusside.
-- **One prepared syringe.** Set aside on 2026-11-23, see the open items below.
-- **No count per prepared syringe.** Decided on 2026-11-23. The prototype printed the orders of a premature
-  of 600 g and of 1200 g with and without the count per prepared syringe. Only the package text in the
-  preparation differs, such as "0,1 mg/mL (1 mg/10 mL)" against "0,1 mg/mL"; the prescription, the
-  administration, the product volumes and the concentrations are the same. The count was needed only for
-  the maximum of one syringe, so a pre-diluted liquid is counted per mL.
+  verdund met 7 mL gluc 5%". Content update: the Predilution sheets get the column MedVol.
+- **One prepared syringe.** Set aside on 2026-11-23 and settled by the volumes of the predilution rule,
+  see below.
+- **No count per prepared syringe.** Decided on 2026-11-23. With and without the count per prepared
+  syringe, the prototype gave the same prescription, administration, product volumes and concentrations;
+  only the package text in the preparation differed. The count was needed only for the maximum of one
+  syringe, so a pre-diluted liquid is counted per mL.
 
 Parts of the order side, one pull request each:
 
@@ -330,85 +297,84 @@ Parts of the order side, one pull request each:
    load; the prescription rule cache and its fallback in `Api.fs` read it. The orders change here.
    Scripted against the GenORDER of part 2.
 
-Open, to decide later:
+The three parts were merged in #1971 and #1972, #1975 and #1978.
 
-- Which predilutions the load check `SolutionRule.undilutableRules` takes into account. It has the
-  patient category of a solution rule instead of a patient, so it cannot filter on a weight and an
-  indication the way an order does.
-- More than one prepared syringe. An order of a pre-diluted product can take more than the prepared
-  volume: the prototype gives noradrenaline 0,9 to 23,9 mL of a prepared 10 mL for a premature of 600 g.
+Decided on 2026-11-23, after part 3, without a code change:
+
+- **The load check pre-dilutes nothing.** `SolutionRule.undilutableRules` checks only the solution rules
+  without diluents. A predilution is always followed by a dilution: a pre-diluted product given without
+  a further dilution is a dilution, which a solution rule writes with a diluent, the volume of the
+  preparation, the product quantity and the dose fraction (MinPerc and MaxPerc).
+- **More than one prepared syringe is a matter of the rule volumes.** The order counts a pre-diluted
+  product per mL and uses MedVol and DiluentVol only for the label, the pick id, the preparation row and
+  the Dto. A predilution rule whose MedVol plus DiluentVol is at least the largest product volume of the
+  order covers the order in one preparation; the same ratio keeps the concentration. Nothing warns when
+  the prepared volume is smaller than the order needs.
 
 ### Step 3: #1210 the emergency list rules in the rules spreadsheet
 
-Every bolus entry of the `emergencylist` sheet as rules in the regular rules spreadsheet. The issue lists
-a dose rule per entry with an emergency indication, the list concentration as product or reconstitution
-rule, the tenfold dilution as a solution rule, the volume rounding as a dose quantity increment, and the
-`template-*` columns no longer needed. Open question of #1208: resuscitation doses can exceed the
-ordinary limits and must not mix into the ordinary rule choice.
+Every bolus entry of the `emergencylist` sheet of "GenPRES - Noodlijst" becomes rules in the rules
+workbook. The rules are content: the script `src/Informedica.GenFORM.Lib/Scripts/Issue1210EmergencyRows.fsx`
+generates the rows from the list and the live sheets, and the choices about the rows are made in the
+review of its output, not in this plan.
 
-The emergency list is the sheet `emergencylist` of the workbook "GenPRES - Noodlijst"; the rules
-spreadsheet is "GenPRES - NewSolutionRules". The list has 154 entries.
+Content updates needed to replace the emergency list:
 
-Decided on 2026-11-22:
+- DoseRules rows for the entries that no existing rule covers, under an emergency indication, so that
+  the emergency doses do not mix into the ordinary rule choice (open question of #1208).
+- SolutionRules rows for a list concentration that no product has, and for the tenfold dilution.
+- Products for the entries that have none; until then such an entry gives no order.
+- The rows go into a copy of the rules workbook first. A script checks that GenFORM loads the copy and
+  returns the rules for the weights of the baseline; then the rows move to the production workbook.
 
-- **New rules only where no rule matches exactly.** An existing DoseRules row is used for an entry
-  when it has the same generic, route, dose unit and dose: the per kg minimum and maximum both equal
-  the list dose, the absolute minimum and maximum are the same, and the patient range covers exactly
-  the weight range of the list, with no age or other patient limit. 18 entries match: vaatvulling
-  (twice) and NaBic in the resuscitation section, fibrinogeen and protrombinecomplex (APLS), the three
-  hydrocortison entries (UMCU), and rocuronium and propofol for intubation at the other hospitals.
-  The other 136 entries get new rows.
-- **Indication.** A new row gets the indication "Noodlijst" followed by the category of the list, such
-  as "Noodlijst intubatie". The list has 27 categories; no ordinary rule has such an indication.
-- **Hospital.** The hospital column of the list goes into the column Loc; an entry without a hospital
-  leaves Loc empty. A rule with a location matches a patient without a location, so a patient without
-  a location meets the rows of every hospital.
-- **Source.** A new row has the source NDLST.
-- **Dose type.** The dose type of the column template-dose-type, with discontinuous as once, and once
-  where the column is empty. The text after the dose type, such as "1ste dosis", goes into DoseText.
-- **Dose limits.** As existing rules write them: the list dose as MinQtyAdj and MaxQtyAdj with the
-  adjust unit kg, the list minimum as MinQty and the list maximum as MaxQty when not 0. An entry with
-  dose 0 is a fixed dose: MinQty and MaxQty without an adjust unit.
-- **Administration time.** A new onceTimed row takes MinTime, MaxTime and TimeUnit from the existing
-  onceTimed rule of the same generic and route; where no rule has a time, from the remark of the list.
-- **Generic names.** Where the list writes a generic differently from GenFORM: NaBic is
-  natriumwaterstofcarbonaat, fentytoine is fenytoine, valproaat is valproinezuur, intralipid is
-  "Intralipid 20%", coffeine is coffeine citraat, and glucose is glucose.
-- **Routes.** An entry without a route, or with a route that contradicts its name, gets one row per
-  route in its name: nas is NASAAL, bucc is OROMUCOSAAL, im is INTRAMUSCULAIR. This concerns midazolam
-  nas/bucc/im (APLS), midazolam buc/nas/im (UMCU), midazolam bucc (UZA) and lorazepam bucc (UZA, now
-  intraveneus).
-- **Entries without a product.** Erytrocyten, trombocyten, plasma and ketamine (7 entries) have no
-  product that an order can be made from. Their dose rules are written anyway; they give no order
-  until a product is added.
-- **Volume rounding.** The FormRoute sheet gives steps of 0.1 mL for an injection liquid on every route
-  of the list. The list rounds to 1 mL above 10 mL; the order keeps steps of 0.1 mL there, a difference
-  that the comparison with the baseline explains.
-- **Where the rows are written.** The new rows go into a copy of the rules workbook first. A script
-  checks that GenFORM loads the copy and returns the rules for the weights of the baseline; then the
-  rows move to "GenPRES - NewSolutionRules", which a running server reads.
-- **Concentration.** When the list concentration is the concentration of a product, no extra rule;
-  otherwise a SolutionRules row with the list concentration and the diluent, under the same emergency
-  indication.
-- **The tenfold dilution.** The list divides the concentration by 10 when the dose rounds to 0 mL; in
-  the baseline that happens for 32 entries, mostly at 0.5 to 2 kg. It is a preparation in two steps: a
-  pre-dilution of the product, then the dilution that is given. The current code cannot express it:
-  - a reconstitution rule applies only to a form and route that the FormRoute sheet marks Reconstitute,
-    which no liquid is; it replaces the product; and it has an age and a weight range since step 1, but
-    no indication or dose type;
-  - each solution rule of a prescription rule gives its own medication (`Medication.fromRule`), so two
-    solution rules are alternatives, not two steps.
+What the code offers, checked on 2026-11-22 and 2026-11-23:
 
-  The entries with the tenfold dilution are built on the predilution rules of step 2.
+- A rule with a location matches a patient without a location.
+- The tenfold dilution needs no predilution. The list gives the diluted product as the bolus itself,
+  without a further dilution, so a solution rule with a diluent and a dose fraction (MinPerc and
+  MaxPerc) expresses it. Each solution rule of a prescription rule gives its own medication
+  (`Medication.fromRule`); a prescription rule with a solution rule gives no medication of the
+  undiluted product, so a solution rule needs a weight range or another patient limit when the
+  undiluted product must stay a choice. A solution rule without diluents gives the undiluted product.
+- The order widens a norm dose to 90% to 110% and gives a volume in steps of 0.1 mL, so a dose volume
+  far below 1 mL can have no step within that range and the order has no scenario. The list rounds such
+  a volume to 0.1 mL instead.
+- The order rounds a volume to the step of the FormRoute sheet; the list rounds to 1 mL above 10 mL, a
+  difference that the comparison with the baseline explains.
+
+Decided on 2026-11-23, the code that replaces the calculation on the client:
+
+- The emergency list keeps all its rows. The server calculates the rows from the rules; the client only
+  shows them.
+- The rows are selected through the RuleSets sheet, the way the nutrition rules are selected. RuleSets
+  gets the categories EmergencyList and StandardInfusions (step 4), and the columns Loc and Dep to select
+  a rule set for a hospital and a department. An empty Loc or Dep matches every location or department.
+- The interventions that are not medication, such as the tube length and the defibrillation, are left for
+  a follow-up with a plan of its own.
+
+Part 1, the RuleSets rows read by the server: GenORDER knows no sheet names and takes the rule sets as
+values. The server maps a category name of the RuleSets sheet to a nutrition category
+(`NutritionCategoryMapper`) and makes the rule sets from the rows (`NutritionRuleSets.ofData`). A row of a
+category that is not a nutrition category is left out, with a warning once per resource load, instead of
+refusing every rule set; so rows of the categories EmergencyList and StandardInfusions can be entered
+before the code reads them, without refusing the nutrition orders.
+
+The parts that follow are worked out after part 1.
 
 ### Step 4: #1211 the continuous medication rules in the rules spreadsheet
 
-Every entry of the `continuousmeds` sheet as rules in the regular rules spreadsheet. The issue lists a
-continuous dose rule per entry with the minimum and maximum dose rate and the absolute maximum, the
-standard concentrations per weight range as solution rules with `minconc` and `maxconc` as limits, the
-morphine "weight / 2 mg in 50 mL" case as a rule, and the hospital column mapped to department or
-location. Open questions of #1208: the rule form of the morphine case and the mapping of the hospital
-column.
+Every entry of the `continuousmeds` sheet becomes rules in the rules workbook. The rules are content;
+the choices about the rows are made in their review, not in this plan.
+
+Content updates needed to replace the continuous medication list, as the issue lists them:
+
+- a continuous dose rule per entry with the minimum and maximum dose rate and the absolute maximum;
+- the standard concentrations per weight range as solution rules, with `minconc` and `maxconc` as limits;
+- the morphine "weight / 2 mg in 50 mL" case as a rule;
+- the hospital column mapped to department or location.
+
+Open questions of #1208: the rule form of the morphine case and the mapping of the hospital column.
+Whether either needs a code change is settled in this step.
 
 ## Issues that touch the steps
 
