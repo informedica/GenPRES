@@ -204,6 +204,10 @@ module Mapping =
             |> Option.map _.Long
 
 
+    /// Returns None for an empty route, which asks for no route, and the route otherwise.
+    let routeOption rte = if rte |> String.isNullOrWhiteSpace then None else Some rte
+
+
     let eqsRoute routeMapping r1 r2 =
         let mapRoute = mapRoute routeMapping
 

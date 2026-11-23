@@ -370,6 +370,7 @@ module Resources =
             ResourceKey.create<Informedica.ZIndex.Lib.Types.GenPresProduct[]> "genPresProducts"
 
         let reconstitution = ResourceKey.create<Reconstitution[]> "reconstitution"
+        let predilution = ResourceKey.create<Predilution[]> "predilution"
         let parenteralMeds = ResourceKey.create<ProductComponent[]> "parenteralMeds"
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
@@ -482,6 +483,7 @@ module Resources =
 
                 Keys.formularyProducts.Name, ofResult (fun () -> Product.getFormularyProducts dataUrlId)
                 Keys.reconstitution.Name, ofResult (fun () -> Product.Reconstitution.get dataUrlId)
+                Keys.predilution.Name, ofResult (fun () -> Product.Predilution.get dataUrlId)
 
                 // The parenteral and enteral products have no sheet of their own: they are the Formulary
                 // rows of that Type, with the Formulary nutrition columns as their substances.

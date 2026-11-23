@@ -319,6 +319,22 @@ module DoseRule =
         dr, warns |> Seq.distinct
 
 
+    /// Pre-dilutes the products of a dose rule with Product.predilute for the route and the indication of
+    /// the dose rule. Run it after DoseRule.reconstitute, so that a powder is first a liquid.
+    let predilute mapping loc dep fits preds (dr: DoseRule) =
+        { dr with
+            ComponentLimits =
+                dr.ComponentLimits
+                |> Array.map (fun dl ->
+                    { dl with
+                        Products =
+                            dl.Products
+                            |> Array.collect (Product.predilute mapping loc dep fits dr.Route dr.Indication preds)
+                    }
+                )
+        }
+
+
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
 
 
@@ -603,8 +619,9 @@ module DoseRule =
                     PatientText = r.PatientText
                     PatientCategory =
                         let p = r.Patient
+                        let cat = PatientCategory.ofAgeAndWeight p.MinAge p.MaxAge p.MinWeight p.MaxWeight
 
-                        {
+                        { cat with
                             Location =
                                 if p.Location |> String.isNullOrWhiteSpace then
                                     None
@@ -617,16 +634,10 @@ module DoseRule =
                                 else
                                     p.Dep |> Some
                             Gender = p.Gender
-                            Age =
-                                if p.IsAdult then
-                                    IsAdult
-                                else
-                                    (p.MinAge, p.MaxAge) |> fromTupleInclExcl (Some Utils.Units.day) |> AbsoluteAge
-                            Weight = (p.MinWeight, p.MaxWeight) |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                            Age = if p.IsAdult then IsAdult else cat.Age
                             BSA = (p.MinBSA, p.MaxBSA) |> fromTupleInclExcl (Some Utils.Units.bsaM2)
                             GestAge = (p.MinGestAge, p.MaxGestAge) |> fromTupleInclExcl (Some Utils.Units.day)
                             PMAge = (p.MinPMAge, p.MaxPMAge) |> fromTupleInclExcl (Some Utils.Units.day)
-                            Access = AnyAccess
                         }
                     DoseType = r.ScheduleData.DoseText |> DoseType.fromString r.ScheduleData.DoseType
                     AdjustUnit = r.ScheduleData.AdjustUnit |> Units.adjustUnit

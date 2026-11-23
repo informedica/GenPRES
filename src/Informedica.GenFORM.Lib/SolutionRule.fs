@@ -172,15 +172,13 @@ module SolutionRule =
                     else
                         r.Indication |> Some
                 PatientCategory =
-                    { PatientCategory.empty with
+                    { PatientCategory.ofAgeAndWeight r.MinAge r.MaxAge r.MinWeight r.MaxWeight with
                         Location = r.Location
                         Department = r.Department
                         Access =
                             if r.CVL = "x" then CVL
                             else if r.PVL = "x" then PVL
                             else AnyAccess
-                        Age = (r.MinAge, r.MaxAge) |> fromTupleInclExcl (Some Units.day) |> AbsoluteAge
-                        Weight = (r.MinWeight, r.MaxWeight) |> fromTupleInclExcl (Some Units.weightGram)
                         GestAge = (r.MinGestAge, r.MaxGestAge) |> fromTupleInclExcl (Some Units.day)
                     }
                 Dose = (r.MinDose, r.MaxDose) |> fromTupleInclIncl du

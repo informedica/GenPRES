@@ -121,6 +121,20 @@ module PatientCategory =
         | IsAdult -> { MinMax.empty with Min = Some(Inclusive Utils.ValueUnit.ageAdult) }
 
 
+    /// Returns a patient category with an age range in days and a weight range in grams, and no limit on
+    /// any other value. Each range has an inclusive minimum and an exclusive maximum.
+    let ofAgeAndWeight minAge maxAge minWeight maxWeight =
+        { empty with
+            Age =
+                (minAge, maxAge)
+                |> MinMax.fromTuple Inclusive Exclusive (Some Units.day)
+                |> AbsoluteAge
+            Weight =
+                (minWeight, maxWeight)
+                |> MinMax.fromTuple Inclusive Exclusive (Some Units.weightGram)
+        }
+
+
     /// Returns true when the two values are equal, or when either value is None.
     let canMeet a b =
         match a, b with
@@ -465,9 +479,22 @@ module PatientData =
             dat, (fun _ -> true)
 
 
+    /// Whether the age and the weight of a patient are in the ranges of a patient category. A patient
+    /// without an age or a weight does not match a range for that value. A patient matched as an adult
+    /// has the age of 18 years and matches only an age range without a maximum.
+    let matchesAgeAndWeight dat (cat: PatientCategory) =
+        let dat, ageHolds = dat |> forAdultMatch
+        let age = cat |> PatientCategory.getAge
+
+        age |> ageHolds
+        && dat |> CorePatientData.ageInDays |> MinMax.inRange age
+        && dat |> CorePatientData.weightInKg |> MinMax.inRange cat.Weight
+
+
     /// Whether a patient matches a patient category. The location and the gender are not checked.
     let matchesCategoryWithoutLocationAndGender dat patCat =
-        let dat, ageHolds = dat |> forAdultMatch
+        let ageAndWeightMatch = patCat |> matchesAgeAndWeight dat
+        let dat, _ = dat |> forAdultMatch
         let gestAge = dat |> CorePatientData.gestationalAgeInDays
 
         let agesMatch () =
@@ -485,12 +512,8 @@ module PatientData =
                 gestAgeMatches
                 && dat |> CorePatientData.postMenstrualAgeInDays |> MinMax.inRange patCat.PMAge
 
-        patCat |> PatientCategory.getAge |> ageHolds
+        ageAndWeightMatch
         && dat |> department |> PatientCategory.departmentMatches patCat.Department
-        && dat
-           |> CorePatientData.ageInDays
-           |> MinMax.inRange (patCat |> PatientCategory.getAge)
-        && dat |> CorePatientData.weightInKg |> MinMax.inRange patCat.Weight
         && dat |> CorePatientData.bodySurfaceArea |> MinMax.inRange patCat.BSA
         && agesMatch ()
         && VenousAccess.check patCat.Access (dat |> access)

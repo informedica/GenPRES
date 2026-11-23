@@ -147,6 +147,47 @@ module Types =
         }
 
 
+    /// A predilution rule: 1 mL of a liquid product diluted with a volume of one diluent, for a route, an
+    /// indication, a location, a department and an age and weight range.
+    type Predilution =
+        {
+            /// The GPK of the product that is diluted.
+            GPK: string
+            /// The route for the predilution.
+            Route: string
+            /// The indication for the predilution; None for every indication.
+            Indication: string option
+            /// The location for the predilution; None for every location.
+            Location: string option
+            /// The department for the predilution; None for every department.
+            Department: string option
+            /// The minimum age in days; None when there is no minimum age.
+            MinAge: BigRational option
+            /// The maximum age in days; None when there is no maximum age.
+            MaxAge: BigRational option
+            /// The minimum weight in grams; None when there is no minimum weight.
+            MinWeight: BigRational option
+            /// The maximum weight in grams; None when there is no maximum weight.
+            MaxWeight: BigRational option
+            /// The volume of the diluent that 1 mL of product is diluted with, in mL.
+            DiluentVolume: ValueUnit
+            /// The name of the diluent, a parenteral product.
+            Diluent: string
+        }
+
+
+    /// A predilution of a product: a predilution rule with the substances of its diluent.
+    type ProductPredilution =
+        {
+            /// The predilution rule: the route, indication, location, department and patient ranges it
+            /// applies to, the diluent and the diluent volume.
+            Rule: Predilution
+            /// The substances per mL of the diluent, from the parenteral product with the diluent as its generic
+            /// name.
+            DiluentSubstances: SubstanceItem[]
+        }
+
+
     type Brand = string
     type HPK = string
 
