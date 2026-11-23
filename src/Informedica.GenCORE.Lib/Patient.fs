@@ -103,7 +103,6 @@ type Department =
     | OutpatientClinic of string
     /// A department with a name, of a kind that is not known.
     | OtherDepartment of string
-    | AnyDepartment
     | UnknownDepartment
 
 
@@ -1747,9 +1746,6 @@ module Department =
     module Constants =
 
         [<Literal>]
-        let any = "any department"
-
-        [<Literal>]
         let unknown = ""
 
         [<Literal>]
@@ -1774,9 +1770,8 @@ module Department =
         let otherDepartment = "Department"
 
 
-    let map any unknown fAdultICU fPedICU fNeoICU fAdult fPed fClinic fOther =
+    let map unknown fAdultICU fPedICU fNeoICU fAdult fPed fClinic fOther =
         function
-        | AnyDepartment -> any
         | UnknownDepartment -> unknown
         | AdultICU s -> s |> fAdultICU
         | PediatricICU s -> s |> fPedICU
@@ -1813,14 +1808,11 @@ module Department =
     /// A department with a name, of a kind that is not known.
     let otherDepartment = OtherDepartment
 
-    let any = AnyDepartment
-
     let unknown = UnknownDepartment
 
 
     let toString =
         map
-            "any"
             ""
             (sprintf "%s %s" Constants.adultICU)
             (sprintf "%s %s" Constants.pediatricICU)
@@ -1832,15 +1824,15 @@ module Department =
         >> String.trim
 
 
-    /// Returns the department name the rules match; None for any department, an unknown department or a
-    /// department without a name.
+    /// Returns the department name the rules match; None for an unknown department or a department without a
+    /// name.
     let name =
         let named (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
-        map None None named named named named named named named
+        map None named named named named named named named
 
 
-    /// The Dto of a department: a name for each kind of department, and a flag for any department.
+    /// The Dto of a department: a name for each kind of department.
     module Dto =
 
         open Validus
@@ -1854,7 +1846,6 @@ module Department =
             member val OutpatientClinic: string option = None with get, set
             /// The name of a department of a kind that is not known.
             member val OtherDepartment: string option = None with get, set
-            member val AnyDepartment = false with get, set
 
 
         let dto () = Dto()
@@ -1878,7 +1869,6 @@ module Department =
                     dto.PediatricDepartment |> named pediatricDepartment
                     dto.OutpatientClinic |> named outpatientClinic
                     dto.OtherDepartment |> named otherDepartment
-                    if dto.AnyDepartment then Some any else None
                 ]
                 |> List.choose id
 
@@ -1902,7 +1892,6 @@ module Department =
             | PediatricDepartment s -> dto.PediatricDepartment <- Some s
             | OutpatientClinic s -> dto.OutpatientClinic <- Some s
             | OtherDepartment s -> dto.OtherDepartment <- Some s
-            | AnyDepartment -> dto.AnyDepartment <- true
             | UnknownDepartment -> ()
 
             dto
