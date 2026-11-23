@@ -226,47 +226,6 @@ module NutritionRuleSet =
         |]
 
 
-    /// The name of a category in the "RuleSets" sheet.
-    let sheetName =
-        function
-        | NutritionCategory.EnteralFeeding -> "EnteralFeeding"
-        | NutritionCategory.EnteralSupplement -> "EnteralSupplement"
-        | NutritionCategory.TPN -> "TPN"
-        | NutritionCategory.Lipid -> "Lipid"
-        | NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
-
-
-    /// Returns the nutrition category of a name in the "RuleSets" sheet, or the error UnknownCategory.
-    let categoryOf name =
-        categories
-        |> Array.tryFind (sheetName >> (=) name)
-        |> Result.requireSome (OrderPlanError.UnknownCategory name)
-
-
-    /// Creates a rule set for every category in the rows, with the label of the first row of the category and
-    /// the distinct non-empty indications and generics in row order. Returns an UnknownCategory error for
-    /// every unknown category name.
-    let ofData (rows: Types.Data.RuleSetData[]) =
-        rows
-        |> Array.groupBy _.Category
-        |> Array.toList
-        |> List.traverseResultA (fun (name, rs) ->
-            let distinct f =
-                rs |> Array.map f |> Array.filter String.notEmpty |> Array.distinct
-
-            categoryOf name
-            |> Result.map (fun category ->
-                {
-                    Category = category
-                    Label = rs[0].Label
-                    Indications = distinct _.Indication
-                    Generics = distinct _.Generic
-                }
-            )
-        )
-        |> Result.map List.toArray
-
-
     /// Whether a list of a rule set allows the name: an empty list allows any name, and names compare
     /// without regard to case.
     let allows (allowed: string[]) name =

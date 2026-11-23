@@ -7,6 +7,7 @@ open Expecto.Flip
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
+open Microsoft.FSharp.Reflection
 
 
 module Fixtures =
@@ -484,4 +485,101 @@ let linkedOfferTests =
                     }
 
                 ]
+        ]
+
+
+module RuleSetRows =
+
+    let row = OrderPlanTests.EvaluateFixtures.ruleSetRow
+
+
+open RuleSetRows
+
+
+[<Tests>]
+let ruleSetRowTests =
+    testList
+        "the rule set rows the server reads"
+        [
+            test "every nutrition category is read back from its name" {
+                let cases = FSharpType.GetUnionCases typeof<NutritionCategory> |> Array.length
+
+                NutritionRuleSet.categories
+                |> Array.length
+                |> Expect.equal "every case is listed" cases
+
+                NutritionRuleSet.categories
+                |> Array.map (
+                    ServerApi.NutritionCategoryMapper.toName
+                    >> ServerApi.NutritionCategoryMapper.ofName
+                )
+                |> Expect.equal "every case round-trips" (NutritionRuleSet.categories |> Array.map Some)
+            }
+
+            test "a name that is not a category name maps to no nutrition category" {
+                [ "EmergencyList"; "tpn"; "" ]
+                |> List.map ServerApi.NutritionCategoryMapper.ofName
+                |> Expect.equal "none" [ None; None; None ]
+            }
+
+            test "the rows of a category are one rule set, each value once, in the order of the rows" {
+                [|
+                    row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                    row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "NICU mix"
+                    row "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" "Primene"
+                    row "Lipid" "Vetten" "Parenterale vetten" ""
+                |]
+                |> ServerApi.Adapters.NutritionRuleSets.ofData
+                |> Expect.equal
+                    "two sets, the lipids without generics"
+                    [|
+                        {
+                            Category = NutritionCategory.TPN
+                            Label = "Totale Parenterale Voeding"
+                            Indications = [| "Neonatale Parenterale Voeding"; "Totale Parenterale Voeding" |]
+                            Generics = [| "Primene"; "NICU mix" |]
+                        }
+                        {
+                            Category = NutritionCategory.Lipid
+                            Label = "Vetten"
+                            Indications = [| "Parenterale vetten" |]
+                            Generics = [||]
+                        }
+                    |]
+            }
+
+            test "the rows of a category that is not a nutrition category are left out, the other sets stay" {
+                [|
+                    row "Enteral" "x" "Enterale voeding" "MM"
+                    row "Enteral" "x" "Enterale voeding" "Infatrini"
+                    row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                |]
+                |> ServerApi.Adapters.NutritionRuleSets.ofData
+                |> Array.map _.Category
+                |> Expect.equal "only the TPN set" [| NutritionCategory.TPN |]
+            }
+
+            test "each category name that is not a nutrition category, once, in row order" {
+                [|
+                    row "EmergencyList" "Noodlijst" "Noodlijst intubatie" ""
+                    row "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" ""
+                    row "StandardInfusions" "Standaard infusies" "Continu" ""
+                    row "EmergencyList" "Noodlijst" "Noodlijst sedatie" ""
+                |]
+                |> ServerApi.Adapters.NutritionRuleSets.unknownCategories
+                |> Expect.equal "two names" [| "EmergencyList"; "StandardInfusions" |]
+            }
+
+            test "rows of nutrition categories give no such name" {
+                [| row "Lipid" "Vetten" "Parenterale vetten" "" |]
+                |> ServerApi.Adapters.NutritionRuleSets.unknownCategories
+                |> Expect.isEmpty "none"
+            }
+
+            test "the warning names the category and says its rows are left out" {
+                "EmergencyList"
+                |> ServerApi.Adapters.NutritionRuleSets.unknownCategoryWarning
+                |> Logging.ServerLogging.formatMessage
+                |> Expect.equal "the text" "RuleSets: EmergencyList is not a nutrition category, its rows are left out"
+            }
         ]

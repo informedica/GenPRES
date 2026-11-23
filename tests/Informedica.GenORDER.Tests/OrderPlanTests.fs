@@ -590,57 +590,6 @@ let evaluateTests =
                 |> Expect.equal "the fresh filter, no dose types yet" { fresh with DoseTypes = [||] }
             }
 
-            test "the rows of a category are one rule set, each value once, in the order of the rows" {
-                [|
-                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
-                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "NICU mix"
-                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" "Primene"
-                    ruleSetRow "Lipid" "Vetten" "Parenterale vetten" ""
-                |]
-                |> NutritionRuleSet.ofData
-                |> Expect.equal
-                    "two sets, the lipids without generics"
-                    (Ok
-                        [|
-                            {
-                                Category = NutritionCategory.TPN
-                                Label = "Totale Parenterale Voeding"
-                                Indications = [| "Neonatale Parenterale Voeding"; "Totale Parenterale Voeding" |]
-                                Generics = [| "Primene"; "NICU mix" |]
-                            }
-                            {
-                                Category = NutritionCategory.Lipid
-                                Label = "Vetten"
-                                Indications = [| "Parenterale vetten" |]
-                                Generics = [||]
-                            }
-                        |])
-            }
-
-            test "every nutrition category is read back from its sheet name" {
-                let cases =
-                    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases typeof<NutritionCategory>
-                    |> Array.length
-
-                NutritionRuleSet.categories
-                |> Array.length
-                |> Expect.equal "every case is listed" cases
-
-                NutritionRuleSet.categories
-                |> Array.map (NutritionRuleSet.sheetName >> NutritionRuleSet.categoryOf)
-                |> Expect.equal "every case round-trips" (NutritionRuleSet.categories |> Array.map Ok)
-            }
-
-            test "a category the code does not know refuses the rule sets, named once" {
-                [|
-                    ruleSetRow "Enteral" "x" "Enterale voeding" "MM"
-                    ruleSetRow "Enteral" "x" "Enterale voeding" "Infatrini"
-                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
-                |]
-                |> NutritionRuleSet.ofData
-                |> Expect.equal "refused" (Error [ OrderPlanError.UnknownCategory "Enteral" ])
-            }
-
             test "a category without a rule set is refused" {
                 [||]
                 |> NutritionRuleSet.find NutritionCategory.Lipid
@@ -1366,14 +1315,19 @@ let ruleSetDiscoveryTests =
                         OrderContext.UpdateOrderContext
                     |> Result.map _.Context
 
-                let set =
+                let rows =
                     [|
                         EvaluateFixtures.ruleSetRow "EnteralFeeding" "Enterale Voeding" "voeding" ""
                     |]
                     |> RuleSet.expand (RuleSet.DoseRuleNames.ofData data)
-                    |> NutritionRuleSet.ofData
-                    |> Result.map Array.head
-                    |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                let set: NutritionRuleSet =
+                    {
+                        Category = NutritionCategory.EnteralFeeding
+                        Label = "Enterale Voeding"
+                        Indications = rows |> Array.map _.Indication |> Array.distinct
+                        Generics = rows |> Array.map _.Generic |> Array.distinct
+                    }
 
                 let start: OrderContext =
                     {

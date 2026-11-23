@@ -1103,8 +1103,6 @@ module Types =
         | NotNarrowed of candidates: int
         /// The plan already has the order
         | OrderHeld of orderId: string
-        /// A rule set names an unknown category
-        | UnknownCategory of name: string
         /// No rule set exists for the category
         | NoRuleSet of NutritionCategory
         /// The plan refuses the link of the context to its main order, for the given reason
