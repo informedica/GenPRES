@@ -1221,7 +1221,7 @@ let hospitalTests =
                 |> Expect.equal "none" [ None ]
             }
 
-            test "a patient answer sends no edit after it" {
+            test "a patient answer sends no edit after it and sets its hospital" {
                 withHospital (Some "AMC")
                 |> route
                     newId
@@ -1229,10 +1229,22 @@ let hospitalTests =
                         LanesEffect.Patient(PatientEffect.SetPatientData(Some { patient with Location = Some "UMCU" }))
                     ))
                 |> Expect.equal
-                    "the filters and the pages only"
+                    "the filters, the pages and the hospital"
                     [
                         ClientMsg.Shell ShellMsg.ListFiltersCleared
                         ClientMsg.Loader(LoaderMsg.PatientSet(Some { patient with Location = Some "UMCU" }))
+                        ClientMsg.Shell(ShellMsg.PatientHospitalLanded "UMCU")
+                    ]
+            }
+
+            test "no patient data leaves the hospital" {
+                withHospital (Some "AMC")
+                |> route newId (ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData None)))
+                |> Expect.equal
+                    "the filters and the pages only"
+                    [
+                        ClientMsg.Shell ShellMsg.ListFiltersCleared
+                        ClientMsg.Loader(LoaderMsg.PatientSet None)
                     ]
             }
 

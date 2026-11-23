@@ -118,6 +118,23 @@ let tests =
                         effects |> Expect.equal "shown" [ ShellEffect.HospitalShown "AMC" ]
                     }
 
+                    test "a patient answer sets its hospital and leaves the disclaimer as it is" {
+                        let state, effects = run [ ShellMsg.DisclaimerAccepted; ShellMsg.PatientHospitalLanded "AMC" ]
+
+                        state.Hospital |> Expect.equal "the patient's" (Some "AMC")
+                        state.ShowDisclaimer |> Expect.isFalse "not shown again"
+                        effects |> Expect.isEmpty "nothing sent"
+                    }
+
+                    test "a patient answer before the settings keeps its hospital over the server default" {
+                        let withDefault = { settings German with DefaultLocation = Some "UMCU" }
+
+                        (run [ ShellMsg.PatientHospitalLanded "AMC"; ShellMsg.SettingsLanded withDefault ]
+                         |> fst)
+                            .Hospital
+                        |> Expect.equal "AMC" (Some "AMC")
+                    }
+
                     test "no hospital is chosen before the settings land" { initial.Hospital |> Expect.isNone "none" }
 
                     test "the server default sets the hospital unless one was chosen" {

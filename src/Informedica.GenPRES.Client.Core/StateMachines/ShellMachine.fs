@@ -3,7 +3,7 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// Tracks the shell around the pages: the url, the page shown, the language, the hospital, the
 /// disclaimer, the snackbar, the error banner, the filters of the two lists, whether a quantity field
 /// counts and whether the start-up has ended. The settings page needs a login and is left on a logout.
-/// A language or hospital change shows the disclaimer again. A url with a patient, a medication or a
+/// A language or hospital the user chooses shows the disclaimer again. A url with a patient, a medication or a
 /// launch starts the lanes over, after a question when it would leave a launched session or unsigned
 /// work.
 module ShellMachine =
@@ -79,6 +79,8 @@ module ShellMachine =
         | LanguageChosen of Locales
         /// The user chose a hospital.
         | HospitalChosen of string
+        /// A patient answer names this hospital.
+        | PatientHospitalLanded of string
         /// The user accepted the disclaimer.
         | DisclaimerAccepted
         /// The server settings landed: the demo flag, the default language and the default hospital.
@@ -155,7 +157,8 @@ module ShellMachine =
                 ShowDisclaimer = true
                 // the server default replaces this once the settings land, unless the url chose
                 Language = LanguagePolicy.Language.initial None
-                // the default hospital of the server replaces this once the settings land
+                // the hospital a patient answer names replaces this, and the default hospital of the server once
+                // the settings land and no hospital is set
                 Hospital = None
                 IsDemo = false
                 ServerError = None
@@ -238,8 +241,8 @@ module ShellMachine =
             | UrlPolicy.UrlAction.StartOver -> state |> startedOver sl url
 
 
-    /// Returns the hospital once the server settings land: the hospital chosen, else the default hospital of the
-    /// server; None when there is neither.
+    /// Returns the hospital once the server settings land: the hospital already set, else the default hospital of
+    /// the server; None when there is neither.
     let hospitalOnServerDefault settings hospital = hospital |> Option.orElse settings.DefaultLocation
 
 
@@ -263,6 +266,8 @@ module ShellMachine =
                 ShowDisclaimer = true
             },
             [ ShellEffect.HospitalShown hospital ]
+        // the user chose nothing, so the disclaimer stays as it is
+        | ShellMsg.PatientHospitalLanded hospital -> { state with Hospital = Some hospital }, []
         | ShellMsg.DisclaimerAccepted -> { state with ShowDisclaimer = false }, []
         | ShellMsg.SettingsLanded settings ->
             { state with

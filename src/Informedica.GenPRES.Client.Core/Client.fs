@@ -628,10 +628,14 @@ module Client =
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.TellNewerSignedPlan head)) ->
             alert (Alert.Alert.NewerSignedPlan head)
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.Alert a)) -> alert a
+        // The hospital a patient answer names becomes the hospital shown, so the lists and the calculations agree.
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData pat)) ->
             [
                 ClientMsg.Shell ShellMsg.ListFiltersCleared
                 ClientMsg.Loader(LoaderMsg.PatientSet pat)
+                match pat |> Option.bind _.Location with
+                | Some hospital -> ClientMsg.Shell(ShellMsg.PatientHospitalLanded hospital)
+                | None -> ()
             ]
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.TellError errs)) ->
             alert (Alert.Alert.PatientChangeFailed(first errs))

@@ -1021,6 +1021,7 @@ module Trail =
             | ShellMsg.LoggedOut -> "LoggedOut"
             | ShellMsg.LanguageChosen l -> $"LanguageChosen %s{language l}"
             | ShellMsg.HospitalChosen h -> $"HospitalChosen %s{h}"
+            | ShellMsg.PatientHospitalLanded h -> $"PatientHospitalLanded %s{h}"
             | ShellMsg.DisclaimerAccepted -> "DisclaimerAccepted"
             | ShellMsg.SettingsLanded s ->
                 let data = if s.IsDemo then "demo" else "production"
