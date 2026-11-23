@@ -73,7 +73,6 @@ graph BT
     GenPRES_Server --> GenPRES_Shared
     GenPRES_Server --> GenORDER_Lib
     GenPRES_Server --> GenINTERACT_Lib
-    GenPRES_Server --> Agents_Lib
     MCP_Lib --> GenORDER_Lib
     MCP_Lib --> GenPRES_Shared
     MCP_Server --> MCP_Lib
@@ -97,7 +96,7 @@ graph BT
     linkStyle 3 stroke:#ef4444,stroke-width:2px
 ```
 
-20 projects, 27 project references. An arrow points at the dependency. A green arrow points
+20 projects, 26 project references. An arrow points at the dependency. A green arrow points
 inward, as the dependency rule wants. A dashed red arrow is an outward reference the rule still tolerates but that should
 not exist; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->
