@@ -1134,8 +1134,6 @@ let workbenchOfferTests =
 
 [<Tests>]
 let hospitalTests =
-    let located location = { PatientData.empty with Location = location }
-
     let newId () = "r-1"
 
     let withHospital hospital =
@@ -1145,6 +1143,21 @@ let hospitalTests =
             Lanes = Lanes.initial (Some draft)
             Shell = { state.Shell with Hospital = hospital }
         }
+
+    let call pat =
+        ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(pat, "r-1")))
+
+    let edit pat =
+        ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(PatientDataEdit.SetGender Male, pat, "r-1")))
+
+    let sentLocations (_, effects, _) =
+        effects
+        |> List.choose (
+            function
+            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(pat, _)))
+            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(_, pat, _))) -> Some pat.Location
+            | _ -> None
+        )
 
     testList
         "the hospital as the Location of the patient"
@@ -1168,68 +1181,70 @@ let hospitalTests =
                 |> Expect.equal "AMC, UMCU" (Resolved [| "AMC"; "UMCU" |])
             }
 
-            test "a patient without the chosen hospital gets the edit that sets it" {
-                located None
-                |> Client.locationEdit (Some "AMC")
-                |> Expect.equal "SetLocation AMC" (Some(PatientDataEdit.SetLocation(Some "AMC")))
-
-                located (Some "UMCU")
-                |> Client.locationEdit (Some "AMC")
-                |> Expect.equal "SetLocation AMC" (Some(PatientDataEdit.SetLocation(Some "AMC")))
+            test "a patient call sends the chosen hospital as the Location" {
+                call draft
+                |> Client.withHospital (Some "AMC")
+                |> Expect.equal "AMC" (call { draft with Location = Some "AMC" })
             }
 
-            test "a patient with the chosen hospital, or without a hospital chosen, needs no edit" {
-                located (Some "AMC")
-                |> Client.locationEdit (Some "AMC")
-                |> Expect.isNone "the same"
-                located (Some "UMCU") |> Client.locationEdit None |> Expect.isNone "none chosen"
+            test "an edit sends the chosen hospital as the Location of the patient data" {
+                edit { draft with Location = Some "UMCU" }
+                |> Client.withHospital (Some "AMC")
+                |> Expect.equal "AMC" (edit { draft with Location = Some "AMC" })
             }
 
-            test "the edit goes to the patient panel with a new request id" {
-                located (Some "UMCU")
-                |> Client.locationFollow newId (Some "AMC")
-                |> Expect.equal "the edit" [ ClientMsg.PanelEdited(PatientDataEdit.SetLocation(Some "AMC"), "r-1") ]
+            test "without a hospital chosen, the call goes as it is, so the server default applies" {
+                call draft |> Client.withHospital None |> Expect.equal "as it is" (call draft)
             }
 
-            test "a patient answer with another Location sends the chosen hospital" {
+            test "an effect that is no patient call goes as it is" {
+                let other = ClientEffect.Shell(ShellEffect.HospitalShown "AMC")
+                other |> Client.withHospital (Some "AMC") |> Expect.equal "as it is" other
+            }
+
+            test "a panel edit and whole patient data are sent with the chosen hospital" {
                 withHospital (Some "AMC")
-                |> route newId (ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData(Some patient))))
-                |> List.contains (ClientMsg.PanelEdited(PatientDataEdit.SetLocation(Some "AMC"), "r-1"))
-                |> Expect.isTrue "SetLocation AMC"
+                |> play [ ClientMsg.PanelEdited(PatientDataEdit.SetGender Male, "r-1") ]
+                |> sentLocations
+                |> Expect.equal "the edit" [ Some "AMC" ]
+
+                withHospital (Some "AMC")
+                |> play [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(Some draft, "r-1"))) ]
+                |> sentLocations
+                |> Expect.equal "the patient data" [ Some "AMC" ]
             }
 
-            test "a patient answer with the chosen hospital sends nothing more" {
+            test "without a hospital chosen, the patient data go without a Location" {
+                withHospital None
+                |> play [ ClientMsg.PanelEdited(PatientDataEdit.SetGender Male, "r-1") ]
+                |> sentLocations
+                |> Expect.equal "none" [ None ]
+            }
+
+            test "a patient answer sends no edit after it" {
                 withHospital (Some "AMC")
                 |> route
                     newId
                     (ClientEffect.Lanes(
-                        LanesEffect.Patient(PatientEffect.SetPatientData(Some { patient with Location = Some "AMC" }))
+                        LanesEffect.Patient(PatientEffect.SetPatientData(Some { patient with Location = Some "UMCU" }))
                     ))
                 |> Expect.equal
                     "the filters and the pages only"
                     [
                         ClientMsg.Shell ShellMsg.ListFiltersCleared
-                        ClientMsg.Loader(LoaderMsg.PatientSet(Some { patient with Location = Some "AMC" }))
+                        ClientMsg.Loader(LoaderMsg.PatientSet(Some { patient with Location = Some "UMCU" }))
                     ]
             }
 
-            test "a hospital chosen sends it as the Location of the patient the panel shows" {
-                withHospital None
+            test "a hospital chosen sends one edit with that hospital" {
+                withHospital (Some "UMCU")
                 |> play [ ClientMsg.Shell(ShellMsg.HospitalChosen "AMC") ]
-                |> hasEffect (
-                    function
-                    | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(PatientDataEdit.SetLocation(Some "AMC"),
-                                                                                    _,
-                                                                                    _))) -> true
-                    | _ -> false
-                )
-                |> Expect.isTrue "SetLocation AMC sent"
+                |> sentLocations
+                |> Expect.equal "AMC" [ Some "AMC" ]
             }
 
             test "a hospital chosen without a patient sends nothing" {
-                let state = initial Url.none
-
-                state
+                initial Url.none
                 |> route newId (ClientEffect.Shell(ShellEffect.HospitalShown "AMC"))
                 |> Expect.isEmpty "nothing"
             }
