@@ -901,9 +901,15 @@ module Resources =
                                 LastReloaded = DateTime.MinValue
                                 IsLoaded = false
                             }
-                        // The rule lookup reads isAdditive, so the empty resources need a lookup that
-                        // always returns false instead of a missing key.
-                        Resolved = Map [ Keys.isAdditive.Name, box (fun (_: string) -> false) ]
+                        // The rule lookup reads isAdditive and the product predilutions, so the empty
+                        // resources need a lookup that always returns false and no predilutions instead of
+                        // missing keys.
+                        Resolved =
+                            Map
+                                [
+                                    Keys.isAdditive.Name, box (fun (_: string) -> false)
+                                    Keys.productPredilutions.Name, box Array.empty<ProductPredilution>
+                                ]
                     }
 
                 cached <- Some(emptyLoaded, DateTime.UtcNow)

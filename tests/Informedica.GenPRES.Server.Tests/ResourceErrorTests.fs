@@ -163,6 +163,18 @@ let cachedProviderErrorStateTests =
                 |> Expect.equal "RenalRules should be empty" [||]
             }
 
+            test "the prescription rules are empty when loader failed" {
+                let provider =
+                    CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "load failed" ]), None)
+                    :> IResourceProvider
+
+                Api.filterPrescriptionRules provider Filter.doseFilter
+                |> Expect.equal "filtered rules should be empty" (Ok [||])
+
+                Api.getPrescriptionRules provider PatientData.unknown
+                |> Expect.equal "patient rules should be empty" (Ok [||])
+            }
+
             test "getNKFLinkProvider serves FK-only links instead of throwing when loader failed" {
                 // Nothing is registered on a failed load, so `Get` would raise
                 // KeyNotFoundException; a decorative link must not fail a request.
