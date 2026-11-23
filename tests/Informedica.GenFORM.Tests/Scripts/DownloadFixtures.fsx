@@ -36,7 +36,7 @@ let dataUrlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
 
 #load "../Types.fs" "../Utils.fs" "../Logging.fs" "../Mapping.fs" "../Patient.fs"
        "../Product.fs" "../Filter.fs" "../LimitTarget.fs" "../DoseLimit.fs" "../DoseType.fs"
-       "../GenericLabel.fs" "../PharmaceuticalForm.fs" "../ProductId.fs" "../Generic.fs"
+       "../GenericLabel.fs" "../PharmaceuticalForm.fs" "../Generic.fs"
        "../Source.fs" "../DoseRule.fs" "../DoseRuleData.fs" "../DoseRuleLoader.fs" "../Check.fs"
        "../SolutionRule.fs" "../RenalRule.fs"
        "../PrescriptionRule.fs" "../FormLogging.fs" "../Api.fs"

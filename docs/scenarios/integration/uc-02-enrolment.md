@@ -117,6 +117,6 @@ The walkthrough is in
 
 Read off `Session.suspend`, `Session.findEnrolment`, `Session.supplyPin` and
 `Session.dropEnrolment` in `src/Informedica.GenPRES.Server/ServerApi.Session.fs`, the dispatch
-in `ServerApi.SessionCommand.fs` and `ServerApi.LaunchCommand.fs`, the cookie in `Server.fs`,
+in `SessionCommand` and `LaunchCommand` in `ServerApi.Commands.fs`, the cookie in `Server.fs`,
 and `SessionMachine.fs`, `SessionGatePolicy.fs` and `Views/SessionGate.fs` in
 `src/Informedica.GenPRES.Client/`. The design is UC-2 in [`Integration.fsx`](Integration.fsx).

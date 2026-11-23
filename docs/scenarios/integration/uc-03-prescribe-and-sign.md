@@ -180,6 +180,6 @@ The walkthrough is in [Testing Workflows](../../user-guide/testing-workflows.md#
 
 Read off `Session.seen`, `Session.challenge` and `Session.commit` in
 `src/Informedica.GenPRES.Server/ServerApi.Session.fs`, `Credential` in the same file, the
-dispatch in `ServerApi.SigningCommand.fs` and `ServerApi.Compute.fs`, and `SigningMachine.fs`,
+dispatch in `ServerApi.Commands.fs` and `ServerApi.Compute.fs`, and `SigningMachine.fs`,
 `SigningPolicy.fs` and `Views/SignDialog.fs` in `src/Informedica.GenPRES.Client/`. The design
 is UC-3 in [`Integration.fsx`](Integration.fsx).

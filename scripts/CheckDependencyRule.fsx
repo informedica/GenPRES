@@ -165,17 +165,16 @@ let contractToken = "GenPRES.Shared"
 
 /// T5: the server files in which a code line may name the contract model, as file-name
 /// globs over `src/Informedica.GenPRES.Server/`: the mappers, the command handlers, the
-/// ports, the composition root, the session service, the compute wrapper, the API
-/// implementation and the host. Every other server file needs a `contractAllowances` entry.
+/// ports, the composition root with the API implementation, the session service, the
+/// compute wrapper and the host. Every other server file needs a `contractAllowances` entry.
 let contractEdgeFiles =
     [
         "ServerApi.Mappers*.fs"
-        "ServerApi.*Command.fs"
+        "ServerApi.Commands.fs"
         "ServerApi.Ports.fs"
         "ServerApi.CompositionRoot.fs"
         "ServerApi.Session.fs"
         "ServerApi.Compute.fs"
-        "ServerApi.ApiImpl.fs"
         "Server.fs"
     ]
 

@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph SERVER["Server"]
-        SCMD["OrderContextCommand.processCmd<br/>ServerApi.OrderContextCommand.fs"]
+        SCMD["OrderContextCommand.processCmd<br/>ServerApi.Commands.fs"]
         SEVAL["OrderContext.evaluate<br/>map -> GenOrderContext cmd<br/>ServerApi.Services.fs"]
     end
 
@@ -150,7 +150,7 @@ confirmed solver result.
 | Client machine | `src/Informedica.GenPRES.Client.Core/StateMachines/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextState.transition` |
 | Server call | `src/Informedica.GenPRES.Client/App.fs` | `applyOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
-| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |
+| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.Commands.fs` | `processCmd` |
 | Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs` | `OrderContext.evaluate` |
 | GenORDER eval | `src/Informedica.GenORDER.Lib/OrderContext.fs` | `evaluate` / `processPropertyCmd` |
 | Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processPipeline` |

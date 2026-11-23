@@ -49,6 +49,6 @@ Session whose tab was closed (Rule 10; [uc-08](uc-08-session-ends.md)). The audi
 ---
 
 Read off `Session.close` in `src/Informedica.GenPRES.Server/ServerApi.Session.fs`, the
-`CloseSession` arm in `ServerApi.SessionCommand.fs`, and `SessionMsg.Close` in
+`CloseSession` arm in `ServerApi.Commands.fs`, and `SessionMsg.Close` in
 `SessionMachine.fs` and `Components/TitleBar.fs` in `src/Informedica.GenPRES.Client/`. The
 design is UC-10 in [`Integration.fsx`](Integration.fsx).
