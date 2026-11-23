@@ -80,6 +80,8 @@ module Resources =
         abstract member GetGStandProvider: unit -> Check.GStandProvider
         /// The departments the loaded rules name, distinct and sorted; none when the rules did not load.
         abstract member GetDepartments: unit -> string[]
+        /// The locations the loaded rules name, distinct and sorted; none when the rules did not load.
+        abstract member GetLocations: unit -> string[]
         abstract member GetResourceInfo: unit -> ResourceInfo
 
     and ResourceInfo =
@@ -296,22 +298,22 @@ module Resources =
             | Error msgs -> Ok(box fallback, msgs |> List.map (fun m -> Warning $"%s{note}: %s{messageText m}"))
 
 
+    /// Returns the names the rules give, such as the departments or the locations: trimmed, blanks ignored,
+    /// distinct and sorted.
+    let distinctNames (named: string option seq) =
+        named
+        |> Seq.choose id
+        |> Seq.map _.Trim()
+        |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.toArray
+
+
     /// The departments the loaded rules name.
     module Departments =
 
-        /// Makes the departments from the names: trimmed, blanks ignored, distinct and sorted.
-        let ofNamed (named: string option seq) =
-            named
-            |> Seq.choose id
-            |> Seq.map _.Trim()
-            |> Seq.filter (String.IsNullOrWhiteSpace >> not)
-            |> Seq.distinct
-            |> Seq.sort
-            |> Seq.toArray
-
-
-        /// Makes the departments from the dose-rule rows, the solution-rule rows and the
-        /// reconstitutions, the three sheets that name departments.
+        /// Makes the departments from the dose rules, the solution rules and the reconstitutions.
         let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
             [
                 doseRows |> Seq.map (fun d -> Some d.Patient.Dep)
@@ -319,11 +321,25 @@ module Resources =
                 reconstitutions |> Seq.map _.Department
             ]
             |> Seq.concat
-            |> ofNamed
+            |> distinctNames
 
 
         /// Returns whether the department is one of the departments.
         let isKnown departments (department: string) = departments |> Array.contains department
+
+
+    /// The locations the loaded rules name.
+    module Locations =
+
+        /// Makes the locations from the dose rules, the solution rules and the reconstitutions.
+        let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
+            [
+                doseRows |> Seq.map (fun d -> Some d.Patient.Location)
+                solutionRows |> Seq.map _.Location
+                reconstitutions |> Seq.map _.Location
+            ]
+            |> Seq.concat
+            |> distinctNames
 
 
     /// A cache of the prescription rules per patient for the dose rules and the stand-alone dose rules of a load,
@@ -365,6 +381,7 @@ module Resources =
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
         let departments = ResourceKey.create<string[]> "departments"
+        let locations = ResourceKey.create<string[]> "locations"
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         // The normal-value tables GenCORE parses from the rows; None when the rows do not parse.
         let normalValueTables = ResourceKey.create<CoreNormalValueTables option> "normalValueTables"
@@ -514,6 +531,15 @@ module Resources =
                 Keys.departments.Name,
                 derive (fun r ->
                     Departments.ofRules
+                        (r.Get Keys.doseRuleData)
+                        (r.Get Keys.solutionRuleData)
+                        (r.Get Keys.reconstitution)
+                )
+
+                // The locations the rules name.
+                Keys.locations.Name,
+                derive (fun r ->
+                    Locations.ofRules
                         (r.Get Keys.doseRuleData)
                         (r.Get Keys.solutionRuleData)
                         (r.Get Keys.reconstitution)
@@ -815,6 +841,13 @@ module Resources =
         | None -> [||]
 
 
+    /// The locations of a resolved resource set; none when the rules did not load.
+    let locationsOf (loaded: LoadedResources) =
+        match loaded.Resolved |> Map.tryFind Keys.locations.Name with
+        | Some l -> l :?> string[]
+        | None -> [||]
+
+
     /// A plain provider over an already-loaded resource set.
     type ResourceProvider(loaded: LoadedResources) =
         let state = loaded.State
@@ -840,6 +873,7 @@ module Resources =
                 loaded.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider
 
             member _.GetDepartments() = departmentsOf loaded
+            member _.GetLocations() = locationsOf loaded
 
             member _.GetResourceInfo() = resourceInfo state
 
@@ -952,5 +986,6 @@ module Resources =
                 this.getFromCache (fun l -> l.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider)
 
             member this.GetDepartments() = this.getFromCache departmentsOf
+            member this.GetLocations() = this.getFromCache locationsOf
 
             member this.GetResourceInfo() = this.getFromCache (fun l -> resourceInfo l.State)

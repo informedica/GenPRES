@@ -436,6 +436,11 @@ module Patient =
         |> Result.map (ofPatientData >> withOptions resources)
 
 
+    /// Fills in the default location when the patient has no Location.
+    let withDefaultLocation defaultLocation (model: PatientData) =
+        { model with Location = model.Location |> Option.orElse defaultLocation }
+
+
     /// Completes the contract patient through GenCORE on today's date. Returns the messages when a
     /// value is invalid.
     let complete today resources model = model |> ofModel |> completeDto today resources

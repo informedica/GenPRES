@@ -175,7 +175,10 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> None
-            departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+            departments = fun () -> Informedica.GenForm.Lib.Resources.distinctNames []
+            locations = fun () -> [||]
+            // no default location
+            defaultLocation = None
             // no resources: a patient is completed with them only where a test gives them
             patientDataResources = fun () -> None
             today = fun () -> readAt
@@ -207,7 +210,10 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> Some msgs
-            departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+            departments = fun () -> Informedica.GenForm.Lib.Resources.distinctNames []
+            locations = fun () -> [||]
+            // no default location
+            defaultLocation = None
             patientDataResources = fun () -> None
             today = fun () -> readAt
             // the tests run as the demo server does
@@ -3855,48 +3861,70 @@ module SessionStubTests =
         testList
             "processLaunch, processCallback and processSession"
             [
-                testAsync "getSettings answers the settings the host composed with, no departments before a load" {
+                testAsync
+                    "getSettings answers the settings the host composed with, no departments or locations before a load" {
                     let settings =
                         {
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
+                            Locations = [||]
+                            DefaultLocation = None
                         }
 
-                    let withDepartments departments = { settings with Departments = departments |> Array.map Some }
+                    let withNames departments locations =
+                        { settings with
+                            Departments = departments |> Array.map Some
+                            Locations = locations
+                        }
 
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose withDepartments env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose withNames env cookie stateCookie (noEnrolment ())
                     let! answer = api.getSettings ()
 
-                    answer |> Expect.equal "the rest as composed, no departments" settings
+                    answer
+                    |> Expect.equal "the rest as composed, no departments or locations" settings
                 }
 
-                testAsync "getSettings carries the departments once the resources are loaded, the rest as composed" {
+                testAsync
+                    "getSettings carries the departments and the locations once the resources are loaded, the rest as composed" {
                     let settings =
                         {
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
+                            Locations = [||]
+                            DefaultLocation = None
                         }
 
-                    let withDepartments departments = { settings with Departments = departments |> Array.map Some }
-
-                    let loaded = [| "ICC"; "ICK"; "NEO" |]
+                    let withNames departments locations =
+                        { settings with
+                            Departments = departments |> Array.map Some
+                            Locations = locations
+                        }
 
                     let _, env = envWithStub newStore ()
-                    let env = { env with departments = fun () -> loaded }
+
+                    let env =
+                        { env with
+                            departments = fun () -> [| "ICC"; "ICK"; "NEO" |]
+                            locations = fun () -> [| "AMC"; "UMCU" |]
+                        }
+
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose withDepartments env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose withNames env cookie stateCookie (noEnrolment ())
                     let! answer = api.getSettings ()
 
                     answer
                     |> Expect.equal
                         "the names overlaid"
-                        { settings with Departments = [| Some "ICC"; Some "ICK"; Some "NEO" |] }
+                        { settings with
+                            Departments = [| Some "ICC"; Some "ICK"; Some "NEO" |]
+                            Locations = [| "AMC"; "UMCU" |]
+                        }
                 }
 
                 testAsync
@@ -4844,6 +4872,8 @@ module SessionStubTests =
                 ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                 IsDemo = true
                 Departments = [||]
+                Locations = [||]
+                DefaultLocation = None
             }
 
         let request opened : Request<Formulary> =
@@ -4866,7 +4896,7 @@ module SessionStubTests =
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request None) with
                     | Ok reply ->
@@ -4893,7 +4923,7 @@ module SessionStubTests =
                             "prescriber"
 
                     let! opened = sessionOf env cookie
-                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request opened.OpenedToken) with
                     | Ok reply -> reply.Notice |> Expect.isNone "nothing told"
@@ -4930,7 +4960,7 @@ module SessionStubTests =
                             keyB
                             "prescriber"
 
-                    let api = CompositionRoot.compose (fun _ -> settings) env cookieA stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ _ -> settings) env cookieA stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request openedA.OpenedToken) with
                     | Ok reply ->
@@ -4945,7 +4975,7 @@ module SessionStubTests =
                     let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     let! before = api.processSession (SessionCommand.OpenVersion("plan-1", None))
                     before |> Expect.equal "no session" (SessionResponse.SessionResp None)
@@ -5235,11 +5265,13 @@ module AdminTests =
                             ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                             IsDemo = true
                             Departments = [||]
+                            Locations = [||]
+                            DefaultLocation = None
                         }
 
                     let api =
                         CompositionRoot.compose
-                            (fun _ -> settings)
+                            (fun _ _ -> settings)
                             env
                             cookie
                             stateCookie

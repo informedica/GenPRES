@@ -498,6 +498,11 @@ module Api =
             // the departments to choose from: None for no department, then the departments the loaded rules
             // name; only None until the resources are loaded
             Departments: string option[]
+            // the locations the loaded rules name; none until the resources are loaded
+            Locations: string[]
+            // GENPRES_LOCATION: the location a patient without a Location gets; outside production UMCU when unset,
+            // in production None when unset
+            DefaultLocation: string option
         }
 
 

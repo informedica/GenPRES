@@ -284,6 +284,7 @@ module Adapters =
             member _.GetTotals() = provider.GetTotals()
             member _.GetGStandProvider() = provider.GetGStandProvider()
             member _.GetDepartments() = provider.GetDepartments()
+            member _.GetLocations() = provider.GetLocations()
             member _.GetResourceInfo() = provider.GetResourceInfo()
         }
 
@@ -471,6 +472,7 @@ module Adapters =
     /// session port runs over the record in that database; when unset, over a record in memory.
     let makeAppEnvWith
         (demo: bool)
+        (defaultLocation: string option)
         (store: string option)
         (zone: TimeZoneInfo)
         (sessionIdle: TimeSpan)
@@ -547,6 +549,8 @@ module Adapters =
             patientDataResources = patientDataResourcesOf provider
             today = today
             departments = fun () -> provider.GetDepartments()
+            locations = fun () -> provider.GetLocations()
+            defaultLocation = defaultLocation
             // The session port over the SQLite store when store is set, otherwise in memory. In memory, the sessions
             // and the record live as long as this AppEnv.
             session =
@@ -602,6 +606,8 @@ module Adapters =
 
         makeAppEnvWith
             demo
+            // no default location
+            None
             None
             (LocalDate.defaultZone ())
             Session.defaultIdleLifetime

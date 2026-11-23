@@ -345,9 +345,8 @@ let languageTests =
                 |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
 
-            test "toServerSettings carries the language, the demo flag and the departments" {
-                Map [ "GENPRES_LANG", "en" ] |> settings |> Config.toServerSettings
-                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+            test "toServerSettings carries the language, the demo flag, the departments and the locations" {
+                Config.toServerSettings (Map [ "GENPRES_LANG", "en" ] |> settings) [||] [| "AMC"; "UMCU" |]
                 |> Expect.equal
                     "demo, English"
                     {
@@ -355,10 +354,11 @@ let languageTests =
                             Informedica.GenPRES.Shared.Localization.English
                         IsDemo = true
                         Departments = [| None |]
+                        Locations = [| "AMC"; "UMCU" |]
+                        DefaultLocation = Some "UMCU"
                     }
 
-                Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
-                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+                Config.toServerSettings (Map [ "GENPRES_PROD", "1" ] |> settings) [||] [||]
                 |> Expect.equal
                     "production, Dutch"
                     {
@@ -366,6 +366,8 @@ let languageTests =
                             Informedica.GenPRES.Shared.Localization.Dutch
                         IsDemo = false
                         Departments = [| None |]
+                        Locations = [||]
+                        DefaultLocation = None
                     }
             }
 
@@ -376,7 +378,7 @@ let languageTests =
                     [| "ICC"; "ICK"; "NEO" |], [| None; Some "ICC"; Some "ICK"; Some "NEO" |]
                 ]
                 |> List.iter (fun (departments, expected) ->
-                    Map.empty |> settings |> Config.toServerSettings <| departments
+                    Config.toServerSettings (Map.empty |> settings) departments [||]
                     |> _.Departments
                     |> Expect.equal "no department, then the departments" expected
                 )
@@ -483,6 +485,47 @@ let timeZoneTests =
         ]
 
 
+let locationTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_LOCATION"
+        [
+            test "fromEnv reads it, blank as unset" {
+                (Map [ "GENPRES_LOCATION", "AMC" ] |> settings).Location
+                |> Expect.equal "raw" (Some "AMC")
+
+                (Map [ "GENPRES_LOCATION", " " ] |> settings).Location |> Expect.isNone "blank"
+            }
+
+            test "the setting is the default location, in production and outside it" {
+                Map [ "GENPRES_PROD", "1"; "GENPRES_LOCATION", "AMC" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "production" (Some "AMC")
+
+                Map [ "GENPRES_LOCATION", "AMC" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "demo" (Some "AMC")
+            }
+
+            test "without the setting, production has no default location" {
+                Map [ "GENPRES_PROD", "1" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.isNone "none"
+            }
+
+            test "without the setting, the default location outside production is UMCU" {
+                Map.empty
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "UMCU" (Some "UMCU")
+            }
+        ]
+
+
 let productionDebugTests =
     let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
@@ -572,5 +615,6 @@ let tests =
             languageTests
             sessionIdleTests
             timeZoneTests
+            locationTests
             productionDebugTests
         ]

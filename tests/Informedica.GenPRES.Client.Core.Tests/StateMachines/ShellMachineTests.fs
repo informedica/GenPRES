@@ -52,6 +52,8 @@ let settings language =
         Language = language
         IsDemo = true
         Departments = [||]
+        Locations = [||]
+        DefaultLocation = None
     }
 
 
