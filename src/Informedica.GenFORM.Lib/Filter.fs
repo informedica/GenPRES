@@ -18,9 +18,10 @@ module Filter =
         }
 
 
-    let solutionFilter gen =
+    /// A solution filter with no criteria and unknown patient data.
+    let solutionFilter =
         {
-            Generic = gen
+            Generic = None
             Form = None
             Route = None
             Indication = None

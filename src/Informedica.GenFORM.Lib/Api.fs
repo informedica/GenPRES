@@ -104,6 +104,11 @@ module Api =
         DoseRule.filter routeMappings filter doseRules
 
 
+    /// Returns the solution rules that match the filter, with the route mapping of the provider.
+    let filterSolutionRules (provider: IResourceProvider) filter solutionRules =
+        solutionRules |> SolutionRule.filter (getRouteMapping provider) filter
+
+
     /// Returns a lookup that tells whether the Formulary marks the product with a GPK as an additive.
     let isAdditive (provider: IResourceProvider) = provider.Get Keys.isAdditive
 

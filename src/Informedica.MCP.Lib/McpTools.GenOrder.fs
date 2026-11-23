@@ -231,7 +231,8 @@ module GenOrderTools =
                 Form = input.Form
             }
 
-        Formulary.getDoseRules provider filter
+        Api.getDoseRules provider
+        |> Api.filterDoseRules provider filter
         |> Array.map (fun dr ->
             {|
                 Generic = dr.Generic |> Generic.toString
@@ -245,7 +246,14 @@ module GenOrderTools =
 
 
     let getSolutionRulesForContext (provider: IResourceProvider) (input: SolutionRulesForContextInput) =
-        Formulary.getSolutionRules provider input.Generic input.Form input.Route
+        Api.getSolutionRules provider
+        |> Api.filterSolutionRules
+            provider
+            { Filter.solutionFilter with
+                Generic = input.Generic
+                Form = input.Form
+                Route = input.Route
+            }
         |> Array.map (fun solRule ->
             {|
                 Generic = solRule.Generic

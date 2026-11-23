@@ -22,7 +22,6 @@
     <Compile Include="MedicationText.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogging.fs" />
-    <Compile Include="Formulary.fs" />
     <Compile Include="OrderContext.fs" />
     <Compile Include="OrderPlan.fs" />
     <None Include="Scripts\load.fsx" />

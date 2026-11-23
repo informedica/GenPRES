@@ -752,8 +752,8 @@ module Types =
 
     type SolutionFilter =
         {
-            /// The Generic of the SolutionRule
-            Generic: string
+            /// The generic of the solution rule; None for every generic.
+            Generic: string option
             /// The pharmaceutical form of the SolutionRule
             Form: string option
             /// The Route of the SolutionRule

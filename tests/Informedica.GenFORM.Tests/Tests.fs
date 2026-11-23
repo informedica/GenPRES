@@ -7169,7 +7169,8 @@ module Tests =
 
                         // what getRules does: the default on the filter's patient, never on the patient itself
                         let matched (department: string option) =
-                            { Filter.solutionFilter "paracetamol" with
+                            { Filter.solutionFilter with
+                                Generic = Some "paracetamol"
                                 PatientData =
                                     PatientDtoTests.Fixtures.child
                                     |> TestPatient.withDepartment (department |> Option.orElse (Some deps.Default))
@@ -7402,7 +7403,10 @@ module Tests =
 
         /// The indications of the rules a lookup for the patient finds.
         let matched pat =
-            { Filter.solutionFilter "paracetamol" with PatientData = pat }
+            { Filter.solutionFilter with
+                Generic = Some "paracetamol"
+                PatientData = pat
+            }
             |> fun filter -> rules |> SolutionRule.filter [||] filter
             |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
 
@@ -7450,6 +7454,158 @@ module Tests =
                         |> TestPatient.withWeightInKg 5N
                         |> matched
                         |> Expect.equal "any and under 10 kg" [| "any"; "under 10 kg" |]
+                    }
+                ]
+
+
+    module SolutionRuleLookupTests =
+
+        open Informedica.GenForm.Lib.Types
+        open Informedica.GenForm.Lib.Resources
+
+
+        /// A solution rule for any patient with a generic, a form and a route.
+        let rule generic form route : SolutionRule =
+            {
+                Generic = generic
+                Form = form
+                Route = route
+                Indication = None
+                DoseType = NoDoseType
+                PatientCategory = PatientCategory.empty
+                Dose = MinMax.empty
+                AdjustUnit = None
+                Diluents = [||]
+                SolutionLimit = SolutionRule.SolutionLimit.empty
+                DilutionLimits = [||]
+            }
+
+
+        let mapping: RouteMapping[] =
+            [|
+                {
+                    Long = "INTRAVENEUS"
+                    Short = "iv"
+                }
+                {
+                    Long = "ORAAL"
+                    Short = "or"
+                }
+            |]
+
+
+        let rules =
+            [|
+                rule "paracetamol" (Some "infusievloeistof") "INTRAVENEUS"
+                rule "paracetamol" None "ORAAL"
+                rule "morfine" None "iv"
+                rule "noradrenaline" (Some "concentraat") "INTRAVENEUS"
+            |]
+
+
+        let generics (rs: SolutionRule[]) = rs |> Array.map _.Generic
+
+
+        /// The rules that a filter on an optional generic, form and route finds.
+        let lookup generic form route =
+            rules
+            |> SolutionRule.filter
+                mapping
+                { Filter.solutionFilter with
+                    Generic = generic
+                    Form = form
+                    Route = route
+                }
+
+
+        /// A provider that holds only the solution rules and the route mappings above.
+        let provider =
+            let notUsed () = raise (System.NotImplementedException "not used by the test")
+
+            { new IResourceProvider with
+                member _.Get _ = notUsed ()
+                member _.GetData() = notUsed ()
+                member _.GetUnitMappings() = notUsed ()
+                member _.GetRouteMappings() = mapping
+                member _.GetValidForms() = notUsed ()
+                member _.GetFormRoutes() = notUsed ()
+                member _.GetFormularyProducts() = notUsed ()
+                member _.GetReconstitution() = notUsed ()
+                member _.GetParenteralMeds() = notUsed ()
+                member _.GetEnteralFeeding() = notUsed ()
+                member _.GetProducts() = notUsed ()
+                member _.GetDoseRules() = notUsed ()
+                member _.GetSolutionRules() = rules
+                member _.GetRenalRules() = notUsed ()
+                member _.GetTotals() = notUsed ()
+                member _.GetGStandProvider() = notUsed ()
+                member _.GetDepartments() = notUsed ()
+                member _.GetResourceInfo() = notUsed ()
+            }
+
+
+        let tests =
+            testList
+                "solution rules with an optional generic"
+                [
+                    test "a filter without criteria returns every rule" {
+                        lookup None None None
+                        |> generics
+                        |> Expect.equal "all rules" (rules |> generics)
+                    }
+
+                    test "a generic is matched ignoring case" {
+                        lookup (Some "Paracetamol") None None
+                        |> generics
+                        |> Expect.equal "both paracetamol rules" [| "paracetamol"; "paracetamol" |]
+                    }
+
+                    test "a rule without a form matches any form" {
+                        lookup (Some "paracetamol") (Some "zetpil") None
+                        |> Array.map _.Route
+                        |> Expect.equal "the oral rule without a form" [| "ORAAL" |]
+                    }
+
+                    test "a form is matched ignoring case" {
+                        lookup None (Some "Concentraat") None
+                        |> generics
+                        |> Expect.equal
+                            "the rules with that form or without a form"
+                            [| "paracetamol"; "morfine"; "noradrenaline" |]
+                    }
+
+                    test "a short route matches the long route of a rule through the route mapping" {
+                        lookup None None (Some "iv")
+                        |> generics
+                        |> Expect.equal "the intravenous rules" [| "paracetamol"; "morfine"; "noradrenaline" |]
+                    }
+
+                    test "a long route matches the short route of a rule through the route mapping" {
+                        lookup (Some "morfine") None (Some "INTRAVENEUS")
+                        |> generics
+                        |> Expect.equal "the morfine rule" [| "morfine" |]
+                    }
+
+                    test "a route that is not in the route mapping finds no rule" {
+                        lookup None None (Some "rectaal") |> Expect.isEmpty "no rules"
+                    }
+
+                    test "a filter with a generic still checks the indication" {
+                        [| { rule "paracetamol" None "INTRAVENEUS" with Indication = Some "pijn" } |]
+                        |> SolutionRule.filter
+                            mapping
+                            { Filter.solutionFilter with
+                                Generic = Some "paracetamol"
+                                Indication = Some "koorts"
+                            }
+                        |> Expect.isEmpty "another indication"
+                    }
+
+                    test "Api.filterSolutionRules filters with the route mapping of the provider" {
+                        Api.getSolutionRules provider
+                        |> Api.filterSolutionRules provider { Filter.solutionFilter with Route = Some "or" }
+                        |> generics
+                        |> Expect.equal "the oral rule" [| "paracetamol" |]
                     }
                 ]
 
@@ -13445,6 +13601,7 @@ module Tests =
                 CheckTests.tests
                 SourceLinkTests.tests
                 SolutionRuleFilterTests.tests
+                SolutionRuleLookupTests.tests
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
                 RuleCheckTests.tests
