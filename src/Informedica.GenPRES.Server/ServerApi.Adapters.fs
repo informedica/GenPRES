@@ -77,15 +77,61 @@ module Adapters =
     /// evaluation of a context settled to the rule set of its category.
     module NutritionRuleSets =
 
+        // the server messages and the logging functions, for the warning about the rule set rows
+        open Logging
+        open Informedica.Logging.Lib
+
+
         /// Maps an order plan error in a result to its message.
         let refused r = r |> Result.mapError (OrderPlanMapper.words >> Array.singleton)
 
 
+        /// Creates a rule set for every nutrition category in the rows, with the label of the first row of the
+        /// category and the distinct non-empty indications and generics in row order. Leaves out the rows of a
+        /// category that is not a nutrition category.
+        let ofData (rows: Types.Data.RuleSetData[]) =
+            rows
+            |> Array.groupBy _.Category
+            |> Array.choose (fun (name, rs) ->
+                let distinct f =
+                    rs |> Array.map f |> Array.filter String.notEmpty |> Array.distinct
+
+                NutritionCategoryMapper.ofName name
+                |> Option.map (fun category ->
+                    {
+                        Category = category
+                        Label = rs[0].Label
+                        Indications = distinct _.Indication
+                        Generics = distinct _.Generic
+                    }
+                )
+            )
+
+
+        /// Returns the distinct category names in the rows that are not a nutrition category, in row order.
+        let unknownCategories (rows: Types.Data.RuleSetData[]) =
+            rows
+            |> Array.map _.Category
+            |> Array.distinct
+            |> Array.filter (NutritionCategoryMapper.ofName >> Option.isNone)
+
+
+        /// Returns the warning for a category name whose rows are left out of the rule sets.
+        let unknownCategoryWarning name =
+            ServerLogging.Warning $"RuleSets: %s{name} is not a nutrition category, its rows are left out"
+
+
+        /// Logs a warning for every category in the rule set rows of a loaded provider that is not a nutrition
+        /// category. Logs nothing for a provider that did not load.
+        let warnUnknownCategories logger (provider: Resources.IResourceProvider) =
+            if provider.GetResourceInfo().IsLoaded then
+                provider.Get Resources.Keys.ruleSetRows
+                |> unknownCategories
+                |> Array.iter (unknownCategoryWarning >> Logging.logWarning logger)
+
+
         /// Reads the rule sets from the rule set rows of the provider on every call, so a reload of the sheet is seen.
-        let ruleSets (provider: Resources.IResourceProvider) =
-            provider.Get Resources.Keys.ruleSetData
-            |> NutritionRuleSet.ofData
-            |> Result.mapError (List.map OrderPlanMapper.words >> List.toArray)
+        let ruleSets (provider: Resources.IResourceProvider) = provider.Get Resources.Keys.ruleSetData |> ofData
 
 
         /// Returns the rule sets and the rule set of a nutrition category, or an error when there is no rule set for
@@ -93,10 +139,8 @@ module Adapters =
         let ruleSetOf provider category =
             match category with
             | Some c ->
-                ruleSets provider
-                |> Result.bind (fun sets ->
-                    sets |> NutritionRuleSet.find c |> refused |> Result.map (fun s -> sets, Some s)
-                )
+                let sets = ruleSets provider
+                sets |> NutritionRuleSet.find c |> refused |> Result.map (fun s -> sets, Some s)
             | None -> Ok([||], None)
 
 
@@ -284,23 +328,14 @@ module Adapters =
                                 set
                                 OrderContext.UpdateOrderContext
 
-                        // Without readable rule sets the category of an offer is unknown, so nothing is offered.
                         return
-                            match NutritionRuleSets.ruleSets provider with
-                            | Ok sets ->
-                                pc
-                                |> NutritionRuleSets.linkedOffers
-                                    (provider.GetRouteMappings())
-                                    (provider.Get Resources.Keys.linkRules)
-                                    sets
-                                    evaluate
-                                |> Ok
-                            | Error errs ->
-                                Logging.ServerLogging.Error
-                                    $"no linked orders offered, the rule sets cannot be read: %A{errs}"
-                                |> Informedica.Logging.Lib.Logging.logError logger
-
-                                Ok [||]
+                            pc
+                            |> NutritionRuleSets.linkedOffers
+                                (provider.GetRouteMappings())
+                                (provider.Get Resources.Keys.linkRules)
+                                (NutritionRuleSets.ruleSets provider)
+                                evaluate
+                            |> Ok
                     }
         }
 
@@ -506,6 +541,7 @@ module Adapters =
                             async {
                                 try
                                     Informedica.GenForm.Lib.Api.reloadCache orderLogger provider
+                                    NutritionRuleSets.warnUnknownCategories orderLogger provider
 
                                     return
                                         match notLoaded provider with
