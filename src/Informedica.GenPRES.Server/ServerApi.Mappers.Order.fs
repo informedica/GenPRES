@@ -179,6 +179,20 @@ module Mappers =
                             }
                         )
                     )
+                Predilution =
+                    dto.Predilution
+                    |> Option.bind (fun pd ->
+                        Option.map2
+                            (fun med dil ->
+                                {
+                                    MedVolume = med |> mapToValueUnit
+                                    DiluentVolume = dil |> mapToValueUnit
+                                    Diluent = pd.Diluent
+                                }
+                            )
+                            pd.MedVolume
+                            pd.DiluentVolume
+                    )
             }
 
 
@@ -204,6 +218,16 @@ module Mappers =
                     d.Solvent <- r.Solvent
                     d.SolventVolume <- r.SolventVolume |> mapFromValueUnit |> Some
                     d.ExpansionVolume <- r.ExpansionVolume |> Option.map mapFromValueUnit
+                    d
+                )
+
+            dto.Predilution <-
+                p.Predilution
+                |> Option.map (fun pd ->
+                    let d = Order.Orderable.Component.Dto.PredilutionDto()
+                    d.MedVolume <- pd.MedVolume |> mapFromValueUnit |> Some
+                    d.DiluentVolume <- pd.DiluentVolume |> mapFromValueUnit |> Some
+                    d.Diluent <- pd.Diluent
                     d
                 )
 

@@ -1516,12 +1516,20 @@ module Order =
                     member val ExpansionVolume: ValueUnit.Dto.Dto option = None with get, set
 
 
+                /// The predilution a product was made with.
+                type PredilutionDto() =
+                    member val MedVolume: ValueUnit.Dto.Dto option = None with get, set
+                    member val DiluentVolume: ValueUnit.Dto.Dto option = None with get, set
+                    member val Diluent = "" with get, set
+
+
                 /// A product a component can be made of.
                 type ProductDto() =
                     member val Id = "" with get, set
                     member val FormQuantities: ValueUnit.Dto.Dto option = None with get, set
                     member val Strengths: StrengthDto list = [] with get, set
                     member val Reconstitution: ReconstitutionDto option = None with get, set
+                    member val Predilution: PredilutionDto option = None with get, set
 
 
                 let productToDto (p: ComponentProduct) =
@@ -1547,6 +1555,16 @@ module Order =
                             d.Solvent <- r.Solvent
                             d.SolventVolume <- r.SolventVolume |> vuToDto
                             d.ExpansionVolume <- r.ExpansionVolume |> Option.bind vuToDto
+                            d
+                        )
+
+                    dto.Predilution <-
+                        p.Predilution
+                        |> Option.map (fun pd ->
+                            let d = PredilutionDto()
+                            d.MedVolume <- pd.MedVolume |> vuToDto
+                            d.DiluentVolume <- pd.DiluentVolume |> vuToDto
+                            d.Diluent <- pd.Diluent
                             d
                         )
 
@@ -1581,6 +1599,20 @@ module Order =
                                         ExpansionVolume = r.ExpansionVolume |> Option.bind ValueUnit.Dto.fromDto
                                     }
                                 )
+                            )
+                        Predilution =
+                            dto.Predilution
+                            |> Option.bind (fun pd ->
+                                Option.map2
+                                    (fun med dil ->
+                                        {
+                                            MedVolume = med
+                                            DiluentVolume = dil
+                                            Diluent = pd.Diluent
+                                        }
+                                    )
+                                    (pd.MedVolume |> Option.bind ValueUnit.Dto.fromDto)
+                                    (pd.DiluentVolume |> Option.bind ValueUnit.Dto.fromDto)
                             )
                     }
 
@@ -3202,19 +3234,36 @@ module Order =
         ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
 
 
-    /// The id of a product in a product pick: the product id, followed by the solvent of its reconstitution, so
-    /// that two reconstitutions of one product have different ids.
-    let pickId id (reconstitution: ComponentReconstitution option) =
-        match reconstitution with
-        | Some r -> $"%s{id} %s{r.Solvent}"
-        | None -> id
+    /// The product volume, the word, the diluent volume and the diluent of a predilution, such as "3 mL verdund
+    /// met 7 mL gluc 5%".
+    let predilutionToString word (pd: ComponentPredilution) =
+        let toString = ValueUnit.toStringDecimalDutchShortWithPrec -1
+        $"%s{pd.MedVolume |> toString} %s{word} %s{pd.DiluentVolume |> toString} %s{pd.Diluent}"
+
+
+    /// The id of a product in a product pick: the product id, followed by the solvent of its reconstitution and
+    /// then by its predilution, such as "185663 water 3 mL + 7 mL gluc 5%", so that two reconstitutions or two
+    /// predilutions of one product have different ids. The id uses the display text of the volumes, so a change
+    /// of that text changes the stored pick ids.
+    let pickId id (reconstitution: ComponentReconstitution option) (predilution: ComponentPredilution option) =
+        let solvent =
+            reconstitution
+            |> Option.map (fun r -> $" %s{r.Solvent}")
+            |> Option.defaultValue ""
+
+        let predil =
+            predilution
+            |> Option.map (fun pd -> $""" %s{pd |> predilutionToString "+"}""")
+            |> Option.defaultValue ""
+
+        $"%s{id}%s{solvent}%s{predil}"
 
 
     /// The pick ids of the products that apply to the values of the components of an order.
     let productIds ord =
         (ord |> inf).Orderable.Components
         |> List.collect Orderable.Component.productsThatApply
-        |> List.map (fun p -> p.Reconstitution |> pickId p.Id)
+        |> List.map (fun p -> pickId p.Id p.Reconstitution p.Predilution)
         |> List.toArray
 
 
@@ -4153,6 +4202,22 @@ module Order =
             | None -> [||]
 
 
+        /// The product volume, the diluent volume and the diluent of the predilution joined by a word, such as
+        /// "3 mL verdund met 7 mL gluc 5%", when exactly one product applies and that product is pre-diluted.
+        let predilutionText word (products: ComponentProduct list) =
+            match products with
+            | [ { Predilution = Some pd } ] -> pd |> predilutionToString word |> Some
+            | _ -> None
+
+
+        /// The preparation row such as "3 mL verdunnen met 7 mL gluc 5%" in the first column, when exactly one
+        /// product applies and that product is pre-diluted. Returns no row otherwise.
+        let printPredilution products =
+            match products |> predilutionText "verdunnen met" with
+            | Some text -> [| [| text |> Valid; "" |> Valid; "" |> Valid; "" |> Valid |] |]
+            | None -> [||]
+
+
         let printPrep printMd sns (ord: Order) =
             let hasCompQty =
                 // Print the component quantity only when the first component has a single quantity above 1.
@@ -4192,6 +4257,7 @@ module Order =
 
                 [|
                     c |> Orderable.Component.productsThatApply |> printReconstitution
+                    c |> Orderable.Component.productsThatApply |> printPredilution
 
                     if i1 > 0 || cItms |> Array.isEmpty then
                         [|
@@ -4832,6 +4898,14 @@ module Order =
         ord.Orderable.Components
         |> List.tryHead
         |> Option.bind (Orderable.Component.productsThatApply >> Print.reconstitutionText)
+
+
+    /// The predilution of the first component of an order as text, such as "3 mL verdund met 7 mL gluc 5%".
+    /// Returns None when not exactly one product of that component applies or that product is not pre-diluted.
+    let predilutionText (ord: Order) =
+        ord.Orderable.Components
+        |> List.tryHead
+        |> Option.bind (Orderable.Component.productsThatApply >> Print.predilutionText "verdund met")
 
 
     module Dto =

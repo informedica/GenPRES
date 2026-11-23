@@ -199,6 +199,18 @@ module Medication =
             None
 
 
+    /// Returns the predilution a product was made with; None for a product that is not pre-diluted.
+    let predilutionOf (p: Product) =
+        p.Predilution
+        |> Option.map (fun pd ->
+            {
+                MedVolume = pd.Rule.MedVolume
+                DiluentVolume = pd.Rule.DiluentVolume
+                Diluent = pd.Rule.Diluent
+            }
+        )
+
+
     /// An empty medication record.
     let template =
         {
@@ -287,6 +299,14 @@ module Medication =
             member val ExpansionVolume: ValueDto = null with get, set
 
 
+        /// The predilution a product was made with.
+        [<AllowNullLiteral>]
+        type PredilutionDto() =
+            member val MedVolume: ValueDto = null with get, set
+            member val DiluentVolume: ValueDto = null with get, set
+            member val Diluent: string = null with get, set
+
+
         /// A product a component can be made of.
         [<AllowNullLiteral>]
         type ProductDto() =
@@ -294,6 +314,7 @@ module Medication =
             member val FormQuantities: ValueDto = null with get, set
             member val Strengths: StrengthDto[] = [||] with get, set
             member val Reconstitution: ReconstitutionDto = null with get, set
+            member val Predilution: PredilutionDto = null with get, set
 
 
         /// A substance of a component.
@@ -428,12 +449,21 @@ module Medication =
             )
 
 
+        let predilutionToDto (pd: ComponentPredilution) =
+            PredilutionDto(
+                MedVolume = (pd.MedVolume |> valueToDto),
+                DiluentVolume = (pd.DiluentVolume |> valueToDto),
+                Diluent = pd.Diluent
+            )
+
+
         let productToDto (p: ComponentProduct) =
             ProductDto(
                 Id = p.Id,
                 FormQuantities = (p.FormQuantities |> valueOptToDto),
                 Strengths = (p.Strengths |> List.map strengthToDto |> List.toArray),
-                Reconstitution = (p.Reconstitution |> Option.map reconstitutionToDto |> Option.toObj)
+                Reconstitution = (p.Reconstitution |> Option.map reconstitutionToDto |> Option.toObj),
+                Predilution = (p.Predilution |> Option.map predilutionToDto |> Option.toObj)
             )
 
 
@@ -671,12 +701,34 @@ module Medication =
                 }
 
 
+        /// Reads the predilution of a product; a null Dto is a product that is not pre-diluted.
+        let predilutionFromDto path (dto: PredilutionDto) =
+            if isNull dto then
+                Ok None
+            else
+                validation {
+                    let medPath = $"%s{path}.MedVolume"
+                    let dilPath = $"%s{path}.DiluentVolume"
+                    let! med = Nested.required medPath dto.MedVolume (valueFromDto medPath)
+                    and! dil = Nested.required dilPath dto.DiluentVolume (valueFromDto dilPath)
+
+                    return
+                        Some
+                            {
+                                MedVolume = med
+                                DiluentVolume = dil
+                                Diluent = dto.Diluent |> DtoResult.orBlank
+                            }
+                }
+
+
         let productFromDto path (dto: ProductDto) =
             validation {
                 // A placeholder product, made when no product matches, has no id.
                 let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
                 and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
                 and! recon = dto.Reconstitution |> reconstitutionFromDto $"%s{path}.Reconstitution"
+                and! pred = dto.Predilution |> predilutionFromDto $"%s{path}.Predilution"
 
                 return
                     {
@@ -684,6 +736,7 @@ module Medication =
                         FormQuantities = qts
                         Strengths = strengths
                         Reconstitution = recon
+                        Predilution = pred
                     }
             }
 
@@ -944,6 +997,7 @@ module Medication =
                             Id = p.GPK
                             FormQuantities = if perMl then Some oneMl else Some p.FormQuantities
                             Reconstitution = p |> reconstitutionOf
+                            Predilution = p |> predilutionOf
                             Strengths =
                                 p.Substances
                                 |> Array.choose (fun sub ->

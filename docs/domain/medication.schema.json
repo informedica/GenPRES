@@ -231,6 +231,9 @@
         },
         "Reconstitution": {
           "$ref": "#/definitions/ReconstitutionDto"
+        },
+        "Predilution": {
+          "$ref": "#/definitions/PredilutionDto"
         }
       }
     },
@@ -260,6 +263,22 @@
         },
         "ExpansionVolume": {
           "$ref": "#/definitions/ValueDto"
+        }
+      }
+    },
+    "PredilutionDto": {
+      "type": "object",
+      "description": "The predilution a product was made with.",
+      "additionalProperties": false,
+      "properties": {
+        "MedVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "DiluentVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Diluent": {
+          "type": "string"
         }
       }
     },

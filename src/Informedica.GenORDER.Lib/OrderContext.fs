@@ -632,7 +632,9 @@ module OrderContext =
         let pickedGroups products groups =
             let isPicked (p: Product) =
                 products
-                |> Array.contains (p |> Medication.reconstitutionOf |> Order.pickId p.GPK)
+                |> Array.contains (
+                    Order.pickId p.GPK (p |> Medication.reconstitutionOf) (p |> Medication.predilutionOf)
+                )
 
             let holdsPick (cl: ComponentLimit) =
                 cl.Products |> Array.isEmpty || cl.Products |> Array.exists isPicked
