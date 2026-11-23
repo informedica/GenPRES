@@ -214,8 +214,7 @@ module Patient =
                 | _ -> [||]
 
             // The department of the patient is always among the options, so the field can show a
-            // department from the url or the launch that the settings do not list, and a list of one
-            // option never replaces the department of the patient.
+            // department from the url or the launch that the settings do not list.
             let options =
                 match own with
                 | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
@@ -227,39 +226,32 @@ module Patient =
                     keepOpen ()
                     s |> Msg.UpdateDepartment |> dispatch
 
-            // A list of a single department selects it, because the server never selects one.
-            let only =
-                match options with
-                | [| (key, _) |] -> Some key
-                | _ -> None
-
             let enabled = not busy && not launched
 
-            React.useEffect (
-                (fun () ->
-                    match only with
-                    | Some key when own <> Some key && enabled -> changeDepartment (Some key)
-                    | _ -> ()
-                ),
-                [|
-                    box (only |> Option.defaultValue "")
-                    box (own |> Option.defaultValue "")
-                    box enabled
-                |]
-            )
-
-            Components.PickField.View
+            // A select and not a pick field, because a pick field shows a single option as chosen. A
+            // patient without a department keeps no department until the user chooses one, also when
+            // the rules name a single department.
+            Components.SimpleSelect.View
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Department"
-                    options = options
                     selected = own
-                    onChange = changeDepartment
+                    values = options
+                    updateSelected = changeDepartment
+                    isLoading = settings |> Deferred.toOption |> Option.isNone
+                    disabled = not enabled
+                    readOnly = false
                     // Clearing removes the department, so the clear button shows only when a department
                     // is chosen.
-                    clearable = own.IsSome
-                    isLoading = settings |> Deferred.toOption |> Option.isNone
-                    enabled = enabled
-                    shape = Components.PickField.Shape.Scroll
+                    hasClear = own.IsSome && enabled
+                    canStep = false
+                    severity = Severity.Normal
+                    minWidth = None
+                    description = None
+                    reCalc = None
+                    restore = ignore
+                    busy = false
+                    placeholder = None
+                    placeholderValue = None
                 |}
 
         // Says where the department comes from: the launch while a session is open, the panel or the
