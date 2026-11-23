@@ -562,6 +562,8 @@ let tests =
                         let env =
                             Adapters.makeAppEnvWith
                                 true
+                                // no default location
+                                None
                                 (Some cs)
                                 TimeZoneInfo.Utc
                                 Session.defaultIdleLifetime
@@ -620,6 +622,8 @@ let tests =
                 let env =
                     Adapters.makeAppEnvWith
                         true
+                        // no default location
+                        None
                         None
                         TimeZoneInfo.Utc
                         Session.defaultIdleLifetime

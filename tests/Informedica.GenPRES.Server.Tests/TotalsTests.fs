@@ -40,6 +40,7 @@ type TotalsSpy() =
         member _.GetFormularyProducts() = raise (NotImplementedException())
         member _.GetGStandProvider() = raise (NotImplementedException())
         member _.GetDepartments() = raise (NotImplementedException())
+        member _.GetLocations() = raise (NotImplementedException())
         member _.GetParenteralMeds() = raise (NotImplementedException())
         member _.GetProducts() = raise (NotImplementedException())
         member _.GetReconstitution() = raise (NotImplementedException())

@@ -52,6 +52,8 @@ module Config =
             SessionIdle: string option
             /// GENPRES_TIME_ZONE, raw; None when unset or blank. Parsed by parseTimeZone.
             TimeZone: string option
+            /// GENPRES_LOCATION; None when unset or blank. Read by defaultLocation.
+            Location: string option
         }
 
 
@@ -263,15 +265,24 @@ module Config =
         )
 
 
-    /// Maps the settings and the departments to the settings sent to the client. The departments to choose from
-    /// are None first, for no department, then the departments the rules name. Call after
+    /// Returns the location the server fills in for a patient without a Location: GENPRES_LOCATION, else UMCU
+    /// outside production and none in production.
+    let defaultLocation settings =
+        settings.Location
+        |> Option.orElse (if settings.IsProd then None else Some "UMCU")
+
+
+    /// Maps the settings, the departments and the locations to the settings sent to the client. The departments to
+    /// choose from are None first, for no department, then the departments the rules name. Call after
     /// validateStartup, which refuses an invalid language, so the default language is never used as a fallback
     /// here.
-    let toServerSettings (settings: Settings) departments : Informedica.GenPRES.Shared.Api.ServerSettings =
+    let toServerSettings (settings: Settings) departments locations : Informedica.GenPRES.Shared.Api.ServerSettings =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
             IsDemo = not settings.IsProd
             Departments = departments |> Array.map Some |> Array.append [| None |]
+            Locations = locations
+            DefaultLocation = defaultLocation settings
         }
 
 
@@ -293,6 +304,7 @@ module Config =
             DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
             SessionIdle = getEnv "GENPRES_SESSION_IDLE_MINUTES" |> nonBlank
             TimeZone = getEnv "GENPRES_TIME_ZONE" |> nonBlank
+            Location = getEnv "GENPRES_LOCATION" |> nonBlank
         }
 
 
@@ -315,6 +327,13 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
 GENPRES_SESSION_IDLE_MINUTES = {settings.SessionIdle |> Option.defaultValue "unset (an hour)"}
 GENPRES_TIME_ZONE = {settings.TimeZone
                      |> Option.defaultValue $"unset ({ServerApi.LocalDate.defaultZoneId})"}
+GENPRES_LOCATION = {settings.Location
+                    |> Option.defaultValue (
+                        if settings.IsProd then
+                            "unset (no default location)"
+                        else
+                            "unset (UMCU)"
+                    )}
 
 === System Info ===
 
@@ -607,6 +626,7 @@ module Host =
             let env =
                 Adapters.makeAppEnvWith
                     (not settings.IsProd)
+                    (Config.defaultLocation settings)
                     settings.DbConnection
                     // validated at the start, so the error cannot happen
                     (Config.parseTimeZone settings.TimeZone |> Result.defaultWith invalidOp)
@@ -624,7 +644,7 @@ module Host =
             else
                 env
 
-        // The settings are mapped once here; the departments are added per request.
+        // The settings are mapped once here; the departments and the locations are added per request.
         let serverSettings = Config.toServerSettings settings
 
         let webApi =

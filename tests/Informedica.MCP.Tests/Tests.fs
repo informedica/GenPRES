@@ -265,7 +265,7 @@ module Tests =
         module GenFormTypes = Informedica.GenForm.Lib.Types
 
         /// The departments the tests prescribe for, named by rules.
-        let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
+        let private departments = distinctNames [ Some "NEO"; Some "ICC" ]
 
         /// A provider that answers the departments and nothing else: a test that reaches any
         /// rule raises, so a refusal proves that the guard ran before the rules were read.
@@ -301,6 +301,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -338,6 +339,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -404,7 +406,7 @@ module Tests =
                     }
 
                     test "when the rules spell a name in two cases, the spelling given wins" {
-                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+                        let both = distinctNames [ Some "NEO"; Some "neo" ]
 
                         { measured with Department = Some "neo" }
                         |> checkDepartment both
@@ -413,7 +415,7 @@ module Tests =
                     }
 
                     test "when the rules spell a name in two cases, a third case is refused" {
-                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+                        let both = distinctNames [ Some "NEO"; Some "neo" ]
 
                         { measured with Department = Some "Neo" }
                         |> checkDepartment both
@@ -557,7 +559,7 @@ module Tests =
         /// A provider that answers the given normal-value rows and the departments and nothing
         /// else: an evaluation that reaches a rule raises, so a refusal proves the guard ran first.
         let private withRows (rows: Map<string, string[][]>) : IResourceProvider =
-            let departments = Departments.ofNamed []
+            let departments = distinctNames []
 
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
@@ -590,6 +592,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -841,7 +844,8 @@ module Tests =
                         raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 // the department of the vancomycin rule
-                member _.GetDepartments() = Departments.ofNamed [ Some "ICK" ]
+                member _.GetDepartments() = distinctNames [ Some "ICK" ]
+                member _.GetLocations() = [||]
 
 
         let refusals =

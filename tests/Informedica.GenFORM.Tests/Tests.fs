@@ -7088,11 +7088,11 @@ module Tests =
         open Informedica.GenForm.Lib.Resources
 
 
-        let reconstitutionOf dep : Reconstitution =
+        let reconstitutionOf location dep : Reconstitution =
             {
                 GPK = "1"
                 Route = "iv"
-                Location = None
+                Location = location
                 Department = dep
                 MinAge = None
                 MaxAge = None
@@ -7105,71 +7105,91 @@ module Tests =
             }
 
 
+        let solutionRowOf location dep : SolutionRuleData =
+            {
+                Generic = "paracetamol"
+                Form = ""
+                Route = "iv"
+                Indication = ""
+                Location = location
+                Department = dep
+                CVL = ""
+                PVL = ""
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
+                MinGestAge = None
+                MaxGestAge = None
+                MinDose = None
+                MaxDose = None
+                DoseType = ""
+                DoseText = ""
+                Diluents = []
+                Div = None
+                Volumes = [||]
+                MinVol = None
+                MaxVol = None
+                MinVolAdj = None
+                MaxVolAdj = None
+                AdjustUnit = ""
+                MinPerc = None
+                MaxPerc = None
+                Component = ""
+                Substance = ""
+                Unit = ""
+                Quantities = [||]
+                MinQty = None
+                MaxQty = None
+                MinQtyAdj = None
+                MaxQtyAdj = None
+                MinDrip = None
+                MaxDrip = None
+                MinConc = None
+                MaxConc = None
+            }
+
+
+        let doseRowOf location dep =
+            let d = DoseRuleProductTests.mkData "paracetamol" "oral" "" "" [||] [||]
+
+            { d with
+                Patient =
+                    { d.Patient with
+                        Location = location
+                        Dep = dep
+                    }
+            }
+
+
         let tests =
             testList
                 "the departments"
                 [
                     test "the names are what the rules name, distinct and sorted, blanks ignored" {
                         [ Some "NEO"; Some "ICC"; None; Some "NEO"; Some " "; Some "ICC" ]
-                        |> Departments.ofNamed
+                        |> distinctNames
                         |> Expect.equal "ICC, NEO" [| "ICC"; "NEO" |]
                     }
 
                     test "the names come from the dose rules, the solution rules and the reconstitutions" {
-                        let doseRow =
-                            let d = DoseRuleProductTests.mkData "paracetamol" "oral" "" "" [||] [||]
-                            { d with Patient = { d.Patient with Dep = "PICU" } }
-
-                        let solutionRow: SolutionRuleData =
-                            {
-                                Generic = "paracetamol"
-                                Form = ""
-                                Route = "iv"
-                                Indication = ""
-                                Location = None
-                                Department = Some "ICC"
-                                CVL = ""
-                                PVL = ""
-                                MinAge = None
-                                MaxAge = None
-                                MinWeight = None
-                                MaxWeight = None
-                                MinGestAge = None
-                                MaxGestAge = None
-                                MinDose = None
-                                MaxDose = None
-                                DoseType = ""
-                                DoseText = ""
-                                Diluents = []
-                                Div = None
-                                Volumes = [||]
-                                MinVol = None
-                                MaxVol = None
-                                MinVolAdj = None
-                                MaxVolAdj = None
-                                AdjustUnit = ""
-                                MinPerc = None
-                                MaxPerc = None
-                                Component = ""
-                                Substance = ""
-                                Unit = ""
-                                Quantities = [||]
-                                MinQty = None
-                                MaxQty = None
-                                MinQtyAdj = None
-                                MaxQtyAdj = None
-                                MinDrip = None
-                                MaxDrip = None
-                                MinConc = None
-                                MaxConc = None
-                            }
-
-                        Departments.ofRules [| doseRow |] [| solutionRow |] [| reconstitutionOf (Some "NEO") |]
+                        Departments.ofRules
+                            [| doseRowOf "" "PICU" |]
+                            [| solutionRowOf None (Some "ICC") |]
+                            [| reconstitutionOf None (Some "NEO") |]
                         |> Expect.equal "ICC, NEO, PICU" [| "ICC"; "NEO"; "PICU" |]
                     }
 
+                    test "the locations come from the dose rules, the solution rules and the reconstitutions" {
+                        Locations.ofRules
+                            [| doseRowOf "UMCU" ""; doseRowOf " UMCU " ""; doseRowOf " " "" |]
+                            [| solutionRowOf (Some "AMC") None; solutionRowOf None None |]
+                            [| reconstitutionOf (Some "UZA") None; reconstitutionOf None None |]
+                        |> Expect.equal "AMC, UMCU, UZA" [| "AMC"; "UMCU"; "UZA" |]
+                    }
+
                     test "a department is known when a rule names it" {
-                        let deps = Departments.ofNamed [ Some "NEO" ]
+                        let deps = distinctNames [ Some "NEO" ]
                         "NEO" |> Departments.isKnown deps |> Expect.isTrue "NEO"
                         "ICU" |> Departments.isKnown deps |> Expect.isFalse "ICU"
                     }
@@ -7183,6 +7203,7 @@ module Tests =
                             )
 
                         provider.GetDepartments() |> Expect.isEmpty "no departments"
+                        provider.GetLocations() |> Expect.isEmpty "no locations"
                     }
 
                     test "the normal-value rows and tables are registered resources over the four sheets" {
@@ -7330,9 +7351,9 @@ module Tests =
 
                                         Ok
                                             [|
-                                                reconstitutionOf (Some "NEO")
-                                                reconstitutionOf None
-                                                reconstitutionOf (Some "ICC")
+                                                reconstitutionOf None (Some "NEO")
+                                                reconstitutionOf None None
+                                                reconstitutionOf None (Some "ICC")
                                             |]
                                     )
                                     Keys.departments.Name,
@@ -7599,6 +7620,7 @@ module Tests =
                 member _.GetTotals() = notUsed ()
                 member _.GetGStandProvider() = notUsed ()
                 member _.GetDepartments() = notUsed ()
+                member _.GetLocations() = notUsed ()
                 member _.GetResourceInfo() = notUsed ()
             }
 
@@ -12219,7 +12241,7 @@ module Tests =
                     (Keys.solutionRules.Name, ofResult (fun () -> Ok [| Limiting.limitsBoth |]))
                     (Keys.renalRules.Name, ofResult (fun () -> Ok Array.empty<RenalRule>))
                     (Keys.routeMappings.Name, ofResult (fun () -> Ok RuleCheckTests.ivRouteMapping))
-                    (Keys.departments.Name, ofResult (fun () -> Ok(Departments.ofNamed [])))
+                    (Keys.departments.Name, ofResult (fun () -> Ok(distinctNames [])))
                     (Keys.isAdditive.Name, derive (fun _ -> fun (_: string) -> false))
                 ]
             |> fun reg ->
@@ -12268,6 +12290,7 @@ module Tests =
                 member _.GetTotals() = provider.GetTotals()
                 member _.GetGStandProvider() = provider.GetGStandProvider()
                 member _.GetDepartments() = provider.GetDepartments()
+                member _.GetLocations() = provider.GetLocations()
                 member _.GetResourceInfo() = provider.GetResourceInfo()
             }
 
@@ -12298,6 +12321,7 @@ module Tests =
                 member _.GetTotals() = provider.GetTotals()
                 member _.GetGStandProvider() = provider.GetGStandProvider()
                 member _.GetDepartments() = provider.GetDepartments()
+                member _.GetLocations() = provider.GetLocations()
                 member _.GetResourceInfo() = provider.GetResourceInfo()
             }
 

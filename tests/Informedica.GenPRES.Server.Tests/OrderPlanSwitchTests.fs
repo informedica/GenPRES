@@ -58,7 +58,8 @@ type NoRules() =
         member _.GetRenalRules() = [||]
         member _.GetTotals() = [||]
         member _.GetGStandProvider() = raise (System.NotImplementedException())
-        member _.GetDepartments() = Resources.Departments.ofNamed []
+        member _.GetDepartments() = Resources.distinctNames []
+        member _.GetLocations() = [||]
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 

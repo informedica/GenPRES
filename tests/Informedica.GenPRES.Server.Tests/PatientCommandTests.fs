@@ -30,6 +30,15 @@ let changed resources (sid: string option) (pat: PatientData) =
     |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
+/// The location of the patient answered to the command, with the default location given.
+let locationOf defaultLocation cmd =
+    let env = { envOver (portOver (ResizeArray())) with defaultLocation = defaultLocation }
+
+    PatientDataCommand.processCmd env cmd
+    |> Async.RunSynchronously
+    |> Result.map _.Location
+
+
 let withWeight grams (pat: PatientData) = { pat with Weight = { pat.Weight with Measured = Some grams } }
 
 
@@ -101,6 +110,34 @@ let tests =
                         GestationalAge.NoGestationalAge, None
                         GestationalAge.NoGestationalAge, None
                     ]
+            }
+
+            test "a patient without a Location gets the default location" {
+                Informedica.GenPRES.Shared.Models.PatientData.empty
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "UMCU" (Ok(Some "UMCU"))
+            }
+
+            test "a patient with a Location keeps it" {
+                { Informedica.GenPRES.Shared.Models.PatientData.empty with Location = Some "AMC" }
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "AMC" (Ok(Some "AMC"))
+            }
+
+            test "without a default location, a patient without a Location keeps none" {
+                Informedica.GenPRES.Shared.Models.PatientData.empty
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf None
+                |> Expect.equal "none" (Ok None)
+            }
+
+            test "an edit of a patient without a Location answers the default location" {
+                (PatientDataEdit.SetGender Male, Informedica.GenPRES.Shared.Models.PatientData.empty)
+                |> PatientDataCommand.EditPatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "UMCU" (Ok(Some "UMCU"))
             }
 
             test "every patient change waits for the normal values, a measured one too" {

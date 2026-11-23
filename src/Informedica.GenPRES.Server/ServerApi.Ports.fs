@@ -495,6 +495,10 @@ type AppEnv =
         demo: bool
         // The departments the loaded rules name; none while the rules are not loaded.
         departments: unit -> string[]
+        // The locations the loaded rules name; none while the rules are not loaded.
+        locations: unit -> string[]
+        // The location a patient without a Location gets; None for no default.
+        defaultLocation: string option
         // The resources GenCORE completes the patient data with; None until the resources are loaded. Calling it may
         // load them.
         patientDataResources: unit -> CorePatientDataResources option

@@ -7,9 +7,10 @@ module CompositionRoot =
 
 
     /// Builds the server api for one request. The settings and the env are built once per host, the
-    /// cookies once per request. The settings get the departments as loaded at the time of the request.
+    /// cookies once per request. The settings get the departments and the locations as loaded at the time of the
+    /// request.
     let compose
-        (settings: string[] -> ServerSettings)
+        (settings: string[] -> string[] -> ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)
@@ -95,8 +96,9 @@ module CompositionRoot =
                         Logging.ServerLogging.Info "Processing settings"
                         |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
-                        // Reads the departments on every request, so a reload shows on the next request.
-                        return env.departments () |> settings
+                        // Reads the departments and the locations on every request, so a reload shows on the next
+                        // request.
+                        return settings (env.departments ()) (env.locations ())
                     }
 
             testApi = fun () -> async { return "Hello world!" }
@@ -108,7 +110,7 @@ module ApiImpl =
 
     /// Creates the IServerApi implementation for one request using the composition root.
     let createServerApi
-        (settings: string[] -> Informedica.GenPRES.Shared.Api.ServerSettings)
+        (settings: string[] -> string[] -> Informedica.GenPRES.Shared.Api.ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)

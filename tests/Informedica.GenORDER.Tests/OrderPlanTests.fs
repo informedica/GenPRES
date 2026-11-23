@@ -856,7 +856,9 @@ type NoRules() =
 
         member _.GetGStandProvider() = raise (System.NotImplementedException())
 
-        member _.GetDepartments() = Resources.Departments.ofNamed []
+        member _.GetDepartments() = Resources.distinctNames []
+
+        member _.GetLocations() = [||]
 
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
@@ -1326,7 +1328,8 @@ type ElectrolyteRules(minWeight, products) =
 
         member _.GetSolutionRules() = solutionRules
         member _.GetRouteMappings() = Electrolytes.routeMapping
-        member _.GetDepartments() = Resources.Departments.ofNamed [ Some "ICK"; Some "NEO" ]
+        member _.GetDepartments() = Resources.distinctNames [ Some "ICK"; Some "NEO" ]
+        member _.GetLocations() = [||]
 
 
 /// A nutrition context narrowed to its rule set as the server narrows it: the rule set from the rows of the

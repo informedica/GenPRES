@@ -535,6 +535,7 @@ GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .e
 GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory
 GENPRES_SESSION_IDLE_MINUTES=60 # A Session with no request this long ends; unset = 60, not a positive whole number refuses the start
 GENPRES_TIME_ZONE=Europe/Amsterdam # Time zone a patient's age is taken in; unset = Europe/Amsterdam, an unknown id refuses the start
+GENPRES_LOCATION=UMCU          # Location a patient without one gets; unset = UMCU, in production no default
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
@@ -554,6 +555,13 @@ patient is 18 from 00:00 local time, not from 01:00 (CET) or 02:00 (CEST) when t
 Unset means `Europe/Amsterdam`; an id the system does not know makes the server refuse to start.
 Session lifetimes and the stored timestamps stay in UTC. The server reads the zone from the
 system's time zone database, which the Debian-based `aspnet` runtime image ships.
+
+#### Default location
+
+`GENPRES_LOCATION` is the location, the hospital, that the server fills in for a patient without a
+location, before it completes the patient data. The rules with a location then apply to that patient.
+Unset means `UMCU` outside production; in production unset means no default, so a patient without a
+location gets only the rules without a location.
 
 #### Password policy
 
