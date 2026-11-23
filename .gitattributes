@@ -3,3 +3,10 @@
 # front matter (falls back to scanning full git history instead of erroring). Force LF so the
 # last_commit_released/updaters config is always actually read.
 CHANGELOG.md text eol=lf
+
+# Check out the F# sources with LF line endings on every platform, so a string literal in a source
+# file holds the same line endings on Windows as on macOS and Linux. The eol attribute overrides
+# core.autocrlf; the files are already stored with LF line endings.
+*.fs  text eol=lf
+*.fsx text eol=lf
+*.fsi text eol=lf
