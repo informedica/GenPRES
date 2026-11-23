@@ -1005,20 +1005,14 @@ module Types =
         | Refused of 'a * Refusal
 
 
-    /// The categories of nutrition order. An order plan has one context per category, except for any
-    /// number of supplements, each under an enteral feeding, and any number of electrolyte and glucose orders.
-    [<RequireQualifiedAccess>]
-    type NutritionCategory =
-        | EnteralFeeding
-        | EnteralSupplement
-        | TPN
-        | Lipid
-        | ElectrolyteGlucose
+    /// Type alias for NutritionCategory from Informedica.GenForm.Lib.Types
+    type NutritionCategory = Informedica.GenForm.Lib.Types.NutritionCategory
 
 
     /// The category of the order in an order context: medication, or a nutrition category. It is stored
     /// on the context, not derived from the generic, because electrolytes and glucose can also be
-    /// prescribed as medication.
+    /// prescribed as medication. An order plan has one context per nutrition category, except for any
+    /// number of supplements, each under an enteral feeding, and any number of electrolyte and glucose orders.
     [<RequireQualifiedAccess>]
     type OrderCategory =
         | Medication
@@ -1063,20 +1057,6 @@ module Types =
             Contexts: PlanContext[]
             /// The totals over the orders of the filtered contexts
             Totals: Totals
-        }
-
-
-    /// The dose rule selection of a nutrition category, passed in as data and not defined in this library.
-    type NutritionRuleSet =
-        {
-            /// The category the set serves
-            Category: NutritionCategory
-            /// The label of the category
-            Label: string
-            /// The indications the dose rules of the category are filtered on
-            Indications: string[]
-            /// The generics the dose rules of the category are filtered on
-            Generics: string[]
         }
 
 

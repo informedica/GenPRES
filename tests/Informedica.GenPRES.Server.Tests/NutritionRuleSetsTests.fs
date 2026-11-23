@@ -252,20 +252,18 @@ module LinkedOffers =
         |]
 
 
-    let sets: NutritionRuleSet[] =
+    let sets =
         [|
-            {
-                Category = NutritionCategory.EnteralFeeding
-                Label = "Enterale Voeding"
-                Indications = [| "Enterale voeding" |]
-                Generics = [| "Nutrini (Nutricia)" |]
-            }
-            {
-                Category = NutritionCategory.EnteralSupplement
-                Label = "Enterale Toevoeging"
-                Indications = [| "Enterale toevoeging" |]
-                Generics = [||]
-            }
+            OrderPlanTests.Fixtures.nutritionRuleSet
+                NutritionCategory.EnteralFeeding
+                "Enterale Voeding"
+                [| "Enterale voeding" |]
+                [| "Nutrini (Nutricia)" |]
+            OrderPlanTests.Fixtures.nutritionRuleSet
+                NutritionCategory.EnteralSupplement
+                "Enterale Toevoeging"
+                [| "Enterale toevoeging" |]
+                [||]
         |]
 
 
@@ -309,7 +307,7 @@ module LinkedOffers =
     /// writes the label of the rule set it was given into the argumentation, so that a test can read it.
     /// A list of one dose type is kept, as the rule lookup reads it as the pick. A context whose generic
     /// is "refused" is refused.
-    let evaluateWith generics (set: NutritionRuleSet option) (pc: PlanContext) =
+    let evaluateWith generics (set: RuleSet option) (pc: PlanContext) =
         let f = pc.Context.Filter
 
         let answered =
@@ -333,7 +331,7 @@ module LinkedOffers =
 
     let offersOf rows generics main =
         main
-        |> ServerApi.Adapters.NutritionRuleSets.linkedOffers routes (rulesOf rows) sets (evaluateWith generics)
+        |> ServerApi.Adapters.RuleSets.linkedOffers routes (rulesOf rows) sets (evaluateWith generics)
 
 
 open LinkedOffers
@@ -384,7 +382,7 @@ let linkedOfferTests =
                     )
 
                 morning
-                |> ServerApi.Adapters.NutritionRuleSets.linkedOffers routes (rulesOf [| ataluren |]) sets morningOnly
+                |> ServerApi.Adapters.RuleSets.linkedOffers routes (rulesOf [| ataluren |]) sets morningOnly
                 |> Expect.isEmpty "no evening offer"
             }
 
@@ -493,6 +491,29 @@ module RuleSetRows =
     let row = OrderPlanTests.EvaluateFixtures.ruleSetRow
 
 
+    /// A provider whose rule set rows hold a feeding for the department ICK, the default department, and one
+    /// for NEO.
+    type DepartmentRuleSet() =
+        inherit OrderPlanTests.RulesOf([||])
+
+        interface Resources.IResourceProvider with
+            member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+                if key.Name = Resources.Keys.ruleSetData.Name then
+                    unbox<'T>(
+                        box
+                            [|
+                                { row "EnteralFeeding" "Enterale Voeding" "voeding" "MM" with
+                                    RuleSetData.Department = Some "ICK"
+                                }
+                                { row "EnteralFeeding" "Enterale Voeding" "voeding" "Nutrini" with
+                                    RuleSetData.Department = Some "NEO"
+                                }
+                            |]
+                    )
+                else
+                    raise (System.Collections.Generic.KeyNotFoundException key.Name)
+
+
 open RuleSetRows
 
 
@@ -501,85 +522,100 @@ let ruleSetRowTests =
     testList
         "the rule set rows the server reads"
         [
-            test "every nutrition category is read back from its name" {
-                let cases = FSharpType.GetUnionCases typeof<NutritionCategory> |> Array.length
+            test "every rule set kind is read back from its category name" {
+                let nutritionCases = FSharpType.GetUnionCases typeof<NutritionCategory> |> Array.length
 
-                NutritionRuleSet.categories
+                RuleSet.categories
                 |> Array.length
-                |> Expect.equal "every case is listed" cases
+                |> Expect.equal "every nutrition category is listed" nutritionCases
 
-                NutritionRuleSet.categories
-                |> Array.map (
-                    ServerApi.NutritionCategoryMapper.toName
-                    >> ServerApi.NutritionCategoryMapper.ofName
-                )
-                |> Expect.equal "every case round-trips" (NutritionRuleSet.categories |> Array.map Some)
+                RuleSet.kinds
+                |> Array.map (ServerApi.RuleSetKindMapper.toName >> ServerApi.RuleSetKindMapper.ofName)
+                |> Expect.equal "every kind round-trips" (RuleSet.kinds |> Array.map Some)
             }
 
-            test "a name that is not a category name maps to no nutrition category" {
-                [ "EmergencyList"; "tpn"; "" ]
-                |> List.map ServerApi.NutritionCategoryMapper.ofName
+            test "a name that is not a rule set category maps to no rule set kind" {
+                [ "Enteral"; "tpn"; "" ]
+                |> List.map ServerApi.RuleSetKindMapper.ofName
                 |> Expect.equal "none" [ None; None; None ]
             }
 
-            test "the rows of a category are one rule set, each value once, in the order of the rows" {
-                [|
-                    row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
-                    row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "NICU mix"
-                    row "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" "Primene"
-                    row "Lipid" "Vetten" "Parenterale vetten" ""
-                |]
-                |> ServerApi.Adapters.NutritionRuleSets.ofData
+            test "the rows of a category are one rule set with its rows in row order" {
+                let intubation =
+                    { row "EmergencyList" "Noodlijst" "Intubatie" "propofol" with RuleSetData.Location = Some "UMCU" }
+
+                let lipid = row "Lipid" "Vetten" "Parenterale vetten" ""
+                let icp = row "EmergencyList" "Noodlijst" "Verhoogde ICP" "NaCl 3%"
+
+                [| intubation; lipid; icp |]
+                |> ServerApi.Adapters.RuleSets.ofData
                 |> Expect.equal
-                    "two sets, the lipids without generics"
+                    "two sets"
                     [|
                         {
-                            Category = NutritionCategory.TPN
-                            Label = "Totale Parenterale Voeding"
-                            Indications = [| "Neonatale Parenterale Voeding"; "Totale Parenterale Voeding" |]
-                            Generics = [| "Primene"; "NICU mix" |]
+                            Kind = RuleSetKind.EmergencyList
+                            Label = "Noodlijst"
+                            Rows = [| intubation; icp |]
                         }
                         {
-                            Category = NutritionCategory.Lipid
+                            Kind = RuleSetKind.Nutrition NutritionCategory.Lipid
                             Label = "Vetten"
-                            Indications = [| "Parenterale vetten" |]
-                            Generics = [||]
+                            Rows = [| lipid |]
                         }
                     |]
             }
 
-            test "the rows of a category that is not a nutrition category are left out, the other sets stay" {
+            test "a patient without a department gets the rows of the default department, as for the dose rules" {
+                PatientData.unknown
+                |> ServerApi.Adapters.RuleSets.ruleSets (DepartmentRuleSet())
+                |> Array.collect _.Rows
+                |> Array.map _.Generic
+                |> Expect.equal "the ICK feeding" [| "MM" |]
+            }
+
+            test "a nutrition slot of a department without rows of its category is refused" {
+                let hck = PatientData.unknown |> SamplePatients.withDepartment (Some "HCK")
+
+                ServerApi.Adapters.RuleSets.ruleSetOf (DepartmentRuleSet()) hck (Some NutritionCategory.EnteralFeeding)
+                |> Result.isError
+                |> Expect.isTrue "no rule set for the feeding at HCK"
+            }
+
+            test "the rows of a category that is not a rule set category are left out, the other sets stay" {
                 [|
                     row "Enteral" "x" "Enterale voeding" "MM"
                     row "Enteral" "x" "Enterale voeding" "Infatrini"
                     row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
                 |]
-                |> ServerApi.Adapters.NutritionRuleSets.ofData
-                |> Array.map _.Category
-                |> Expect.equal "only the TPN set" [| NutritionCategory.TPN |]
+                |> ServerApi.Adapters.RuleSets.ofData
+                |> Array.map _.Kind
+                |> Expect.equal "only the TPN set" [| RuleSetKind.Nutrition NutritionCategory.TPN |]
             }
 
-            test "each category name that is not a nutrition category, once, in row order" {
+            test "each category that is not a rule set category, once, in row order" {
                 [|
-                    row "EmergencyList" "Noodlijst" "Noodlijst intubatie" ""
+                    row "Enteral" "x" "Enterale voeding" ""
                     row "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" ""
-                    row "StandardInfusions" "Standaard infusies" "Continu" ""
-                    row "EmergencyList" "Noodlijst" "Noodlijst sedatie" ""
+                    row "Supplement" "x" "Enterale toevoeging" ""
+                    row "Enteral" "x" "Enterale voeding" ""
                 |]
-                |> ServerApi.Adapters.NutritionRuleSets.unknownCategories
-                |> Expect.equal "two names" [| "EmergencyList"; "StandardInfusions" |]
+                |> ServerApi.Adapters.RuleSets.unknownCategories
+                |> Expect.equal "two names" [| "Enteral"; "Supplement" |]
             }
 
-            test "rows of nutrition categories give no such name" {
-                [| row "Lipid" "Vetten" "Parenterale vetten" "" |]
-                |> ServerApi.Adapters.NutritionRuleSets.unknownCategories
+            test "rows of rule set categories give no such category" {
+                [|
+                    row "Lipid" "Vetten" "Parenterale vetten" ""
+                    row "EmergencyList" "Noodlijst" "Intubatie" ""
+                |]
+                |> ServerApi.Adapters.RuleSets.unknownCategories
                 |> Expect.isEmpty "none"
             }
 
             test "the warning names the category and says its rows are left out" {
-                "EmergencyList"
-                |> ServerApi.Adapters.NutritionRuleSets.unknownCategoryWarning
+                "Enteral"
+                |> ServerApi.Adapters.RuleSets.unknownCategoryWarning
                 |> Logging.ServerLogging.formatMessage
-                |> Expect.equal "the text" "RuleSets: EmergencyList is not a nutrition category, its rows are left out"
+                |> Expect.equal "the text" "RuleSets: Enteral is not a rule set category, its rows are left out"
             }
         ]

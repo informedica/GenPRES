@@ -204,60 +204,49 @@ module NutritionRuleSet =
     open Informedica.Utils.Lib.BCL
 
 
-    /// Returns the rule set of a nutrition category, or None when there is none.
-    let tryFind category (sets: NutritionRuleSet[]) = sets |> Array.tryFind (fun s -> s.Category = category)
-
-
-    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none.
+    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none or when it has no
+    /// rows, as a rule set for a patient none of whose rows apply has none.
     let find category sets =
         sets
-        |> tryFind category
+        |> RuleSet.tryFind category
+        |> Option.filter (_.Rows >> Array.isEmpty >> not)
         |> Result.requireSome (OrderPlanError.NoRuleSet category)
-
-
-    /// Every nutrition category.
-    let categories =
-        [|
-            NutritionCategory.EnteralFeeding
-            NutritionCategory.EnteralSupplement
-            NutritionCategory.TPN
-            NutritionCategory.Lipid
-            NutritionCategory.ElectrolyteGlucose
-        |]
-
-
-    /// Whether a list of a rule set allows the name: an empty list allows any name, and names compare
-    /// without regard to case.
-    let allows (allowed: string[]) name =
-        allowed |> Array.isEmpty
-        || allowed |> Array.exists (String.equalsCapInsens name)
 
 
     /// Returns the nutrition category whose rule set names the indication and allows the generic, otherwise
     /// Medication, also when the indication or the generic is missing.
-    let orderCategory (sets: NutritionRuleSet[]) indication generic =
+    let orderCategory (sets: RuleSet[]) indication generic =
         match indication, generic with
         | Some ind, Some gen ->
             sets
-            |> Array.tryFind (fun s ->
-                s.Indications |> Array.exists (String.equalsCapInsens ind)
-                && allows s.Generics gen
+            |> Array.tryPick (fun s ->
+                match s.Kind with
+                | RuleSetKind.Nutrition category ->
+                    if
+                        s.Rows
+                        |> RuleSet.distinctOf _.Indication
+                        |> Array.exists (String.equalsCapInsens ind)
+                        && RuleSet.allows (s.Rows |> RuleSet.distinctOf _.Generic) gen
+                    then
+                        Some(OrderCategory.Nutrition category)
+                    else
+                        None
+                | _ -> None
             )
-            |> Option.map (_.Category >> OrderCategory.Nutrition)
             |> Option.defaultValue OrderCategory.Medication
         | _ -> OrderCategory.Medication
 
 
     /// Narrows the indication and generic lists of the context filter to the names the rule set allows.
     /// The other lists and the picks do not change.
-    let narrow (set: NutritionRuleSet) (ctx: OrderContext) : OrderContext =
-        let keep allowed (xs: string[]) = xs |> Array.filter (allows allowed)
+    let narrow (set: RuleSet) (ctx: OrderContext) : OrderContext =
+        let keep allowed (xs: string[]) = xs |> Array.filter (RuleSet.allows allowed)
 
         { ctx with
             Filter =
                 { ctx.Filter with
-                    Indications = ctx.Filter.Indications |> keep set.Indications
-                    Generics = ctx.Filter.Generics |> keep set.Generics
+                    Indications = ctx.Filter.Indications |> keep (set.Rows |> RuleSet.distinctOf _.Indication)
+                    Generics = ctx.Filter.Generics |> keep (set.Rows |> RuleSet.distinctOf _.Generic)
                 }
         }
 
@@ -362,7 +351,7 @@ module OrderPlan =
     /// Returns NoSuchContext for an unknown id, and NotNarrowed when the evaluated context does not have
     /// exactly one scenario, because a context in the plan always has an order.
     let updateContext
-        (ruleSets: NutritionRuleSet[])
+        (ruleSets: RuleSet[])
         id
         (evaluated: PlanContext)
         (plan: OrderPlan)
@@ -376,7 +365,7 @@ module OrderPlan =
                 match
                     held
                     |> PlanContext.nutritionCategory
-                    |> Option.bind (fun c -> ruleSets |> NutritionRuleSet.tryFind c)
+                    |> Option.bind (fun c -> ruleSets |> RuleSet.tryFind c)
                 with
                 | Some set -> evaluated.Context |> NutritionRuleSet.narrow set
                 | None -> evaluated.Context

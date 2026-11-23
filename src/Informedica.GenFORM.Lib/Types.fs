@@ -842,6 +842,27 @@ module Types =
         interface IMessage
 
 
+    /// The categories of nutrition.
+    [<RequireQualifiedAccess>]
+    type NutritionCategory =
+        | EnteralFeeding
+        | EnteralSupplement
+        | TPN
+        | Lipid
+        | ElectrolyteGlucose
+
+
+    /// What a rule set selects the dose rules for.
+    [<RequireQualifiedAccess>]
+    type RuleSetKind =
+        /// The dose rules of a nutrition category
+        | Nutrition of NutritionCategory
+        /// The dose rules of the emergency list
+        | EmergencyList
+        /// The dose rules of the standard infusions
+        | StandardInfusions
+
+
     /// The rows of the sheets, mapped into the domain types above. Defined last so that the domain types
     /// cannot refer to these types.
     [<AutoOpen>]
@@ -912,12 +933,13 @@ module Types =
 
 
         // qualified, so that the field names do not take over the type inference of the records before it
-        /// One row of the "RuleSets" sheet: a nutrition category, its label, and an indication and a
-        /// generic the category offers. Several rows make up the rule set of one category.
+        /// One row of the "RuleSets" sheet: a category, its label, and an indication and a generic the
+        /// category offers for a location and a department. Several rows make up the rule set of one category.
         [<RequireQualifiedAccess>]
         type RuleSetData =
             {
-                /// sheet column "Category": EnteralFeeding, EnteralSupplement, TPN, Lipid or ElectrolyteGlucose
+                /// sheet column "Category": EnteralFeeding, EnteralSupplement, TPN, Lipid, ElectrolyteGlucose,
+                /// EmergencyList or StandardInfusions
                 Category: string
                 /// sheet column "Label": the label of the category; the label of the first row of the category is used
                 Label: string
@@ -927,6 +949,10 @@ module Types =
                 /// the brand or the form in brackets when the dose rule is restricted to one. Empty for every
                 /// generic under the indication.
                 Generic: string
+                /// sheet column "Loc": the location the row is for; None for every location
+                Location: string option
+                /// sheet column "Dep": the department the row is for; None for every department
+                Department: string option
             }
 
 

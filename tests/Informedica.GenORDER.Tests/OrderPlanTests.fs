@@ -105,20 +105,39 @@ module Fixtures =
         OrderPlan.orders p |> Array.map (fun s -> let (Id id) = s.Order.Id in id)
 
 
-    let ruleSets: NutritionRuleSet[] =
+    /// A row of a rule set for the indication and the generic, at the location and the department.
+    let ruleSetData indication generic location department : RuleSetData =
+        {
+            RuleSetData.Category = ""
+            RuleSetData.Label = ""
+            RuleSetData.Indication = indication
+            RuleSetData.Generic = generic
+            RuleSetData.Location = location
+            RuleSetData.Department = department
+        }
+
+
+    /// A nutrition rule set with a row for every indication and generic, for every location and department.
+    /// An empty list stands for any name.
+    let nutritionRuleSet category label (indications: string[]) (generics: string[]) : RuleSet =
+        let orAny names = if Array.isEmpty names then [| "" |] else names
+
+        {
+            Kind = RuleSetKind.Nutrition category
+            Label = label
+            Rows =
+                [|
+                    for indication in orAny indications do
+                        for generic in orAny generics do
+                            ruleSetData indication generic None None
+                |]
+        }
+
+
+    let ruleSets =
         [|
-            {
-                Category = NutritionCategory.TPN
-                Label = "TPN"
-                Indications = [| "voeding" |]
-                Generics = [| "glucose" |]
-            }
-            {
-                Category = NutritionCategory.EnteralFeeding
-                Label = "Feeding"
-                Indications = [||]
-                Generics = [||]
-            }
+            nutritionRuleSet NutritionCategory.TPN "TPN" [| "voeding" |] [| "glucose" |]
+            nutritionRuleSet NutritionCategory.EnteralFeeding "Feeding" [||] [||]
         |]
 
 
@@ -518,6 +537,8 @@ module EvaluateFixtures =
             Label = label
             Indication = indication
             Generic = generic
+            Location = None
+            Department = None
         }
 
 
@@ -594,6 +615,50 @@ let evaluateTests =
                 [||]
                 |> NutritionRuleSet.find NutritionCategory.Lipid
                 |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
+            }
+
+            test "a rule set without rows for the patient is refused as no rule set" {
+                let feeding =
+                    { nutritionRuleSet NutritionCategory.EnteralFeeding "Feeding" [||] [||] with
+                        Rows = [| ruleSetData "voeding" "Nutrini" (Some "UMCU") None |]
+                    }
+
+                [ "UMCU"; "AMC" ]
+                |> List.map (fun loc ->
+                    [|
+                        feeding |> RuleSet.forPatient { PatientData.unknown with Location = Some loc }
+                    |]
+                    |> NutritionRuleSet.find NutritionCategory.EnteralFeeding
+                    |> Result.isOk
+                )
+                |> Expect.equal "found at UMCU, refused at AMC" [ true; false ]
+            }
+
+            test "a rule set for a patient narrows to the names of the rows that apply to that patient" {
+                let set =
+                    {
+                        Kind = RuleSetKind.EmergencyList
+                        Label = "Noodlijst"
+                        Rows =
+                            [|
+                                ruleSetData "Noodlijst intubatie" "fentanyl" None None
+                                ruleSetData "Intubatie" "propofol" (Some "UMCU") None
+                            |]
+                    }
+
+                let amc = { PatientData.unknown with Location = Some "AMC" }
+
+                { pcmContext with
+                    PatientData = amc
+                    Filter =
+                        { fresh with
+                            Indications = [| "Noodlijst intubatie"; "Intubatie" |]
+                            Generics = [| "fentanyl"; "propofol" |]
+                        }
+                }
+                |> NutritionRuleSet.narrow (set |> RuleSet.forPatient amc)
+                |> fun ctx -> ctx.Filter.Indications, ctx.Filter.Generics
+                |> Expect.equal "no UMCU names at AMC" ([| "Noodlijst intubatie" |], [| "fentanyl" |])
             }
 
             test "a narrowing that leaves one generic without its choice is evaluated again, which picks it" {
@@ -728,7 +793,7 @@ let evaluateTests =
                                 }
                         }
 
-                let set = { Fixtures.ruleSets[0] with Generics = [| "glucose"; "paracetamol" |] }
+                let set = nutritionRuleSet NutritionCategory.TPN "TPN" [| "voeding" |] [| "glucose"; "paracetamol" |]
 
                 workbench
                 |> evaluate
@@ -1321,20 +1386,16 @@ let ruleSetDiscoveryTests =
                     |]
                     |> RuleSet.expand (RuleSet.DoseRuleNames.ofData data)
 
-                let set: NutritionRuleSet =
-                    {
-                        Category = NutritionCategory.EnteralFeeding
-                        Label = "Enterale Voeding"
-                        Indications = rows |> Array.map _.Indication |> Array.distinct
-                        Generics = rows |> Array.map _.Generic |> Array.distinct
-                    }
+                let indications = rows |> Array.map _.Indication |> Array.distinct
+                let generics = rows |> Array.map _.Generic |> Array.distinct
+                let set = nutritionRuleSet NutritionCategory.EnteralFeeding "Enterale Voeding" indications generics
 
                 let start: OrderContext =
                     {
                         Filter =
                             { OrderContext.emptyFilter with
-                                Indications = set.Indications
-                                Generics = set.Generics
+                                Indications = indications
+                                Generics = generics
                             }
                         PatientData = RuleFixtures.patient (Some 5N) false (Some 20N) None
                         Scenarios = [||]
@@ -3352,19 +3413,18 @@ let linkOfferTests =
             DoseType.Continuous ""
         |]
 
-    let sets: NutritionRuleSet[] =
+    let sets =
         [|
+            nutritionRuleSet
+                NutritionCategory.EnteralFeeding
+                "Enterale Voeding"
+                [| "Enterale voeding" |]
+                [| "Nutrini (Nutricia)" |]
+            nutritionRuleSet NutritionCategory.EnteralSupplement "Enterale Toevoeging" [| "Enterale toevoeging" |] [||]
             {
-                Category = NutritionCategory.EnteralFeeding
-                Label = "Enterale Voeding"
-                Indications = [| "Enterale voeding" |]
-                Generics = [| "Nutrini (Nutricia)" |]
-            }
-            {
-                Category = NutritionCategory.EnteralSupplement
-                Label = "Enterale Toevoeging"
-                Indications = [| "Enterale toevoeging" |]
-                Generics = [||]
+                Kind = RuleSetKind.EmergencyList
+                Label = "Noodlijst"
+                Rows = [| ruleSetData "Duchenne" "ataluren" None None |]
             }
         |]
 
@@ -3416,16 +3476,28 @@ let linkOfferTests =
                 |> Expect.equal "no generic" OrderCategory.Medication
             }
 
-            test "an empty list of a rule set allows any name, a list compares without case" {
-                [
-                    NutritionRuleSet.allows [||] "x"
-                    NutritionRuleSet.allows [| "Nutrini" |] "NUTRINI"
-                    NutritionRuleSet.allows [| "Nutrini" |] "Infatrini"
-                ]
-                |> Expect.equal "allowed, allowed, not" [ true; true; false ]
+            test "a nutrition rule set for a patient without its rows gives no nutrition category" {
+                let umcu =
+                    { nutritionRuleSet NutritionCategory.EnteralFeeding "Feeding" [||] [||] with
+                        Rows = [| ruleSetData "Enterale voeding" "Nutrini (Nutricia)" (Some "UMCU") None |]
+                    }
+
+                [ Some "UMCU"; Some "AMC" ]
+                |> List.map (fun loc ->
+                    NutritionRuleSet.orderCategory
+                        [| umcu |> RuleSet.forPatient { PatientData.unknown with Location = loc } |]
+                        (Some "Enterale voeding")
+                        (Some "Nutrini (Nutricia)")
+                )
+                |> Expect.equal
+                    "feeding at UMCU, medication at AMC"
+                    [
+                        OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+                        OrderCategory.Medication
+                    ]
             }
 
-            test "an indication no rule set holds is a medication" {
+            test "an indication only the emergency list rule set holds is a medication" {
                 NutritionRuleSet.orderCategory sets (Some "Duchenne") (Some "ataluren")
                 |> Expect.equal "medication" OrderCategory.Medication
             }

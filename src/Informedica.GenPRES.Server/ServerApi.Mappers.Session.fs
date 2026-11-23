@@ -1,29 +1,31 @@
 namespace ServerApi
 
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 // Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// Maps a nutrition category to its name in the "RuleSets" sheet and back.
-module NutritionCategoryMapper =
+/// Maps a rule set kind to its category name in the "RuleSets" sheet and back.
+module RuleSetKindMapper =
 
-    // Opened here, so that the case names refer to the GenORDER category and not the contract category.
-    open Informedica.GenOrder.Lib.Types
+    // Opened here, so that the case names refer to the GenFORM category and not the contract category.
+    open Informedica.GenForm.Lib
 
-    /// The name of a nutrition category in the "RuleSets" sheet.
+    /// The category name of a rule set kind in the "RuleSets" sheet.
     let toName =
         function
-        | NutritionCategory.EnteralFeeding -> "EnteralFeeding"
-        | NutritionCategory.EnteralSupplement -> "EnteralSupplement"
-        | NutritionCategory.TPN -> "TPN"
-        | NutritionCategory.Lipid -> "Lipid"
-        | NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
+        | RuleSetKind.Nutrition NutritionCategory.EnteralFeeding -> "EnteralFeeding"
+        | RuleSetKind.Nutrition NutritionCategory.EnteralSupplement -> "EnteralSupplement"
+        | RuleSetKind.Nutrition NutritionCategory.TPN -> "TPN"
+        | RuleSetKind.Nutrition NutritionCategory.Lipid -> "Lipid"
+        | RuleSetKind.Nutrition NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
+        | RuleSetKind.EmergencyList -> "EmergencyList"
+        | RuleSetKind.StandardInfusions -> "StandardInfusions"
 
 
-    /// Returns the nutrition category of a name in the "RuleSets" sheet, or None for another name.
-    let ofName name =
-        NutritionRuleSet.categories |> Array.tryFind (toName >> (=) name)
+    /// Returns the rule set kind of a category name in the "RuleSets" sheet, or None for another name.
+    let ofName name = RuleSet.kinds |> Array.tryFind (toName >> (=) name)
 
 
 /// Maps an order plan of the contract to the order plan Dto of GenORDER and back.
@@ -56,7 +58,7 @@ module OrderPlanMapper =
         | OrderPlanError.NotNarrowed n -> $"Choose one order first: %i{n} candidates remain"
         | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
         | OrderPlanError.NoRuleSet category ->
-            $"RuleSets: no rule set for %s{category |> NutritionCategoryMapper.toName}"
+            $"RuleSets: no rule set for %s{RuleSetKind.Nutrition category |> RuleSetKindMapper.toName}"
         | OrderPlanError.BrokenLink e -> e |> OrderContextMapper.linkWords
         | OrderPlanError.OrderRefused(generic, e) -> $"%s{generic}: %s{words e}"
 

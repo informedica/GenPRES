@@ -57,7 +57,7 @@ module ContinuousMeds =
                 |}
                 |> box
                 {|
-                    field = "catagory"
+                    field = "category"
                     headerName = Terms.``Continuous Medication Category`` |> getTerm "Category"
                     width = 140
                     filterable = true
@@ -129,7 +129,7 @@ module ContinuousMeds =
                                     value = $"{i + 1}.{m.Name}"
                                 |}
                                 {|
-                                    field = "catagory"
+                                    field = "category"
                                     value = $"{m.Category}"
                                 |}
                                 {|
@@ -164,7 +164,7 @@ module ContinuousMeds =
             else
                 {|
                     id = cells[0]
-                    catagory = cells[1].Replace("*", "")
+                    category = cells[1].Replace("*", "")
                     medication = cells[2].Replace("*", "")
                     quantity = cells[3].Replace("*", "")
                     solution = cells[4].Replace("*", "")
@@ -187,7 +187,7 @@ module ContinuousMeds =
         let printColumns =
             [|
                 {|
-                    field = "catagory"
+                    field = "category"
                     label = "Categorie"
                     width = "15%"
                 |}

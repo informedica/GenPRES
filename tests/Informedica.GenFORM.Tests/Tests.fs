@@ -1056,7 +1056,7 @@ module DoseRuleToDataTests =
                 (Mapping.parseSheet Mapping.totalsRow >> Result.isOk)
 
                 "RuleSets",
-                [ "Category"; "Label"; "Indication"; "Generic" ],
+                [ "Category"; "Label"; "Indication"; "Generic"; "Loc"; "Dep" ],
                 [],
                 [],
                 (Mapping.parseSheet Mapping.ruleSetRow >> Result.isOk)
@@ -10754,6 +10754,9 @@ module Tests =
 
         open Informedica.GenForm.Lib.Resources
 
+        module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+        module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+
 
         let row category label indication generic : RuleSetData =
             {
@@ -10761,6 +10764,8 @@ module Tests =
                 RuleSetData.Label = label
                 RuleSetData.Indication = indication
                 RuleSetData.Generic = generic
+                RuleSetData.Location = None
+                RuleSetData.Department = None
             }
 
 
@@ -10819,8 +10824,8 @@ module Tests =
                     test "a row maps by column name, whatever the order of the columns" {
                         sheet
                             [
-                                [ "Generic"; "Indication"; "Label"; "Category" ]
-                                [ "MM"; "Enterale voeding"; "Enterale Voeding"; "EnteralFeeding" ]
+                                [ "Dep"; "Generic"; "Indication"; "Loc"; "Label"; "Category" ]
+                                [ ""; "MM"; "Enterale voeding"; ""; "Enterale Voeding"; "EnteralFeeding" ]
                             ]
                         |> Mapping.parseSheet Mapping.ruleSetRow
                         |> Expect.equal
@@ -10831,13 +10836,105 @@ module Tests =
                     test "the cells are trimmed and an empty generic stays empty" {
                         sheet
                             [
-                                [ "Category"; "Label"; "Indication"; "Generic" ]
-                                [ " TPN "; "Totale Parenterale Voeding"; " Neonatale Parenterale Voeding "; "" ]
+                                [ "Category"; "Label"; "Indication"; "Generic"; "Loc"; "Dep" ]
+                                [
+                                    " TPN "
+                                    "Totale Parenterale Voeding"
+                                    " Neonatale Parenterale Voeding "
+                                    ""
+                                    ""
+                                    ""
+                                ]
                             ]
                         |> Mapping.parseSheet Mapping.ruleSetRow
                         |> Expect.equal
                             "trimmed"
                             (Ok [| row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "" |])
+                    }
+
+                    test "a Loc or Dep is trimmed, and an empty Loc or Dep is no location or department" {
+                        sheet
+                            [
+                                [ "Category"; "Label"; "Indication"; "Generic"; "Loc"; "Dep" ]
+                                [ "EmergencyList"; "Noodlijst"; "Intubatie"; ""; " UMCU "; "" ]
+                            ]
+                        |> Mapping.parseSheet Mapping.ruleSetRow
+                        |> Expect.equal
+                            "UMCU, every department"
+                            (Ok
+                                [|
+                                    { row "EmergencyList" "Noodlijst" "Intubatie" "" with
+                                        RuleSetData.Location = Some "UMCU"
+                                    }
+                                |])
+                    }
+
+                    test "a row without a location applies to every patient, a row with a location to that location" {
+                        let set =
+                            {
+                                Kind = RuleSetKind.EmergencyList
+                                Label = "Noodlijst"
+                                Rows =
+                                    [|
+                                        row "EmergencyList" "Noodlijst" "Intubatie" "fentanyl"
+                                        { row "EmergencyList" "Noodlijst" "Intubatie" "propofol" with
+                                            RuleSetData.Location = Some "UMCU"
+                                        }
+                                    |]
+                            }
+
+                        [ None; Some "UMCU"; Some "AMC" ]
+                        |> List.map (fun loc ->
+                            set
+                            |> RuleSet.forPatient { CorePatientData.unknown with Location = loc }
+                            |> _.Rows
+                            |> Array.length
+                        )
+                        |> Expect.equal "2 rows, 2 at UMCU, 1 at AMC" [ 2; 2; 1 ]
+                    }
+
+                    test "a row with a department applies only to a patient of that department" {
+                        let set =
+                            {
+                                Kind = RuleSetKind.Nutrition NutritionCategory.EnteralFeeding
+                                Label = "Enterale Voeding"
+                                Rows =
+                                    [|
+                                        row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM"
+                                        { row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Nutrini" with
+                                            RuleSetData.Department = Some "ICK"
+                                        }
+                                    |]
+                            }
+
+                        [ None; Some "ICK"; Some "NEO" ]
+                        |> List.map (fun dep ->
+                            let pat =
+                                { CorePatientData.unknown with
+                                    Department =
+                                        dep
+                                        |> Option.map CoreDepartment.otherDepartment
+                                        |> Option.defaultValue CoreDepartment.unknown
+                                }
+
+                            set |> RuleSet.forPatient pat |> _.Rows |> Array.length
+                        )
+                        |> Expect.equal "1 without a department, 2 at ICK, 1 at NEO" [ 1; 2; 1 ]
+                    }
+
+                    test "an empty list of a rule set allows any name, a list compares without case" {
+                        [
+                            RuleSet.allows [||] "x"
+                            RuleSet.allows [| "Nutrini" |] "NUTRINI"
+                            RuleSet.allows [| "Nutrini" |] "Infatrini"
+                        ]
+                        |> Expect.equal "allowed, allowed, not" [ true; true; false ]
+                    }
+
+                    test "a product is found without regard to case" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+                        |> RuleSet.check doseRules (set [ "mm"; "NUTRILON PEPTI 1" ])
+                        |> Expect.isEmpty "nothing to warn"
                     }
 
                     test "a sheet without its columns is refused" {
