@@ -10,7 +10,6 @@ module Loads =
     type Load =
         | Settings
         | Localization
-        | Hospitals
         | BolusMedication
         | ContinuousMedication
         | Products

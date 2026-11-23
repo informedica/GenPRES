@@ -38,13 +38,14 @@ let pageToString terms locale page =
 type Context =
     {
         Localization: Localization.Locales
-        Hospital: string
+        /// None when no hospital is chosen.
+        Hospital: string option
     }
 
 let defContext =
     {
         Localization = Localization.Dutch
-        Hospital = ""
+        Hospital = None
     }
 
 let context = React.createContext (defaultValue = defContext)

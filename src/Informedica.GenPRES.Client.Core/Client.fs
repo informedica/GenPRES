@@ -309,8 +309,8 @@ module Client =
     let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
 
 
-    /// The hospitals to choose from.
-    let hospitals (state: ClientState) = state.Loader.Hospitals
+    /// The hospitals to choose from: the locations of the server settings.
+    let hospitals (state: ClientState) = state.Loader.Settings |> Deferred.map _.Locations
 
 
     /// The resources reload.
@@ -628,10 +628,14 @@ module Client =
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.TellNewerSignedPlan head)) ->
             alert (Alert.Alert.NewerSignedPlan head)
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.Alert a)) -> alert a
+        // The hospital a patient answer names becomes the hospital shown, so the lists and the calculations agree.
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData pat)) ->
             [
                 ClientMsg.Shell ShellMsg.ListFiltersCleared
                 ClientMsg.Loader(LoaderMsg.PatientSet pat)
+                match pat |> Option.bind _.Location with
+                | Some hospital -> ClientMsg.Shell(ShellMsg.PatientHospitalLanded hospital)
+                | None -> ()
             ]
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.TellError errs)) ->
             alert (Alert.Alert.PatientChangeFailed(first errs))
@@ -681,6 +685,9 @@ module Client =
 
         // Shell effects: the page goes to the loader, the url results to the lanes and the Session.
         | ClientEffect.Shell(ShellEffect.PageShown page) -> [ ClientMsg.Loader(LoaderMsg.PageShown page) ]
+        // The hospital chosen becomes the Location of the patient the panel shows.
+        | ClientEffect.Shell(ShellEffect.HospitalShown hospital) when (draft state).IsSome ->
+            [ ClientMsg.PanelEdited(PatientDataEdit.SetLocation(Some hospital), newId ()) ]
         // An empty interaction check ends any check for the old plan, so its answer is ignored.
         | ClientEffect.Shell(ShellEffect.StartOver pat) ->
             [
@@ -706,23 +713,40 @@ module Client =
         | Pass of ClientEffect
 
 
+    /// Returns the effect with the hospital as the Location of the patient data a patient call sends; the effect as
+    /// it is when no hospital is chosen or it is no patient call. The server answer then names the hospital chosen,
+    /// so no edit has to follow it.
+    let withHospital hospital effect =
+        match hospital, effect with
+        | Some _, ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(pat, request))) ->
+            ClientEffect.Lanes(
+                LanesEffect.Patient(PatientEffect.CallPatient({ pat with Location = hospital }, request))
+            )
+        | Some _, ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(edit, pat, request))) ->
+            ClientEffect.Lanes(
+                LanesEffect.Patient(PatientEffect.CallEdit(edit, { pat with Location = hospital }, request))
+            )
+        | _ -> effect
+
+
     /// Returns the next state, the effects and the steps for these messages. The effects of a message are
     /// routed one by one with the current state, and the resulting messages run before the rest of the queue.
-    /// Routes go in one direction only, so the queue ends. The start-up is marked as ended in the first
-    /// transition after which it is started.
+    /// Routes go in one direction only, so the queue ends. Every patient call sends the hospital chosen. The
+    /// start-up is marked as ended in the first transition after which it is started.
     let run newId msgs (state: ClientState) =
         let rec go queue (state, effects, steps) =
             match queue with
             | [] -> state, effects, steps
             | Queued.Run msg :: rest ->
                 let stepped = state |> step newId msg
+                let emitted = stepped.Emitted |> List.map (withHospital stepped.State.Shell.Hospital)
 
                 let queue =
                     (stepped.Follow |> List.map Queued.Run)
-                    @ (stepped.Emitted |> List.map Queued.Pass)
+                    @ (emitted |> List.map Queued.Pass)
                     @ rest
 
-                go queue (stepped.State, effects @ stepped.Emitted, steps @ stepped.Taken)
+                go queue (stepped.State, effects @ emitted, steps @ stepped.Taken)
             | Queued.Pass effect :: rest ->
                 let follow = state |> route newId effect |> List.map Queued.Run
                 go (follow @ rest) (state, effects, steps)

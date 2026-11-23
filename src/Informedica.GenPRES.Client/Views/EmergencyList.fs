@@ -119,11 +119,7 @@ module EmergencyList =
             match interventions with
             | Resolved items ->
                 items
-                |> List.filter (fun item ->
-                    hosp |> String.isNullOrWhiteSpace
-                    || item.Hospital |> String.isNullOrWhiteSpace
-                    || hosp = item.Hospital
-                )
+                |> List.filter (fun item -> item.Hospital |> String.isNullOrWhiteSpace || hosp = Some item.Hospital)
                 |> List.distinctBy (fun item -> item.Category, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->

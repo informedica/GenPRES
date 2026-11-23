@@ -171,6 +171,10 @@ module TitleBar =
                 userSelect = "none"
             |}
 
+        let hospitalText =
+            context.Hospital
+            |> Option.defaultWith (fun () -> Terms.``Hospital None`` |> getTerm "No hospital chosen")
+
         let loginText = Terms.Login |> getTerm "Login"
         let logoutText = Terms.Logout |> getTerm "Logout"
         let passwordLabel = Terms.Password |> getTerm "Password"
@@ -421,7 +425,7 @@ module TitleBar =
                             </Menu>
                         </Box>
                         <Typography variant="body1" component="div" >
-                            {$"{context.Hospital}"}
+                            {hospitalText}
                         </Typography>
                         {sessionView}
     

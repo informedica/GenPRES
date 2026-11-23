@@ -114,11 +114,7 @@ module ContinuousMeds =
             match interventions with
             | Resolved items ->
                 items
-                |> List.filter (fun i ->
-                    hosp |> String.isNullOrWhiteSpace
-                    || i.Hospital |> String.isNullOrWhiteSpace
-                    || hosp = i.Hospital
-                )
+                |> List.filter (fun i -> i.Hospital |> String.isNullOrWhiteSpace || hosp = Some i.Hospital)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     {|

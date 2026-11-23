@@ -163,6 +163,8 @@ type Terms =
     | ``Patient Department Launched``
     | ``Patient Department None``
     | ``Patient Department Option None``
+    // Shown in the title bar when no hospital is chosen.
+    | ``Hospital None``
     | ``Session Open Last Signed``
     // The confirmation asked before opening a url with a patient or a medication, which discards the
     // unsigned work or leaves the launched session.

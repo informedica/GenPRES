@@ -110,11 +110,46 @@ let tests =
                         state.ShowDisclaimer |> Expect.isTrue "shown again"
                     }
 
-                    test "a hospital chosen shows the disclaimer again" {
-                        let state, _ = run [ ShellMsg.DisclaimerAccepted; ShellMsg.HospitalChosen "WKZ" ]
+                    test "a hospital chosen shows the disclaimer again and shows the hospital" {
+                        let state, effects = run [ ShellMsg.DisclaimerAccepted; ShellMsg.HospitalChosen "AMC" ]
 
-                        state.Hospital |> Expect.equal "chosen" "WKZ"
+                        state.Hospital |> Expect.equal "chosen" (Some "AMC")
                         state.ShowDisclaimer |> Expect.isTrue "shown again"
+                        effects |> Expect.equal "shown" [ ShellEffect.HospitalShown "AMC" ]
+                    }
+
+                    test "a patient answer sets its hospital and leaves the disclaimer as it is" {
+                        let state, effects = run [ ShellMsg.DisclaimerAccepted; ShellMsg.PatientHospitalLanded "AMC" ]
+
+                        state.Hospital |> Expect.equal "the patient's" (Some "AMC")
+                        state.ShowDisclaimer |> Expect.isFalse "not shown again"
+                        effects |> Expect.isEmpty "nothing sent"
+                    }
+
+                    test "a patient answer before the settings keeps its hospital over the server default" {
+                        let withDefault = { settings German with DefaultLocation = Some "UMCU" }
+
+                        (run [ ShellMsg.PatientHospitalLanded "AMC"; ShellMsg.SettingsLanded withDefault ]
+                         |> fst)
+                            .Hospital
+                        |> Expect.equal "AMC" (Some "AMC")
+                    }
+
+                    test "no hospital is chosen before the settings land" { initial.Hospital |> Expect.isNone "none" }
+
+                    test "the server default sets the hospital unless one was chosen" {
+                        let withDefault = { settings German with DefaultLocation = Some "UMCU" }
+
+                        (run [ ShellMsg.SettingsLanded withDefault ] |> fst).Hospital
+                        |> Expect.equal "the default" (Some "UMCU")
+
+                        (run [ ShellMsg.HospitalChosen "AMC"; ShellMsg.SettingsLanded withDefault ]
+                         |> fst)
+                            .Hospital
+                        |> Expect.equal "the choice" (Some "AMC")
+
+                        (run [ ShellMsg.SettingsLanded(settings German) ] |> fst).Hospital
+                        |> Expect.isNone "no default, none chosen"
                     }
 
                     test "the server default sets the language unless it was chosen" {
