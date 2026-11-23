@@ -61,7 +61,7 @@ in production and every session member is refused.
 ---
 
 Read off `Compute.bound` in `src/Informedica.GenPRES.Server/ServerApi.Compute.fs`, the
-`GetSession` arm in `ServerApi.SessionCommand.fs`, and `Session.Anonymous` in
+`GetSession` arm in `ServerApi.Commands.fs`, and `Session.Anonymous` in
 `SessionMachine.fs` and `canSign` in `SigningPolicy.fs` in `src/Informedica.GenPRES.Client/`.
 The design is UC-7 in [`Integration.fsx`](Integration.fsx), whose `OpenAnonymous` has no
 counterpart in the code.

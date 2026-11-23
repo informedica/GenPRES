@@ -17,7 +17,6 @@
     <Compile Include="DoseType.fs" />
     <Compile Include="GenericLabel.fs" />
     <Compile Include="PharmaceuticalForm.fs" />
-    <Compile Include="ProductId.fs" />
     <Compile Include="Generic.fs" />
     <Compile Include="Source.fs" />
     <Compile Include="DoseRule.fs" />
