@@ -147,7 +147,7 @@ module Types =
         }
 
 
-    /// A predilution rule: 1 mL of a liquid product diluted with a volume of one diluent, for a route, an
+    /// A predilution rule: a volume of a liquid product diluted with a volume of one diluent, for a route, an
     /// indication, a location, a department and an age and weight range.
     type Predilution =
         {
@@ -169,7 +169,9 @@ module Types =
             MinWeight: BigRational option
             /// The maximum weight in grams; None when there is no maximum weight.
             MaxWeight: BigRational option
-            /// The volume of the diluent that 1 mL of product is diluted with, in mL.
+            /// The volume of the product that is diluted, in mL.
+            MedVolume: ValueUnit
+            /// The volume of the diluent that the product volume is diluted with, in mL.
             DiluentVolume: ValueUnit
             /// The name of the diluent, a parenteral product.
             Diluent: string
