@@ -284,6 +284,31 @@ label of a pre-diluted product ends with ", 1 mL verdund met 9 mL gluc 5%"; the 
 optional field. The test projects of the worktree do not compile: their test records have no field
 Predilution, and the GenORDER tests call `Order.pickId` with two arguments.
 
+The predilution rules, their matching and `Product.predilute` were merged in #1970.
+
+Decided on 2026-11-23, for the order side:
+
+- **The product carries its predilution.** The product gets the field `Predilution: ProductPredilution
+  option`: None for a product that is not pre-diluted, and the predilution it was made with for a
+  pre-diluted product.
+- **Only the prescription rules are pre-diluted.** `PrescriptionRule.filter` calls `DoseRule.predilute`
+  after `DoseRule.reconstitute`. The check for a dose rule without products in `OrderContext` does not,
+  because a predilution only adds products. The load check `SolutionRule.undilutableRules` stays open,
+  see below.
+- **The pick id.** The pick id of a pre-diluted product is the GPK, followed by the solvent when the
+  product is reconstituted, and then the predilution: "185663 water 1 mL + 9 mL gluc 5%".
+- **The scenario caption.** The caption of a scenario adds the predilution after the reconstitution:
+  "infusiepoeder in 3 mL water, 1 mL verdund met 9 mL gluc 5%".
+
+Parts of the order side, one pull request each:
+
+1. **The predilution on the product.** The field `Predilution` on the product; every place that builds a
+   product sets None, and `Product.predilute` sets the predilution on the pre-diluted product. Nothing
+   calls `DoseRule.predilute` yet, so the orders do not change.
+2. **The predilution in the order.** GenORDER and the server: the call in `PrescriptionRule.filter`, the
+   counting per prepared syringe, the pick id, the split into scenarios, the preparation row, the
+   scenario caption and the Dtos. Scripted against the GenFORM of part 1.
+
 Open, to decide later:
 
 - Which predilutions the load check `SolutionRule.undilutableRules` takes into account. It has the
