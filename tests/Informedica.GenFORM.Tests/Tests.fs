@@ -118,6 +118,7 @@ module ProductFilterTests =
             FormUnit = Units.Mass.milliGram
             RequiresReconstitution = false
             Reconstitution = [||]
+            Predilution = None
             Divisible = None
             Substances = [||]
             TradeProducts = []
@@ -4449,6 +4450,7 @@ module Tests =
                         }
                     |]
                     |> Array.map (Product.ProductReconstitution.create [||])
+                Predilution = None
                 Divisible = None
                 Substances =
                     [|
@@ -8992,6 +8994,7 @@ module Tests =
                 FormUnit = mL
                 RequiresReconstitution = false
                 Reconstitution = [||]
+                Predilution = None
                 Divisible = None
                 Substances = subs
                 TradeProducts = []
@@ -9066,6 +9069,7 @@ module Tests =
                 FormUnit = Units.Volume.milliLiter
                 RequiresReconstitution = false
                 Reconstitution = [||]
+                Predilution = None
                 Divisible = None
                 Substances = [||]
                 TradeProducts = []
@@ -13284,6 +13288,43 @@ module Tests =
                             atUmcu |> Product.Predilution.matches [||] loc neo None neonatalInfusion
                         )
                         |> Expect.equal "UMCU, not AMC, any location when none is asked" [ true; false; true ]
+                    }
+
+                    test "the undiluted product has no predilution, the pre-diluted product has 9 mL NaCl 0,9%" {
+                        liquid
+                        |> predilute neo neonatalInfusion
+                        |> Array.map (_.Predilution >> Option.map (fun p -> p.Rule.Diluent, p.Rule.DiluentVolume))
+                        |> Expect.equal
+                            "None, then 9 mL NaCl 0,9%"
+                            [| None; Some("NaCl 0,9%", 9N |> ValueUnit.singleWithUnit mL) |]
+                    }
+
+                    test "the pre-diluted product holds the predilution with the substances of its diluent" {
+                        liquid
+                        |> predilute neo neonatalInfusion
+                        |> Array.tryLast
+                        |> Option.bind _.Predilution
+                        |> Option.map (_.DiluentSubstances >> Array.map _.Name)
+                        |> Expect.equal "natrium and chloor" (Some [| "natrium"; "chloor" |])
+                    }
+
+                    test "a reconstituted and pre-diluted product holds its reconstitution and its predilution" {
+                        reconstituteFor neonate
+                        |> fst
+                        |> Array.collect (predilute neo neonatalInfusion)
+                        |> Array.map (fun p ->
+                            p.Reconstitution |> Array.map _.Rule.Solvent, p.Predilution |> Option.map _.Rule.Diluent
+                        )
+                        |> Expect.equal
+                            "water, then water and NaCl 0,9%"
+                            [| ([| "water" |], None); ([| "water" |], Some "NaCl 0,9%") |]
+                    }
+
+                    test "another indication gives no product with a predilution" {
+                        liquid
+                        |> predilute neo "Acute hypotensie"
+                        |> Array.choose _.Predilution
+                        |> Expect.isEmpty "no predilution"
                     }
 
                     test "a diluent without a parenteral product adds no substances" {
