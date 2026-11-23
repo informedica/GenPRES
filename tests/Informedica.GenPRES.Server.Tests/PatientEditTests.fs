@@ -86,6 +86,18 @@ let tests =
                 |> Expect.equal "as edited" (Female, Some PeritonealDialysis, Some "ICK", stub.Access @ [ EnteralTube ])
             }
 
+            test "the location comes back as edited, the department as it was" {
+                let pat =
+                    { stub with Department = Some "ICK" }
+                    |> edited (PatientDataEdit.SetLocation(Some "AMC"))
+
+                (pat.Location, pat.Department)
+                |> Expect.equal "AMC and ICK" (Some "AMC", Some "ICK")
+
+                (pat |> edited (PatientDataEdit.SetLocation None)).Location
+                |> Expect.isNone "cleared"
+            }
+
             test "the answer carries the options of the resources" {
                 (aged 5 |> edited (PatientDataEdit.SetYears(Some 6))).Options
                 |> Option.isSome
