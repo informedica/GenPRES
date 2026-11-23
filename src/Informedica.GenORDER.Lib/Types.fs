@@ -195,6 +195,18 @@ module Types =
         }
 
 
+    /// The predilution a product was made with: a product volume diluted with a volume of a diluent.
+    type ComponentPredilution =
+        {
+            /// The volume of the product that is diluted.
+            MedVolume: ValueUnit
+            /// The volume of the diluent that the product volume is diluted with.
+            DiluentVolume: ValueUnit
+            /// The name of the diluent.
+            Diluent: string
+        }
+
+
     /// A product a component can be made of, with the strength of each of its substances.
     type ComponentProduct =
         {
@@ -208,6 +220,8 @@ module Types =
             Strengths: ProductStrength list
             /// The reconstitution the product was made with; none for a product that is not reconstituted.
             Reconstitution: ComponentReconstitution option
+            /// The predilution the product was made with; none for a product that is not pre-diluted.
+            Predilution: ComponentPredilution option
         }
 
 

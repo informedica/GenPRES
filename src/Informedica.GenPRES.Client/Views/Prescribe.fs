@@ -359,7 +359,9 @@ module Prescribe =
                         |> Option.map (fun s -> $" in %s{s}")
                         |> Option.defaultValue ""
 
-                    $"{sc.Form}{reconstitution}{access}{renal}"
+                    let predilution = sc.Predilution |> Option.map (fun s -> $", %s{s}") |> Option.defaultValue ""
+
+                    $"{sc.Form}{reconstitution}{predilution}{access}{renal}"
 
                 let onClick (sc: OrderScenario) =
                     match pr.Scenarios |> Array.tryFindIndex (fun x -> x.Order.Id = sc.Order.Id) with

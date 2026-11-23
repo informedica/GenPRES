@@ -427,6 +427,7 @@ module ComponentProductTests =
                                 Id = "11"
                                 FormQuantities = Some(ml 10N)
                                 Reconstitution = None
+                                Predilution = None
                                 Strengths =
                                     [
                                         {
@@ -443,6 +444,7 @@ module ComponentProductTests =
                                 Id = "22"
                                 FormQuantities = Some(ml 20N)
                                 Reconstitution = None
+                                Predilution = None
                                 Strengths =
                                     [
                                         {
@@ -692,10 +694,11 @@ module ProductNarrowingTests =
                 }
 
                 test "a reconstituted product gives the pick id of the GenFORM product it was made from" {
-                    let picked =
+                    let recon =
                         SplitByDivisibleTests.Fixture.reconstituted amoxClav500 "water"
                         |> Medication.reconstitutionOf
-                        |> Order.pickId amoxClav500
+
+                    let picked = Order.pickId amoxClav500 recon None
 
                     reconstitutedAmoxClav ()
                     |> Order.productIds

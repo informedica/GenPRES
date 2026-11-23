@@ -651,11 +651,99 @@ let variableTests =
         ]
 
 
+/// The amoxicilline/clavulaanzuur medication with its 500/50 mg product reconstituted in 10 mL water and then
+/// 3 mL diluted with 7 mL gluc 5%.
+let preDilutedAmoxClavText =
+    let preparation =
+        [
+            "        Reconstitution:"
+            "          Solvent: water"
+            "          SolventVolume:"
+            "            Value:"
+            "              - \"10\""
+            "            Unit: ml"
+            "        Predilution:"
+            "          MedVolume:"
+            "            Value:"
+            "              - \"3\""
+            "            Unit: ml"
+            "          DiluentVolume:"
+            "            Value:"
+            "              - \"7\""
+            "            Unit: ml"
+            "          Diluent: gluc 5%"
+        ]
+        |> String.concat "\n"
+
+    Scenarios.amoxClavText
+    // a checkout with CRLF line endings holds \r\n in the text
+    |> String.replace "\r\n" "\n"
+    |> String.replace "      - Id: amox-clav-500-50\n" $"      - Id: amox-clav-500-50\n%s{preparation}\n"
+
+
+/// The medication of the text; a text that does not parse fails the test.
+let parseMedication text =
+    match text |> MedicationText.fromString with
+    | Ok med -> med
+    | Error errs -> failtest $"could not parse: %A{errs}"
+
+
 [<Tests>]
 let productTests =
     testList
         "the products of a component"
         [
+            test "an order to the contract model and back keeps a reconstituted and pre-diluted product" {
+                let med = preDilutedAmoxClavText |> parseMedication
+
+                let products =
+                    med
+                    |> Medication.toOrderDto Scenarios.testStart
+                    |> Mappers.Order.mapFromOrderToShared [||]
+                    |> Mappers.Order.mapFromSharedToOrder
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun msgs -> failtest $"could not read: %A{msgs}")
+                    |> _.Orderable.Components
+                    |> List.collect _.Products
+
+                products
+                |> List.choose _.Predilution
+                |> Expect.equal
+                    "3 mL with 7 mL gluc 5%"
+                    [
+                        {
+                            MedVolume = 3N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            DiluentVolume = 7N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            Diluent = "gluc 5%"
+                        }
+                    ]
+
+                products
+                |> Expect.equal "the products" (med.Components |> List.collect _.Products)
+            }
+
+            test "the scenario from the Dto gets the predilution of its order as the caption text" {
+                // only the pre-diluted product, so that exactly one product applies
+                let med =
+                    preDilutedAmoxClavText
+                    |> fun s ->
+                        s[.. s.IndexOf "      - Id: amox-clav-1000-200" - 1]
+                        + s[s.IndexOf "    Substances:" ..]
+                    |> parseMedication
+
+                let ord =
+                    med
+                    |> Medication.toOrderDto Scenarios.testStart
+                    |> Mappers.Order.mapFromOrderToShared [||]
+
+                { scenario with Order = ord }
+                |> OrderContextMapper.scenario 0
+                |> OrderContextMapper.scenarioBack
+                |> fun sc -> sc.Reconstitution, sc.Predilution
+                |> Expect.equal "the texts" (Some "10 mL water", Some "3 mL verdund met 7 mL gluc 5%")
+            }
+
+
             test "an order to the contract model and back keeps the products of its components" {
                 match Scenarios.amoxClavText |> MedicationText.fromString with
                 | Error errs -> failtest $"could not parse: %A{errs}"

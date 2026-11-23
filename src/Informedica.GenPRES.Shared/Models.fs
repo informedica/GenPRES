@@ -1004,6 +1004,7 @@ module Models =
                 ProductIds = ids
                 Access = acc
                 Reconstitution = None
+                Predilution = None
             }
 
 

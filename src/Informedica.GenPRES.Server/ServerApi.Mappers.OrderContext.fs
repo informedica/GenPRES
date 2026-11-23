@@ -238,14 +238,13 @@ module OrderContextMapper =
              |> Option.ofObj
              |> Option.bind AccessDevice.tryFromString
              |> Option.bind Patient.accessBack)
-        // the scenario Dto does not store the reconstitution, so it is derived from the order
+        // the scenario Dto stores neither the reconstitution nor the predilution, so both come from the order
         |> fun sc ->
+            let ord = dto.Order |> Order.Dto.fromDto |> Result.toOption
+
             { sc with
-                Reconstitution =
-                    dto.Order
-                    |> Order.Dto.fromDto
-                    |> Result.toOption
-                    |> Option.bind Order.reconstitutionText
+                Reconstitution = ord |> Option.bind Order.reconstitutionText
+                Predilution = ord |> Option.bind Order.predilutionText
             }
 
 

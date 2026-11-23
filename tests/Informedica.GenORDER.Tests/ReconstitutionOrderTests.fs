@@ -37,6 +37,7 @@ module Fixture =
                     }
                 ]
             Reconstitution = recon
+            Predilution = None
         }
 
 
@@ -118,12 +119,11 @@ let tests =
                 "the pick id"
                 [
                     test "a product that is not reconstituted has its id" {
-                        None |> Order.pickId "1" |> Expect.equal "the id" "1"
+                        Order.pickId "1" None None |> Expect.equal "the id" "1"
                     }
 
                     test "a reconstituted product has its id and solvent" {
-                        Some reconstitution
-                        |> Order.pickId "1"
+                        Order.pickId "1" (Some reconstitution) None
                         |> Expect.equal "the id and solvent" "1 water"
                     }
 

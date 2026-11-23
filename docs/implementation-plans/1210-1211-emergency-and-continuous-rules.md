@@ -314,9 +314,17 @@ Parts of the order side, one pull request each:
 1. **The predilution on the product.** The field `Predilution` on the product; every place that builds a
    product sets None, and `Product.predilute` sets the predilution on the pre-diluted product. The column
    MedVol on the predilution rule. Nothing calls `DoseRule.predilute` yet, so the orders do not change.
-2. **The predilution in the order.** GenORDER and the server: the call in `PrescriptionRule.filter`, the
-   counting per prepared syringe with at most one syringe, the pick id, the split into scenarios, the
-   preparation row, the scenario caption and the Dtos. Scripted against the GenFORM of part 1.
+2. **The predilution in the order product.** The order product carries the predilution it was made with:
+   the product volume, the diluent volume and the diluent, also in the medication Dto, the order Dto and
+   the Shared type. The pick id adds the predilution after the solvent, "185663 water 3 mL + 7 mL gluc
+   5%"; the preparation has the row "3 mL verdunnen met 7 mL gluc 5%"; the scenario caption adds ", 3 mL
+   verdund met 7 mL gluc 5%" through the new scenario field Predilution. The stored order JSON stays at
+   version 19, because the field is optional. Nothing calls `DoseRule.predilute` yet, so the orders do not
+   change.
+3. **The predilution in the prescription rules.** The call in `PrescriptionRule.filter`, with the
+   predilution rules passed through the prescription rule cache; the counting per prepared syringe with
+   at most one syringe; the split into scenarios. The orders change here. Scripted against the GenORDER
+   of part 2.
 
 Open, to decide later:
 
