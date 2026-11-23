@@ -204,16 +204,93 @@ Decided on 2026-11-22:
 - **What the order shows.** A pre-diluted product carries the predilution as data: the product volume,
   the diluent and the diluent volume, so that the order text and the preparation view can show it. Its
   label also says it, for example "midazolam 5 mg/mL, 1 mL verdund met 9 mL NaCl 0,9%".
-- **Counting.** GenORDER counts a pre-diluted product per mL, as a liquid; an order takes the volume it
-  needs from the prepared syringe.
+- **Counting.** Replaced on 2026-11-23 by counting per prepared syringe, see below.
 - **Composition from the Formulary.** The pre-diluted product carries the substances of its diluent,
   from the Formulary row of the diluent, as a reconstituted product does after step 1.
 - **What the new sheet needs.** A Data record with its column comments (`Types.fs`), a resource in the
   registry (`Resources.fs`) and a column-contract test.
 
-Open, to decide later: which predilutions the load check `SolutionRule.undilutableRules` takes into
-account. It has the patient category of a solution rule instead of a patient, so it cannot filter on a
-weight and an indication the way an order does.
+Decided on 2026-11-23:
+
+- **Reconstitution, then predilution.** A product can be reconstituted, then pre-diluted, and the order
+  then dilutes the pre-diluted product: three steps. A predilution applies to a liquid, and a
+  reconstituted product is a liquid, so the predilution is applied to the products that the
+  reconstitution returns. A Predilution row for a powder names the GPK of the powder and applies only
+  after a reconstitution of that powder. The sample rows of "GenPRES - NewSolutionRules" have such a
+  row: nitroprusside infusiepoeder 60 mg (GPK 185663) is reconstituted with 3 mL water to 20 mg/mL, then
+  1 mL is diluted with 9 mL gluc 5% to 2 mg/mL in 10 mL.
+- **Counted per prepared syringe.** GenORDER counts a pre-diluted product per prepared syringe of 1 mL
+  plus DiluentVol, as it counts a reconstituted product per vial. The form quantity of a pre-diluted
+  product is that prepared volume.
+- **The substances.** A pre-diluted product carries the substances of the product, of the
+  reconstitution solvent when the product was reconstituted, and of the predilution diluent; the order
+  adds the substances of its own diluent. The substances of the product, with those of the solvent, are
+  multiplied by 1 mL and divided by the prepared volume; the substances of the predilution diluent are
+  multiplied by DiluentVol and divided by the prepared volume.
+- **Product pick, scenario and text.** A product carries both its reconstitution and its predilution.
+  The product pick id and the split into scenarios take the predilution into account next to the
+  solvent, and the preparation text has a row for each step, such as "oplossen in 3 mL water" and
+  "1 mL verdunnen met 9 mL gluc 5%".
+
+What the code does now, checked on 2026-11-23 on `master` at `84ba2f08`:
+
+- A product whose form and route the FormRoute sheet marks Reconstitute gets the form unit mL when it is
+  built (`Product.map`). The form unit therefore does not tell a powder from a liquid: nitroprusside
+  infusiepoeder 60 mg is 60 mg/mL in 1 mL before its reconstitution.
+- `Product.reconstitute` replaces a product that requires reconstitution by one product per matching
+  reconstitution, and leaves it out with a warning when none matches. After the reconstitution, every
+  product of a dose rule is a liquid.
+- `DoseRule.reconstitute` applies the reconstitution to the products of a dose rule. It has three callers:
+  `PrescriptionRule.filter`, `OrderContext` (the check for a dose rule without products) and the load
+  check `SolutionRule.undilutableRules`.
+- `Medication.createComponents` counts a component per mL when its form quantities are volumes and not
+  all of its products require reconstitution; the component quantity and the form quantities of its
+  products are then 1 mL. It fills the substance quantities only when a product requires
+  reconstitution. A pre-diluted liquid does not require reconstitution, so it would be counted per mL.
+- `Medication.reconstitutionOf` returns a reconstitution only for a product that requires
+  reconstitution.
+- A product pick id is the GPK, followed by the solvent for a reconstituted product (`Order.pickId`,
+  used in `Order.productIds` and `OrderContext.Helpers.pickedGroups`). A pre-diluted product has the GPK
+  of its undiluted product, so the two get the same id.
+- `OrderContext.Helpers.limitsByDivisible` splits the products of a component limit on the Divisible
+  and the solvent. A pre-diluted product has the Divisible and the solvent of its undiluted product, so
+  the two stay in one component.
+- `Order.Print.printPrep` has the row "oplossen in" for a reconstituted product (`printReconstitution`)
+  and no row for another preparation step.
+
+Script of 2026-11-23: `src/Informedica.GenFORM.Lib/Scripts/Issue1554PredilutionRows.fsx` on the branch
+`feat/1554-predilution-rows` loads the predilutions (part 1) and applies them after the reconstitution
+(part 2); its 17 tests pass against the live sheets of "GenPRES - NewSolutionRules".
+
+Prototype of 2026-11-23, not for merging: the worktree branch `proto/1554-genorder-predilution` changes
+GenFORM and GenORDER, 361 lines added and 14 removed under `src/` in 10 files, and prints orders with
+`src/Informedica.GenORDER.Lib/Scripts/Issue1554PredilutionOrders.fsx`. For a premature of 1200 g on
+the NEO with the indication "Continue infusie neonatologie", the orders print:
+
+- noradrenaline concentraat: one scenario with noradrenaline 1 mg/mL, and one with "1 mL verdunnen met
+  9 mL gluc 5%" and noradrenaline 0,1 mg/mL (1 mg/10 mL);
+- nitroprusside: one scenario with "oplossen in 3 mL water" and nitroprusside 20 mg/mL (60 mg/3 mL), and
+  one with "oplossen in 3 mL water", "1 mL verdunnen met 9 mL gluc 5%" and nitroprusside 2 mg/mL
+  (20 mg/10 mL);
+- nitroprusside for a child on the NEO with the indication "Hypertensieve crisis", maintenance dose:
+  only the reconstituted product.
+
+The prototype does the following, which is open for the user to decide: the predilution is applied
+inside `DoseRule.reconstitute`, which gets a second patient check for the predilution; the product field
+`Predilution` holds the predilutions of the GPK when the products are built, and after the predilution
+the pre-diluted product holds only the predilution it was made with and the undiluted product none; the
+label of a pre-diluted product ends with ", 1 mL verdund met 9 mL gluc 5%"; the pick id reads
+"185663 water 1 mL + 9 mL gluc 5%"; the medication Dto and the order Dto carry the predilution as an
+optional field. The test projects of the worktree do not compile: their test records have no field
+Predilution, and the GenORDER tests call `Order.pickId` with two arguments.
+
+Open, to decide later:
+
+- Which predilutions the load check `SolutionRule.undilutableRules` takes into account. It has the
+  patient category of a solution rule instead of a patient, so it cannot filter on a weight and an
+  indication the way an order does.
+- More than one prepared syringe. In the prototype the pre-diluted nitroprusside order takes 0,9 to
+  12 mL of the prepared 10 mL, so an order can need two prepared syringes.
 
 ### Step 3: #1210 the emergency list rules in the rules spreadsheet
 
@@ -271,7 +348,8 @@ Decided on 2026-11-22:
   the baseline that happens for 32 entries, mostly at 0.5 to 2 kg. It is a preparation in two steps: a
   pre-dilution of the product, then the dilution that is given. The current code cannot express it:
   - a reconstitution rule applies only to a form and route that the FormRoute sheet marks Reconstitute,
-    which no liquid is; it replaces the product; and it has no weight, indication or dose type;
+    which no liquid is; it replaces the product; and it has an age and a weight range since step 1, but
+    no indication or dose type;
   - each solution rule of a prescription rule gives its own medication (`Medication.fromRule`), so two
     solution rules are alternatives, not two steps.
 

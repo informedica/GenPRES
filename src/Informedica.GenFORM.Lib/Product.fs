@@ -177,11 +177,68 @@ module Product =
             |> Option.defaultValue false
 
 
+    /// Whether a rule for a route, a location and a department applies to a setting. The route must match
+    /// when the setting gives one, the location when both name one, and the department as
+    /// PatientCategory.departmentMatches decides.
+    let matchesSetting routeMapping loc dep rte route location department =
+        route |> Mapping.eqsRoute routeMapping rte
+        && PatientCategory.canMeet location loc
+        && PatientCategory.departmentMatches department dep
+
+
+    /// Returns the substances of the parenteral product whose generic name equals the name, ignoring case,
+    /// and none when there is no such product.
+    let substancesOf (parenteral: ProductComponent[]) name =
+        parenteral
+        |> Array.tryFind (_.Generic >> String.equalsCapInsens name)
+        |> Option.map _.Substances
+        |> Option.defaultValue [||]
+
+
+    /// Returns the substances of 1 mL of a liquid mixed with a volume of an added liquid, in a total
+    /// volume. Each concentration and molar concentration of the liquid is multiplied by 1 mL, and of the
+    /// added liquid by the added volume, and divided by the total volume. A substance of the added liquid is
+    /// added to the substance of the liquid with the same name, or else added as a new substance; a
+    /// concentration in another unit group, such as mg against mmol, is not added.
+    let mixSubstances total (substs: SubstanceItem[]) addedVol (added: SubstanceItem[]) =
+        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
+
+        let scale qty (s: SubstanceItem) =
+            { s with
+                Concentration = s.Concentration |> Option.map (fun q -> qty * q / total)
+                MolarConcentration = s.MolarConcentration |> Option.map (fun q -> qty * q / total)
+            }
+
+        // a value in another unit group cannot be added, so the value of the liquid is used
+        let add a b =
+            match a, b with
+            | Some a, Some b when ValueUnit.eqsGroup a b -> Some(a + b)
+            | _ -> a |> Option.orElse b
+
+        let addSubstance (substs: SubstanceItem[]) (s: SubstanceItem) =
+            match substs |> Array.tryFindIndex (_.Name >> String.equalsCapInsens s.Name) with
+            | Some i ->
+                let x = substs[i]
+
+                substs
+                |> Array.updateAt
+                    i
+                    { x with
+                        Concentration = add x.Concentration s.Concentration
+                        MolarConcentration = add x.MolarConcentration s.MolarConcentration
+                    }
+            | None -> Array.append substs [| s |]
+
+        added
+        |> Array.map (scale addedVol)
+        |> Array.fold addSubstance (substs |> Array.map (scale one))
+
+
     module Reconstitution =
 
 
         /// Parses the Reconstitution sheet; the first row holds the column names. A row without a solvent or
-        /// a solvent volume is left out. Returns an error when a column is missing.
+        /// a solvent volume above 0 mL is left out. Returns an error when a column is missing.
         let parseReconstitution data =
             try
                 let getColumn = data |> Array.head |> Csv.getStringColumn
@@ -194,7 +251,10 @@ module Product =
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
                     let toMl = ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                    match getOpt "Solvent", get "SolventVol" |> toBrOpt with
+                    // a solvent volume of 0 mL or less makes no reconstitution
+                    let solventVol = get "SolventVol" |> toBrOpt |> Option.filter (fun v -> v > 0N)
+
+                    match getOpt "Solvent", solventVol with
                     | Some solvent, Some vol ->
                         Some
                             {
@@ -222,45 +282,20 @@ module Product =
             Web.getDataFromSheet dataUrlId "Reconstitution" |> parseReconstitution
 
 
-        /// Whether a reconstitution applies to a location, a department and a route. The route must match
-        /// when one is given, the location when both name one, and the department as
-        /// PatientCategory.departmentMatches decides.
-        let matches routeMapping (loc: string option) (dep: string option) (rte: string option) (r: Reconstitution) =
-            let eqsOpt a b =
-                match a, b with
-                | Some a, Some b -> a = b
-                | _ -> true
-
-            r.Route |> Mapping.eqsRoute routeMapping rte
-            && r.Location |> eqsOpt loc
-            && PatientCategory.departmentMatches r.Department dep
+        /// Whether a reconstitution applies to a location, a department and a route, as matchesSetting
+        /// decides.
+        let matches routeMapping loc dep rte (r: Reconstitution) =
+            matchesSetting routeMapping loc dep rte r.Route r.Location r.Department
 
 
         /// Returns the age range in days and the weight range in grams of a reconstitution as a patient
-        /// category. Each range has an inclusive minimum and an exclusive maximum.
+        /// category.
         let patientCategory (r: Reconstitution) =
-            { PatientCategory.empty with
-                Age =
-                    (r.MinAge, r.MaxAge)
-                    |> MinMax.fromTuple Inclusive Exclusive (Some Units.day)
-                    |> AbsoluteAge
-                Weight =
-                    (r.MinWeight, r.MaxWeight)
-                    |> MinMax.fromTuple Inclusive Exclusive (Some Units.weightGram)
-            }
+            PatientCategory.ofAgeAndWeight r.MinAge r.MaxAge r.MinWeight r.MaxWeight
 
 
-        /// Whether the age and the weight of a patient are in the ranges of a reconstitution. A patient
-        /// without an age or a weight does not match a range for that value. A patient matched as an adult
-        /// has the age of 18 years and matches only an age range without a maximum, as in the dose rules.
-        let matchesPatient dat r =
-            let dat, ageHolds = dat |> PatientData.forAdultMatch
-            let cat = r |> patientCategory
-            let age = cat |> PatientCategory.getAge
-
-            age |> ageHolds
-            && dat |> CorePatientData.ageInDays |> MinMax.inRange age
-            && dat |> CorePatientData.weightInKg |> MinMax.inRange cat.Weight
+        /// Whether the age and the weight of a patient are in the ranges of a reconstitution.
+        let matchesPatient dat r = r |> patientCategory |> PatientData.matchesAgeAndWeight dat
 
 
         let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
@@ -279,17 +314,88 @@ module Product =
     module ProductReconstitution =
 
 
-        /// Creates the product reconstitution of a reconstitution rule. Its solvent substances are those of the
-        /// parenteral product whose generic name equals the solvent, ignoring case, and none when there is no
-        /// such product.
-        let create (parenteral: ProductComponent[]) (r: Reconstitution) =
+        /// Creates the product reconstitution of a reconstitution rule, with the substances of its solvent.
+        let create parenteral (r: Reconstitution) =
             {
                 Rule = r
-                SolventSubstances =
-                    parenteral
-                    |> Array.tryFind (_.Generic >> String.equalsCapInsens r.Solvent)
-                    |> Option.map _.Substances
-                    |> Option.defaultValue [||]
+                SolventSubstances = r.Solvent |> substancesOf parenteral
+            }
+
+
+    module Predilution =
+
+
+        /// Parses predilution rules from a table of text whose first row holds the column names. A rule
+        /// without a diluent or a diluent volume above 0 mL is left out. Returns no rules for an empty table, and an
+        /// error when a column is missing from a table that has rules.
+        let parsePredilution (data: string[][]) =
+            try
+                match data |> Array.tryHead with
+                | None -> Ok [||]
+                | Some header ->
+                    let getColumn = header |> Csv.getStringColumn
+
+                    data
+                    |> Array.tail
+                    |> Array.choose (fun r ->
+                        let get = getColumn r >> String.trim
+                        let getOpt = get >> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
+                        let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+                        // a diluent volume of 0 mL or less makes no predilution
+                        let diluentVol = get "DiluentVol" |> toBrOpt |> Option.filter (fun v -> v > 0N)
+
+                        match getOpt "Diluent", diluentVol with
+                        | Some diluent, Some vol ->
+                            Some
+                                {
+                                    GPK = get "GPK"
+                                    Route = get "Route"
+                                    Indication = getOpt "Indication"
+                                    Location = getOpt "Loc"
+                                    Department = getOpt "Dep"
+                                    MinAge = get "MinAge" |> toBrOpt
+                                    MaxAge = get "MaxAge" |> toBrOpt
+                                    MinWeight = get "MinWeight" |> toBrOpt
+                                    MaxWeight = get "MaxWeight" |> toBrOpt
+                                    DiluentVolume = vol |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                    Diluent = diluent
+                                }
+                        | _ -> None
+                    )
+                    |> Ok
+            with exn ->
+                Result.createError "Predilution.parsePredilution" exn
+
+
+        let get dataUrlId = Web.getDataFromSheet dataUrlId "Predilution" |> parsePredilution
+
+
+        /// Whether a predilution applies to a location, a department, a route and an indication: the setting
+        /// as matchesSetting decides, and the indication, ignoring case, when the predilution names one.
+        let matches routeMapping loc dep rte indication (r: Predilution) =
+            matchesSetting routeMapping loc dep rte r.Route r.Location r.Department
+            && r.Indication |> Option.forall (String.equalsCapInsens indication)
+
+
+        /// Returns the age range in days and the weight range in grams of a predilution as a patient
+        /// category.
+        let patientCategory (r: Predilution) =
+            PatientCategory.ofAgeAndWeight r.MinAge r.MaxAge r.MinWeight r.MaxWeight
+
+
+        /// Whether the age and the weight of a patient are in the ranges of a predilution.
+        let matchesPatient dat r = r |> patientCategory |> PatientData.matchesAgeAndWeight dat
+
+
+    module ProductPredilution =
+
+
+        /// Creates the product predilution of a predilution rule, with the substances of its diluent.
+        let create parenteral (r: Predilution) =
+            {
+                Rule = r
+                DiluentSubstances = r.Diluent |> substancesOf parenteral
             }
 
 
@@ -839,18 +945,13 @@ module Product =
     /// <param name="prod">The product.</param>
     /// <returns>
     /// The product unchanged when it requires no reconstitution, else one product per matching
-    /// reconstitution rule, with each concentration and molar concentration multiplied by 1 mL and
-    /// divided by the solvent volume plus the expansion volume. The substances of the solvent are
-    /// multiplied by the solvent volume and divided by the total volume. Each one is added to the product
-    /// substance with the same name, or else added as a new substance; a concentration in another unit
-    /// group than the one of the product is not added. A reconstituted product holds only the
-    /// reconstitution it was made with. Also returns a warning when no reconstitution rule matches.
+    /// reconstitution rule: 1 mL of the product mixed with the solvent volume of solvent in the solvent
+    /// volume plus the expansion volume, as mixSubstances mixes the substances. A reconstituted product holds
+    /// only the reconstitution it was made with. Also returns a warning when no reconstitution rule matches.
     /// </returns>
     let reconstitute mapping loc dep fits rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
-
-        // an empty route asks for no route
-        let rte' = if rte |> String.isNullOrWhiteSpace then None else Some rte
+        let rte' = rte |> Mapping.routeOption
 
         let prods =
             [|
@@ -873,46 +974,10 @@ module Product =
                             |> Option.map (fun v -> v + r.Rule.SolventVolume)
                             |> Option.defaultValue r.Rule.SolventVolume
 
-                        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
-
-                        let scale qty (s: SubstanceItem) =
-                            { s with
-                                Concentration = s.Concentration |> Option.map (fun q -> qty * q / vol)
-                                MolarConcentration = s.MolarConcentration |> Option.map (fun q -> qty * q / vol)
-                            }
-
-                        // a value in another unit group, such as mg against mmol, cannot be added, so the
-                        // product value is used
-                        let add a b =
-                            match a, b with
-                            | Some a, Some b when ValueUnit.eqsGroup a b -> Some(a + b)
-                            | _ -> a |> Option.orElse b
-
-                        // adds a solvent substance to the substance of the product with the same name, or else
-                        // appends it
-                        let addSolvent (substs: SubstanceItem[]) (solvent: SubstanceItem) =
-                            match substs |> Array.tryFindIndex (_.Name >> String.equalsCapInsens solvent.Name) with
-                            | Some i ->
-                                let s = substs[i]
-
-                                substs
-                                |> Array.updateAt
-                                    i
-                                    { s with
-                                        Concentration = add s.Concentration solvent.Concentration
-                                        MolarConcentration = add s.MolarConcentration solvent.MolarConcentration
-                                    }
-                            | None -> Array.append substs [| solvent |]
-
-                        let substs = prod.Substances |> Array.map (scale one)
-
                         { prod with
                             FormUnit = Units.Volume.milliLiter
                             FormQuantities = vol
-                            Substances =
-                                r.SolventSubstances
-                                |> Array.map (scale r.Rule.SolventVolume)
-                                |> Array.fold addSolvent substs
+                            Substances = r.SolventSubstances |> mixSubstances vol prod.Substances r.Rule.SolventVolume
                             Reconstitution = [| r |]
                         }
                     )
@@ -920,6 +985,36 @@ module Product =
             |> Array.collect id
 
         prods, warnings |> Seq.distinct
+
+
+    /// Returns the product followed by one pre-diluted product per matching predilution of its GPK: 1 mL of
+    /// the product with the diluent volume of diluent, in the prepared volume of 1 mL plus the diluent
+    /// volume, as mixSubstances mixes the substances. The product is a liquid: a liquid product, or a product
+    /// after the reconstitution. The label of a pre-diluted product names the predilution, for example
+    /// "..., 1 mL verdund met 9 mL gluc 5%".
+    let predilute mapping loc dep fits rte indication (preds: ProductPredilution[]) (prod: ProductComponent) =
+        let one = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
+        let rte' = rte |> Mapping.routeOption
+
+        let prediluted =
+            preds
+            |> Array.filter (fun p ->
+                p.Rule.GPK = prod.GPK
+                && p.Rule |> Predilution.matches mapping loc dep rte' indication
+                && p.Rule |> fits
+            )
+            |> Array.map (fun p ->
+                let vol = one + p.Rule.DiluentVolume
+                let diluentVol = p.Rule.DiluentVolume |> ValueUnit.toStringDecimalDutchShortWithPrec -1
+
+                { prod with
+                    Label = $"%s{prod.Label}, 1 mL verdund met %s{diluentVol} %s{p.Rule.Diluent}"
+                    FormQuantities = vol
+                    Substances = p.DiluentSubstances |> mixSubstances vol prod.Substances p.Rule.DiluentVolume
+                }
+            )
+
+        Array.append [| prod |] prediluted
 
 
     let filterOutTradeProducts brand ids (prods: ProductComponent[]) =

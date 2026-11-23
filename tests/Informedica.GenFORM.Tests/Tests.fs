@@ -927,6 +927,24 @@ module DoseRuleToDataTests =
             ]
 
 
+        /// The Predilution columns that the parser reads, the one list for the contract and for the
+        /// Predilution tests.
+        let predilutionColumns =
+            [
+                "GPK"
+                "Route"
+                "Indication"
+                "Loc"
+                "Dep"
+                "MinAge"
+                "MaxAge"
+                "MinWeight"
+                "MaxWeight"
+                "DiluentVol"
+                "Diluent"
+            ]
+
+
         /// The Formulary columns, the one list for the contract and for the FormularyProduct tests.
         let formularyColumns =
             [
@@ -1065,6 +1083,13 @@ module DoseRuleToDataTests =
                 // a row with a solvent and a solvent volume, so that the parser keeps it and reads every column
                 [ "Solvent", "water"; "SolventVol", "10" ],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
+
+                "Predilution",
+                predilutionColumns,
+                [],
+                // a rule with a diluent and a diluent volume, so that the parser keeps it and reads every column
+                [ "Diluent", "NaCl 0,9%"; "DiluentVol", "9" ],
+                (Product.Predilution.parsePredilution >> Result.isOk)
 
                 "Formulary", formularyColumns, [], [], (Product.parseFormularyProducts >> Result.isOk)
 
@@ -1496,6 +1521,118 @@ module ReconstitutionTests =
 
                 test "a row without a solvent volume is left out" {
                     ("SolventVol", "") :: row |> parse |> Expect.equal "no rows" (Ok [||])
+                }
+
+                test "a row with a solvent volume of 0 mL or less is left out" {
+                    [ "0"; "-2" ]
+                    |> List.map (fun vol -> ("SolventVol", vol) :: row |> parse)
+                    |> Expect.equal "no rows" [ Ok [||]; Ok [||] ]
+                }
+            ]
+
+
+module PredilutionTests =
+
+
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+
+
+    let row =
+        [
+            "GPK", "2526"
+            "Route", "iv"
+            "Indication", "sedatie"
+            "Loc", "UMCU"
+            "Dep", "NICU"
+            "MinAge", "0"
+            "MaxAge", "28"
+            "MinWeight", "500"
+            "MaxWeight", "5000"
+            "DiluentVol", "9"
+            "Diluent", "NaCl 0,9%"
+        ]
+
+
+    let parse cells =
+        CC.predilutionColumns
+        |> CC.mkSheet cells
+        |> Product.Predilution.parsePredilution
+
+
+    let mL = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    let tests =
+        testList
+            "Predilution rules"
+            [
+                test "a rule with all columns parses into its fields" {
+                    match row |> parse with
+                    | Ok [| r |] ->
+                        r.GPK |> Expect.equal "GPK" "2526"
+                        r.Route |> Expect.equal "Route" "iv"
+                        r.Indication |> Expect.equal "Indication" (Some "sedatie")
+                        r.Location |> Expect.equal "Loc" (Some "UMCU")
+                        r.Department |> Expect.equal "Dep" (Some "NICU")
+                        (r.MinAge, r.MaxAge) |> Expect.equal "age in days" (Some 0N, Some 28N)
+                        (r.MinWeight, r.MaxWeight)
+                        |> Expect.equal "weight in grams" (Some 500N, Some 5000N)
+                        r.DiluentVolume |> Expect.equal "diluent volume" (9N |> mL)
+                        r.Diluent |> Expect.equal "diluent" "NaCl 0,9%"
+                    | other -> failtest $"expected one rule, got %A{other}"
+                }
+
+                test "empty indication, location, department, age and weight cells give None" {
+                    match [ "DiluentVol", "9"; "Diluent", "NaCl 0,9%" ] |> parse with
+                    | Ok [| r |] ->
+                        [ r.Indication; r.Location; r.Department ] |> Expect.allEqual "no text" None
+                        [ r.MinAge; r.MaxAge; r.MinWeight; r.MaxWeight ]
+                        |> Expect.allEqual "no limits" None
+                    | other -> failtest $"expected one rule, got %A{other}"
+                }
+
+                test "a rule without a diluent is left out" {
+                    ("Diluent", " ") :: row |> parse |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a rule without a diluent volume is left out" {
+                    ("DiluentVol", "") :: row |> parse |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a rule with a diluent volume of 0 mL or less is left out" {
+                    [ "0"; "-2" ]
+                    |> List.map (fun vol -> ("DiluentVol", vol) :: row |> parse)
+                    |> Expect.equal "no rules" [ Ok [||]; Ok [||] ]
+                }
+
+                test "an empty table gives no rules" {
+                    [||]
+                    |> Product.Predilution.parsePredilution
+                    |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a table without the DiluentVol column is an error" {
+                    CC.predilutionColumns
+                    |> List.except [ "DiluentVol" ]
+                    |> CC.mkSheet row
+                    |> Product.Predilution.parsePredilution
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a table without another required column is an error" {
+                    CC.predilutionColumns
+                    |> List.except [ "Route" ]
+                    |> CC.mkSheet row
+                    |> Product.Predilution.parsePredilution
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
                 }
             ]
 
@@ -12984,6 +13121,201 @@ module Tests =
                 ]
 
 
+    /// The predilution of a liquid product, after the reconstitution.
+    module PredilutionProductTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+        open ReconstitutionPatientTests
+
+
+        let neonatalInfusion = "Continue infusie neonatologie"
+
+
+        let neo = Some "NEO"
+
+
+        let always _ = true
+
+
+        /// A predilution of 1 mL of product with 9 mL NaCl 0,9%, on the NEO, for neonatal continuous infusion.
+        let predilution: Predilution =
+            {
+                GPK = "1"
+                Route = "iv"
+                Indication = Some neonatalInfusion
+                Location = None
+                Department = neo
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
+                DiluentVolume = 9N |> ValueUnit.singleWithUnit mL
+                Diluent = "NaCl 0,9%"
+            }
+
+
+        let preds =
+            [| predilution |]
+            |> Array.map (Product.ProductPredilution.create SolventSubstanceTests.parenterals)
+
+
+        /// A liquid of 100 mg/mL antibioticum, in vials of 10 mL.
+        let liquid =
+            { powder with
+                RequiresReconstitution = false
+                Reconstitution = [||]
+                FormQuantities = 10N |> ValueUnit.singleWithUnit mL
+                Substances = [| SolventSubstanceTests.antibiotic |]
+            }
+
+
+        /// Pre-dilutes a product for a department, an indication and a patient check; the empty route is not
+        /// checked.
+        let prediluteWith dep indication fits prod = prod |> Product.predilute [||] None dep fits "" indication preds
+
+
+        let predilute dep indication prod = prod |> prediluteWith dep indication always
+
+
+        let concentration name (prod: ProductComponent) =
+            prod.Substances
+            |> Array.tryFind (fun s -> s.Name = name)
+            |> Option.bind _.Concentration
+
+
+        let molarConcentration name (prod: ProductComponent) =
+            prod.Substances
+            |> Array.tryFind (fun s -> s.Name = name)
+            |> Option.bind _.MolarConcentration
+
+
+        let mg n = n |> ValueUnit.singleWithUnit mgPerMl |> Some
+
+
+        let mmol n = n |> ValueUnit.singleWithUnit mmolPerMl |> Some
+
+
+        let tests =
+            testList
+                "the predilution of a product"
+                [
+                    test "a powder is reconstituted to 10 mg/mL, then pre-diluted to 1 mg/mL in 10 mL" {
+                        match reconstituteFor neonate |> fst |> Array.collect (predilute neo neonatalInfusion) with
+                        | [| recon; pred |] ->
+                            (recon |> concentration "antibioticum", recon.FormQuantities)
+                            |> Expect.equal "reconstituted" (mg 10N, 10N |> ValueUnit.singleWithUnit mL)
+                            (pred |> concentration "antibioticum", pred.FormQuantities)
+                            |> Expect.equal "pre-diluted" (mg 1N, 10N |> ValueUnit.singleWithUnit mL)
+                        | other -> failtest $"expected two products, got %A{other |> Array.map _.Label}"
+                    }
+
+                    test "the natrium of the reconstituted product and of 9 mL NaCl 0,9% in 10 mL add up" {
+                        // 0.1 mmol/mL of the product in 1 mL, plus 0.155 mmol/mL of NaCl 0,9% in 9 mL, in 10 mL
+                        reconstituteFor neonate
+                        |> fst
+                        |> Array.collect (predilute neo neonatalInfusion)
+                        |> Array.map (molarConcentration "natrium")
+                        |> Expect.equal "0.1 then 0.1495 mmol/mL" [| mmol (1N / 10N); mmol (1495N / 10000N) |]
+                    }
+
+                    test "the label of a pre-diluted product names the predilution" {
+                        liquid
+                        |> predilute neo neonatalInfusion
+                        |> Array.map _.Label
+                        |> Expect.equal "labels" [| "antibioticum"; "antibioticum, 1 mL verdund met 9 mL NaCl 0,9%" |]
+                    }
+
+                    test "the liquid of 100 mg/mL stays next to the liquid of 10 mg/mL in 10 mL" {
+                        liquid
+                        |> predilute neo neonatalInfusion
+                        |> Array.map (concentration "antibioticum")
+                        |> Expect.equal "undiluted and pre-diluted" [| mg 100N; mg 10N |]
+                    }
+
+                    test "another indication gives no pre-diluted product" {
+                        liquid
+                        |> predilute neo "Acute hypotensie"
+                        |> Array.length
+                        |> Expect.equal "only the product" 1
+                    }
+
+                    test "another department gives no pre-diluted product" {
+                        liquid
+                        |> predilute (Some "ICK") neonatalInfusion
+                        |> Array.length
+                        |> Expect.equal "only the product" 1
+                    }
+
+                    test "a patient outside the predilution gives no pre-diluted product" {
+                        liquid
+                        |> prediluteWith neo neonatalInfusion (fun _ -> false)
+                        |> Array.length
+                        |> Expect.equal "only the product" 1
+                    }
+
+                    test "a predilution for route iv matches the route INTRAVENEUS and not ORAAL" {
+                        let mapping: RouteMapping[] =
+                            [|
+                                {
+                                    Long = "INTRAVENEUS"
+                                    Short = "iv"
+                                }
+                                {
+                                    Long = "ORAAL"
+                                    Short = "or"
+                                }
+                            |]
+
+                        [ Some "INTRAVENEUS"; Some "ORAAL"; None ]
+                        |> List.map (fun rte ->
+                            predilution |> Product.Predilution.matches mapping None neo rte neonatalInfusion
+                        )
+                        |> Expect.equal "INTRAVENEUS, not ORAAL, any route when none is asked" [ true; false; true ]
+                    }
+
+                    test "a predilution for UMCU matches UMCU and no location, and not another location" {
+                        let atUmcu = { predilution with Location = Some "UMCU" }
+
+                        [ Some "UMCU"; Some "AMC"; None ]
+                        |> List.map (fun loc ->
+                            atUmcu |> Product.Predilution.matches [||] loc neo None neonatalInfusion
+                        )
+                        |> Expect.equal "UMCU, not AMC, any location when none is asked" [ true; false; true ]
+                    }
+
+                    test "a diluent without a parenteral product adds no substances" {
+                        predilution
+                        |> Product.ProductPredilution.create [||]
+                        |> _.DiluentSubstances
+                        |> Expect.isEmpty "no substances"
+                    }
+
+                    test "a neonatal dose rule is reconstituted and then pre-diluted" {
+                        let dr =
+                            let dr = RuleCheckTests.doseRule "antibioticum" [||]
+
+                            { dr with
+                                Indication = neonatalInfusion
+                                Route = ""
+                                ComponentLimits =
+                                    dr.ComponentLimits |> Array.map (fun cl -> { cl with Products = [| powder |] })
+                            }
+
+                        dr
+                        |> DoseRule.reconstitute [||] None neo (Product.Reconstitution.matchesPatient neonate)
+                        |> fst
+                        |> DoseRule.predilute [||] None neo always preds
+                        |> _.ComponentLimits
+                        |> Array.collect _.Products
+                        |> Array.map (concentration "antibioticum")
+                        |> Expect.equal "reconstituted and pre-diluted" [| mg 10N; mg 1N |]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -13002,6 +13334,7 @@ module Tests =
                 DepartmentTests.tests
                 ReconstitutionPatientTests.tests
                 SolventSubstanceTests.tests
+                PredilutionProductTests.tests
                 FilterOptionsTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
@@ -13011,6 +13344,7 @@ module Tests =
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
                 ReconstitutionTests.tests
+                PredilutionTests.tests
                 ProductNameTests.tests
                 VirtualProductTests.tests
                 DoseRuleRoundtripTests.tests
