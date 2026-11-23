@@ -192,6 +192,16 @@ module PatientCategory =
         | Some rule, Some patient -> String.equalsCapInsens rule patient
 
 
+    /// Returns true when a rule applies to the location of a patient. A rule without a location applies to every
+    /// patient. A rule with a location applies only to a patient at that location, apart from capitals and
+    /// surrounding spaces.
+    let locationMatches rule patient =
+        match rule, patient with
+        | None, _ -> true
+        | Some _, None -> false
+        | Some rule, Some patient -> String.equalsCapInsens rule patient
+
+
     /// Prints an age in days as a string, in its largest unit: days below one week, weeks up to 30
     /// days, months below one year, years from 365 days, each count rounded down.
     let printAge age =
@@ -519,15 +529,10 @@ module PatientData =
         && VenousAccess.check patCat.Access (dat |> access)
 
 
-    /// Whether a patient matches a patient category, including the location and the gender. The
-    /// location matches when the patient or the category has no location.
+    /// Whether a patient matches a patient category, including the location and the gender. A category
+    /// with a location matches only a patient at that location.
     let matchesCategory (dat: CorePatientData) (patCat: PatientCategory) =
-        let locationMatches =
-            match dat.Location, patCat.Location with
-            | Some a, Some b -> a = b
-            | _ -> true
-
-        locationMatches
+        PatientCategory.locationMatches patCat.Location dat.Location
         && Gender.isMatch patCat.Gender (dat |> gender)
         && matchesCategoryWithoutLocationAndGender dat patCat
 

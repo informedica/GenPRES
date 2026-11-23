@@ -162,15 +162,15 @@ module RuleSet =
 
 
     /// Returns the rule set with only the rows that apply to the patient. A row without a location applies to
-    /// every patient, and a patient without a location to every row. A row without a department applies to
-    /// every patient, and a row with a department only to a patient of that department; the caller gives a
-    /// patient without a department the default department first, as for the dose rules.
+    /// every patient, and a row with a location only to a patient at that location. A row without a department
+    /// applies to every patient, and a row with a department only to a patient of that department; the caller
+    /// gives a patient without a department the default department first, as for the dose rules.
     let forPatient (pat: PatientData) (set: RuleSet) =
         { set with
             Rows =
                 set.Rows
                 |> Array.filter (fun r ->
-                    PatientCategory.canMeet r.Location pat.Location
+                    PatientCategory.locationMatches r.Location pat.Location
                     && pat |> PatientData.department |> PatientCategory.departmentMatches r.Department
                 )
         }

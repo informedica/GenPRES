@@ -721,7 +721,9 @@ module Resources =
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.solutionRules
-                       |> SolutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                       |> SolutionRule.undilutedRulesWithoutAllowedStrength
+                           (r.Get Keys.routeMappings)
+                           (r.Get Keys.doseRules))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.solutionRules

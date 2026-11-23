@@ -3357,7 +3357,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a child of ten years",
                 {
@@ -3379,7 +3379,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a child with estimates",
                 {
@@ -3401,7 +3401,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "an age alone",
                 {
@@ -3421,7 +3421,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a weight alone",
                 {
@@ -3440,7 +3440,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a boy",
                 {
@@ -3462,7 +3462,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "girls" ]
                 }
                 "a girl",
                 {
@@ -3484,7 +3484,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys" ]
                 }
                 "a department alone",
                 {
@@ -3504,7 +3504,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a child on the ICK",
                 {
@@ -3528,7 +3528,14 @@ module Tests =
                             "peripheral line"
                             "boys of 1 month to 18 years on the ICK"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls"; "boys of 1 month to 18 years on the ICK" ]
+                    NoMatchByLocationOrGender =
+                        [
+                            "location OK"
+                            "location ward"
+                            "boys"
+                            "girls"
+                            "boys of 1 month to 18 years on the ICK"
+                        ]
                 }
                 "a child on the NICU",
                 {
@@ -3551,7 +3558,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a child at a location",
                 {
@@ -3594,7 +3601,7 @@ module Tests =
                             "girls"
                             "central line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a child with a peripheral line and a tube",
                 {
@@ -3615,7 +3622,7 @@ module Tests =
                             "girls"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a term newborn of 3 days",
                 {
@@ -3637,7 +3644,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "a preterm newborn of 10 days",
                 {
@@ -3675,7 +3682,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "15 years, marked as an adult",
                 {
@@ -3697,7 +3704,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "16 years",
                 {
@@ -3720,7 +3727,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "16 years, marked as an adult",
                 {
@@ -3743,7 +3750,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "18 years",
                 {
@@ -3768,7 +3775,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "40 years, 80 kg and 180 cm",
                 {
@@ -3789,7 +3796,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "no age, marked as an adult",
                 {
@@ -3810,7 +3817,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
                 "no age, marked as an adult, with a weight",
                 {
@@ -3831,7 +3838,7 @@ module Tests =
                             "central line"
                             "peripheral line"
                         ]
-                    NoMatchByLocationOrGender = [ "boys"; "girls" ]
+                    NoMatchByLocationOrGender = [ "location OK"; "location ward"; "boys"; "girls" ]
                 }
             ]
             |> Map.ofList
@@ -4363,18 +4370,66 @@ module Tests =
                     testList
                         "what is left as it is"
                         [
-                            test "a rule that names a location still matches a patient with none" {
-                                { PatientCategory.empty with Location = Some "OK" }
-                                |> PatientData.matchesCategory (patientFor None)
-                                |> Expect.isTrue "the location comparison is untouched"
-                            }
-
                             test "a reconstitution still asks for the route when one is given" {
                                 reconstitutionFor None
                                 |> Product.Reconstitution.matches [||] None None (Some "oraal")
                                 |> Expect.isFalse "iv is not oraal"
                             }
                         ]
+                ]
+
+
+    /// The location: a rule that names no location is a rule for every patient, a rule that names one is a
+    /// rule for the patients at that location only.
+    module LocationTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenForm.Lib
+
+
+        let locations = [ None; Some "UMCU"; Some "AMC" ]
+
+
+        let patientAt location = { TestPatient.unknown with Location = location }
+
+
+        let tests =
+            testList
+                "the location"
+                [
+                    test "a rule that names no location is a rule for every patient" {
+                        locations
+                        |> List.map (PatientCategory.locationMatches None)
+                        |> Expect.equal "every patient" [ true; true; true ]
+                    }
+
+                    test "a rule that names a location is a rule for the patients at that location only" {
+                        locations
+                        |> List.map (PatientCategory.locationMatches (Some "UMCU"))
+                        |> Expect.equal "UMCU only" [ false; true; false ]
+                    }
+
+                    test "a dose rule that names a location matches the patients at that location only" {
+                        locations
+                        |> List.map (fun loc ->
+                            { PatientCategory.empty with Location = Some "UMCU" }
+                            |> PatientData.matchesCategory (patientAt loc)
+                        )
+                        |> Expect.equal "UMCU only" [ false; true; false ]
+                    }
+
+                    test "a location is compared apart from capitals and surrounding spaces" {
+                        [ Some "UMCU"; Some "umcu"; Some " UMCU "; Some "AMC" ]
+                        |> List.map (PatientCategory.locationMatches (Some "UMCU"))
+                        |> Expect.equal "UMCU, umcu and UMCU with spaces, not AMC" [ true; true; true; false ]
+                    }
+
+                    test "a reconstitution that names a location applies at that location only" {
+                        locations
+                        |> List.map (fun loc -> Product.matchesSetting [||] loc None None "iv" (Some "UMCU") None)
+                        |> Expect.equal "UMCU only" [ false; true; false ]
+                    }
                 ]
 
 
@@ -9764,17 +9819,34 @@ module Tests =
                         ]
 
                     testList
-                        "undilutable rules"
+                        "undiluted rules without allowed strength"
                         [
                             let injection = Solution "injectievloeistof"
                             let zidovudine = [| ivDoseRule "zidovudine" injection [| liquid "zidovudine" 10N |] |]
-                            let undilutable = SolutionRule.undilutableRules ivRouteMapping
+                            let undilutedWithoutAllowedStrength =
+                                SolutionRule.undilutedRulesWithoutAllowedStrength ivRouteMapping
                             let ick = { PatientCategory.empty with Department = Some "ICK" }
+
+                            // a teicoplanine dose rule with a powder of 400 mg in 3 mL, reconstituted only at
+                            // the location
+                            let teicoplanineAt location =
+                                let p = powder "teicoplanine" 400N 3N None
+
+                                ivDoseRule
+                                    "teicoplanine"
+                                    (Solid "poeder voor injectievloeistof")
+                                    [|
+                                        { p with
+                                            Reconstitution =
+                                                p.Reconstitution
+                                                |> Array.map (fun r -> { r with Rule.Location = location })
+                                        }
+                                    |]
 
                             test "a rule without diluents whose limit allows no strength gives one warning" {
                                 let s =
                                     [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                    |> undilutable zidovudine
+                                    |> undilutedWithoutAllowedStrength zidovudine
                                     |> List.map warningText
                                     |> single
 
@@ -9796,13 +9868,13 @@ module Tests =
                                         Diluents = [| liquid "glucose 5%" 50N |]
                                     }
                                 |]
-                                |> undilutable zidovudine
+                                |> undilutedWithoutAllowedStrength zidovudine
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a rule whose limit allows the strength gives no warning" {
                                 [| solutionRule "zidovudine" (maxConc 10N) |]
-                                |> undilutable zidovudine
+                                |> undilutedWithoutAllowedStrength zidovudine
                                 |> Expect.isEmpty "none"
                             }
 
@@ -9818,13 +9890,14 @@ module Tests =
                                     }
 
                                 [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                |> undilutable [| dr |]
+                                |> undilutedWithoutAllowedStrength [| dr |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a dose rule of another generic gives no warning" {
                                 [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                |> undilutable [| ivDoseRule "esmolol" injection [| liquid "zidovudine" 10N |] |]
+                                |> undilutedWithoutAllowedStrength
+                                    [| ivDoseRule "esmolol" injection [| liquid "zidovudine" 10N |] |]
                                 |> Expect.isEmpty "none"
                             }
 
@@ -9834,7 +9907,7 @@ module Tests =
                                         Indication = Some "HIV profylaxe"
                                     }
                                 |]
-                                |> undilutable zidovudine
+                                |> undilutedWithoutAllowedStrength zidovudine
                                 |> Expect.isEmpty "none"
                             }
 
@@ -9842,14 +9915,14 @@ module Tests =
                                 [|
                                     { solutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
                                 |]
-                                |> undilutable zidovudine
+                                |> undilutedWithoutAllowedStrength zidovudine
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a powder is compared at the strength it has once dissolved for the department" {
                                 // 400 mg in 3 mL is about 133 mg/mL
                                 [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -9863,7 +9936,7 @@ module Tests =
                             test "a powder dissolved to a strength within the limit gives no warning" {
                                 // 400 mg in 40 mL is 10 mg/mL
                                 [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -9875,7 +9948,7 @@ module Tests =
 
                             test "a powder dose rule that fails next to a liquid dose rule that fits gives one warning" {
                                 [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -9896,7 +9969,7 @@ module Tests =
                                 [|
                                     { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         { dr with
                                             PatientCategory = { dr.PatientCategory with Department = Some "NEO" }
@@ -9913,7 +9986,7 @@ module Tests =
                                         PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
                                     }
                                 |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         { dr with PatientCategory = { dr.PatientCategory with Location = Some "AMC" } }
                                     |]
@@ -9926,7 +9999,7 @@ module Tests =
                                 [|
                                     { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         { dr with
                                             PatientCategory = { dr.PatientCategory with Department = Some "ICK" }
@@ -9939,7 +10012,7 @@ module Tests =
                             test "a rule without a department checks a powder for the department of its reconstitution" {
                                 // 400 mg in 3 mL is about 133 mg/mL, reconstituted only for ICK
                                 [| solutionRule "teicoplanine" (maxConc 10N) |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -9948,6 +10021,35 @@ module Tests =
                                     |]
                                 |> List.length
                                 |> Expect.equal "one" 1
+                            }
+
+                            test "a rule without a location checks a powder for the location of its reconstitution" {
+                                // 400 mg in 3 mL is about 133 mg/mL, reconstituted only at UMCU
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                |> undilutedWithoutAllowedStrength [| teicoplanineAt (Some "UMCU") |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule at the location of the reconstitution checks the powder" {
+                                [|
+                                    { solutionRule "teicoplanine" (maxConc 10N) with
+                                        PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
+                                    }
+                                |]
+                                |> undilutedWithoutAllowedStrength [| teicoplanineAt (Some "UMCU") |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule at another location than the reconstitution does not check the powder" {
+                                [|
+                                    { solutionRule "teicoplanine" (maxConc 10N) with
+                                        PatientCategory = { PatientCategory.empty with Location = Some "AMC" }
+                                    }
+                                |]
+                                |> undilutedWithoutAllowedStrength [| teicoplanineAt (Some "UMCU") |]
+                                |> Expect.isEmpty "none"
                             }
 
                             test "a rule from 1 year gives no warning for a powder reconstituted only for a neonate" {
@@ -9976,7 +10078,7 @@ module Tests =
                                 [|
                                     { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = fromOneYear }
                                 |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -10014,14 +10116,15 @@ module Tests =
                                         PatientCategory = age None (Some 28N)
                                     }
                                 |]
-                                |> undilutable [| { dr with PatientCategory = age (Some 365N) None } |]
+                                |> undilutedWithoutAllowedStrength
+                                    [| { dr with PatientCategory = age (Some 365N) None } |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a rule without a department gives no warning when the powder fits in that department" {
                                 // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
                                 [| solutionRule "teicoplanine" (maxConc 10N) |]
-                                |> undilutable
+                                |> undilutedWithoutAllowedStrength
                                     [|
                                         ivDoseRule
                                             "teicoplanine"
@@ -10036,7 +10139,7 @@ module Tests =
                                     solutionRule "zidovudine" (maxConc (5N / 2N))
                                     solutionRule "zidovudine" (maxConc (5N / 2N))
                                 |]
-                                |> undilutable zidovudine
+                                |> undilutedWithoutAllowedStrength zidovudine
                                 |> List.length
                                 |> Expect.equal "one" 1
                             }
@@ -10869,7 +10972,7 @@ module Tests =
                                 |])
                     }
 
-                    test "a row without a location applies to every patient, a row with a location to that location" {
+                    test "a row without a location applies to every patient, a row with a location only there" {
                         let set =
                             {
                                 Kind = RuleSetKind.EmergencyList
@@ -10890,7 +10993,7 @@ module Tests =
                             |> _.Rows
                             |> Array.length
                         )
-                        |> Expect.equal "2 rows, 2 at UMCU, 1 at AMC" [ 2; 2; 1 ]
+                        |> Expect.equal "1 without a location, 2 at UMCU, 1 at AMC" [ 1; 2; 1 ]
                     }
 
                     test "a row with a department applies only to a patient of that department" {
@@ -13620,14 +13723,14 @@ module Tests =
                         |> Expect.equal "INTRAVENEUS, not ORAAL, any route when none is asked" [ true; false; true ]
                     }
 
-                    test "a predilution for UMCU matches UMCU and no location, and not another location" {
+                    test "a predilution for UMCU matches UMCU only, not another location or no location" {
                         let atUmcu = { predilution with Location = Some "UMCU" }
 
                         [ Some "UMCU"; Some "AMC"; None ]
                         |> List.map (fun loc ->
                             atUmcu |> Product.Predilution.matches [||] loc neo None neonatalInfusion
                         )
-                        |> Expect.equal "UMCU, not AMC, any location when none is asked" [ true; false; true ]
+                        |> Expect.equal "UMCU, not AMC, not without a location" [ true; false; false ]
                     }
 
                     test "3 mL of 100 mg/mL with 7 mL NaCl 0,9% gives 30 mg/mL in 10 mL, labelled with both volumes" {
@@ -13800,6 +13903,7 @@ module Tests =
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests
+                LocationTests.tests
                 ReconstitutionPatientTests.tests
                 SolventSubstanceTests.tests
                 PredilutionProductTests.tests

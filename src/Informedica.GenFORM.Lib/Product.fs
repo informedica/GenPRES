@@ -178,11 +178,11 @@ module Product =
 
 
     /// Whether a rule for a route, a location and a department applies to a setting. The route must match
-    /// when the setting gives one, the location when both name one, and the department as
-    /// PatientCategory.departmentMatches decides.
+    /// when the setting gives one, the location as PatientCategory.locationMatches decides, and the department
+    /// as PatientCategory.departmentMatches decides.
     let matchesSetting routeMapping loc dep rte route location department =
         route |> Mapping.eqsRoute routeMapping rte
-        && PatientCategory.canMeet location loc
+        && PatientCategory.locationMatches location loc
         && PatientCategory.departmentMatches department dep
 
 
@@ -939,9 +939,9 @@ module Product =
         )
 
 
-    /// <summary>Reconstitutes a product for a venous access location, a department and a route.</summary>
+    /// <summary>Reconstitutes a product for a location, a department and a route.</summary>
     /// <param name="mapping">The route mapping.</param>
-    /// <param name="loc">The venous access location.</param>
+    /// <param name="loc">The location.</param>
     /// <param name="dep">The department.</param>
     /// <param name="fits">Whether a reconstitution applies to the patient.</param>
     /// <param name="rte">The route; an empty route is not checked.</param>
