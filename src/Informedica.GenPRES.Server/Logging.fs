@@ -5,7 +5,6 @@ open System.IO
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
-open Informedica.Agents.Lib
 open Informedica.Logging.Lib
 
 open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
@@ -61,30 +60,34 @@ let getRecommendedLogPath (componentName: string option) =
     Path.Combine(logDir, fileName)
 
 
+/// Deletes the oldest .log files in a directory, by last write time, until maxFiles are left. Files in
+/// subdirectories are not counted or deleted. Returns the number of deleted files, or the error.
+let deleteOldestLogFiles maxFiles dir =
+    try
+        let oldest =
+            Directory.GetFiles(dir, "*.log")
+            |> Array.sortByDescending File.GetLastWriteTimeUtc
+            |> fun files -> files[maxFiles..]
+
+        oldest |> Array.iter File.Delete
+        oldest |> Array.length |> Ok
+    with exn ->
+        Error exn.Message
+
+
 /// Deletes the oldest .log files in the directory of path when it holds more than MAX_LOG_FILES.
 /// Runs once per logger type, when its file sink is built.
 let private pruneLogDirectory (path: string) =
-    let dirAgent = FileDirectoryAgent.create ()
-
     let dir =
         match Path.GetDirectoryName path with
         | null
         | "" -> AppPath.rootPath ()
         | d -> d
 
-    let policedAgent = dirAgent |> FileDirectoryAgent.setPolicyWithPattern dir MAX_LOG_FILES "*.log"
-
-    async {
-        let! pruned = policedAgent |> FileDirectoryAgent.pruneAsync path
-
-        match pruned with
-        | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
-        | Ok _ -> ()
-        | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
-
-        dirAgent |> Agent.dispose
-    }
-    |> Async.RunSynchronously
+    match dir |> deleteOldestLogFiles MAX_LOG_FILES with
+    | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned %i{n} old log file(s)\n"
+    | Ok _ -> ()
+    | Error s -> writeErrorMessage $"❌ Log path prune errored with: %s{s}\n"
 
 
 type LoggerType =

@@ -319,5 +319,93 @@ let analysisTests =
         ]
 
 
+/// Returns a path in the temp directory with a new unique name.
+let tempPath () = Path.Combine(Path.GetTempPath(), Guid.NewGuid() |> string)
+
+
+/// Creates a new empty directory in the temp directory.
+let tempDir () =
+    let dir = tempPath ()
+    Directory.CreateDirectory dir |> ignore
+    dir
+
+
+/// Creates a file in a directory that was last written the number of minutes ago.
+let createFile dir name (minutesAgo: int) =
+    let path = Path.Combine(dir, name)
+    File.WriteAllText(path, name)
+    File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(float -minutesAgo))
+
+
+/// The names of the files in a directory, sorted.
+let fileNames dir =
+    Directory.GetFiles dir |> Array.map Path.GetFileName |> Array.sort
+
+
+let pruneTests =
+    testList
+        "Logging.deleteOldestLogFiles"
+        [
+            test "a directory with no more log files than the maximum keeps all of them" {
+                let dir = tempDir ()
+                createFile dir "a.log" 2
+                createFile dir "b.log" 1
+
+                dir |> Logging.deleteOldestLogFiles 2 |> Expect.equal "none deleted" (Ok 0)
+                dir |> fileNames |> Expect.equal "both left" [| "a.log"; "b.log" |]
+            }
+
+            test "the oldest log files are deleted until the maximum is left" {
+                let dir = tempDir ()
+                createFile dir "newest.log" 1
+                createFile dir "oldest.log" 30
+                createFile dir "middle.log" 10
+                createFile dir "older.log" 20
+
+                dir |> Logging.deleteOldestLogFiles 2 |> Expect.equal "two deleted" (Ok 2)
+                dir
+                |> fileNames
+                |> Expect.equal "the two newest left" [| "middle.log"; "newest.log" |]
+            }
+
+            test "a maximum of zero deletes every log file" {
+                let dir = tempDir ()
+                createFile dir "a.log" 1
+
+                dir |> Logging.deleteOldestLogFiles 0 |> Expect.equal "one deleted" (Ok 1)
+                dir |> fileNames |> Expect.isEmpty "no files left"
+            }
+
+            test "files that are not log files are not counted or deleted" {
+                let dir = tempDir ()
+                createFile dir "notes.txt" 60
+                createFile dir "old.log" 30
+                createFile dir "new.log" 1
+
+                dir |> Logging.deleteOldestLogFiles 1 |> Expect.equal "one deleted" (Ok 1)
+                dir
+                |> fileNames
+                |> Expect.equal "the text file and the newest log" [| "new.log"; "notes.txt" |]
+            }
+
+            test "log files in a subdirectory are not counted or deleted" {
+                let dir = tempDir ()
+                let sub = Path.Combine(dir, "sub")
+                Directory.CreateDirectory sub |> ignore
+                createFile sub "old.log" 60
+                createFile dir "new.log" 1
+
+                dir |> Logging.deleteOldestLogFiles 1 |> Expect.equal "none deleted" (Ok 0)
+                sub
+                |> fileNames
+                |> Expect.equal "the log in the subdirectory left" [| "old.log" |]
+            }
+
+            test "a directory that does not exist gives an error" {
+                tempPath () |> Logging.deleteOldestLogFiles 1 |> Expect.isError "no directory"
+            }
+        ]
+
+
 [<Tests>]
-let tests = testList "Logging Tests" [ formatTests; sinkTests; analysisTests ]
+let tests = testList "Logging Tests" [ formatTests; sinkTests; analysisTests; pruneTests ]
