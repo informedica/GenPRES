@@ -357,9 +357,60 @@ values. The server maps a category name of the RuleSets sheet to a nutrition cat
 (`NutritionCategoryMapper`) and makes the rule sets from the rows (`NutritionRuleSets.ofData`). A row of a
 category that is not a nutrition category is left out, with a warning once per resource load, instead of
 refusing every rule set; so rows of the categories EmergencyList and StandardInfusions can be entered
-before the code reads them, without refusing the nutrition orders.
+before the code reads them, without refusing the nutrition orders. Merged in #1980.
 
-The parts that follow are worked out after part 1.
+Part 2, the EmergencyList category read: the server reads the rows of the EmergencyList category of the
+RuleSets sheet into a rule set, with the columns Loc and Dep, where an empty Loc or Dep matches every
+hospital or department. Before part 2 the server left these rows out, because its mapper of the category
+names knew only the nutrition categories.
+
+Content update: every RuleSets sheet gets the columns Loc and Dep. They are required columns, so a
+workbook whose RuleSets sheet lacks them does not load. The load check `RuleSet.check` warns, for most generics under an indication of
+these rows, that it has no product in the Formulary sheet, because it compares the names with the
+Generic column of the Formulary sheet case-sensitively, while the dose rules find their products without
+regard to case (`DoseRuleLoader`); the Formulary writes the medication generics in capitals.
+
+Decided on 2026-11-23:
+
+- One general rule set, in GenFORM, replaces the GenORDER `NutritionRuleSet` type: its kind is Nutrition of
+  a nutrition category, EmergencyList or StandardInfusions, and its rows are the rows of the RuleSets sheet,
+  each with an indication, a generic, a Loc and a Dep. The nutrition categories move to GenFORM with it;
+  GenORDER keeps only what applies a rule set to a nutrition order context (`NutritionRuleSet`).
+- Every rule set, nutrition included, uses only the rows whose Loc and Dep match the Location and the
+  Department of the patient; an empty Loc or Dep matches every patient. A patient without a department
+  gets the default department first (`Api.withDefaultDepartment`), as for the dose rules.
+- The load check compares the names with the Formulary sheet without regard to case, as the dose rules do.
+
+A hospital selects its own dose rules and solution rules through their Loc column, checked on
+2026-11-23:
+
+- `DoseRule.filter` matches the Loc of a dose rule with the Location of the patient; an empty Loc or no
+  Location matches every hospital (`Patient.matchesCategory`).
+- `SolutionRule.filter` does not check the Location, so the solution rules of every hospital apply to
+  the dose rule of one hospital, and each gives its own medication (`Medication.fromRule`). The check
+  `SolutionRule.appliesToDoseRule` compares the Loc of a solution rule with the Loc of a dose rule, but
+  only the load checks use it.
+- The client never sets the Location of the patient: the hospital chosen in the title bar stays in the
+  client, its list comes from the emergency list workbook, and no patient data edit sets a Location.
+
+Part 3, the solution rules follow the location: the solution rules of a prescription rule leave out a
+solution rule whose Loc differs from the Location of the patient or from the Loc of the dose rule.
+Which of the two, or both, is settled in this part.
+
+Part 4, the chosen hospital is the Location of the patient, decided on 2026-11-23: the hospital is part
+of the patient data the client sends to the server, as the Location, the same way as the department.
+The Location already goes both ways between the contract, the server and GenCORE (the patient data
+mappers and the GenCORE patient data Dto); what is missing is the edit that sets it, next to
+`PatientDataEdit.SetDepartment` in the contract and in GenCORE, its mapping in the server, and the client
+message that sends it, next to `UpdateDepartment` in `PatientDataPolicy`. The hospitals to choose from
+are the distinct Loc values the rules name, as `Resources.Departments.ofRules` makes the departments from
+the rules; the emergency list workbook no longer gives them.
+
+Open, to be decided later: whether a row of the emergency list or the standard infusions can be prescribed
+straight into the order plan, which the client cannot do today, and if so, which rows can (for example a
+row with one order and no dose range) and which go to the prescribe view.
+
+The parts that follow are worked out after part 4.
 
 ### Step 4: #1211 the continuous medication rules in the rules spreadsheet
 
