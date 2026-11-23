@@ -617,6 +617,23 @@ let evaluateTests =
                 |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
             }
 
+            test "a rule set without rows for the patient is refused as no rule set" {
+                let feeding =
+                    { nutritionRuleSet NutritionCategory.EnteralFeeding "Feeding" [||] [||] with
+                        Rows = [| ruleSetData "voeding" "Nutrini" (Some "UMCU") None |]
+                    }
+
+                [ "UMCU"; "AMC" ]
+                |> List.map (fun loc ->
+                    [|
+                        feeding |> RuleSet.forPatient { PatientData.unknown with Location = Some loc }
+                    |]
+                    |> NutritionRuleSet.find NutritionCategory.EnteralFeeding
+                    |> Result.isOk
+                )
+                |> Expect.equal "found at UMCU, refused at AMC" [ true; false ]
+            }
+
             test "a rule set for a patient narrows to the names of the rows that apply to that patient" {
                 let set =
                     {

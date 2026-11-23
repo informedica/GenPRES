@@ -204,10 +204,12 @@ module NutritionRuleSet =
     open Informedica.Utils.Lib.BCL
 
 
-    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none.
+    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none or when it has no
+    /// rows, as a rule set for a patient none of whose rows apply has none.
     let find category sets =
         sets
         |> RuleSet.tryFind category
+        |> Option.filter (_.Rows >> Array.isEmpty >> not)
         |> Result.requireSome (OrderPlanError.NoRuleSet category)
 
 

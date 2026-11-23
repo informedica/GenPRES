@@ -573,6 +573,14 @@ let ruleSetRowTests =
                 |> Expect.equal "the ICK feeding" [| "MM" |]
             }
 
+            test "a nutrition slot of a department without rows of its category is refused" {
+                let hck = PatientData.unknown |> SamplePatients.withDepartment (Some "HCK")
+
+                ServerApi.Adapters.RuleSets.ruleSetOf (DepartmentRuleSet()) hck (Some NutritionCategory.EnteralFeeding)
+                |> Result.isError
+                |> Expect.isTrue "no rule set for the feeding at HCK"
+            }
+
             test "the rows of a category that is not a rule set category are left out, the other sets stay" {
                 [|
                     row "Enteral" "x" "Enterale voeding" "MM"
