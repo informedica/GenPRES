@@ -7466,6 +7466,29 @@ module Tests =
             |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
 
 
+        /// A rule for any patient, a rule for UMCU, a rule for AMC and a rule for a female patient.
+        let locationRules =
+            [|
+                rule "any" PatientCategory.empty
+                rule "UMCU" { PatientCategory.empty with Location = Some "UMCU" }
+                rule "AMC" { PatientCategory.empty with Location = Some "AMC" }
+                rule "female" { PatientCategory.empty with Gender = Female }
+            |]
+
+
+        /// The indications of the location rules a lookup for the patient finds.
+        let matchedByLocation pat =
+            { Filter.solutionFilter with
+                Generic = Some "paracetamol"
+                PatientData = pat
+            }
+            |> fun filter -> locationRules |> SolutionRule.filter [||] filter
+            |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
+
+
+        let patientAt location = { TestPatient.unknown with Location = location }
+
+
         let tests =
             testList
                 "SolutionRule.filter"
@@ -7509,6 +7532,39 @@ module Tests =
                         |> TestPatient.withWeightInKg 5N
                         |> matched
                         |> Expect.equal "any and under 10 kg" [| "any"; "under 10 kg" |]
+                    }
+
+                    test "a lookup without a patient returns every solution rule, also those with a location" {
+                        TestPatient.unknown
+                        |> matchedByLocation
+                        |> Expect.equal "all four" [| "any"; "UMCU"; "AMC"; "female" |]
+                    }
+
+                    test "a patient at a location gets the rules for that location and the rules without one" {
+                        Some "UMCU"
+                        |> patientAt
+                        |> matchedByLocation
+                        |> Expect.equal "no AMC" [| "any"; "UMCU"; "female" |]
+                    }
+
+                    test "the location of a rule matches apart from capitals and surrounding spaces" {
+                        Some " umcu "
+                        |> patientAt
+                        |> matchedByLocation
+                        |> Expect.equal "UMCU" [| "any"; "UMCU"; "female" |]
+                    }
+
+                    test "a patient with data but without a location gets no rule with a location" {
+                        TestPatient.unknown
+                        |> TestPatient.withGender CoreGender.Male
+                        |> matchedByLocation
+                        |> Expect.equal "no UMCU or AMC" [| "any"; "female" |]
+                    }
+
+                    test "the gender of a solution rule is not checked" {
+                        { patientAt (Some "AMC") with Gender = CoreGender.Male }
+                        |> matchedByLocation
+                        |> Expect.contains "female" "female"
                     }
                 ]
 

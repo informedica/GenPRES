@@ -393,9 +393,9 @@ A hospital selects its own dose rules and solution rules through their Loc colum
 - The client never sets the Location of the patient: the hospital chosen in the title bar stays in the
   client, its list comes from the emergency list workbook, and no patient data edit sets a Location.
 
-Part 3, the solution rules follow the location: the solution rules of a prescription rule leave out a
-solution rule whose Loc differs from the Location of the patient or from the Loc of the dose rule.
-Which of the two, or both, is settled in this part.
+Part 3, the solution rules follow the location, decided on 2026-11-23: `SolutionRule.filter` compares the
+Loc of a solution rule with the Location of the patient, as the dose rules do. A solution rule with a Loc
+applies only to a patient with that Location, as #1984 makes it for the dose rules.
 
 Part 4, the chosen hospital is the Location of the patient, decided on 2026-11-23: the hospital is part
 of the patient data the client sends to the server, as the Location, the same way as the department.

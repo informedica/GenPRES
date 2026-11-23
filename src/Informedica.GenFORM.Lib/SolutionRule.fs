@@ -899,8 +899,8 @@ module SolutionRule =
 
     /// Returns the solution rules that match the filter. The generic is checked only when given, the
     /// department only when given, and the other patient data only when set, so a lookup without patient
-    /// data returns the rules of every patient. When the filter names a diluent, each rule keeps only that
-    /// diluent.
+    /// data returns the rules of every patient. With patient data, a rule with a location matches only a
+    /// patient at that location. When the filter names a diluent, each rule keeps only that diluent.
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
@@ -916,8 +916,9 @@ module SolutionRule =
             // don't filter on the rest of the patient if it is not set; a department alone does not set it
             if filter.PatientData |> PatientData.hasDataBesidesDepartment then
                 fun (solRule: SolutionRule) ->
-                    solRule.PatientCategory
-                    |> PatientData.matchesCategoryWithoutLocationAndGender filter.PatientData
+                    PatientCategory.locationMatches solRule.PatientCategory.Location filter.PatientData.Location
+                    && solRule.PatientCategory
+                       |> PatientData.matchesCategoryWithoutLocationAndGender filter.PatientData
             fun (solRule: SolutionRule) -> solRule.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
             fun (solRule: SolutionRule) ->
                 solRule.Indication
