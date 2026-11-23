@@ -809,6 +809,8 @@ type NoRules() =
         member _.Get(key: Resources.ResourceKey<'T>) : 'T =
             if key.Name = Resources.Keys.isAdditive.Name then
                 box (fun (_: string) -> false) :?> 'T
+            elif key.Name = Resources.Keys.productPredilutions.Name then
+                box Array.empty<ProductPredilution> :?> 'T
             else
                 raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
@@ -855,6 +857,8 @@ type NotLoaded() =
         member _.Get(key: Resources.ResourceKey<'T>) : 'T =
             if key.Name = Resources.Keys.isAdditive.Name then
                 box (fun (_: string) -> false) :?> 'T
+            elif key.Name = Resources.Keys.productPredilutions.Name then
+                box Array.empty<ProductPredilution> :?> 'T
             else
                 raise (System.Collections.Generic.KeyNotFoundException())
 

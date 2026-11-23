@@ -593,13 +593,19 @@ module OrderContext =
         open Informedica.Logging.Lib
 
 
-        /// Splits a component limit into one limit per Divisible and solvent of its products, sorted by
-        /// Divisible and solvent so the scenarios come in a fixed order; the products without a Divisible
-        /// come first. A limit whose products all have the same Divisible and solvents is not split.
+        /// Splits a component limit into one limit per Divisible, solvent and predilution of its products, sorted
+        /// so the scenarios come in a fixed order; the products without a Divisible come first, and within one
+        /// Divisible and solvent the undiluted product comes first. A limit whose products all agree on these is
+        /// not split.
         let limitsByDivisible (cl: ComponentLimit) =
             match
                 cl.Products
-                |> Array.groupBy (fun p -> p.Divisible, p.Reconstitution |> Array.map _.Rule.Solvent)
+                |> Array.groupBy (fun p ->
+                    p.Divisible,
+                    p.Reconstitution |> Array.map _.Rule.Solvent,
+                    p.Predilution
+                    |> Option.map (fun pd -> pd.Rule.MedVolume, pd.Rule.DiluentVolume, pd.Rule.Diluent)
+                )
                 |> Array.sortBy fst
             with
             | [||]

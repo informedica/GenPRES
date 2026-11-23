@@ -8738,6 +8738,7 @@ module Tests =
                                 demoRules.Value
                                 [||]
                                 renalRules
+                                [||]
                                 Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
@@ -8830,7 +8831,7 @@ module Tests =
                                     Route = Some dr.Route
                                     Components = ComponentSelection.Selected [ "NaCl" ]
                                 }
-                                |> PrescriptionRule.filter isAdditive [| dr |] [||] [||] Fixtures.rm.Value
+                                |> PrescriptionRule.filter isAdditive [| dr |] [||] [||] [||] Fixtures.rm.Value
                                 |> Result.defaultValue [||]
                                 |> Array.map (_.DoseRule.ComponentLimits >> names)
                                 |> Expect.equal "the glucose kept" [| [| "main"; "gluc"; "NaCl" |] |]
@@ -8861,7 +8862,7 @@ module Tests =
                                 Components = components
                             }
                             // the product of the component "other" is an additive, so a pick can leave it out
-                            |> PrescriptionRule.filter ((=) "other") [| dr |] [||] [||] Fixtures.rm.Value
+                            |> PrescriptionRule.filter ((=) "other") [| dr |] [||] [||] [||] Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
                         let pr components =
@@ -8905,6 +8906,7 @@ module Tests =
                                     }
                                 |]
                                 [||]
+                                [||]
                                 Fixtures.rm.Value
                             |> Result.defaultValue [||]
                             |> Array.collect _.SolutionRules
@@ -8926,7 +8928,7 @@ module Tests =
                     test "a lookup with the empty patient gets every dose rule of the generic, per kg ones included" {
                         let prs =
                             { Filter.doseFilter with Generic = Some "paracetamol" }
-                            |> PrescriptionRule.filter (fun _ -> false) demoRules.Value [||] [||] Fixtures.rm.Value
+                            |> PrescriptionRule.filter (fun _ -> false) demoRules.Value [||] [||] [||] Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
                         // the count of the demo fixture's paracetamol rules before the check existed
@@ -9009,6 +9011,7 @@ module Tests =
                                     drs
                                     solutionRules
                                     renalRules
+                                    [||]
                                     Fixtures.rm.Value
 
                             prs |> Result.map Array.isEmpty |> Expect.equal "rules are selected" (Ok false)
@@ -11487,7 +11490,7 @@ module Tests =
 
         let filterFor weight solRules =
             { Filter.doseFilter with PatientData = patient weight }
-            |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] solRules [||] ivRouteMapping
+            |> PrescriptionRule.filter (fun _ -> false) [| withoutLimits |] solRules [||] [||] ivRouteMapping
 
 
         let tests =
@@ -11833,6 +11836,7 @@ module Tests =
                 [| LimitingSolutionRuleTests.withoutLimits |]
                 [| LimitingSolutionRuleTests.limitsBoth |]
                 renalRules
+                [||]
                 RuleCheckTests.ivRouteMapping
 
 
@@ -11844,6 +11848,7 @@ module Tests =
                 (fun _ -> false)
                 [| LimitingSolutionRuleTests.withoutLimits |]
                 solRules
+                [||]
                 [||]
                 RuleCheckTests.ivRouteMapping
 
@@ -11997,6 +12002,7 @@ module Tests =
                     empty Keys.renalRuleData
                     empty Keys.totalsData
                     empty Keys.reconstitution
+                    empty Keys.productPredilutions
                     empty Keys.parenteralMeds
                     empty Keys.enteralFeeding
                     empty Keys.products
@@ -12059,6 +12065,58 @@ module Tests =
                 member _.GetGStandProvider() = provider.GetGStandProvider()
                 member _.GetDepartments() = provider.GetDepartments()
                 member _.GetResourceInfo() = provider.GetResourceInfo()
+            }
+
+
+        /// Wraps the provider so that the product predilutions replace those of the provider; every other
+        /// member passes through.
+        let withProductPredilutions (preds: ProductPredilution[]) (provider: IResourceProvider) =
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.productPredilutions.Name then
+                        box preds :?> 'T
+                    else
+                        provider.Get key
+
+                member _.GetData() = provider.GetData()
+                member _.GetUnitMappings() = provider.GetUnitMappings()
+                member _.GetRouteMappings() = provider.GetRouteMappings()
+                member _.GetValidForms() = provider.GetValidForms()
+                member _.GetFormRoutes() = provider.GetFormRoutes()
+                member _.GetFormularyProducts() = provider.GetFormularyProducts()
+                member _.GetReconstitution() = provider.GetReconstitution()
+                member _.GetParenteralMeds() = provider.GetParenteralMeds()
+                member _.GetEnteralFeeding() = provider.GetEnteralFeeding()
+                member _.GetProducts() = provider.GetProducts()
+                member _.GetDoseRules() = provider.GetDoseRules()
+                member _.GetSolutionRules() = provider.GetSolutionRules()
+                member _.GetRenalRules() = provider.GetRenalRules()
+                member _.GetTotals() = provider.GetTotals()
+                member _.GetGStandProvider() = provider.GetGStandProvider()
+                member _.GetDepartments() = provider.GetDepartments()
+                member _.GetResourceInfo() = provider.GetResourceInfo()
+            }
+
+
+        /// A predilution of 1 mL with 9 mL NaCl 0,9% of the electrolyte components, which have the GPK "".
+        let electrolytePredilution: ProductPredilution =
+            {
+                Rule =
+                    {
+                        GPK = ""
+                        Route = "iv"
+                        Indication = None
+                        Location = None
+                        Department = None
+                        MinAge = None
+                        MaxAge = None
+                        MinWeight = None
+                        MaxWeight = None
+                        MedVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
+                        DiluentVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 9N
+                        Diluent = "NaCl 0,9%"
+                    }
+                DiluentSubstances = [||]
             }
 
 
@@ -12203,6 +12261,20 @@ module Tests =
                         |> Api.getPrescriptionRules noSolutionRules
                         |> countOf
                         |> Expect.equal "without a limiting solution rule no prescription rule" (Ok 0)
+                    }
+
+                    test "a provider with other product predilutions does not use the cache" {
+                        let prov = provider true
+
+                        // fill the cache with the product predilutions of the load, which are none
+                        patient () |> Api.getPrescriptionRules prov |> rulesOf |> ignore
+
+                        patient ()
+                        |> Api.getPrescriptionRules (prov |> withProductPredilutions [| electrolytePredilution |])
+                        |> rulesOf
+                        |> Array.collect (_.DoseRule.ComponentLimits >> Array.collect _.Products)
+                        |> Array.choose (_.Predilution >> Option.map _.Rule.Diluent)
+                        |> Expect.equal "a pre-diluted product per component" [| "NaCl 0,9%"; "NaCl 0,9%" |]
                     }
                 ]
 
@@ -12483,7 +12555,7 @@ module Tests =
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
                         { Filter.doseFilter with PatientData = patient (Some 5000N) }
-                        |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
+                        |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "one prescription rule" (Ok 1)
                     }
@@ -12492,7 +12564,7 @@ module Tests =
                         let rules, _ = rowsWithoutLimits |> load [| limitsBoth |]
 
                         { Filter.doseFilter with PatientData = patient None }
-                        |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] ivRouteMapping
+                        |> PrescriptionRule.filter (fun _ -> false) rules [| limitsBoth |] [||] [||] ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "no prescription rule" (Ok 0)
                     }
@@ -13078,6 +13150,7 @@ module Tests =
                             [| dr |]
                             [| LimitingSolutionRuleTests.limitsBothPerKg |]
                             [||]
+                            [||]
                             RuleCheckTests.ivRouteMapping
                         |> Result.map Array.length
                         |> Expect.equal "no prescription rule" (Ok 0)
@@ -13563,6 +13636,54 @@ module Tests =
                         |> Array.map (concentration "antibioticum")
                         |> Expect.equal "reconstituted and pre-diluted" [| mg 10N; mg 1N |]
                     }
+
+                    testList
+                        "PrescriptionRule.filter"
+                        [
+                            // the components of the electrolyte mixture have the GPK "", and the mixture has
+                            // another indication and no department
+                            let preds =
+                                [|
+                                    { predilution with
+                                        GPK = ""
+                                        Indication = None
+                                        Department = None
+                                    }
+                                |]
+                                |> Array.map (Product.ProductPredilution.create SolventSubstanceTests.parenterals)
+
+                            let diluents preds =
+                                { Filter.doseFilter with PatientData = LimitingSolutionRuleTests.patient (Some 10N) }
+                                |> PrescriptionRule.filter
+                                    (fun _ -> false)
+                                    [| LimitingSolutionRuleTests.withoutLimits |]
+                                    [| LimitingSolutionRuleTests.limitsBoth |]
+                                    [||]
+                                    preds
+                                    RuleCheckTests.ivRouteMapping
+                                |> Result.map (
+                                    Array.collect (
+                                        _.DoseRule.ComponentLimits
+                                        >> Array.map (
+                                            _.Products >> Array.map (_.Predilution >> Option.map _.Rule.Diluent)
+                                        )
+                                    )
+                                )
+
+                            test "pre-dilutes the products of each component next to the undiluted product" {
+                                preds
+                                |> diluents
+                                |> Expect.equal
+                                    "undiluted and pre-diluted, per component"
+                                    (Ok [| [| None; Some "NaCl 0,9%" |]; [| None; Some "NaCl 0,9%" |] |])
+                            }
+
+                            test "without predilutions the products stay undiluted" {
+                                [||]
+                                |> diluents
+                                |> Expect.equal "undiluted, per component" (Ok [| [| None |]; [| None |] |])
+                            }
+                        ]
                 ]
 
 
