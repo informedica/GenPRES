@@ -3863,7 +3863,7 @@ module SessionStubTests =
                             Departments = [||]
                         }
 
-                    let withDepartments departments = { settings with Departments = departments }
+                    let withDepartments departments = { settings with Departments = departments |> Array.map Some }
 
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
@@ -3882,7 +3882,7 @@ module SessionStubTests =
                             Departments = [||]
                         }
 
-                    let withDepartments departments = { settings with Departments = departments }
+                    let withDepartments departments = { settings with Departments = departments |> Array.map Some }
 
                     let loaded = [| "ICC"; "ICK"; "NEO" |]
 
@@ -3894,7 +3894,9 @@ module SessionStubTests =
                     let! answer = api.getSettings ()
 
                     answer
-                    |> Expect.equal "the names overlaid" { settings with Departments = [| "ICC"; "ICK"; "NEO" |] }
+                    |> Expect.equal
+                        "the names overlaid"
+                        { settings with Departments = [| Some "ICC"; Some "ICK"; Some "NEO" |] }
                 }
 
                 testAsync

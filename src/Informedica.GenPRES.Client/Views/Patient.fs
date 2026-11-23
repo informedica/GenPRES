@@ -208,50 +208,45 @@ module Patient =
         let departmentField =
             let own = pat |> Option.bind _.Department
 
-            let names =
+            // The departments the server offers, None for no department.
+            let offered =
                 match settings with
                 | Resolved s -> s.Departments
                 | _ -> [||]
 
-            // The department of the patient is always among the options, so the field can show a
-            // department from the url or the launch that the settings do not list.
-            let options =
-                match own with
-                | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
-                | _ -> names
-                |> Array.map (fun n -> n, n)
+            // The department of the patient is always among the departments, so the field can show a
+            // department from the url or the launch that the server does not offer.
+            let departments =
+                if offered |> Array.contains own then
+                    offered
+                else
+                    Array.append offered [| own |]
+
+            let departmentLabel =
+                function
+                | Some d -> d
+                | None -> Terms.``Patient Department Option None`` |> getTerm "No department"
+
+            // An option is keyed by its position, because the option for no department has no name.
+            let options = departments |> Array.mapi (fun i d -> string i, departmentLabel d)
 
             let changeDepartment =
-                fun s ->
+                Option.iter (fun key ->
                     keepOpen ()
-                    s |> Msg.UpdateDepartment |> dispatch
+                    departments[int key] |> Msg.UpdateDepartment |> dispatch
+                )
 
-            let enabled = not busy && not launched
-
-            // A select and not a pick field, because a pick field shows a single option as chosen. A
-            // patient without a department keeps no department until the user chooses one, also when
-            // the rules name a single department.
-            Components.SimpleSelect.View
+            Components.PickField.View
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Department"
-                    selected = own
-                    values = options
-                    updateSelected = changeDepartment
+                    options = options
+                    selected = departments |> Array.tryFindIndex ((=) own) |> Option.map string
+                    onChange = changeDepartment
+                    // No department is one of the options, so the field needs no clear button.
+                    clearable = false
                     isLoading = settings |> Deferred.toOption |> Option.isNone
-                    disabled = not enabled
-                    readOnly = false
-                    // Clearing removes the department, so the clear button shows only when a department
-                    // is chosen.
-                    hasClear = own.IsSome && enabled
-                    canStep = false
-                    severity = Severity.Normal
-                    minWidth = None
-                    description = None
-                    reCalc = None
-                    restore = ignore
-                    busy = false
-                    placeholder = None
-                    placeholderValue = None
+                    enabled = not busy && not launched
+                    shape = Components.PickField.Shape.Scroll
                 |}
 
         // Says where the department comes from: the launch while a session is open, the panel or the

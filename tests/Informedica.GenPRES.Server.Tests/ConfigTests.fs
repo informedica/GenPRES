@@ -354,7 +354,7 @@ let languageTests =
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.English
                         IsDemo = true
-                        Departments = [||]
+                        Departments = [| None |]
                     }
 
                 Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
@@ -365,8 +365,21 @@ let languageTests =
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.Dutch
                         IsDemo = false
-                        Departments = [||]
+                        Departments = [| None |]
                     }
+            }
+
+            test "toServerSettings offers no department first, then the departments in the order given" {
+                [
+                    [||], [| None |]
+                    [| "NEO" |], [| None; Some "NEO" |]
+                    [| "ICC"; "ICK"; "NEO" |], [| None; Some "ICC"; Some "ICK"; Some "NEO" |]
+                ]
+                |> List.iter (fun (departments, expected) ->
+                    Map.empty |> settings |> Config.toServerSettings <| departments
+                    |> _.Departments
+                    |> Expect.equal "no department, then the departments" expected
+                )
             }
 
             test "the banner shows the derived language, or flags the raw value" {
