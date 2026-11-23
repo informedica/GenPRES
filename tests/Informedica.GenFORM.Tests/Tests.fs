@@ -1522,6 +1522,12 @@ module ReconstitutionTests =
                 test "a row without a solvent volume is left out" {
                     ("SolventVol", "") :: row |> parse |> Expect.equal "no rows" (Ok [||])
                 }
+
+                test "a row with a solvent volume of 0 mL or less is left out" {
+                    [ "0"; "-2" ]
+                    |> List.map (fun vol -> ("SolventVol", vol) :: row |> parse)
+                    |> Expect.equal "no rows" [ Ok [||]; Ok [||] ]
+                }
             ]
 
 
@@ -1597,6 +1603,12 @@ module PredilutionTests =
 
                 test "a rule without a diluent volume is left out" {
                     ("DiluentVol", "") :: row |> parse |> Expect.equal "no rules" (Ok [||])
+                }
+
+                test "a rule with a diluent volume of 0 mL or less is left out" {
+                    [ "0"; "-2" ]
+                    |> List.map (fun vol -> ("DiluentVol", vol) :: row |> parse)
+                    |> Expect.equal "no rules" [ Ok [||]; Ok [||] ]
                 }
 
                 test "an empty table gives no rules" {

@@ -238,7 +238,7 @@ module Product =
 
 
         /// Parses the Reconstitution sheet; the first row holds the column names. A row without a solvent or
-        /// a solvent volume is left out. Returns an error when a column is missing.
+        /// a solvent volume above 0 mL is left out. Returns an error when a column is missing.
         let parseReconstitution data =
             try
                 let getColumn = data |> Array.head |> Csv.getStringColumn
@@ -251,7 +251,10 @@ module Product =
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
                     let toMl = ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                    match getOpt "Solvent", get "SolventVol" |> toBrOpt with
+                    // a solvent volume of 0 mL or less makes no reconstitution
+                    let solventVol = get "SolventVol" |> toBrOpt |> Option.filter (fun v -> v > 0N)
+
+                    match getOpt "Solvent", solventVol with
                     | Some solvent, Some vol ->
                         Some
                             {
@@ -323,7 +326,7 @@ module Product =
 
 
         /// Parses predilution rules from a table of text whose first row holds the column names. A rule
-        /// without a diluent or a diluent volume is left out. Returns no rules for an empty table, and an
+        /// without a diluent or a diluent volume above 0 mL is left out. Returns no rules for an empty table, and an
         /// error when a column is missing from a table that has rules.
         let parsePredilution (data: string[][]) =
             try
@@ -339,7 +342,10 @@ module Product =
                         let getOpt = get >> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
                         let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                        match getOpt "Diluent", get "DiluentVol" |> toBrOpt with
+                        // a diluent volume of 0 mL or less makes no predilution
+                        let diluentVol = get "DiluentVol" |> toBrOpt |> Option.filter (fun v -> v > 0N)
+
+                        match getOpt "Diluent", diluentVol with
                         | Some diluent, Some vol ->
                             Some
                                 {
