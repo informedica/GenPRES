@@ -26,6 +26,8 @@ type TotalsSpy() =
                                 RuleSetData.Label = "TPN"
                                 RuleSetData.Indication = "TPN"
                                 RuleSetData.Generic = ""
+                                RuleSetData.Location = None
+                                RuleSetData.Department = None
                             }
                         |]
                 )

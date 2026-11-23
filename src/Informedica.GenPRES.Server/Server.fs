@@ -584,11 +584,11 @@ module Host =
 
     /// The cached GenFORM resource provider for a Sheet ID, with the
     /// resources logger attached when GENPRES_LOG is set. Logs a warning for
-    /// each RuleSets category that is not a nutrition category.
+    /// each category in the RuleSets sheet that is not a rule set category.
     let resourceProvider (urlId: string) =
         let logger = Logging.getLogger Logging.ResourcesLogger
         let provider = urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
-        provider |> ServerApi.Adapters.NutritionRuleSets.warnUnknownCategories logger
+        provider |> ServerApi.Adapters.RuleSets.warnUnknownCategories logger
         provider
 
 

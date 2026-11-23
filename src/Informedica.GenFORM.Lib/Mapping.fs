@@ -118,13 +118,19 @@ module Mapping =
         |> Result.mapErrorSource "getTotals"
 
 
-    /// Map one row of the "RuleSets" sheet, every cell trimmed.
+    /// Map one row of the "RuleSets" sheet, every cell trimmed; an empty Loc or Dep is None.
     let ruleSetRow (get: string -> string) (_: string -> float option) =
+        let getOpt col =
+            let s = get col |> String.trim
+            if s |> String.isNullOrWhiteSpace then None else s |> Some
+
         {
             RuleSetData.Category = get "Category" |> String.trim
             RuleSetData.Label = get "Label" |> String.trim
             RuleSetData.Indication = get "Indication" |> String.trim
             RuleSetData.Generic = get "Generic" |> String.trim
+            RuleSetData.Location = getOpt "Loc"
+            RuleSetData.Department = getOpt "Dep"
         }
 
 

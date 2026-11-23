@@ -1303,13 +1303,24 @@ module TypeTests =
                 test "a nutrition rule set names what its category draws from" {
                     let set =
                         {
-                            Category = NutritionCategory.Lipid
+                            Kind = RuleSetKind.Nutrition NutritionCategory.Lipid
                             Label = "Lipid"
-                            Indications = [| "parenterale voeding" |]
-                            Generics = [| "smoflipid" |]
+                            Rows =
+                                [|
+                                    {
+                                        RuleSetData.Category = "Lipid"
+                                        RuleSetData.Label = "Lipid"
+                                        RuleSetData.Indication = "parenterale voeding"
+                                        RuleSetData.Generic = "smoflipid"
+                                        RuleSetData.Location = None
+                                        RuleSetData.Department = None
+                                    }
+                                |]
                         }
 
-                    set.Generics |> Expect.equal "the generics of the set" [| "smoflipid" |]
+                    set.Rows
+                    |> RuleSet.distinctOf _.Generic
+                    |> Expect.equal "the generics of the set" [| "smoflipid" |]
                 }
 
                 test "OrderVariable can be created" {

@@ -73,9 +73,9 @@ module Adapters =
         }
 
 
-    /// Helpers for the order context and order plan ports: the nutrition rule sets from the provider, and the
-    /// evaluation of a context settled to the rule set of its category.
-    module NutritionRuleSets =
+    /// Helpers for the order context and order plan ports: the rule sets from the provider, and the evaluation
+    /// of a nutrition context settled to the rule set of its category.
+    module RuleSets =
 
         // the server messages and the logging functions, for the warning about the rule set rows
         open Logging
@@ -86,42 +86,37 @@ module Adapters =
         let refused r = r |> Result.mapError (OrderPlanMapper.words >> Array.singleton)
 
 
-        /// Creates a rule set for every nutrition category in the rows, with the label of the first row of the
-        /// category and the distinct non-empty indications and generics in row order. Leaves out the rows of a
-        /// category that is not a nutrition category.
+        /// Creates a rule set for every kind in the rows, with the label of the first row of the kind and the rows
+        /// in row order. Leaves out the rows of a category that is not a rule set category.
         let ofData (rows: Types.Data.RuleSetData[]) =
             rows
             |> Array.groupBy _.Category
             |> Array.choose (fun (name, rs) ->
-                let distinct f =
-                    rs |> Array.map f |> Array.filter String.notEmpty |> Array.distinct
-
-                NutritionCategoryMapper.ofName name
-                |> Option.map (fun category ->
+                RuleSetKindMapper.ofName name
+                |> Option.map (fun kind ->
                     {
-                        Category = category
+                        Kind = kind
                         Label = rs[0].Label
-                        Indications = distinct _.Indication
-                        Generics = distinct _.Generic
+                        Rows = rs
                     }
                 )
             )
 
 
-        /// Returns the distinct category names in the rows that are not a nutrition category, in row order.
+        /// Returns the distinct category names in the rows that are not a rule set category, in row order.
         let unknownCategories (rows: Types.Data.RuleSetData[]) =
             rows
             |> Array.map _.Category
             |> Array.distinct
-            |> Array.filter (NutritionCategoryMapper.ofName >> Option.isNone)
+            |> Array.filter (RuleSetKindMapper.ofName >> Option.isNone)
 
 
         /// Returns the warning for a category name whose rows are left out of the rule sets.
         let unknownCategoryWarning name =
-            ServerLogging.Warning $"RuleSets: %s{name} is not a nutrition category, its rows are left out"
+            ServerLogging.Warning $"RuleSets: %s{name} is not a rule set category, its rows are left out"
 
 
-        /// Logs a warning for every category in the rule set rows of a loaded provider that is not a nutrition
+        /// Logs a warning for every category in the rule set rows of a loaded provider that is not a rule set
         /// category. Logs nothing for a provider that did not load.
         let warnUnknownCategories logger (provider: Resources.IResourceProvider) =
             if provider.GetResourceInfo().IsLoaded then
@@ -131,15 +126,22 @@ module Adapters =
 
 
         /// Reads the rule sets from the rule set rows of the provider on every call, so a reload of the sheet is seen.
-        let ruleSets (provider: Resources.IResourceProvider) = provider.Get Resources.Keys.ruleSetData |> ofData
+        /// Each rule set keeps the rows that apply to the patient, with the default department for a patient
+        /// without one, as for the dose rules.
+        let ruleSets (provider: Resources.IResourceProvider) pat =
+            let pat = pat |> Api.withDefaultDepartment provider
+
+            provider.Get Resources.Keys.ruleSetData
+            |> ofData
+            |> Array.map (RuleSet.forPatient pat)
 
 
-        /// Returns the rule sets and the rule set of a nutrition category, or an error when there is no rule set for
-        /// the category. For a medication context, returns no rule sets and no rule set.
-        let ruleSetOf provider category =
+        /// Returns the rule sets for the patient and the rule set of a nutrition category, or an error when there is
+        /// no rule set for the category. For a medication context, returns no rule sets and no rule set.
+        let ruleSetOf provider pat category =
             match category with
             | Some c ->
-                let sets = ruleSets provider
+                let sets = ruleSets provider pat
                 sets |> NutritionRuleSet.find c |> refused |> Result.map (fun s -> sets, Some s)
             | None -> Ok([||], None)
 
@@ -153,7 +155,7 @@ module Adapters =
             let evaluate cmd pc =
                 pc |> OrderContextService.evaluateOutcome start logger provider cmd
 
-            let narrow (set: NutritionRuleSet) =
+            let narrow (set: RuleSet) =
                 Outcome.map (fun (pc: PlanContext) -> { pc with Context = pc.Context |> NutritionRuleSet.narrow set })
 
             match pc |> evaluate cmd, set with
@@ -188,7 +190,7 @@ module Adapters =
 
                 let set =
                     match category with
-                    | OrderCategory.Nutrition c -> sets |> NutritionRuleSet.tryFind c
+                    | OrderCategory.Nutrition c -> sets |> RuleSet.tryFind c
                     | OrderCategory.Medication -> None
 
                 match ctx |> PlanContext.create "" category |> evaluate set with
@@ -303,10 +305,10 @@ module Adapters =
                 fun cmd pc ->
                     async {
                         return
-                            NutritionRuleSets.ruleSetOf provider (pc |> PlanContext.nutritionCategory)
+                            RuleSets.ruleSetOf provider pc.Context.PatientData (pc |> PlanContext.nutritionCategory)
                             |> Result.bind (fun (_, set) ->
                                 pc
-                                |> NutritionRuleSets.evaluateSettled
+                                |> RuleSets.evaluateSettled
                                     (now ())
                                     logger
                                     (provider |> withDoseRulesOf pc.Context)
@@ -321,19 +323,14 @@ module Adapters =
 
                         let evaluate set pc =
                             pc
-                            |> NutritionRuleSets.evaluateSettled
-                                start
-                                logger
-                                provider
-                                set
-                                OrderContext.UpdateOrderContext
+                            |> RuleSets.evaluateSettled start logger provider set OrderContext.UpdateOrderContext
 
                         return
                             pc
-                            |> NutritionRuleSets.linkedOffers
+                            |> RuleSets.linkedOffers
                                 (provider.GetRouteMappings())
                                 (provider.Get Resources.Keys.linkRules)
-                                (NutritionRuleSets.ruleSets provider)
+                                (RuleSets.ruleSets provider pc.Context.PatientData)
                                 evaluate
                             |> Ok
                     }
@@ -341,7 +338,7 @@ module Adapters =
 
 
     /// Makes the order plan port: evaluates the contexts of the plan through the order context service, calculates
-    /// the totals from the provider data, and reads the nutrition rule sets on every call, so a reload of the sheet
+    /// the totals from the provider data, and reads the rule sets on every call, so a reload of the sheet
     /// is seen.
     let private makeOrderPlanPort
         logger
@@ -366,15 +363,13 @@ module Adapters =
 
                         // A refused evaluation becomes an error with its message, as the message-list contract expects.
                         return
-                            NutritionRuleSets.ruleSetOf provider category
+                            RuleSets.ruleSetOf provider pc.Context.PatientData category
                             |> Result.bind (fun (sets, set) ->
                                 pc
-                                |> NutritionRuleSets.evaluateSettled (now ()) logger provider set cmd
+                                |> RuleSets.evaluateSettled (now ()) logger provider set cmd
                                 |> Result.bind (OrderContext.ofOutcome >> Result.mapError OrderContextService.refusal)
                                 |> Result.bind (fun evaluated ->
-                                    plan
-                                    |> OrderPlan.updateContext sets contextId evaluated
-                                    |> NutritionRuleSets.refused
+                                    plan |> OrderPlan.updateContext sets contextId evaluated |> RuleSets.refused
                                 )
                             )
                             |> Result.map recalc
@@ -390,7 +385,7 @@ module Adapters =
                                 (provider.Get Resources.Keys.linkRules)
                                 pc
                                 linked
-                            |> NutritionRuleSets.refused
+                            |> RuleSets.refused
                             |> Result.map recalc
                     }
             removeOrderContexts =
@@ -541,7 +536,7 @@ module Adapters =
                             async {
                                 try
                                     Informedica.GenForm.Lib.Api.reloadCache orderLogger provider
-                                    NutritionRuleSets.warnUnknownCategories orderLogger provider
+                                    RuleSets.warnUnknownCategories orderLogger provider
 
                                     return
                                         match notLoaded provider with
