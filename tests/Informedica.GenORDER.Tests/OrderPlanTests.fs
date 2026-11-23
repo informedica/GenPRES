@@ -856,14 +856,13 @@ type NoRules() =
 
         member _.GetGStandProvider() = raise (System.NotImplementedException())
 
-        // the departments answer, since the rule lookup reads the default from them
         member _.GetDepartments() = Resources.Departments.ofNamed []
 
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
 /// A provider whose load failed: every keyed read raises but the additives, which a failed load
-/// answers as none, the rules read empty and the departments are the default alone.
+/// answers as none, the rules read empty and there are no departments.
 type NotLoaded() =
     inherit NoRules()
 
@@ -1035,7 +1034,7 @@ module RuleFixtures =
     /// A row of the suppository for the indication, with the adjust unit, the dose limit and the
     /// patient category changed.
     let rowFor indication adjustUnit limit category =
-        let r = row Resources.Departments.defaultDepartment
+        let r = row "ICK"
 
         { r with
             Indication = indication
@@ -1094,13 +1093,13 @@ module RuleFixtures =
             }
         )
 
-    /// The rules of both rows for the default department.
+    /// The rules of both rows for the department ICK.
     let feverAndPain () =
-        let dep = Resources.Departments.defaultDepartment
+        let dep = "ICK"
         rules [| row dep; perKgRow dep |]
 
 
-    /// A patient of the default department with the age in years, the adult mark, the weight in kg
+    /// A patient of the department ICK with the age in years, the adult mark, the weight in kg
     /// and the height in cm.
     let patient years marked weight height =
         let withAge pat =
@@ -1114,11 +1113,10 @@ module RuleFixtures =
         |> withAge
         |> SamplePatients.withWeight (weight |> Option.map (BigRational.toDecimal >> CoreWeightValue.weightInKg))
         |> SamplePatients.withHeight (height |> Option.map (BigRational.toDecimal >> CoreHeightValue.heightInCm))
-        |> SamplePatients.withDepartment (Some Resources.Departments.defaultDepartment)
+        |> SamplePatients.withDepartment (Some "ICK")
 
 
-/// A provider holding the dose rules given and the route mapping they are built with, naming
-/// the default department.
+/// A provider holding the dose rules given and the route mapping they are built with.
 type RulesOf(rules: DoseRule[]) =
     inherit NoRules()
 
@@ -1156,7 +1154,7 @@ type UndilutedVancomycin() =
         }
 
     let row =
-        let r = RuleFixtures.row Resources.Departments.defaultDepartment
+        let r = RuleFixtures.row "ICK"
 
         { r with
             Generic = { r.Generic with Name = "vancomycine" }
@@ -1339,7 +1337,7 @@ let ruleSetDiscoveryTests =
         [
             test "a row without a generic offers the generics under its indication, not a medication" {
                 let rowOf generic indication =
-                    let r = RuleFixtures.row Resources.Departments.defaultDepartment
+                    let r = RuleFixtures.row "ICK"
 
                     { r with
                         Generic = { r.Generic with Name = generic }
@@ -1460,22 +1458,6 @@ let rulesTests =
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
             }
 
-            test "the rules match a patient without a department with the default, one with a department with its own" {
-                let provider = NoRules()
-
-                EvaluateFixtures.child
-                |> SamplePatients.withDepartment None
-                |> Api.withDefaultDepartment provider
-                |> Patient.getDepartment
-                |> Expect.equal "the default" (Some Resources.Departments.defaultDepartment)
-
-                EvaluateFixtures.child
-                |> SamplePatients.withDepartment (Some "NEO")
-                |> Api.withDefaultDepartment provider
-                |> Patient.getDepartment
-                |> Expect.equal "its own" (Some "NEO")
-            }
-
             test "the context afresh keeps the patient's department: none stays none, and the lists are the rules'" {
                 let fresh =
                     EvaluateFixtures.child
@@ -1498,21 +1480,17 @@ let rulesTests =
                 |> Expect.equal "its own department" (Some "NEO")
             }
 
-            test
-                "a rule for the default department is offered to a patient without one, and its form survives the reconcile" {
-                let rules = RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |]
+            test "a rule for the department of the patient is offered, and its form survives the reconcile" {
+                let rules = RuleFixtures.rules [| RuleFixtures.row "ICK" |]
                 rules |> Expect.isNonEmpty "the fixture builds a rule"
 
                 let provider = RulesOf rules
-                let patient = EvaluateFixtures.child |> SamplePatients.withDepartment None
+                let patient = EvaluateFixtures.child |> SamplePatients.withDepartment (Some "ICK")
                 let fresh = patient |> OrderContext.create OrderLogging.noOp provider
 
                 fresh.Filter.Forms |> Expect.equal "the rule's form is offered" [| "zetpil" |]
                 fresh.Filter.Generics
                 |> Expect.equal "the rule's generic is offered" [| "paracetamol" |]
-                fresh.PatientData
-                |> Patient.getDepartment
-                |> Expect.equal "the patient keeps no department" None
 
                 let held =
                     { fresh with
@@ -1537,7 +1515,7 @@ let rulesTests =
                     |> SamplePatients.withDepartment None
                     |> OrderContext.create OrderLogging.noOp (RulesOf rules)
 
-                fresh.Filter.Forms |> Expect.isEmpty "not for the default department"
+                fresh.Filter.Forms |> Expect.isEmpty "not for a patient without a department"
             }
 
             test "a provider whose load failed answers an empty context and keeps the patient's department" {
@@ -1550,37 +1528,11 @@ let rulesTests =
                 fresh.PatientData
                 |> Patient.getDepartment
                 |> Expect.equal "still no department" None
-
-                EvaluateFixtures.child
-                |> SamplePatients.withDepartment (Some "NEO")
-                |> Api.withDefaultDepartment (NotLoaded())
-                |> Patient.getDepartment
-                |> Expect.equal "its own department stands" (Some "NEO")
-            }
-
-            test "the rule lookup itself matches a patient without a department with the default" {
-                let provider =
-                    RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
-
-                let rulesFor department =
-                    EvaluateFixtures.child
-                    |> SamplePatients.withDepartment department
-                    |> Api.getPrescriptionRules provider
-                    |> Result.map (Array.map _.DoseRule.Generic)
-
-                rulesFor None
-                |> Result.defaultValue [||]
-                |> Expect.isNonEmpty "the default's rule"
-
-                rulesFor None
-                |> Expect.equal
-                    "the same rules as a patient of the default department"
-                    (rulesFor (Some Resources.Departments.defaultDepartment))
             }
 
             test "a department alone filters on the department: its own rules, not another ward's" {
                 let neo = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
-                let ick = RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |]
+                let ick = RuleFixtures.rules [| RuleFixtures.row "ICK" |]
                 let rules = Array.append neo ick
                 (neo.Length, ick.Length) |> Expect.equal "the fixture builds a rule each" (1, 1)
 
@@ -1596,22 +1548,20 @@ let rulesTests =
                 filterFor (Some "NEO") |> Expect.equal "NEO's rule only" [| Some "NEO" |]
 
                 filterFor None
-                |> Expect.equal
-                    "no patient: the default department's rule only"
-                    [| Some Resources.Departments.defaultDepartment |]
+                |> Expect.equal "no patient: every rule" [| Some "NEO"; Some "ICK" |]
             }
 
             test
                 "the lists the rules give a context are among those of the context afresh, with or without a department" {
-                let provider =
-                    RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+                // a rule without a department, so that it applies with and without a department
+                let provider = RulesOf(RuleFixtures.rules [| RuleFixtures.row "" |])
 
                 let within name (narrowed: 'a[]) (all: 'a[]) =
                     narrowed
                     |> Array.forall (fun x -> all |> Array.contains x)
                     |> Expect.isTrue $"%s{name} among those afresh"
 
-                for department in [ None; Some Resources.Departments.defaultDepartment ] do
+                for department in [ None; Some "ICK" ] do
                     let fresh =
                         EvaluateFixtures.child
                         |> SamplePatients.withDepartment department
@@ -1676,7 +1626,7 @@ let prescribableTests =
         let failing field options setPick =
             options
             |> Array.filter (fun o ->
-                // the lookup matches the patient as create does, through the default department
+                // the lookup matches the patient as create does
                 { Filter.doseFilter with PatientData = pat }
                 |> setPick o
                 |> Api.filterPrescriptionRules provider
@@ -1769,7 +1719,7 @@ let useAdjustTests =
         |> SamplePatients.withAge [ Patient.AgeParts.Days 365 ]
         |> SamplePatients.withWeightInKg 10m
         |> SamplePatients.withHeightInCm 75m
-        |> SamplePatients.withDepartment (Some Resources.Departments.defaultDepartment)
+        |> SamplePatients.withDepartment (Some "ICK")
 
     // the one scenario the row gives the child of 10 kg
     let scenarioOf row =
@@ -1787,7 +1737,7 @@ let useAdjustTests =
     let prescription (sc: OrderScenario) =
         sc.Prescription |> Array.concat |> Array.map (sprintf "%A") |> String.concat " "
 
-    let dep = Resources.Departments.defaultDepartment
+    let dep = "ICK"
 
     testList
         "the per kg fields and the print follow the order"
@@ -1827,13 +1777,11 @@ let componentOptionTests =
         |> SamplePatients.withAge [ Patient.AgeParts.Days 365 ]
         |> SamplePatients.withWeightInKg 10m
         |> SamplePatients.withHeightInCm 75m
-        |> SamplePatients.withDepartment (Some Resources.Departments.defaultDepartment)
+        |> SamplePatients.withDepartment (Some "ICK")
 
     // the order and the rule of the one scenario the row gives the child of 10 kg
     let evaluated () =
-        let provider =
-            RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
-            :> Resources.IResourceProvider
+        let provider = RulesOf(RuleFixtures.rules [| RuleFixtures.row "ICK" |]) :> Resources.IResourceProvider
 
         { Filter.doseFilter with PatientData = child }
         |> Api.filterPrescriptionRules provider
@@ -1992,7 +1940,7 @@ let selectsRulesTests =
 
             test "the empty patient gets no rules from the order context" {
                 PatientData.unknown
-                |> SamplePatients.withDepartment (Some Resources.Departments.defaultDepartment)
+                |> SamplePatients.withDepartment (Some "ICK")
                 |> contextOf
                 |> OrderContext.getRules logger (provider ())
                 |> snd
@@ -2060,8 +2008,7 @@ let scenarioAccessTests =
 
     // a function, so that the rule lookup runs in the test and not when the file loads
     let rule accesses =
-        let provider =
-            RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+        let provider = RulesOf(RuleFixtures.rules [| RuleFixtures.row "ICK" |])
 
         EvaluateFixtures.child
         |> Api.getPrescriptionRules provider
@@ -2281,6 +2228,7 @@ let refusalTests =
                         let noWeight =
                             PatientData.unknown
                             |> SamplePatients.withAge [ Patient.AgeParts.Days(40 * 365) ]
+                            |> SamplePatients.withDepartment (Some "ICK")
 
                         // the fever rule needs no measurement, the pain rule a weight
                         let rulesFor indication =
@@ -2481,14 +2429,14 @@ let refusalTests =
         ]
 
 
-/// Rules for a child of the default department, every age: paracetamol rectally for a fever, with a
+/// Rules for a child of the department ICK, every age: paracetamol rectally for a fever, with a
 /// start and a maintenance dose, and for pain with a maintenance dose; ibuprofen rectally for a
 /// headache, once without a text. Paracetamol with a dose type without text picks a dose type no
 /// paracetamol rule has, while the rule of another medication has it.
 module RefusedFixtures =
 
     let rowOf generic indication doseText =
-        let r = RuleFixtures.row Resources.Departments.defaultDepartment
+        let r = RuleFixtures.row "ICK"
 
         { r with
             Generic = { r.Generic with Name = generic }

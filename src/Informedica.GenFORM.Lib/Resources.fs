@@ -78,9 +78,8 @@ module Resources =
         abstract member GetRenalRules: unit -> RenalRule[]
         abstract member GetTotals: unit -> TotalsData[]
         abstract member GetGStandProvider: unit -> Check.GStandProvider
-        /// The departments the loaded rules name and the default; only the default when the
-        /// rules did not load, since no rule is matched then.
-        abstract member GetDepartments: unit -> Departments
+        /// The departments the loaded rules name, distinct and sorted; none when the rules did not load.
+        abstract member GetDepartments: unit -> string[]
         abstract member GetResourceInfo: unit -> ResourceInfo
 
     and ResourceInfo =
@@ -297,31 +296,18 @@ module Resources =
             | Error msgs -> Ok(box fallback, msgs |> List.map (fun m -> Warning $"%s{note}: %s{messageText m}"))
 
 
-    /// The departments the loaded rules name, and the default department for a patient without one.
-    /// The default is used where rules are matched and is never written on the patient, so the patient
-    /// returned equals the patient sent.
+    /// The departments the loaded rules name.
     module Departments =
 
-        /// The default department, one hospital's ward written in code. Without it a patient without a
-        /// department gets no solution rules and no reconstitutions of any ward.
-        let defaultDepartment = "ICK"
-
-
-        /// Makes the departments from the names: trimmed, blanks ignored, sorted, and always with the
-        /// default department.
-        let ofNamed (named: string option seq) : Departments =
-            {
-                Names =
-                    named
-                    |> Seq.choose id
-                    |> Seq.map _.Trim()
-                    |> Seq.filter (String.IsNullOrWhiteSpace >> not)
-                    |> Seq.append [ defaultDepartment ]
-                    |> Seq.distinct
-                    |> Seq.sort
-                    |> Seq.toArray
-                Default = defaultDepartment
-            }
+        /// Makes the departments from the names: trimmed, blanks ignored, distinct and sorted.
+        let ofNamed (named: string option seq) =
+            named
+            |> Seq.choose id
+            |> Seq.map _.Trim()
+            |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+            |> Seq.distinct
+            |> Seq.sort
+            |> Seq.toArray
 
 
         /// Makes the departments from the dose-rule rows, the solution-rule rows and the
@@ -337,7 +323,7 @@ module Resources =
 
 
         /// Returns whether the department is one of the departments.
-        let isKnown (departments: Departments) (department: string) = departments.Names |> Array.contains department
+        let isKnown departments (department: string) = departments |> Array.contains department
 
 
     /// A cache of the prescription rules per patient for the dose rules and the stand-alone dose rules of a load,
@@ -378,7 +364,7 @@ module Resources =
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
-        let departments = ResourceKey.create<Departments> "departments"
+        let departments = ResourceKey.create<string[]> "departments"
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         // The normal-value tables GenCORE parses from the rows; None when the rows do not parse.
         let normalValueTables = ResourceKey.create<CoreNormalValueTables option> "normalValueTables"
@@ -524,7 +510,7 @@ module Resources =
                 Keys.solutionRuleData.Name, ofResult (fun () -> SolutionRule.getData dataUrlId)
                 Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> RenalRule.getData dataUrlId)
 
-                // The departments the rules name, and the default department.
+                // The departments the rules name.
                 Keys.departments.Name,
                 derive (fun r ->
                     Departments.ofRules
@@ -822,11 +808,11 @@ module Resources =
     let loadAllResources logger dataUrlId = loadAllResourcesWithRegistry (defaultRegistry logger dataUrlId)
 
 
-    /// The departments of a resolved resource set; only the default when the rules did not load.
+    /// The departments of a resolved resource set; none when the rules did not load.
     let departmentsOf (loaded: LoadedResources) =
         match loaded.Resolved |> Map.tryFind Keys.departments.Name with
-        | Some d -> d :?> Departments
-        | None -> Departments.ofNamed []
+        | Some d -> d :?> string[]
+        | None -> [||]
 
 
     /// A plain provider over an already-loaded resource set.

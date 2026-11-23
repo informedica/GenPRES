@@ -156,11 +156,13 @@ type Terms =
     // would be lost.
     | ``Patient New Dialog Title``
     | ``Patient New Dialog Text``
-    // The current department, and whether it is the default, chosen or set by the launch.
+    // The current department, and whether it is chosen, set by the launch or not chosen; the option for no
+    // department among the departments to choose from.
     | ``Patient Department``
-    | ``Patient Department Default``
     | ``Patient Department Chosen``
     | ``Patient Department Launched``
+    | ``Patient Department None``
+    | ``Patient Department Option None``
     | ``Session Open Last Signed``
     // The confirmation asked before opening a url with a patient or a medication, which discards the
     // unsigned work or leaves the launched session.

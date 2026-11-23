@@ -766,7 +766,7 @@ module Tests =
                     Department.otherDepartment
                 ]
 
-            let deps = (fun _ -> Department.any) :: (fun _ -> Department.unknown) :: kinds
+            let deps = (fun _ -> Department.unknown) :: kinds
 
             let tests =
                 testList
@@ -825,14 +825,6 @@ module Tests =
                             dto.NeonatalICU <- Some "NICU"
 
                             dto |> Department.Dto.fromDto |> Expect.isError "two departments"
-                        }
-
-                        test "a Dto with a name and any department is refused" {
-                            let dto = Department.Dto.dto ()
-                            dto.AdultICU <- Some "IC"
-                            dto.AnyDepartment <- true
-
-                            dto |> Department.Dto.fromDto |> Expect.isError "a name and any department"
                         }
 
                         test "a department whose kind is not known has the string of its name after one word" {
@@ -2714,11 +2706,10 @@ module Tests =
                         |> Expect.isFalse "no identity"
                     }
 
-                    test "the department's name is the ward's own; any, unknown or nameless is none" {
+                    test "the department's name is the ward's own; unknown or nameless is none" {
                         [
                             Department.pediatricICU "ICK", Some "ICK"
                             Department.neonatalICU "NEO", Some "NEO"
-                            AnyDepartment, None
                             UnknownDepartment, None
                             Department.pediatricICU "", None
                             Department.pediatricICU "  ", None

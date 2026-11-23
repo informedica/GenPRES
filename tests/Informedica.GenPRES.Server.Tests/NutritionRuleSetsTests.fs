@@ -13,7 +13,7 @@ open Microsoft.FSharp.Reflection
 module Fixtures =
 
     let rowOf generic indication =
-        let r = OrderPlanTests.RuleFixtures.row Resources.Departments.defaultDepartment
+        let r = OrderPlanTests.RuleFixtures.row "ICK"
 
         { r with
             Generic = { r.Generic with Name = generic }
@@ -491,8 +491,7 @@ module RuleSetRows =
     let row = OrderPlanTests.EvaluateFixtures.ruleSetRow
 
 
-    /// A provider whose rule set rows hold a feeding for the department ICK, the default department, and one
-    /// for NEO.
+    /// A provider whose rule set rows hold a feeding for the department ICK and one for NEO.
     type DepartmentRuleSet() =
         inherit OrderPlanTests.RulesOf([||])
 
@@ -565,12 +564,12 @@ let ruleSetRowTests =
                     |]
             }
 
-            test "a patient without a department gets the rows of the default department, as for the dose rules" {
+            test "a patient without a department gets only the rows without a department" {
                 PatientData.unknown
                 |> ServerApi.Adapters.RuleSets.ruleSets (DepartmentRuleSet())
                 |> Array.collect _.Rows
                 |> Array.map _.Generic
-                |> Expect.equal "the ICK feeding" [| "MM" |]
+                |> Expect.isEmpty "no ICK or NEO feeding"
             }
 
             test "a nutrition slot of a department without rows of its category is refused" {

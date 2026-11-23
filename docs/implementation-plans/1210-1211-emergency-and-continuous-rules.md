@@ -329,7 +329,8 @@ Content updates needed to replace the emergency list:
 
 What the code offers, checked on 2026-11-22 and 2026-11-23:
 
-- A rule with a location matches a patient without a location.
+- A rule with a location matched a patient without a location. Since #1984 a rule with a location
+  matches only a patient at that location.
 - The tenfold dilution needs no predilution. The list gives the diluted product as the bolus itself,
   without a further dilution, so a solution rule with a diluent and a dose fraction (MinPerc and
   MaxPerc) expresses it. Each solution rule of a prescription rule gives its own medication
@@ -385,11 +386,12 @@ A hospital selects its own dose rules and solution rules through their Loc colum
 2026-11-23:
 
 - `DoseRule.filter` matches the Loc of a dose rule with the Location of the patient; an empty Loc or no
-  Location matches every hospital (`Patient.matchesCategory`).
+  Location matches every hospital (`Patient.matchesCategory`). Since #1984 no Location matches only the
+  rules without a Loc.
 - `SolutionRule.filter` does not check the Location, so the solution rules of every hospital apply to
   the dose rule of one hospital, and each gives its own medication (`Medication.fromRule`). The check
   `SolutionRule.appliesToDoseRule` compares the Loc of a solution rule with the Loc of a dose rule, but
-  only the load checks use it.
+  only the load checks use it. Part 3 changed this.
 - The client never sets the Location of the patient: the hospital chosen in the title bar stays in the
   client, its list comes from the emergency list workbook, and no patient data edit sets a Location.
 
@@ -405,6 +407,29 @@ mappers and the GenCORE patient data Dto); what is missing is the edit that sets
 message that sends it, next to `UpdateDepartment` in `PatientDataPolicy`. The hospitals to choose from
 are the distinct Loc values the rules name, as `Resources.Departments.ofRules` makes the departments from
 the rules; the emergency list workbook no longer gives them.
+
+Decided on 2026-11-23, how every patient gets the hospital:
+
+- The server fills in a default hospital as the Location of a patient without one, before it completes
+  the patient data or applies an edit (`processCmd`). The answer to the client carries the default as the
+  Location of the patient, so the patient panel and the rules name the same hospital. Changed on
+  2026-11-23: the default was first applied only where the rules are matched and never written on the
+  patient.
+- The default hospital is a server setting, a `GENPRES_*` environment key. Without the key, production
+  has no default hospital, so a patient without a Location gets only the rules without a Loc; outside
+  production the default is UMCU.
+- The server sends the hospitals and the default hospital to the client in `ServerSettings`, as it sends
+  the departments today.
+- The client shows the default hospital of the server in the title bar at the start, as it takes the
+  default language. Without a default hospital the title bar shows that no hospital is chosen, so the
+  hospital of the shell becomes optional.
+- Choosing a hospital in the title bar sends `SetLocation` for the open patient. When the answer for a
+  new patient arrives (another patient, Clear, a patient from the url or the EHR) and the shell has a
+  hospital, the client sends `SetLocation` with that hospital, so the title bar and the patient data name
+  the same hospital.
+- There is no default department any more: `Resources.Departments.defaultDepartment`,
+  `Api.withDefaultDepartment`, `ServerSettings.DefaultDepartment` and the default department shown on the
+  patient panel are removed. A patient without a department gets only the rules without a Dep.
 
 Open, to be decided later: whether a row of the emergency list or the standard infusions can be prescribed
 straight into the order plan, which the client cannot do today, and if so, which rows can (for example a

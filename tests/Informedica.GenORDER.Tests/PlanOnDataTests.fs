@@ -21,7 +21,7 @@ module Fixture =
     open OrderPlanTests
 
     let provider () =
-        let row = RuleFixtures.row Resources.Departments.defaultDepartment
+        let row = RuleFixtures.row "ICK"
         RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
 
     let context provider pat =

@@ -52,7 +52,7 @@ module Fixture =
         let stuk = Units.General.general "stuk"
         let perStuk = Units.Mass.milliGram |> ValueUnit.per stuk
 
-        OrderPlanTests.RuleFixtures.rules [| OrderPlanTests.RuleFixtures.row Resources.Departments.defaultDepartment |]
+        OrderPlanTests.RuleFixtures.rules [| OrderPlanTests.RuleFixtures.row "ICK" |]
         |> OrderPlanTests.RuleFixtures.mapProducts (fun p ->
             { p with
                 GPK = "1"
@@ -104,7 +104,7 @@ module Fixture =
         |> SamplePatients.withAge [ Patient.AgeParts.Days 365 ]
         |> SamplePatients.withWeightInKg 10m
         |> SamplePatients.withHeightInCm 75m
-        |> SamplePatients.withDepartment (Some Resources.Departments.defaultDepartment)
+        |> SamplePatients.withDepartment (Some "ICK")
 
 
     let withoutDivisibleContext =
@@ -293,8 +293,7 @@ let tests =
                     test "an order on the first evaluation is not marked" {
                         let provider =
                             OrderPlanTests.RulesOf(
-                                OrderPlanTests.RuleFixtures.rules
-                                    [| OrderPlanTests.RuleFixtures.row Resources.Departments.defaultDepartment |]
+                                OrderPlanTests.RuleFixtures.rules [| OrderPlanTests.RuleFixtures.row "ICK" |]
                             )
                             :> Resources.IResourceProvider
 

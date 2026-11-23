@@ -52,7 +52,6 @@ let settings language =
         Language = language
         IsDemo = true
         Departments = [||]
-        DefaultDepartment = ""
     }
 
 

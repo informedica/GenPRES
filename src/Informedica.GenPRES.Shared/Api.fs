@@ -495,10 +495,9 @@ module Api =
             // True when the server does not run in production (GENPRES_PROD): it uses demo data and the
             // title shows a demo suffix.
             IsDemo: bool
-            // the departments the loaded rules name; empty until the resources are loaded
-            Departments: string[]
-            // the department a patient without one is prescribed for, so the panel can say so
-            DefaultDepartment: string
+            // the departments to choose from: None for no department, then the departments the loaded rules
+            // name; only None until the resources are loaded
+            Departments: string option[]
         }
 
 

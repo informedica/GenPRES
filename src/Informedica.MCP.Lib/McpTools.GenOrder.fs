@@ -278,13 +278,13 @@ module GenOrderTools =
                  weight and height are estimated from it."
 
 
-    /// The input with its department one the rules know, spelled as they spell it; none leaves
-    /// the default in force. A department the rules do not know is refused with the names they
-    /// do and the default, since the department selects the rules and a misspelt one would
+    /// The input with its department one the rules know, spelled as they spell it; none selects
+    /// only the rules without a department. A department the rules do not know is refused with the
+    /// names they do, since the department selects the rules and a misspelt one would
     /// silently select none. The spelling given wins when the rules know it; another case is
     /// taken only when it names exactly one of them, since the rules compare exactly.
     let checkDepartment
-        (departments: Departments)
+        (departments: string[])
         (input: CreateOrderContextInput)
         : Result<CreateOrderContextInput, string>
         =
@@ -294,11 +294,11 @@ module GenOrderTools =
             let given = d.Trim()
 
             let known =
-                if departments.Names |> Array.contains given then
+                if departments |> Array.contains given then
                     Some given
                 else
                     match
-                        departments.Names
+                        departments
                         |> Array.filter (fun n -> String.Equals(n, given, StringComparison.OrdinalIgnoreCase))
                     with
                     | [| n |] -> Some n
@@ -307,11 +307,11 @@ module GenOrderTools =
             match known with
             | Some n -> Ok { input with Department = Some n }
             | None ->
-                let names = departments.Names |> String.concat ", "
+                let names = departments |> String.concat ", "
 
                 Error
-                    $"Unknown department '{d}'. Known departments: {names}. \
-                      Omit the department to prescribe for the default, {departments.Default}."
+                    $"Unknown department '%s{d}'. Known departments: %s{names}. \
+                      Omit the department to prescribe with the rules without a department."
 
 
     /// The refusal when a measure could not be estimated from the age and sex given: the

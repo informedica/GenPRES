@@ -7,8 +7,6 @@ module Api =
 
     open Resources
 
-    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
-
     type CorePatientDataResources = Informedica.GenCore.Lib.Patients.PatientDataResources
 
 
@@ -89,17 +87,8 @@ module Api =
     // Filtering functions using cached mappings
 
 
-    /// Sets the default department of the provider when the patient data has no department.
-    let withDefaultDepartment (provider: IResourceProvider) (patientData: PatientData) =
-        match patientData |> PatientData.department with
-        | Some _ -> patientData
-        | None ->
-            { patientData with Department = (provider.GetDepartments()).Default |> CoreDepartment.otherDepartment }
-
-
     let filterDoseRules (provider: IResourceProvider) (filter: DoseFilter) doseRules =
         let routeMappings = getRouteMapping provider
-        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         DoseRule.filter routeMappings filter doseRules
 
@@ -117,11 +106,11 @@ module Api =
     let getProductPredilutions (provider: IResourceProvider) = provider.Get Keys.productPredilutions
 
 
-    /// Returns the prescription rules of the patient, after the default department is set. The rules come from the
-    /// cache of the load when the provider holds a cache, gives the solution rules, renal rules, route mappings,
-    /// additive lookup and product predilutions the cache was built from, and gives the dose rules or the stand-alone dose rules of that
-    /// load. Otherwise the rules are built on every call. A reload between the reads, or a provider that wraps
-    /// another, can give other rules.
+    /// Returns the prescription rules of the patient. The rules come from the cache of the load when the provider
+    /// holds a cache, gives the solution rules, renal rules, route mappings, additive lookup and product
+    /// predilutions the cache was built from, and gives the dose rules or the stand-alone dose rules of that load.
+    /// Otherwise the rules are built on every call. A reload between the reads, or a provider that wraps another,
+    /// can give other rules.
     let getPrescriptionRules (provider: IResourceProvider) =
         let doseRules = getDoseRules provider
         let solutionRules = getSolutionRules provider
@@ -136,21 +125,18 @@ module Api =
             with :? System.Collections.Generic.KeyNotFoundException ->
                 None
 
-        let rulesOf =
-            cache
-            |> Option.filter (fun cache ->
-                obj.ReferenceEquals(cache.SolutionRules, solutionRules)
-                && obj.ReferenceEquals(cache.RenalRules, renalRules)
-                && obj.ReferenceEquals(cache.RouteMappings, routeMappings)
-                && obj.ReferenceEquals(cache.IsAdditive, isAdditive)
-                && obj.ReferenceEquals(cache.Predilutions, predilutions)
-            )
-            |> Option.bind (fun cache -> cache.TryRulesOf doseRules)
-            |> Option.defaultWith (fun () ->
-                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules predilutions routeMappings
-            )
-
-        withDefaultDepartment provider >> rulesOf
+        cache
+        |> Option.filter (fun cache ->
+            obj.ReferenceEquals(cache.SolutionRules, solutionRules)
+            && obj.ReferenceEquals(cache.RenalRules, renalRules)
+            && obj.ReferenceEquals(cache.RouteMappings, routeMappings)
+            && obj.ReferenceEquals(cache.IsAdditive, isAdditive)
+            && obj.ReferenceEquals(cache.Predilutions, predilutions)
+        )
+        |> Option.bind (fun cache -> cache.TryRulesOf doseRules)
+        |> Option.defaultWith (fun () ->
+            PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules predilutions routeMappings
+        )
 
 
     let filterPrescriptionRules
@@ -164,7 +150,6 @@ module Api =
         let renalRules = getRenalRules provider
         let isAdditive = isAdditive provider
         let predilutions = getProductPredilutions provider
-        let filter = { filter with PatientData = filter.PatientData |> withDefaultDepartment provider }
 
         let chunkSize =
             let c = (doseRules |> Array.length) / 12

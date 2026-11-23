@@ -889,8 +889,7 @@ module OrderContext =
 
     /// Returns the context with its pick lists narrowed to the options of the prescribable rules, and
     /// the rules themselves. A list with one option sets its choice. The rules are only returned when the
-    /// indication, the generic, the dose type and the route or the form are picked. A patient without a
-    /// department is matched as a patient of the default department; the patient data is not changed.
+    /// indication, the generic, the dose type and the route or the form are picked.
     /// For a child without a weight the context is made afresh and there are no rules.
     let getRules logger (provider: Resources.IResourceProvider) (ctx: OrderContext) =
 
@@ -1647,12 +1646,12 @@ Scenarios: {scenarios}
             Refusal.NoProducts
 
 
-    /// The dose rules applying to the department of the patient, or the default department:
+    /// The dose rules applying to the department of the patient:
     /// every rule with limits, and a dose rule without limits only when a solution rule for the
     /// department limits every component of it.
     let applyingToDepartment provider patientData drs =
         let routeMapping = Api.getRouteMapping provider
-        let department = patientData |> Api.withDefaultDepartment provider |> PatientData.department
+        let department = patientData |> PatientData.department
 
         let solutionRules =
             Api.getSolutionRules provider
@@ -1692,7 +1691,7 @@ Scenarios: {scenarios}
 
             // reconstitutes the dose rule for the patient, as the rule lookup does, before reading its products
             let hasNoProducts dr =
-                let pat = filter.PatientData |> Api.withDefaultDepartment provider
+                let pat = filter.PatientData
 
                 dr
                 |> DoseRule.reconstitute
