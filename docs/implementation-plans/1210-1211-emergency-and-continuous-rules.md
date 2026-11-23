@@ -410,9 +410,11 @@ the rules; the emergency list workbook no longer gives them.
 
 Decided on 2026-11-23, how every patient gets the hospital:
 
-- The server applies a default hospital to a patient without a Location, where the rules are matched,
-  the way `Api.withDefaultDepartment` applies the default department today. The default is never written
-  on the patient.
+- The server fills in a default hospital as the Location of a patient without one, before it completes
+  the patient data or applies an edit (`processCmd`). The answer to the client carries the default as the
+  Location of the patient, so the patient panel and the rules name the same hospital. Changed on
+  2026-11-23: the default was first applied only where the rules are matched and never written on the
+  patient.
 - The default hospital is a server setting, a `GENPRES_*` environment key. Without the key, production
   has no default hospital, so a patient without a Location gets only the rules without a Loc; outside
   production the default is UMCU.
