@@ -62,7 +62,7 @@ module EmergencyList =
                 // flex distributes available width proportionally; minWidth prevents collapse
                 createObj
                     [
-                        "field" ==> "catagory"
+                        "field" ==> "category"
                         "headerName" ==> (Terms.``Emergency List Category`` |> getTerm "Category")
                         "width" ==> 140
                         "minWidth" ==> 100
@@ -137,7 +137,7 @@ module EmergencyList =
                                     value = $"{i + 1}.{m.Hospital}.{m.Category}.{m.Name}"
                                 |}
                                 {|
-                                    field = "catagory"
+                                    field = "category"
                                     value = $"{m.Category}"
                                 |}
                                 {|
@@ -172,7 +172,7 @@ module EmergencyList =
             else
                 {|
                     id = cells[0]
-                    catagory = cells[1].Replace("*", "")
+                    category = cells[1].Replace("*", "")
                     intervention = cells[2].Replace("*", "")
                     calculated = cells[3].Replace("*", "")
                     preparation = cells[4].Replace("*", "")
@@ -194,7 +194,7 @@ module EmergencyList =
         let printColumns =
             [|
                 {|
-                    field = "catagory"
+                    field = "category"
                     label = "Categorie"
                     width = "15%"
                 |}

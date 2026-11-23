@@ -655,7 +655,7 @@ module Models =
 
         let create
             hospital
-            catagory
+            category
             indication
             dosetype
             medication
@@ -675,7 +675,7 @@ module Models =
             =
             {
                 Hospital = hospital
-                Category = catagory
+                Category = category
                 Indication = indication
                 DoseType = dosetype
                 Medication = medication
