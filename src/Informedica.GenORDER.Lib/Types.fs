@@ -1019,6 +1019,35 @@ module Types =
         | Nutrition of NutritionCategory
 
 
+    /// An order context narrowed to one scenario, with the texts a list shows for it.
+    type StandardOrder =
+        {
+            /// The order context, narrowed to the scenario
+            Context: OrderContext
+            /// The indication without the prefix, such as "Noodlijst "
+            Category: string
+            /// The generic of the context, else the name of the scenario
+            Generic: string
+            /// The dose of the substance, with the dose per kg in brackets for an order per kg
+            SubstanceDose: string
+            /// The dose of the orderable with the concentration of the substance in it
+            Preparation: string
+        }
+
+
+    /// Why a rule of a rule set gives no standard orders.
+    [<RequireQualifiedAccess>]
+    type StandardOrderWarning =
+        /// The evaluation gives no scenarios and leaves no choice open
+        | NoScenarios of indication: string * generic: string
+        /// The evaluation gives no scenarios after four choices
+        | TooManyChoices of indication: string * generic: string
+        /// The rules refuse the order context
+        | Refused of indication: string * generic: string * Refusal
+        /// The evaluation failed with the messages
+        | Failed of indication: string * generic: string * messages: string
+
+
     /// <summary>
     /// An order context in an order plan, with its id, its category, its totals and the link to its
     /// main order. The plan data wrap the context, so evaluation and the equation system never see them.

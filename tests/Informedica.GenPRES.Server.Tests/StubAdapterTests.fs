@@ -179,7 +179,7 @@ module StubAdapters =
             locations = fun () -> [||]
             // no default location
             defaultLocation = None
-            ruleSets = fun _ -> [||]
+            emergencyList = fun _ -> [||], [||]
             // no resources: a patient is completed with them only where a test gives them
             patientDataResources = fun () -> None
             today = fun () -> readAt
@@ -215,7 +215,7 @@ module StubAdapters =
             locations = fun () -> [||]
             // no default location
             defaultLocation = None
-            ruleSets = fun _ -> [||]
+            emergencyList = fun _ -> [||], [||]
             patientDataResources = fun () -> None
             today = fun () -> readAt
             // the tests run as the demo server does

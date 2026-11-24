@@ -368,7 +368,11 @@ module Adapters =
             today = today
             departments = fun () -> provider.GetDepartments()
             locations = fun () -> provider.GetLocations()
-            ruleSets = Api.getRuleSets provider
+            // The evaluation logs to the order logger, as the order context port does.
+            emergencyList =
+                fun pat ->
+                    Api.getRuleSets provider pat
+                    |> StandardOrder.emergencyList DateTime.UtcNow orderLogger provider pat
             defaultLocation = defaultLocation
             // The session port over the SQLite store when store is set, otherwise in memory. In memory, the sessions
             // and the record live as long as this AppEnv.

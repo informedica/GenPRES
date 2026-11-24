@@ -24,6 +24,7 @@
     <Compile Include="OrderLogging.fs" />
     <Compile Include="OrderContext.fs" />
     <Compile Include="OrderPlan.fs" />
+    <Compile Include="StandardOrder.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
     <None Include="Scripts\Constraints.fsx" />

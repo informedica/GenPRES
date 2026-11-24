@@ -428,213 +428,60 @@ module OrderContextCommand =
     let processCmd (env: AppEnv) (OrderContextCommand.Command(cmd, ctx)) = processViewCmd env (cmd, ctx)
 
 
-/// Calculates the medication rows of the emergency list from the rule set of the kind EmergencyList.
+/// Maps the standard orders of the emergency list to the medication rows of the list.
 module EmergencyListCommand =
 
-    open Informedica.GenForm.Lib
     open Logging
     open Informedica.Logging.Lib
     open Informedica.GenPRES.Shared.Types
-    open Informedica.GenPRES.Shared.Api
 
-    module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
-    module SharedContext = Informedica.GenPRES.Shared.Models.OrderContext
-    module SharedDecimal = Informedica.GenPRES.Shared.Decimal
+    module GenOrder = Informedica.GenOrder.Lib.Types
+    module PlanContext = Informedica.GenOrder.Lib.PlanContext
     module Intervention = Informedica.GenPRES.Shared.Models.Intervention
 
 
-    /// Logs a warning that the context gives no rows, with the indication, the generic and the reason.
-    let warnNoRows (env: AppEnv) (ctx: OrderContext) reason =
-        let name = Option.defaultValue ""
+    /// Returns the warning that a rule of the emergency list gives no rows, with the indication, the generic and the
+    /// reason.
+    let warning standardOrderWarning =
+        let text ind gen reason =
+            ServerLogging.Warning $"EmergencyList: %s{ind}, %s{gen} gives no rows: %s{reason}"
 
-        ServerLogging.Warning
-            $"EmergencyList: %s{name ctx.Filter.Indication}, %s{name ctx.Filter.Generic} gives no rows: %s{reason}"
-        |> Logging.logWarning env.logger
-
-
-    /// Returns the options of the first open choice of the filter, in the order generic, route, dose type, form,
-    /// each as the context with that option chosen. A choice is open when nothing is chosen and the list has more
-    /// than one option. Empty when no choice is open.
-    let branches (ctx: OrderContext) =
-        let f = ctx.Filter
-        let withFilter filter = { ctx with Filter = filter }
-
-        match f with
-        | {
-              Generic = None
-              Generics = gs
-          } when gs.Length > 1 -> gs |> Array.map (fun g -> withFilter { f with Generic = Some g })
-        | {
-              Route = None
-              Routes = rs
-          } when rs.Length > 1 -> rs |> Array.map (fun r -> withFilter { f with Route = Some r })
-        | {
-              DoseType = None
-              DoseTypes = ds
-          } when ds.Length > 1 -> ds |> Array.map (fun d -> withFilter { f with DoseType = Some d })
-        | {
-              Form = None
-              Forms = xs
-          } when xs.Length > 1 -> xs |> Array.map (fun x -> withFilter { f with Form = Some x })
-        | _ -> [||]
+        match standardOrderWarning with
+        | GenOrder.StandardOrderWarning.NoScenarios(ind, gen) -> text ind gen "no scenarios and no open choice"
+        | GenOrder.StandardOrderWarning.TooManyChoices(ind, gen) -> text ind gen "no scenarios after four choices"
+        | GenOrder.StandardOrderWarning.Refused(ind, gen, refusal) -> text ind gen $"refused, %A{refusal}"
+        | GenOrder.StandardOrderWarning.Failed(ind, gen, messages) -> text ind gen messages
 
 
-    /// Evaluates the context and returns the evaluated context with each of its scenarios. A context without
-    /// scenarios is evaluated again for each option of the first open choice, at most four choices deep. A context
-    /// that gives no scenarios is logged as a warning.
-    let rec scenarios env depth (ctx: OrderContext) =
-        async {
-            // The view command is read only for the linked orders, and ResetOrderScenario offers none.
-            match!
-                OrderContextCommand.evaluated
-                    env
-                    OrderViewCommand.ResetOrderScenario
-                    ctx
-                    (Some GenOrderContext.UpdateOrderContext)
-            with
-            | Ok(OrderContextResponse.Evaluated(c, _)) when c.Scenarios |> Array.isEmpty |> not ->
-                return c.Scenarios |> Array.map (fun sc -> c, sc)
-            | Ok(OrderContextResponse.Evaluated(c, _)) ->
-                match branches c with
-                | [||] ->
-                    warnNoRows env c "no scenarios and no open choice"
-                    return [||]
-                | _ when depth >= 4 ->
-                    warnNoRows env c "no scenarios after four choices"
-                    return [||]
-                | bs ->
-                    let! found = bs |> Array.map (scenarios env (depth + 1)) |> Async.Sequential
-                    return found |> Array.concat
-            | Ok(OrderContextResponse.Refused(c, refusal)) ->
-                warnNoRows env c $"refused, %A{refusal}"
-                return [||]
-            | Error errs ->
-                warnNoRows env ctx (errs |> String.concat "; ")
-                return [||]
-        }
-
-
-    /// Returns the indication without the prefix, such as "Noodlijst ", or the indication when it does not start
-    /// with the prefix.
-    let categoryOf (prefix: string) (indication: string) =
-        if indication.StartsWith prefix then
-            indication.Substring prefix.Length
-        else
-            indication
-
-
-    /// Formats the numbers of a value as Dutch numbers, separated by a semicolon.
-    let numbers (vu: ValueUnit) =
-        vu.Value
-        |> Array.map (snd >> SharedDecimal.toStringNumberNLWithoutTrailingZeros)
-        |> String.concat " ; "
-
-
-    /// Formats an order variable: every value with the unit; without values, the minimum and the maximum, or the one
-    /// limit it has, such as "min 1 mg" or "max 1 mg". Empty when the order variable has none of these.
-    let variableText (ov: OrderVariable) =
-        let v = ov.Variable
-
-        match v.Vals, v.Min, v.Max with
-        | Some vals, _, _ when vals.Value.Length > 0 -> $"%s{numbers vals} %s{vals.Unit}"
-        | _, Some min, Some max when max.Unit <> "" -> $"%s{numbers min} - %s{numbers max} %s{max.Unit}"
-        | _, Some min, None when min.Unit <> "" -> $"min %s{numbers min} %s{min.Unit}"
-        | _, None, Some max when max.Unit <> "" -> $"max %s{numbers max} %s{max.Unit}"
-        | _ -> ""
-
-
-    /// Formats a quantity, followed by the quantity per kg in brackets when the order is per kg and the quantity
-    /// per kg has a text.
-    let withAdjust useAdjust qty adj =
-        let q = qty |> variableText
-        let a = adj |> variableText
-
-        if useAdjust && a <> "" then $"%s{q} (%s{a})" else q
-
-
-    /// Returns the context narrowed to the scenario, as the prescribe page narrows it: the form of the scenario and
-    /// the scenario as the only scenario.
-    let narrowed (ctx: OrderContext) (sc: OrderScenario) =
-        { ctx with
-            Filter = { ctx.Filter with Form = Some sc.Form }
-            Scenarios = [| sc |]
-        }
-
-
-    /// Maps a scenario to a row of the emergency list. A scenario with a substance shows the substance; a scenario
-    /// dosed by volume shows the orderable.
-    let toIntervention (ctx: OrderContext, sc: OrderScenario) =
-        let ord = sc.Order
-
-        // The item of the scenario: the substance that is dosed, not an additional substance of the product.
-        let item =
-            ord.Orderable.Components
-            |> Array.collect _.Items
-            |> Array.tryFind (fun i -> Some i.Name = sc.Item)
-
-        let calculated, preparation =
-            match item with
-            | Some i ->
-                let qty = ord.Orderable.Dose.Quantity |> variableText
-                let cnc = i.OrderableConcentration |> variableText
-
-                withAdjust sc.UseAdjust i.Dose.Quantity i.Dose.QuantityAdjust,
-                if qty = "" || cnc = "" then "" else $"%s{qty} van %s{cnc}"
-            | None ->
-                withAdjust sc.UseAdjust ord.Orderable.Dose.Quantity ord.Orderable.Dose.QuantityAdjust,
-                $"%s{ord.Orderable.Dose.Quantity |> variableText} %s{sc.Name}"
-
+    /// Maps a standard order to a row of the emergency list, with the order context of the standard order.
+    let toIntervention demo (so: GenOrder.StandardOrder) =
         { Intervention.emptyIntervention with
-            Category = categoryOf "Noodlijst " sc.Indication
-            Name = ctx.Filter.Generic |> Option.defaultValue sc.Name
-            SubstanceDoseText = calculated
-            InterventionDoseText = preparation
-            OrderContext = Some(narrowed ctx sc)
+            Category = so.Category
+            Name = so.Generic
+            SubstanceDoseText = so.SubstanceDose
+            InterventionDoseText = so.Preparation
+            OrderContext =
+                so.Context
+                |> PlanContext.create "" GenOrder.OrderCategory.Medication
+                |> OrderContextService.toModel demo
+                |> Some
         }
-
-
-    /// Returns the order context of a rule set row for the patient: the indication and the generic of the row.
-    let contextOf demo pat (row: Types.Data.RuleSetData) =
-        { SharedContext.empty with
-            PatientData = pat
-            DemoVersion = demo
-            Filter =
-                { SharedContext.filter with
-                    Indication = Some row.Indication
-                    Generic = if row.Generic = "" then None else Some row.Generic
-                }
-        }
-
-
-    /// Returns the rows of the rule sets of the kind EmergencyList.
-    let emergencyRows (sets: RuleSet[]) =
-        sets
-        |> Array.filter (fun s -> s.Kind = RuleSetKind.EmergencyList)
-        |> Array.collect _.Rows
 
 
     /// Returns a short name for the log instead of the whole request.
     let toString (_: PatientData) = "EmergencyList"
 
 
-    /// Returns the medication rows of the emergency list for the patient. The rows of the rule set are evaluated in
-    /// chunks of Parallel.totalWorders: the chunks run in parallel, the rows in a chunk one after the other. Returns
-    /// the messages when the patient data are invalid.
+    /// Returns the medication rows of the emergency list for the patient and logs a warning for each rule that gives
+    /// no rows. Returns the messages when the patient data are invalid.
     let processCmd (env: AppEnv) (pat: PatientData) =
         async {
             match pat |> Patient.toCore (env.today ()) with
             | Error errs -> return Error errs
             | Ok core ->
-                let! found =
-                    core
-                    |> env.ruleSets
-                    |> emergencyRows
-                    |> Array.map (contextOf env.demo pat >> scenarios env 0)
-                    |> Array.chunkBySize Utils.Parallel.totalWorders
-                    |> Array.map Async.Sequential
-                    |> Async.Parallel
-
-                return found |> Array.concat |> Array.concat |> Array.map toIntervention |> Ok
+                let orders, warnings = core |> env.emergencyList
+                warnings |> Array.iter (warning >> Logging.logWarning env.logger)
+                return orders |> Array.map (toIntervention env.demo) |> Ok
         }
 
 

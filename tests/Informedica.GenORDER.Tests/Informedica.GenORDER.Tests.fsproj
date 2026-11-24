@@ -18,6 +18,7 @@
     <Compile Include="TotalsGestAgeTests.fs" />
     <Compile Include="OrderPlanTests.fs" />
     <Compile Include="OrderContextRuleTests.fs" />
+    <Compile Include="StandardOrderTests.fs" />
     <Compile Include="FilterFixtures.fs" />
     <Compile Include="FilterCommandTests.fs" />
     <Compile Include="OrderValueCommandTests.fs" />
