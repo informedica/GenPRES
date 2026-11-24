@@ -56,6 +56,18 @@ module Measures =
     [<Measure>]
     type normalM2
 
+    /// Millimeter, a unit of length.
+    [<Measure>]
+    type mm
+
+    /// French, a unit of the outer diameter of a line: 1 French is 1/3 millimeter.
+    [<Measure>]
+    type french
+
+    /// Joule, a unit of energy.
+    [<Measure>]
+    type joule
+
 
 module Constants =
 

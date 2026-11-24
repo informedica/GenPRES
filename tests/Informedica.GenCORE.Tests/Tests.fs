@@ -265,6 +265,220 @@ module Tests =
                 ]
 
 
+    module EmergencyTests =
+
+        open Calculations.Emergency
+
+
+        /// Returns the number of days in a number of years of 365 days.
+        let yearsOld n = n * Constants.daysInYear * 1<day>
+
+
+        let tests =
+            testList
+                "Emergency"
+                [
+                    testList
+                        "by weight, under 3 kg"
+                        [
+                            for kg, expected in [ 0.5m, 2.5m; 0.99m, 2.5m; 1m, 3m; 2.99m, 3m ] do
+                                test $"the tube size at %M{kg} kg is %M{expected} mm" {
+                                    kg * 1m<kg> |> tubeSizeByWeight |> Expect.equal "the size" (expected * 1m<mm>)
+                                }
+
+                            for kg, expected in [ 1m, 6.63m; 2m, 7.89m; 2.99m, 8.63m ] do
+                                test $"the oral tube length at %M{kg} kg is %M{expected} cm" {
+                                    kg * 1m<kg>
+                                    |> oralTubeLengthByWeight
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+
+                            // 2.5 kg gives 10.25 cm, which is halfway and goes to 10.2 cm.
+                            for kg, expected in [ 1m, 8.14m; 2.5m, 10.2m ] do
+                                test $"the nasal tube length at %M{kg} kg is %M{expected} cm" {
+                                    kg * 1m<kg>
+                                    |> nasalTubeLengthByWeight
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+
+                            for kg, expected in [ 1.49m, 3.5m; 1.5m, 5m ] do
+                                test $"the umbilical line size at %M{kg} kg is %M{expected} French" {
+                                    kg * 1m<kg>
+                                    |> umbilicalLineSize
+                                    |> Expect.equal "the size" (expected * 1m<french>)
+                                }
+
+                            // 1.49 kg gives 12.96 cm, which has 4 digits and is rounded to 13 cm.
+                            for kg, expected in [ 0.5m, 9m; 1m, 11m; 1.234m, 11.9m; 1.49m, 13m ] do
+                                test $"the umbilical artery line length at %M{kg} kg, under 1.5 kg, is %M{expected} cm" {
+                                    kg * 1m<kg>
+                                    |> umbilicalArteryLineLengthUnder1500Gram
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+
+                            // 1.5 kg gives 13.45 cm, which is halfway and goes to 13.4 cm.
+                            for kg, expected in [ 1.5m, 13.4m; 2m, 14.7m; 2.99m, 17.2m ] do
+                                test $"the umbilical artery line length at %M{kg} kg, from 1.5 kg, is %M{expected} cm" {
+                                    kg * 1m<kg>
+                                    |> umbilicalArteryLineLengthFrom1500Gram
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+
+                            for kg, expected in [ 1.234m, 7.35m; 2m, 8.5m ] do
+                                test $"the umbilical vein line length at %M{kg} kg is %M{expected} cm" {
+                                    kg * 1m<kg>
+                                    |> umbilicalVeinLineLength
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+                        ]
+
+                    testList
+                        "by age"
+                        [
+                            // 1 year gives 3.75 mm and 3 years 4.25 mm: both are halfway and go to 4 mm.
+                            for yrs, expected in [ 0, 3.5m; 1, 4m; 2, 4m; 3, 4m; 4, 4.5m; 14, 7m; 15, 7m; 18, 7m ] do
+                                test $"the cuffed tube size at %i{yrs} years is %M{expected} mm" {
+                                    yrs |> yearsOld |> cuffedTubeSize |> Expect.equal "the size" (expected * 1m<mm>)
+                                }
+
+                            for yrs, expected in [ 0, 4m; 4, 5m; 12, 7m; 13, 7m ] do
+                                test $"the uncuffed tube size at %i{yrs} years is %M{expected} mm" {
+                                    yrs
+                                    |> yearsOld
+                                    |> uncuffedTubeSize
+                                    |> Expect.equal "the size" (expected * 1m<mm>)
+                                }
+
+                            test "the cuffed tube size at 6 months of 30 days is 3.5 mm" {
+                                180<day> |> cuffedTubeSize |> Expect.equal "the size" 3.5m<mm>
+                            }
+
+                            for yrs, expected in [ 0, 12m; 1, 12.5m; 5, 14.5m; 18, 21m ] do
+                                test $"the oral tube length at %i{yrs} years is %M{expected} cm" {
+                                    yrs
+                                    |> yearsOld
+                                    |> oralTubeLengthByAge
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+
+                            for yrs, expected in [ 0, 15m; 1, 15.5m; 5, 17.5m; 18, 24m ] do
+                                test $"the nasal tube length at %i{yrs} years is %M{expected} cm" {
+                                    yrs
+                                    |> yearsOld
+                                    |> nasalTubeLengthByAge
+                                    |> Expect.equal "the length" (expected * 1m<cm>)
+                                }
+                        ]
+
+                    testList
+                        "energy"
+                        [
+                            for kg, expected in
+                                [ 0.2m, 1m; 0.25m, 1m; 3m, 20m; 5m, 20m; 5.1m, 30m; 37.5m, 150m; 100m, 150m ] do
+                                test $"the defibrillation at %M{kg} kg is %M{expected} joule" {
+                                    kg * 1m<kg>
+                                    |> defibrillation
+                                    |> Expect.equal "the energy" (expected * 1m<joule>)
+                                }
+
+                            for kg, expected in [ 0.5m, 1m; 3m, 7m; 10m, 20m; 75m, 150m; 100m, 150m ] do
+                                test $"the cardioversion at %M{kg} kg is %M{expected} joule" {
+                                    kg * 1m<kg> |> cardioversion |> Expect.equal "the energy" (expected * 1m<joule>)
+                                }
+                        ]
+
+                    testList
+                        "calculate"
+                        [
+                            test "a weight of 1 kg gives the six interventions by weight, also with an age" {
+                                calculate (Some 10<day>) (Some 1m<kg>)
+                                |> Expect.equal
+                                    "the interventions"
+                                    [
+                                        {
+                                            Intervention = Intervention.TubeSize 3m<mm>
+                                            Formula = Formula.TubeSizeByWeight
+                                        }
+                                        {
+                                            Intervention = Intervention.OralTubeLength 6.63m<cm>
+                                            Formula = Formula.OralTubeLengthByWeight
+                                        }
+                                        {
+                                            Intervention = Intervention.NasalTubeLength 8.14m<cm>
+                                            Formula = Formula.NasalTubeLengthByWeight
+                                        }
+                                        {
+                                            Intervention = Intervention.UmbilicalLineSize 3.5m<french>
+                                            Formula = Formula.UmbilicalLineSizeByWeight
+                                        }
+                                        {
+                                            Intervention = Intervention.UmbilicalArteryLineLength 11m<cm>
+                                            Formula = Formula.UmbilicalArteryLineLengthUnder1500Gram
+                                        }
+                                        {
+                                            Intervention = Intervention.UmbilicalVeinLineLength 7m<cm>
+                                            Formula = Formula.UmbilicalVeinLineLengthByWeight
+                                        }
+                                    ]
+                            }
+
+                            test "a weight of 2 kg gives the artery line formula for a weight from 1.5 kg" {
+                                calculate None (Some 2m<kg>)
+                                |> List.map _.Formula
+                                |> Expect.contains "the formula" Formula.UmbilicalArteryLineLengthFrom1500Gram
+                            }
+
+                            test "a weight of 3 kg and an age of 4 years give the tubes by age and the energies" {
+                                calculate (4 |> yearsOld |> Some) (Some 3m<kg>)
+                                |> Expect.equal
+                                    "the interventions"
+                                    [
+                                        {
+                                            Intervention = Intervention.CuffedTubeSize 4.5m<mm>
+                                            Formula = Formula.CuffedTubeSizeByAge
+                                        }
+                                        {
+                                            Intervention = Intervention.UncuffedTubeSize 5m<mm>
+                                            Formula = Formula.UncuffedTubeSizeByAge
+                                        }
+                                        {
+                                            Intervention = Intervention.OralTubeLength 14m<cm>
+                                            Formula = Formula.OralTubeLengthByAge
+                                        }
+                                        {
+                                            Intervention = Intervention.NasalTubeLength 17m<cm>
+                                            Formula = Formula.NasalTubeLengthByAge
+                                        }
+                                        {
+                                            Intervention = Intervention.Defibrillation 20m<joule>
+                                            Formula = Formula.DefibrillationByWeight
+                                        }
+                                        {
+                                            Intervention = Intervention.Cardioversion 7m<joule>
+                                            Formula = Formula.CardioversionByWeight
+                                        }
+                                    ]
+                            }
+
+                            test "a weight of 3 kg without an age gives the two energies only" {
+                                calculate None (Some 3m<kg>)
+                                |> List.map _.Formula
+                                |> Expect.equal
+                                    "the formulas"
+                                    [ Formula.DefibrillationByWeight; Formula.CardioversionByWeight ]
+                            }
+
+                            test "an age without a weight gives the four tube interventions only" {
+                                calculate (Some 365<day>) None |> List.length |> Expect.equal "the count" 4
+                            }
+
+                            test "no age and no weight give no interventions" {
+                                calculate None None |> Expect.isEmpty "the interventions"
+                            }
+                        ]
+                ]
+
+
     module MinMaxTests =
 
         module Calculator = MinMax.Calculator
@@ -3895,6 +4109,7 @@ module Tests =
 
         [
             CalculationTests.tests
+            EmergencyTests.tests
             MinMaxTests.tests
             MinMaxTests2.tests
             MinMaxTests2.DtoTests.tests
