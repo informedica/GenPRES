@@ -33,7 +33,6 @@ module BusyPolicy =
         | Request.Load(Load.Formulary | Load.Parenteralia), Page.Settings -> true
         | Request.Load Load.EmergencyList, Page.LifeSupport
         | Request.Load Load.ContinuousList, Page.ContinuousMeds
-        | Request.Load Load.Products, (Page.LifeSupport | Page.ContinuousMeds)
         | Request.Load Load.Formulary, Page.Formulary
         | Request.Load Load.Parenteralia, Page.Parenteralia
         | Request.Load Load.Interactions, Page.Interactions

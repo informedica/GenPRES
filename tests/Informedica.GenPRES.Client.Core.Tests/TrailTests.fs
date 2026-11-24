@@ -398,21 +398,26 @@ let tests =
             test "a load reads by its name, an answer by its size, never an error text" {
                 let state, effects =
                     LoaderMachine.LoaderState.initial
-                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Loads.Load.Products)
+                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Loads.Load.Localization)
 
-                Trail.loader 1 at (LoaderMachine.LoaderMsg.Start Loads.Load.Products) (state, effects)
+                Trail.loader 1 at (LoaderMachine.LoaderMsg.Start Loads.Load.Localization) (state, effects)
                 |> Trail.format
-                |> Expect.equal "the start" "#1 10:41:07.311 Loader Start Products -> FetchProducts | out Products"
+                |> Expect.equal
+                    "the start"
+                    "#1 10:41:07.311 Loader Start Localization -> FetchLocalization | out Localization"
 
-                let landed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Products(Error "connection refused"))
+                let landed =
+                    LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Localization(Error "connection refused"))
 
                 Trail.loader 2 at landed (state |> LoaderMachine.transition landed)
                 |> Trail.format
-                |> Expect.equal "the failure" "#2 10:41:07.311 Loader Landed Products Error -> none | failed Products"
+                |> Expect.equal
+                    "the failure"
+                    "#2 10:41:07.311 Loader Landed Localization Error -> none | failed Localization"
 
-                LoaderMachine.Landing.Products(Ok [])
+                LoaderMachine.Landing.Localization(Ok [||])
                 |> Trail.Loader.landing
-                |> Expect.equal "an answer" "Products Ok 0 items"
+                |> Expect.equal "an answer" "Localization Ok 0 rows"
                 LoaderMachine.LoaderState.initial
                 |> Trail.Loader.state
                 |> Expect.equal "nothing asked" "nothing asked"

@@ -313,7 +313,6 @@ type Terms =
     | ``Startup Gate Failed``
     | ``Startup Gate Failed Text``
     | ``Startup Load Localization``
-    | ``Startup Load Products``
     // the snackbar alerts, with {0} the number of interactions
     | ``Alert Interaction Names Not Loaded``
     | ``Alert Interactions Found``

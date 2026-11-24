@@ -33,12 +33,6 @@ module Types =
     type year
 
 
-    type DataType =
-        | StringData
-        | FloatData
-        | FloatOptionData
-
-
     module PatientData =
 
         type Age =
@@ -375,15 +369,6 @@ module Types =
         | Caution of TextItem[]
         | Warning of TextItem[]
         | Alert of TextItem[]
-
-
-    type Product =
-        {
-            Indication: string
-            Medication: string
-            Concentration: float
-            Unit: string
-        }
 
 
     /// Possible Dose Types.

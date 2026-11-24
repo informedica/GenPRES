@@ -1,6 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// Loads the data the client needs: the server settings, the localization, the medication lists, the products,
+/// Loads the data the client needs: the server settings, the localization, the medication lists,
 /// the formulary and parenteralia pages, the interactions and the nutrition totals.
 /// A start while the same load runs does nothing. A failed load returns to not started; a failed required load
 /// is added to the failed loads. The server is checked until it answers. The medication names are requested
@@ -28,8 +28,6 @@ module LoaderMachine =
             Settings: Deferred<ServerSettings>
             /// The terms of every language, as rows of the localization sheet.
             Localization: Deferred<string[][]>
-            /// The products.
-            Products: Deferred<Product list>
             /// The medication names the interactions page offers.
             DrugNames: Deferred<string[]>
             /// The interactions found by the last check.
@@ -88,7 +86,6 @@ module LoaderMachine =
     type Landing =
         | Settings of Result<ServerSettings, string>
         | Localization of Result<string[][], string>
-        | Products of Result<Product list, string>
         /// The medication names, with the token the request was sent with.
         | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
         /// The interactions of a numbered check, with the token the request was sent with.
@@ -150,7 +147,6 @@ module LoaderMachine =
     type LoaderEffect =
         | FetchSettings
         | FetchLocalization
-        | FetchProducts
         | FetchDrugNames
         | FetchFormulary of Formulary
         | FetchParenteralia of Parenteralia
@@ -192,7 +188,6 @@ module LoaderMachine =
             {
                 Settings = HasNotStartedYet
                 Localization = HasNotStartedYet
-                Products = HasNotStartedYet
                 DrugNames = HasNotStartedYet
                 Interactions = HasNotStartedYet
                 InteractionCheck = 0
@@ -225,7 +220,6 @@ module LoaderMachine =
             [
                 Load.Settings, reading state.Settings
                 Load.Localization, reading state.Localization
-                Load.Products, reading state.Products
                 Load.Formulary, reading state.Formulary
                 Load.Parenteralia, reading state.Parenteralia
                 Load.DrugNames, reading state.DrugNames
@@ -415,9 +409,6 @@ module LoaderMachine =
         | LoaderMsg.Start Load.Localization ->
             let reading, effects = state.Localization |> start LoaderEffect.FetchLocalization
             { state with Localization = reading }, effects
-        | LoaderMsg.Start Load.Products ->
-            let reading, effects = state.Products |> start LoaderEffect.FetchProducts
-            { state with Products = reading }, effects
         | LoaderMsg.Start Load.Formulary -> state |> startFormulary
         | LoaderMsg.Start Load.Parenteralia -> state |> startParenteralia
         | LoaderMsg.Start Load.DrugNames ->
@@ -436,9 +427,6 @@ module LoaderMachine =
         | LoaderMsg.Landed(Landing.Localization result) ->
             let reading, state = state |> settle Load.Localization result
             { state with Localization = reading }, []
-        | LoaderMsg.Landed(Landing.Products result) ->
-            let reading, state = state |> settle Load.Products result
-            { state with Products = reading }, []
         | LoaderMsg.Landed(Landing.DrugNames(from, Ok reply)) ->
             match reply.Response with
             | InteractionResponse.DrugNamesLoaded names ->

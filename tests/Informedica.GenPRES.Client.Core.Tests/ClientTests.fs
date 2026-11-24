@@ -59,7 +59,6 @@ let everyLoad =
     [
         landed (Landing.Settings(Ok(ShellMachineTests.settings Informedica.GenPRES.Shared.Localization.Dutch)))
         landed (Landing.Localization(Ok [||]))
-        landed (Landing.Products(Ok []))
         landed (Landing.Formulary(None, answered Formulary.empty))
         landed (Landing.Parenteralia(None, answered Parenteralia.empty))
     ]

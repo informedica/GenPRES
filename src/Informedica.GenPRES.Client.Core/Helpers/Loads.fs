@@ -16,7 +16,6 @@ module Loads =
         /// The rows of the continuous medication list for the patient. They also start without a click, when the
         /// patient data change or the page is shown, so they never make the menu, the title bar or the panel busy.
         | ContinuousList
-        | Products
         | Formulary
         | Parenteralia
         | Interactions
@@ -93,4 +92,4 @@ module Loads =
 
 
     /// The loads the application cannot be used without.
-    let required = [ Load.Localization; Load.Products ]
+    let required = [ Load.Localization ]

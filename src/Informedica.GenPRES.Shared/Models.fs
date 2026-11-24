@@ -303,40 +303,6 @@ module Models =
             }
 
 
-    /// Medication products with their concentrations. parse reads the products sheet of the emergency list
-    /// workbook, with the columns indication, medication, conc and unit.
-    module Products =
-
-        open Informedica.GenPRES.Shared
-
-
-        let create ind med conc unit =
-            {
-                Indication = ind
-                Medication = med
-                Concentration = conc
-                Unit = unit
-            }
-
-
-        let parse (data: string[][]) =
-            match data with
-            | data when data |> Array.length > 1 ->
-                let cms = data |> Array.head
-
-                data
-                |> Array.skip 1
-                |> Array.map (fun sl ->
-                    let getString n = Csv.getStringColumn cms sl n |> String.trim
-
-                    let getFloat = Csv.getFloatColumn cms sl
-
-                    create (getString "indication") (getString "medication") (getFloat "conc") (getString "unit")
-                )
-                |> Array.toList
-            | _ -> []
-
-
     module Order =
 
 
