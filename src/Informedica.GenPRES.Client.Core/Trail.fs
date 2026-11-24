@@ -636,6 +636,7 @@ module Trail =
             | OrderContextMsg.TurnOfferOff index -> $"TurnOfferOff %i{index}"
             | OrderContextMsg.OfferCommand(index, cmd, request) ->
                 $"OfferCommand %i{index} %s{commandAlone cmd} %s{Part.shortId request}"
+            | OrderContextMsg.Chosen ctx -> $"Chosen %s{Part.context ctx}"
 
 
         /// Describes an order context effect, with a context by its id; never the filter or the error texts.
@@ -1105,6 +1106,7 @@ module Trail =
             | ClientMsg.PanelEdited(_, request) -> $"PanelEdited %s{Part.shortId request}"
             | ClientMsg.NewPatient(_, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
+            | ClientMsg.EmergencyListRowChosen ctx -> $"EmergencyListRowChosen %s{Part.context ctx}"
             | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"
             | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
             | ClientMsg.TakeEhrData -> "TakeEhrData"

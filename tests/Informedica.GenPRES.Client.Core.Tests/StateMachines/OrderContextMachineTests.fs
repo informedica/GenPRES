@@ -410,6 +410,20 @@ let workbenchTests =
                 |> OrderContextState.context
                 |> Expect.equal "the empty context while the first evaluation runs" (Some empty)
             }
+
+            test "a chosen context replaces the workbench as it is, without a request, and the pages follow its filter" {
+                let chosen = { paracetamol with OrderContext.Filter.Route = Some "INTRAVENEUS" }
+
+                shown
+                |> transition (OrderContextMsg.Chosen chosen)
+                |> Expect.equal "the chosen context, synced" (settled chosen, synced chosen)
+            }
+
+            test "a chosen context without patient data changes nothing" {
+                noPatientData
+                |> transition (OrderContextMsg.Chosen paracetamol)
+                |> Expect.equal "no workbench to put it in" (noPatientData, [])
+            }
         ]
 
 

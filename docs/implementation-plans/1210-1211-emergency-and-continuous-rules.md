@@ -544,7 +544,8 @@ Part 8, the client shows the server rows:
   client calculation. The order calculation is tested in GenSOLVER and GenORDER; whether the rules are
   right is a matter of medical validation, not of the code.
 
-Part 9, prescribing from the list:
+Part 9, prescribing from the list, in three pull requests: the row click, the plan command, and the checkboxes with
+the prescribe button:
 
 - A click on a medication row sends a new order context message that puts the order context of the row in
   the workbench as it is, without a request, and moves to the prescribe page.

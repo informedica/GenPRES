@@ -113,9 +113,18 @@ module EmergencyList =
             |]
 
         // The rows the server calculated for the patient, also while they are calculated again.
+        let interventions = envList.EmergencyList |> Deferred.defaultValue [||]
+
+        // A row is found by its id, its number in the list. A calculated row has no order context, so a click on it
+        // does nothing.
+        let handleRowClick (id: string) =
+            interventions
+            |> Array.tryItem (int id - 1)
+            |> Option.bind _.OrderContext
+            |> Option.iter envList.OnEmergencyListRowChosen
+
         let rows =
-            envList.EmergencyList
-            |> Deferred.defaultValue [||]
+            interventions
             |> Array.mapi (fun i m ->
                 let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
@@ -246,7 +255,7 @@ module EmergencyList =
                 rows = rows
                 rowCreate = rowCreate
                 height = "100%"
-                onRowClick = ignore
+                onRowClick = handleRowClick
                 markedRow = None
                 checkboxSelection = false
                 selectedRows = [||]

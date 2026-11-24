@@ -173,6 +173,18 @@ let tests =
                 |> Expect.stringStarts "the command" "OfferCommand 1 "
             }
 
+            test "a chosen order context and a chosen emergency list row show the context, as a context is described" {
+                let ctx = { OrderContext.empty with OrderContext.Filter.Generic = Some "adrenaline" }
+
+                OrderContextMsg.Chosen ctx
+                |> Trail.OrderContext.msg
+                |> Expect.equal "the context" $"Chosen %s{Trail.Part.context ctx}"
+
+                Client.ClientMsg.EmergencyListRowChosen ctx
+                |> Trail.Client.msg
+                |> Expect.equal "the context" $"EmergencyListRowChosen %s{Trail.Part.context ctx}"
+            }
+
             test "a line never breaks, whatever text a step carries" {
                 Trail.format
                     {
