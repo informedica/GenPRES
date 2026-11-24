@@ -38,6 +38,10 @@ module ResponsiveTable =
                     onRowClick: string -> unit
                     // the row shown as marked; none when no row is marked
                     markedRow: string option
+                    // each card has a checkbox before its title when true
+                    checkboxSelection: bool
+                    selectedRows: string[]
+                    onSelectChange: string[] -> unit
                 |})
             =
 
@@ -61,6 +65,36 @@ module ResponsiveTable =
                         |> Option.defaultValue ""
 
                     let handleClick = fun _ -> props.onRowClick rowId
+
+                    let checkbox =
+                        if props.checkboxSelection then
+                            let isChecked = props.selectedRows |> Array.contains rowId
+
+                            // a tap on the checkbox checks or unchecks the card and does not open it
+                            let handleCheckClick (e: Browser.Types.Event) = e.stopPropagation ()
+
+                            let handleCheckChange _ =
+                                if isChecked then
+                                    props.selectedRows |> Array.filter ((<>) rowId)
+                                else
+                                    Array.append props.selectedRows [| rowId |]
+                                |> props.onSelectChange
+
+                            let checkboxSx =
+                                {|
+                                    padding = 0
+                                    marginRight = 1
+                                |}
+
+                            JSX.jsx
+                                $"""
+                            import Checkbox from '@mui/material/Checkbox';
+
+                            <Checkbox size="small" checked={isChecked} onClick={handleCheckClick} onChange={handleCheckChange} sx={checkboxSx} />
+                            """
+                            |> toReact
+                        else
+                            null
 
                     // the marked card shows the light blue and the bar of a marked row in the grid
                     let cardSx =
@@ -116,11 +150,15 @@ module ResponsiveTable =
                                     $"""
                                 import Typography from '@mui/material/Typography';
                                 import Box from '@mui/material/Box';
+                                import Stack from '@mui/material/Stack';
 
                                 <Box sx={headerBoxSx} >
-                                    <Typography variant="subtitle2" component="div" sx={headerTypoSx} >
-                                        {shown}
-                                    </Typography>
+                                    <Stack direction="row" alignItems="center" >
+                                        {checkbox}
+                                        <Typography variant="subtitle2" component="div" sx={headerTypoSx} >
+                                            {shown}
+                                        </Typography>
+                                    </Stack>
                                 </Box>
                                 """
                                 |> toReact
@@ -516,6 +554,9 @@ module ResponsiveTable =
                 filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
                 markedRow = props.markedRow
+                checkboxSelection = props.checkboxSelection
+                selectedRows = props.selectedRows
+                onSelectChange = props.onSelectChange
             |}
             |> CardTable
         else
