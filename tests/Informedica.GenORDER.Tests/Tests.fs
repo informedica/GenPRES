@@ -2138,6 +2138,45 @@ module HelperTests =
                             |> Expect.isFalse "two values"
                         }
 
+                        test "the text of a range with only a minimum is min with the limit" {
+                            ValueRange.createMin true (mL [ 1 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "min" "min 1 mL"
+                        }
+
+                        test "the text of a range with only a maximum is max with the limit" {
+                            ValueRange.createMax true (mL [ 2 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "max" "max 2 mL"
+                        }
+
+                        test "the text of an exclusive minimum of zero is empty" {
+                            ValueRange.createMin false (mL [ 0 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "no text" ""
+                        }
+
+                        test "the text of a range with a minimum and a maximum is the markdown without markers" {
+                            ValueRange.create
+                                (mL [ 1 ] |> Minimum.create true |> Some)
+                                None
+                                (mL [ 2 ] |> ValueRange.Maximum.create true |> Some)
+                                None
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "the range" "1 - 2 mL"
+                        }
+
+                        test "the text of a value set is the values with the unit" {
+                            valSet mL [ 2 ]
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "the value" "2 mL"
+                        }
+
                         test "the value of a variable with one value" {
                             valSet mL [ 2 ]
                             |> ovar None

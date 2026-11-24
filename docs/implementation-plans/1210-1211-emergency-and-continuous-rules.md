@@ -487,16 +487,19 @@ Part 5, the server calculates the medication rows (merged, #1992):
 
 Part 6, the calculation moves to GenORDER:
 
-- GenORDER calculates the standard orders. It takes the rule set for the patient, the patient data, the
-  logger and the resource provider, and returns a standard order for each scenario.
-- The evaluation, the choice of the options and the texts stay as in part 5, now on the domain order context
-  and the domain order. GenORDER makes the texts of a standard order as it makes the prescription texts of a
-  scenario.
-- The server command maps the patient data to the domain, calls GenORDER and maps each standard order to an
-  `Intervention`.
-- Removed from the server: the evaluation through the contract (`OrderContextCommand.evaluated`), the choice
-  of the options and the text functions of `EmergencyListCommand`.
-- The part is a move: the rows of the list and their texts do not change.
+- GenORDER calculates the standard orders. It takes the rule sets for the patient, the patient data, the
+  logger and the resource provider, and returns a standard order for each scenario, with a warning for each
+  rule that gives none. The server writes the text of a warning and logs it.
+- The evaluation and the choice of the options stay as in part 5, now on the domain order context. A rule
+  whose evaluation raises an exception gives a warning and no standard orders.
+- GenORDER makes the texts of a standard order as the prescription texts of a scenario print the values,
+  with the same precision (`OrderVariable.toValueUnitText`). A value with only a minimum or only a maximum,
+  which the prescription texts leave out, shows as "min" or "max" with the limit; an exclusive minimum of
+  zero shows no text.
+- The server gets the port `emergencyList`, which replaces `ruleSets`. The command maps the patient data to
+  the domain, calls the port, logs the warnings and maps each standard order to an `Intervention`.
+- Removed from the server: the evaluation of the list rules through the contract, the choice of the options
+  and the text functions of `EmergencyListCommand`, and the port `ruleSets`.
 
 Part 7, the advice of a standard order:
 

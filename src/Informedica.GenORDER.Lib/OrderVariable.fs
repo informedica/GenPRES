@@ -949,6 +949,24 @@ module OrderVariable =
         || ovar.Variable |> Variable.isMinExclusiveZero
 
 
+    /// Gets the ValueRange of the OrderVariable that get returns from x as plain Dutch text with precision prec, as
+    /// toValueUnitMarkdown prints it without the markers. A range with only a minimum or only a maximum shows as
+    /// "min" or "max" with the limit; an exclusive minimum of zero and a maximum without a unit show no text.
+    let toValueUnitText get prec x =
+        let ovar = x |> get
+        let range = ovar |> getVar |> Variable.getValueRange
+
+        // Leaves out the markers around the values and the unit, and writes a unit such as mg/kg*day as mg/kg/day.
+        let plain s =
+            s |> String.replace "#" "" |> String.replace "|" "" |> String.replace "*" "/"
+
+        match x |> toValueUnitMarkdown get prec, range |> ValueRange.getMin, range |> ValueRange.getMax with
+        | "", Some min, None when ovar |> isNonZeroPositive |> not -> $"min %s{min |> Minimum.toMarkdown true prec}"
+        | "", None, Some max when max |> Maximum.hasZeroUnit |> not -> $"max %s{max |> Maximum.toMarkdown prec}"
+        | text, _, _ -> text
+        |> plain
+
+
     /// Set the Values of the Variable of an OrderVariable
     /// to non-zero positive values
     let setToNonZeroPositive (ovar: OrderVariable) =
