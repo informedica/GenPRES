@@ -1106,6 +1106,75 @@ let emergencyListCheckedTests =
 
 
 [<Tests>]
+let continuousListRowTests =
+    let morfine = { OrderContext.empty with OrderContext.Filter.Generic = Some "morfine" }
+    let midazolam = { OrderContext.empty with OrderContext.Filter.Generic = Some "midazolam" }
+
+    let rows =
+        [|
+            { Intervention.emptyIntervention with OrderContext = Some morfine }
+            { Intervention.emptyIntervention with OrderContext = Some midazolam }
+        |]
+
+    let withChecked rows numbers =
+        { initial Url.none with
+            Loader =
+                { LoaderState.initial with
+                    ContinuousList = rows
+                    ContinuousListChecked = numbers
+                }
+        }
+
+    testList
+        "the rows of the continuous list"
+        [
+            test "a chosen row moves to the prescribe page and puts its order context in the workbench" {
+                let chosen =
+                    { initial Url.none with Lanes = Lanes.initial (Some draft) }
+                    |> play [ ClientMsg.ContinuousListRowChosen morfine ]
+
+                chosen
+                |> hasStep (
+                    function
+                    | ClientStep.Shell(ShellMsg.MovedToPage Page.Page.Prescribe, _, _) -> true
+                    | _ -> false
+                )
+                |> Expect.isTrue "moved to the prescribe page"
+
+                chosen
+                |> hasStep (
+                    function
+                    | ClientStep.Lanes(LanesStep.Workbench(OrderContextMsg.Chosen ctx, _, _)) -> ctx = morfine
+                    | _ -> false
+                )
+                |> Expect.isTrue "the workbench got the order context of the row"
+            }
+
+            test "the row with a number, from 1, gives its order context" {
+                continuousListRowContext (withChecked (Resolved rows) [||]) 2
+                |> Expect.equal "the midazolam context" (Some midazolam)
+            }
+
+            test "a number without a row gives no context" {
+                continuousListRowContext (withChecked (Resolved rows) [||]) 3
+                |> Expect.isNone "none"
+            }
+
+            test "the checked rows give their order contexts" {
+                withChecked (Resolved rows) [| 2; 1 |]
+                |> continuousListCheckedContexts
+                |> Expect.equal "midazolam, morfine" [| midazolam; morfine |]
+            }
+
+            test "the checked rows give no contexts without rows" {
+                withChecked HasNotStartedYet [| 1 |]
+                |> continuousListCheckedContexts
+                |> Expect.isEmpty "none"
+            }
+        ]
+
+
+[<Tests>]
 let totalsQueryTests =
     testList
         "the totals query the client sends"

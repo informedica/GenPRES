@@ -195,6 +195,18 @@ let tests =
                 |> Expect.equal "the contexts" "AddMany 1"
             }
 
+            test "the trail counts the checked continuous list rows and shows a chosen row as its context" {
+                LoaderMachine.LoaderMsg.CheckContinuousListRows [| 1; 2 |]
+                |> Trail.Loader.msg
+                |> Expect.equal "the rows" "CheckContinuousListRows 2"
+
+                let ctx = { OrderContext.empty with OrderContext.Filter.Generic = Some "morfine" }
+
+                Client.ClientMsg.ContinuousListRowChosen ctx
+                |> Trail.Client.msg
+                |> Expect.equal "the context" $"ContinuousListRowChosen %s{Trail.Part.context ctx}"
+            }
+
             test "a plan command that adds order contexts shows how many, never the contexts" {
                 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create PatientData.empty [||]
 

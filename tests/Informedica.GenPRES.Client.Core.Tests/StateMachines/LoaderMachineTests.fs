@@ -1095,6 +1095,50 @@ let continuousListTests =
                 effects |> continuousFetches |> Expect.isEmpty "no request"
             }
 
+            test "checked rows are stored by their numbers" {
+                let state, effects = run [ LoaderMsg.CheckContinuousListRows [| 2; 3 |] ]
+
+                state.ContinuousListChecked |> Expect.equal "the numbers" [| 2; 3 |]
+                effects |> Expect.isEmpty "no effects"
+            }
+
+            test "a query for the patient clears the checked rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.QueryContinuousList(Some older)
+                        ]
+
+                state.ContinuousListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "no query clears the checked rows with the rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.QueryContinuousList None
+                        ]
+
+                state.ContinuousListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "checked emergency list rows leave the checked continuous list rows alone" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.CheckEmergencyListRows [| 2 |]
+                        ]
+
+                state.ContinuousListChecked |> Expect.equal "the numbers" [| 1 |]
+            }
+
             test "the continuous list load is not required to start" {
                 Loads.required
                 |> List.contains Load.ContinuousList

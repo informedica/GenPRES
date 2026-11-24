@@ -107,6 +107,23 @@ module ContinuousMeds =
                 |> box
             |]
 
+        // The table gives the id of the clicked row, which is its number in the list.
+        let handleRowClick (id: string) = id |> int |> envList.OnContinuousListRowChosen
+
+        // The table gives the ids of the checked rows, which are their numbers in the list.
+        let handleSelectChange (ids: string[]) = ids |> Array.map int |> envList.OnContinuousListRowsChecked
+
+        let selectedRows = envList.ContinuousListChecked |> Array.map string
+
+        // The button is disabled while no row is checked.
+        let prescribeAction =
+            Components.ActionBar.prescribe
+                getTerm
+                envList.OnContinuousListPrescribe
+                (envList.ContinuousListCheckedContexts |> Array.isEmpty)
+
+        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
+
         // The rows the server calculated for the patient, also while they are calculated again.
         let rows =
             envList.ContinuousList
@@ -245,11 +262,11 @@ module ContinuousMeds =
                 rows = rows
                 rowCreate = rowCreate
                 height = "100%"
-                onRowClick = ignore
+                onRowClick = handleRowClick
                 markedRow = None
-                checkboxSelection = false
-                selectedRows = [||]
-                onSelectChange = ignore
+                checkboxSelection = true
+                selectedRows = selectedRows
+                onSelectChange = handleSelectChange
                 showToolbar = true
                 showFooter = true
                 onPrint =
@@ -278,6 +295,7 @@ module ContinuousMeds =
 
         <Box sx={boxSx}>
             {patientNotice}
+            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>

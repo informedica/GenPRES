@@ -738,6 +738,20 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.IContinuousList with
         member _.ContinuousList = Client.continuousList state
+        member _.OnContinuousListRowChosen number =
+            Client.continuousListRowContext state number
+            |> Option.iter (Msg.ContinuousListRowChosen >> dispatch)
+
+        member _.ContinuousListChecked = Client.continuousListChecked state
+        member _.ContinuousListCheckedContexts = Client.continuousListCheckedContexts state
+
+        member _.OnContinuousListRowsChecked numbers =
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckContinuousListRows numbers) |> dispatch
+
+        member _.OnContinuousListPrescribe() =
+            let contexts = Client.continuousListCheckedContexts state
+            Msg.Lanes(LanesMsg.PrescribeContexts(contexts, Elmish.newRequest ()))
+            |> dispatch
         member _.ContinuousListFilter = Client.continuousMedsFilter state
         member _.OnContinuousListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered filter) |> dispatch

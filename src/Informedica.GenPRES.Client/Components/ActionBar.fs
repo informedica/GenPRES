@@ -6,6 +6,8 @@ namespace Components
 module ActionBar =
 
 
+    open Informedica.GenPRES.Client.Core.Models
+
     open Fable.Core
     open Feliz
 
@@ -30,6 +32,17 @@ module ActionBar =
             onClick: unit -> unit
             disabled: bool
             icon: JSX.Element option
+        |}
+
+
+    /// The primary action that prescribes, labelled with the Prescribe term.
+    let prescribe getTerm onClick disabled : Action =
+        {|
+            label = Terms.``Prescribe`` |> getTerm "Prescribe"
+            kind = Kind.Primary
+            onClick = onClick
+            disabled = disabled
+            icon = Some Mui.Icons.Add
         |}
 
 

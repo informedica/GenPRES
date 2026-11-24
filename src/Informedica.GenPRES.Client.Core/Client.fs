@@ -82,6 +82,8 @@ module Client =
         | UrlChanged of string list * Url.UrlParts
         /// The order context of a row chosen on the emergency list.
         | EmergencyListRowChosen of OrderContext
+        /// The order context of a row chosen on the continuous medication list.
+        | ContinuousListRowChosen of OrderContext
         /// Signs the plan with this request id.
         | Sign of OrderPlan * request: string
         /// Takes the EHR data in the sign dialog.
@@ -327,13 +329,18 @@ module Client =
     let emergencyListChecked (state: ClientState) = state.Loader.EmergencyListChecked
 
 
-    /// Returns the order context of the emergency list row with this number, from 1. Returns None for a
-    /// calculated row or a number without a row.
-    let emergencyListRowContext (state: ClientState) number =
-        state.Loader.EmergencyList
+    /// Returns the order context of the list row with this number, from 1. Returns None for a row without an
+    /// order context or a number without a row.
+    let rowContext (rows: Deferred<Intervention[]>) number =
+        rows
         |> Deferred.defaultValue [||]
         |> Array.tryItem (number - 1)
         |> Option.bind _.OrderContext
+
+
+    /// Returns the order context of the emergency list row with this number, from 1. Returns None for a
+    /// calculated row or a number without a row.
+    let emergencyListRowContext (state: ClientState) number = rowContext state.Loader.EmergencyList number
 
 
     /// Returns the order contexts of the checked rows of the emergency list; a calculated row has none.
@@ -344,6 +351,21 @@ module Client =
 
     /// The rows of the continuous medication list.
     let continuousList (state: ClientState) = state.Loader.ContinuousList
+
+
+    /// Returns the numbers of the checked rows of the continuous medication list.
+    let continuousListChecked (state: ClientState) = state.Loader.ContinuousListChecked
+
+
+    /// Returns the order context of the continuous medication list row with this number, from 1. Returns None for
+    /// a number without a row.
+    let continuousListRowContext (state: ClientState) number = rowContext state.Loader.ContinuousList number
+
+
+    /// Returns the order contexts of the checked rows of the continuous medication list.
+    let continuousListCheckedContexts (state: ClientState) =
+        state.Loader.ContinuousListChecked
+        |> Array.choose (continuousListRowContext state)
 
 
     /// The hospitals to choose from: the locations of the server settings.
@@ -608,8 +630,9 @@ module Client =
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]
-        // the emergency list has rows only for a patient, so a chosen row needs no alert
-        | ClientMsg.EmergencyListRowChosen ctx ->
+        // a list has rows only for a patient, so a chosen row needs no alert
+        | ClientMsg.EmergencyListRowChosen ctx
+        | ClientMsg.ContinuousListRowChosen ctx ->
             becomes
                 [
                     ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
