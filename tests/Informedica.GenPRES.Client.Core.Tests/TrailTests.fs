@@ -185,6 +185,14 @@ let tests =
                 |> Expect.equal "the context" $"EmergencyListRowChosen %s{Trail.Part.context ctx}"
             }
 
+            test "a plan command that adds order contexts shows how many, never the contexts" {
+                let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create PatientData.empty [||]
+
+                OrderPlanCommand.AddOrderContexts(plan, [| OrderContext.empty; OrderContext.empty |])
+                |> Trail.Part.planCommand Trail.Part.context
+                |> Expect.equal "the count" "AddOrderContexts 2"
+            }
+
             test "a line never breaks, whatever text a step carries" {
                 Trail.format
                     {
