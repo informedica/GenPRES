@@ -1,11 +1,14 @@
-/// The standard orders of the emergency list: the choice of the next options to evaluate, the evaluation with its
-/// warnings, the texts and the advice of a standard order, the context narrowed to its scenario and the standard
-/// orders of the rule sets.
+/// The standard orders of the emergency list and the continuous medication list: the choice of the next options to
+/// evaluate, the evaluation with its warnings, the texts and the advice of a standard order, the context narrowed to
+/// its scenario and the standard orders of the rule sets.
 module StandardOrderTests
 
 open Expecto
 open Expecto.Flip
+open Informedica.Utils.Lib.BCL
+open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
+open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
 module Feeding = OrderContextRuleTests.FeedingFixtures
@@ -64,6 +67,79 @@ module Fixtures =
              with
              | Ok ord -> ord
              | Error _ -> invalidOp "fixture order could not be calculated")
+
+
+    /// The order of the medication with its minimum and maximum values.
+    let orderOf med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord ->
+            match ord |> CalcMinMax |> OrderProcessor.processPipeline OrderLogging.noOp with
+            | Ok ord -> ord
+            | Error _ -> invalidOp "fixture order could not be calculated"
+        | Error _ -> invalidOp "fixture order could not be created"
+
+
+    /// The continuous order of morphine with its minimum and maximum values: 10 mg in 50 mL with a rate per kg of
+    /// 10 to 40 microg/kg/uur, for 14 kg.
+    let morphine = lazy (orderOf Scenarios.morfCont)
+
+
+    /// A rate limit of at most the value in mL/uur, for the target.
+    let maxRate target value =
+        let mlPerHour = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
+
+        { DoseLimit.limit with
+            DoseLimitTarget = target
+            Rate = { MinMax.empty with Max = value |> ValueUnit.singleWithUnit mlPerHour |> Limit.inclusive |> Some }
+        }
+
+
+    /// The morphine order with a rate limit of at most 5 mL/uur on the orderable.
+    let orderableLimited =
+        lazy (orderOf { Scenarios.morfCont with Dose = Some(maxRate OrderableLimitTarget 5N) })
+
+
+    /// The morphine order with a rate limit of at most 5 mL/uur on the orderable and of at most 3 mL/uur on the
+    /// morphine component.
+    let componentLimited =
+        lazy
+            (orderOf
+                { Scenarios.morfCont with
+                    Dose = Some(maxRate OrderableLimitTarget 5N)
+                    Components =
+                        Scenarios.morfCont.Components
+                        |> List.mapi (fun i c ->
+                            if i = 0 then
+                                { c with Dose = Some(maxRate (ComponentLimitTarget "morfine") 3N) }
+                            else
+                                c
+                        )
+                })
+
+
+    /// The scenario of paracetamol with the morphine order, per kg, with a diluent.
+    let infusion =
+        lazy
+            { scenario.Value with
+                Order = morphine.Value
+                Item = Some "morfin"
+                UseAdjust = true
+                Diluent = Some "gluc 10%"
+            }
+
+
+    /// The bolus texts of a scenario.
+    let bolusTextsOf sc =
+        match StandardOrder.bolusTexts sc with
+        | StandardOrderTexts.Bolus texts -> texts
+        | StandardOrderTexts.Infusion _ -> failtest "infusion texts"
+
+
+    /// The infusion texts of a scenario.
+    let infusionTextsOf sc =
+        match StandardOrder.infusionTexts sc with
+        | StandardOrderTexts.Infusion texts -> texts
+        | StandardOrderTexts.Bolus _ -> failtest "bolus texts"
 
 
     /// An evaluation that answers every plan context with the outcome.
@@ -301,14 +377,19 @@ let tests =
                     let withGeneric = { OrderContext.emptyFilter with Generic = Some "paracetamol 500" } |> context
 
                     let reanimation = lazy { scenario.Value with Indication = "Noodlijst Reanimatie" }
-                    let withItem = lazy (StandardOrder.ofScenario (withGeneric, reanimation.Value))
+                    let withItem =
+                        lazy
+                            (StandardOrder.ofScenario
+                                "Noodlijst "
+                                StandardOrder.bolusTexts
+                                (withGeneric, reanimation.Value))
 
                     let withoutItem =
                         lazy
-                            (StandardOrder.ofScenario (
-                                context OrderContext.emptyFilter,
-                                { reanimation.Value with Item = None }
-                            ))
+                            (StandardOrder.ofScenario
+                                "Noodlijst "
+                                StandardOrder.bolusTexts
+                                (context OrderContext.emptyFilter, { reanimation.Value with Item = None }))
 
                     test "takes the category from the indication without Noodlijst" {
                         withItem.Value.Category |> Expect.equal "the category" "Reanimatie"
@@ -327,6 +408,18 @@ let tests =
                         |> Expect.equal "narrowed" (StandardOrder.narrowed withGeneric reanimation.Value)
                     }
 
+                    test "takes the texts of the scenario" {
+                        withItem.Value.Texts
+                        |> Expect.equal "the texts" (StandardOrder.bolusTexts reanimation.Value)
+                    }
+                ]
+
+            testList
+                "bolusTexts"
+                [
+                    let withItem = lazy (bolusTextsOf scenario.Value)
+                    let withoutItem = lazy (bolusTextsOf { scenario.Value with Item = None })
+
                     test "shows the dose of the item as plain text" {
                         withItem.Value.SubstanceDose |> Expect.equal "the item dose" "0 - 100 mg"
                     }
@@ -337,12 +430,84 @@ let tests =
 
                     test "shows the dose of the orderable with the name of the scenario for a scenario without item" {
                         (withoutItem.Value.SubstanceDose, withoutItem.Value.Preparation)
-                        |> Expect.equal "the orderable" ("", $" %s{reanimation.Value.Name}")
+                        |> Expect.equal "the orderable" ("", $" %s{scenario.Value.Name}")
                     }
 
                     test "takes the advice of the scenario" {
                         withItem.Value.Advice
-                        |> Expect.equal "the advice" (StandardOrder.advice reanimation.Value)
+                        |> Expect.equal "the advice" (StandardOrder.advice scenario.Value)
+                    }
+                ]
+
+            testList
+                "infusionTexts"
+                [
+                    test "shows the quantity of the substance in the orderable" {
+                        (infusionTextsOf infusion.Value).Quantity |> Expect.equal "the quantity" "10 mg"
+                    }
+
+                    test "shows the quantity of the orderable with the diluent" {
+                        (infusionTextsOf infusion.Value).Solution
+                        |> Expect.equal "the solution" "50 mL gluc 10%"
+                    }
+
+                    test "shows the rate with the rate per kg of the substance for an order per kg" {
+                        (infusionTextsOf infusion.Value).Dose
+                        |> Expect.equal "the dose" "0,7 - 2,8 mL/uur = 10 - 40 microg/kg/uur"
+                    }
+
+                    test "shows the rate limits per kg of the substance for an order per kg" {
+                        (infusionTextsOf infusion.Value).Advice
+                        |> Expect.equal "the advice" "10 - 40 microg/kg/uur"
+                    }
+
+                    test "shows the rate with the rate of the substance for an order that is not per kg" {
+                        (infusionTextsOf { infusion.Value with UseAdjust = false }).Dose
+                        |> Expect.equal "the dose" "0,7 - 2,8 mL/uur = 0,14 - 0,56 mg/uur"
+                    }
+
+                    test "shows the rate with the rate per kg of the orderable for a scenario dosed by volume" {
+                        (infusionTextsOf { infusion.Value with Item = None }).Dose
+                        |> Expect.equal "the dose" "0,7 - 2,8 mL/uur = 0,05 - 0,2 mL/kg/uur"
+                    }
+
+                    test "shows the rate alone for a scenario dosed by volume that is not per kg" {
+                        (infusionTextsOf
+                            { infusion.Value with
+                                Item = None
+                                UseAdjust = false
+                            })
+                            .Dose
+                        |> Expect.equal "the dose" "0,7 - 2,8 mL/uur"
+                    }
+
+                    test "shows the rate limits of the component for a scenario dosed by volume" {
+                        (infusionTextsOf
+                            { infusion.Value with
+                                Order = componentLimited.Value
+                                Item = None
+                                UseAdjust = false
+                            })
+                            .Advice
+                        |> Expect.equal "the advice" "0 - 3 mL/uur"
+                    }
+
+                    test "shows the rate limits of the orderable when the component has none" {
+                        (infusionTextsOf
+                            { infusion.Value with
+                                Order = orderableLimited.Value
+                                Item = None
+                                UseAdjust = false
+                            })
+                            .Advice
+                        |> Expect.equal "the advice" "0 - 5 mL/uur"
+                    }
+
+                    test "shows the name of the scenario and no quantity for a scenario dosed by volume" {
+                        let texts = infusionTextsOf { infusion.Value with Item = None }
+
+                        (texts.Quantity, texts.Solution)
+                        |> Expect.equal "the orderable" ("", infusion.Value.Name)
                     }
                 ]
 
@@ -418,6 +583,35 @@ let tests =
                         |> StandardOrder.contextOf Feeding.patient
                         |> _.Filter.Generic
                         |> Expect.isNone "no generic"
+                    }
+                ]
+
+            testList
+                "standardInfusions"
+                [
+                    test "returns a standard order with the infusion texts for each scenario of the rules" {
+                        match
+                            [| ruleSet RuleSetKind.StandardInfusions [| rule "koorts" "paracetamol" |] |]
+                            |> StandardOrder.standardInfusions
+                                System.DateTime.UtcNow
+                                OrderLogging.noOp
+                                Feeding.provider
+                                Feeding.patient
+                        with
+                        | [| so |], _ ->
+                            so.Texts
+                            |> Expect.equal "the infusion texts" (StandardOrder.infusionTexts so.Context.Scenarios[0])
+                        | other -> failtest $"one standard order expected: %A{other}"
+                    }
+
+                    test "takes only the rule sets of the kind StandardInfusions" {
+                        [| ruleSet RuleSetKind.EmergencyList [| rule "koorts" "paracetamol" |] |]
+                        |> StandardOrder.standardInfusions
+                            System.DateTime.UtcNow
+                            OrderLogging.noOp
+                            Feeding.provider
+                            Feeding.patient
+                        |> Expect.equal "nothing" ([||], [||])
                     }
                 ]
 
