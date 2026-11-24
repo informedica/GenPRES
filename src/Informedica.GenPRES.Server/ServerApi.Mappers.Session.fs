@@ -6,28 +6,6 @@ open Informedica.GenOrder.Lib
 open Informedica.GenPRES.Shared.Types
 
 
-/// Maps a rule set kind to its category name in the "RuleSets" sheet and back.
-module RuleSetKindMapper =
-
-    // Opened here, so that the case names refer to the GenFORM category and not the contract category.
-    open Informedica.GenForm.Lib
-
-    /// The category name of a rule set kind in the "RuleSets" sheet.
-    let toName =
-        function
-        | RuleSetKind.Nutrition NutritionCategory.EnteralFeeding -> "EnteralFeeding"
-        | RuleSetKind.Nutrition NutritionCategory.EnteralSupplement -> "EnteralSupplement"
-        | RuleSetKind.Nutrition NutritionCategory.TPN -> "TPN"
-        | RuleSetKind.Nutrition NutritionCategory.Lipid -> "Lipid"
-        | RuleSetKind.Nutrition NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
-        | RuleSetKind.EmergencyList -> "EmergencyList"
-        | RuleSetKind.StandardInfusions -> "StandardInfusions"
-
-
-    /// Returns the rule set kind of a category name in the "RuleSets" sheet, or None for another name.
-    let ofName name = RuleSet.kinds |> Array.tryFind (toName >> (=) name)
-
-
 /// Maps an order plan of the contract to the order plan Dto of GenORDER and back.
 module OrderPlanMapper =
 
@@ -58,7 +36,7 @@ module OrderPlanMapper =
         | OrderPlanError.NotNarrowed n -> $"Choose one order first: %i{n} candidates remain"
         | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
         | OrderPlanError.NoRuleSet category ->
-            $"RuleSets: no rule set for %s{RuleSetKind.Nutrition category |> RuleSetKindMapper.toName}"
+            $"RuleSets: no rule set for %s{RuleSetKind.Nutrition category |> RuleSet.kindName}"
         | OrderPlanError.BrokenLink e -> e |> OrderContextMapper.linkWords
         | OrderPlanError.OrderRefused(generic, e) -> $"%s{generic}: %s{words e}"
 

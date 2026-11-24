@@ -275,8 +275,6 @@ module OrderContextService =
 
     open Informedica.GenPRES.Shared.Types
 
-    module GenOrderContext = OrderContext
-
 
     /// Joins the messages of a failed evaluation into a single error text.
     let refusal messages =
@@ -286,40 +284,13 @@ module OrderContextService =
         |> Array.singleton
 
 
-    /// Evaluates the plan context against the rules, with start as the start time of every new order.
-    /// Returns the error messages, or the exception message when an exception is raised.
-    let evaluate
-        (start: System.DateTime)
-        logger
-        (provider: Resources.IResourceProvider)
-        (cmd: Informedica.GenOrder.Lib.Types.OrderContext -> GenOrderContext.Command)
-        (pc: PlanContext)
-        : Result<PlanContext, string[]>
-        =
+    /// Evaluates the plan context with the command and settles a nutrition context to its rule set, with start
+    /// as the start time of every new order. Returns the error messages, or the exception message when an
+    /// exception is raised.
+    let evaluateSettled start logger provider set cmd pc =
         try
             pc
-            |> PlanContext.evaluate start logger provider (provider.GetTotals()) cmd
-            |> Result.mapError refusal
-        with e ->
-            Logging.ServerLogging.Error $"errored:\n{e}"
-            |> Informedica.Logging.Lib.Logging.logError logger
-
-            Error [| e.Message |]
-
-
-    /// Evaluates the plan context against the rules and returns the outcome, evaluated or refused.
-    /// Returns the error messages, or the exception message when an exception is raised.
-    let evaluateOutcome
-        (start: System.DateTime)
-        logger
-        (provider: Resources.IResourceProvider)
-        (cmd: Informedica.GenOrder.Lib.Types.OrderContext -> GenOrderContext.Command)
-        (pc: PlanContext)
-        : Result<Outcome<PlanContext>, string[]>
-        =
-        try
-            pc
-            |> PlanContext.evaluateOutcome start logger provider provider.GetTotals cmd
+            |> PlanContext.evaluateSettled start logger provider set cmd
             |> Result.mapError refusal
         with e ->
             Logging.ServerLogging.Error $"errored:\n{e}"

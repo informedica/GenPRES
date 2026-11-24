@@ -7,166 +7,14 @@ open Expecto
 open Expecto.Flip
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
+open OrderContextRuleTests.RequiredLinkFixtures
 
 
 module Fixtures =
 
-    open Informedica.Utils.Lib.BCL
-    open Informedica.GenUnits.Lib
-    open OrderPlanTests
-
-
-    let routes: RouteMapping[] =
-        [|
-            {
-                Long = "ORAAL"
-                Short = "or"
-            }
-        |]
-
-
-    let indication = "Afbouwschema week 1"
-
-
-    /// The oral hydrocortison rule of week 1 of the taper, with the dose text of the time of day.
-    let rowOf doseText : DoseRuleData =
-        let r = RuleFixtures.row "ICK"
-
-        { r with
-            Generic = { r.Generic with Name = "hydrocortison" }
-            Indication = indication
-            Route = "ORAAL"
-            ScheduleData =
-                { r.ScheduleData with
-                    DoseType = "discontinuous"
-                    DoseText = doseText
-                    Freqs = [| 1N |]
-                    FreqUnit = "dag"
-                    DoseLimitData =
-                        { r.ScheduleData.DoseLimitData with
-                            Component = "hydrocortison"
-                            Substance = "hydrocortison"
-                        }
-                }
-        }
-
-
-    /// A tablet of 10 mg hydrocortison, so that a dose step can be solved.
-    let tablet =
-        let stuk = Units.General.general "stuk"
-        let perStuk = Units.Mass.milliGram |> ValueUnit.per stuk
-        let p = Product.create "hydrocortison" "tablet" "ORAAL" [| "hydrocortison" |]
-
-        { p with
-            FormQuantities = 1N |> ValueUnit.singleWithUnit stuk
-            Divisible = Some 1N
-            Substances =
-                p.Substances
-                |> Array.map (fun s -> { s with Concentration = 10N |> ValueUnit.singleWithUnit perStuk |> Some })
-        }
-
-
-    /// The three doses of week 1 of the taper, as the dose rules of the sheet give them.
-    let doseRules =
-        [|
-            rowOf "week 1 7:00 uur"
-            rowOf "week 1 13:00 uur"
-            rowOf "week 1 18:00 uur"
-        |]
-        |> DoseRuleLoader.fromData routes [||] [| tablet |] [||]
-        |> fst
-
-
-    /// A LinkRules row of week 1 of the taper: the dose at the time of day linked to the dose of 7:00.
-    let linkRow doseText required : LinkRuleData =
-        {
-            Generic = "hydrocortison"
-            Route = "ORAAL"
-            Indication = indication
-            DoseType = "discontinuous"
-            DoseText = doseText
-            MainGeneric = "hydrocortison"
-            MainRoute = "ORAAL"
-            MainIndication = indication
-            MainDoseType = "discontinuous"
-            MainDoseText = "week 1 7:00 uur"
-            Required = required
-        }
-
-
-    /// The two rows of the sheet: the doses of 13:00 and 18:00 cannot be ordered without the dose of 7:00.
-    let sheetRows = [| linkRow "week 1 13:00 uur" "yes"; linkRow "week 1 18:00 uur" "yes" |]
-
-
-    /// The rows of the sheet with the dose of 18:00 changed to a dose that can also be ordered on its own,
-    /// a variant made for the test.
-    let standAloneRows = [| linkRow "week 1 13:00 uur" "yes"; linkRow "week 1 18:00 uur" "no" |]
-
-
-    let linkRules rows =
-        rows |> LinkRule.ofRows |> Result.defaultWith (fun e -> failtest $"%A{e}")
-
-
-    /// The dose rules above with the link rules of the rows; no rule sets and no totals data.
-    type Linked(rows) =
-        inherit RulesOf(doseRules)
-
-        interface Resources.IResourceProvider with
-            member _.Get(key: Resources.ResourceKey<'T>) : 'T =
-                if key.Name = Resources.Keys.linkRules.Name then
-                    unbox<'T>(box (linkRules rows))
-                elif key.Name = Resources.Keys.standAloneDoseRules.Name then
-                    unbox<'T>(box (doseRules |> LinkRule.standAlone routes (linkRules rows)))
-                elif key.Name = Resources.Keys.ruleSetData.Name then
-                    unbox<'T>(box Array.empty<RuleSetData>)
-                elif key.Name = Resources.Keys.isAdditive.Name then
-                    unbox<'T>(box (fun (_: string) -> false))
-                elif key.Name = Resources.Keys.productPredilutions.Name then
-                    unbox<'T>(box Array.empty<ProductPredilution>)
-                else
-                    raise (System.Collections.Generic.KeyNotFoundException key.Name)
-
-            member _.GetDoseRules() = doseRules
-            member _.GetRouteMappings() = routes
-            member _.GetTotals() = [||]
-
-
-    let provider rows = Linked rows :> Resources.IResourceProvider
-
-
-    let doseTexts (rules: DoseRule[]) = rules |> Array.map (_.DoseType >> DoseType.getText)
-
-
-    let texts doseTypes = doseTypes |> Array.map DoseType.getText
-
-
-    /// The oral hydrocortison context of week 1 of the taper, its dose type not yet picked.
-    let hydrocortison provider =
-        let pat = RuleFixtures.patient (Some 8N) false (Some 25N) None
-        let ctx = OrderContext.create OrderLogging.noOp provider pat
-
-        { ctx with
-            Filter =
-                { ctx.Filter with
-                    Indication = Some indication
-                    Generic = Some "hydrocortison"
-                    Route = Some "ORAAL"
-                }
-        }
-
-
-    /// The dose types the oral hydrocortison context of week 1 of the taper offers to pick from.
-    let offeredDoseTypes provider =
-        hydrocortison provider
-        |> OrderContext.getRules OrderLogging.noOp provider
-        |> fst
-        |> _.Filter.DoseTypes
-        |> texts
-
-
     /// The provider of the order context port over the dose rules of the hydrocortison context.
     let ofHydrocortison provider =
-        provider |> ServerApi.Adapters.withDoseRulesOf (hydrocortison provider)
+        provider |> OrderContext.withDoseRulesOf (hydrocortison provider)
 
 
     let sut = ServerApi.Adapters.makeAppEnv (provider sheetRows)
@@ -432,7 +280,7 @@ let tests =
                             None
                         )
                         :> Resources.IResourceProvider)
-                        |> ServerApi.Adapters.withDoseRulesOf (hydrocortison (provider sheetRows))
+                        |> OrderContext.withDoseRulesOf (hydrocortison (provider sheetRows))
                         |> _.GetDoseRules()
                         |> Expect.isEmpty "none"
                     }
@@ -445,38 +293,8 @@ let tests =
                 ]
 
             testList
-                "Adapters.doseRulesOf"
-                [
-                    test "the context with the generic picked has the stand-alone dose rules: only 7:00" {
-                        hydrocortison (provider sheetRows)
-                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
-                        |> doseTexts
-                        |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
-                    }
-
-                    test "an offer of 13:00 has the stand-alone dose rules and the dose rule of 13:00" {
-                        { hydrocortison (provider sheetRows) with
-                            OrderContext.Filter.DoseTypes = [| DoseType.Discontinuous "week 1 13:00 uur" |]
-                        }
-                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
-                        |> doseTexts
-                        |> Expect.equal "7:00 and 13:00" [| "week 1 7:00 uur"; "week 1 13:00 uur" |]
-                    }
-                ]
-
-            testList
                 "a dose that needs a main order, seeded on the medication workbench"
                 [
-                    test "a pick of 13:00 over the list of 7:00 has the stand-alone dose rules: only 7:00" {
-                        { hydrocortison (provider sheetRows) with
-                            OrderContext.Filter.DoseTypes = [| DoseType.Discontinuous "week 1 7:00 uur" |]
-                            OrderContext.Filter.DoseType = Some(DoseType.Discontinuous "week 1 13:00 uur")
-                        }
-                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
-                        |> doseTexts
-                        |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
-                    }
-
                     testAsync "a formulary seed of 13:00 is refused" {
                         let! wb = workbench
                         let! refused = wb |> isRefused formularySeed

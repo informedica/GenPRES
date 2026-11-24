@@ -6624,7 +6624,6 @@ let tests =
             OrderPlanTests.tests
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
-            OrderPlanTests.ruleSetDiscoveryTests
             OrderPlanTests.prescribableTests
             OrderPlanTests.useAdjustTests
             OrderPlanTests.componentOptionTests
@@ -6639,6 +6638,7 @@ let tests =
             OrderPlanTests.linkRuleTests
             OrderPlanTests.linkOfferTests
             OrderPlanTests.groupAddTests
+            OrderContextRuleTests.tests
             OrderPlanTests.totalsOverTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
