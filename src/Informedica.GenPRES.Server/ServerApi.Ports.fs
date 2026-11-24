@@ -501,6 +501,9 @@ type AppEnv =
         defaultLocation: string option
         // The standard orders of the emergency list for the patient, with a warning for each rule that gives none.
         emergencyList: CorePatientData -> GenOrder.StandardOrder[] * GenOrder.StandardOrderWarning[]
+        // The standard orders of the continuous medication list for the patient, with a warning for each rule that
+        // gives none.
+        standardInfusions: CorePatientData -> GenOrder.StandardOrder[] * GenOrder.StandardOrderWarning[]
         // The resources GenCORE completes the patient data with; None until the resources are loaded. Calling it may
         // load them.
         patientDataResources: unit -> CorePatientDataResources option

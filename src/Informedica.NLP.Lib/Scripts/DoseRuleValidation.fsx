@@ -483,10 +483,11 @@ module Formulary =
         Api.getCachedProviderWithDataUrlId FormLogging.noOp dataUrlId
 
 
-    /// Extract the sorted list of unique generic names from the formulary dose rules.
+    /// Extract the sorted list of unique generic names from the formulary dose rules, without the form or brand
+    /// that the label of a dose rule adds.
     let getGenericNames (provider: IResourceProvider) : string list =
         provider.GetDoseRules()
-        |> Array.map (_.Generic >> Generic.toString)
+        |> Array.map (_.Generic >> Generic.genericName)
         |> Array.distinct
         |> Array.sort
         |> Array.toList
