@@ -550,6 +550,7 @@ module Adapters =
             today = today
             departments = fun () -> provider.GetDepartments()
             locations = fun () -> provider.GetLocations()
+            ruleSets = RuleSets.ruleSets provider
             defaultLocation = defaultLocation
             // The session port over the SQLite store when store is set, otherwise in memory. In memory, the sessions
             // and the record live as long as this AppEnv.

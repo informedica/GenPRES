@@ -17,6 +17,10 @@ type CorePatient = Informedica.GenCore.Lib.Patients.Patient
 type CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
+/// The GenFORM rule set: the dose rule selection of a kind, such as the emergency list.
+type RuleSet = Informedica.GenForm.Lib.RuleSet
+
+
 /// Who signed an order plan version.
 type Signer =
     {
@@ -499,6 +503,8 @@ type AppEnv =
         locations: unit -> string[]
         // The location a patient without a Location gets; None for no default.
         defaultLocation: string option
+        // The rule sets with the rows that apply to the patient.
+        ruleSets: CorePatientData -> RuleSet[]
         // The resources GenCORE completes the patient data with; None until the resources are loaded. Calling it may
         // load them.
         patientDataResources: unit -> CorePatientDataResources option
