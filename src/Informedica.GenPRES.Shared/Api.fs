@@ -465,6 +465,9 @@ module Api =
         // orders. The server links each linked order to the context. When one of them is refused,
         // none of them enters the plan.
         | AddOrderContext of OrderPlan * OrderContext * linked: OrderContext[]
+        // Adds order contexts evaluated outside the plan, each narrowed to one scenario, without linked orders, one
+        // after the other. When one of them is refused, none of them enters the plan.
+        | AddOrderContexts of OrderPlan * OrderContext[]
         // Removes the contexts with these ids, of every category, each with the contexts linked to it.
         | RemoveOrderContexts of OrderPlan * ids: string[]
         // Opens a signed version as it was, without evaluation: the contexts as given, with their
@@ -481,6 +484,7 @@ module Api =
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.EvaluateContext(_, _, ctxCmd, _) -> $"EvaluateContext {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
+            | OrderPlanCommand.AddOrderContexts(_, contexts) -> $"AddOrderContexts %i{contexts.Length}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 

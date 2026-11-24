@@ -5578,20 +5578,52 @@ module PlanTests =
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx, [||]))
 
+                    let! _ =
+                        OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContexts(p, [| emptyCtx; emptyCtx |]))
+
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1" |]))
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(patient, [||]))
 
                     answered.Value
                     |> List.rev
                     |> Expect.equal
-                        "each to its port"
+                        "each to its port, the contexts of AddOrderContexts one after the other"
                         [
                             "recalculate"
                             "evaluateContext"
                             "addOrderContexts"
+                            "addOrderContexts"
+                            "addOrderContexts"
                             "removeOrderContexts"
                             "openWith"
                         ]
+                }
+
+                testAsync "AddOrderContexts stops at the first refused context and returns the refusal" {
+                    let added = ref 0
+
+                    let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
+
+                    // the second context is refused
+                    let add p _ linked =
+                        async {
+                            added.Value <- added.Value + 1
+
+                            match added.Value, linked with
+                            | 2, _ -> return Error [| "refused" |]
+                            | _, [||] -> return Ok p
+                            | _ -> return Error [| "linked orders sent" |]
+                        }
+
+                    let env = { env with orderPlan = { env.orderPlan with addOrderContexts = add } }
+
+                    let! result =
+                        OrderPlanCommand.processCmd
+                            env
+                            (OrderPlanCommand.AddOrderContexts(emptyPlan, [| emptyCtx; emptyCtx; emptyCtx |]))
+
+                    result |> Expect.equal "the refusal" (Error [| "refused" |])
+                    added.Value |> Expect.equal "the third context is not sent" 2
                 }
 
                 test "the log names the command, never the plan" {
@@ -5609,6 +5641,9 @@ module PlanTests =
 
                     OrderPlanCommand.toString (OrderPlanCommand.AddOrderContext(p, OrderContext.empty, [||]))
                     |> Expect.equal "never the workbench" "AddOrderContext"
+
+                    OrderPlanCommand.toString (OrderPlanCommand.AddOrderContexts(p, [| OrderContext.empty |]))
+                    |> Expect.equal "the count, never the contexts" "AddOrderContexts 1"
 
                     OrderPlanCommand.toString (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1"; "c-2" |]))
                     |> Expect.equal "the count" "RemoveOrderContexts 2"

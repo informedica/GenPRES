@@ -335,6 +335,7 @@ module Trail =
                 let context = if described = shortId id then "" else $" %s{described}"
                 $"EvaluateContext %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
             | OrderPlanCommand.AddOrderContext(_, ctx, _) -> $"AddOrderContext %s{describeContext ctx}"
+            | OrderPlanCommand.AddOrderContexts(_, contexts) -> $"AddOrderContexts %i{contexts.Length}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length} contexts"
 

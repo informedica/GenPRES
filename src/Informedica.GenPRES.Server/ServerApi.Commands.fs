@@ -148,6 +148,21 @@ module OrderPlanCommand =
     let recalculate (env: AppEnv) (plan: OrderPlan) = plan |> overPlan env env.orderPlan.recalculate
 
 
+    /// Adds the order contexts to the plan one after the other with add, each without linked orders. Returns the
+    /// first refusal, so that none of the contexts enters the plan.
+    let addEach add plan contexts =
+        contexts
+        |> Array.fold
+            (fun added ctx ->
+                async {
+                    match! added with
+                    | Ok plan -> return! add plan ctx [||]
+                    | Error errs -> return Error errs
+                }
+            )
+            (async { return Ok plan })
+
+
     /// Runs a command on an order plan. Returns the messages for invalid patient data or an
     /// invalid plan.
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
@@ -214,6 +229,15 @@ module OrderPlanCommand =
                             (parsePlan today plan)
                             (both (OrderContextService.parse today ctx) (parseContexts today linked)))
                         (fun (p, (pc, pcs)) -> env.orderPlan.addOrderContexts p pc pcs)
+                )
+        | OrderPlanCommand.AddOrderContexts(plan, contexts) ->
+            Patient.overAll
+                (Patient.ofPlan plan @ (contexts |> Array.toList |> List.map _.PatientData))
+                (fun () ->
+                    answer
+                        env
+                        (both (parsePlan today plan) (parseContexts today contexts))
+                        (fun (p, pcs) -> pcs |> addEach env.orderPlan.addOrderContexts p)
                 )
         | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
             Patient.overAll

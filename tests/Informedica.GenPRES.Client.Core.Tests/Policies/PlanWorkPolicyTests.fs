@@ -39,6 +39,7 @@ module PlanWorkPolicyTests =
             ),
             true
             "AddOrderContext", add, true
+            "AddOrderContexts", OrderPlanCommand.AddOrderContexts(plan, [| context |]), true
             "RemoveOrderContexts", remove, true
         ]
 
