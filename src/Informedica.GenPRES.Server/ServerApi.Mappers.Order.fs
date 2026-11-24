@@ -374,6 +374,8 @@ module Mappers =
         }
 
 
+    /// Parses marked-up text into text items: bold between # and italic between |. An item of only spaces is
+    /// kept, because it can be the space between a value and its unit. An empty or blank text gives no items.
     let parseTextItem (s: string) =
         if s |> String.isNullOrWhiteSpace then
             [||]
@@ -441,5 +443,5 @@ module Mappers =
             |> Seq.fold processChar (Normal "", [])
             |> fun (lastItem, items) -> lastItem :: items
             |> List.rev
-            |> List.filter (fun item -> item |> getText |> String.notEmpty)
+            |> List.filter (fun item -> item |> getText |> String.isNullOrEmpty |> not)
             |> List.toArray

@@ -797,7 +797,7 @@ module TypoGraphy =
                     <Typography
                     sx={boldSx}
                     >
-                    <strong> {s} </strong>
+                    <strong>{s}</strong>
                     </Typography>
                     """
                 | Italic s ->
