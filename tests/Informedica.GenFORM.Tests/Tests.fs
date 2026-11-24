@@ -7076,6 +7076,113 @@ module Tests =
                 ]
 
 
+    module DoseRulePrintTests =
+
+        let doseRule patientText scheduleText =
+            {
+                Id = "1"
+                DataId = "1"
+                GroupId = "1"
+                SortNo = 0
+                Source = Other "test"
+                SourceText = ""
+                Indication = "Milde pijn en koorts"
+                Generic =
+                    {
+                        Label = Shorthand "paracetamol"
+                        Form = Solid "tablet"
+                        Products = []
+                    }
+                Route = "ORAAL"
+                PatientText = patientText
+                PatientCategory = PatientCategory.empty
+                ScheduleText = scheduleText
+                DoseType = Discontinuous ""
+                AdjustUnit = None
+                Frequencies = None
+                AdministrationTime = MinMax.empty
+                IntervalTime = MinMax.empty
+                Duration = MinMax.empty
+                FormLimit = None
+                ComponentLimits = [||]
+                RenalRuleSource = None
+                Validated = None
+                Check =
+                    {
+                        FreqCheck = None
+                        DoseCheck = None
+                    }
+            }
+
+
+        let noLink: Source.LinkProvider = fun _ _ -> None
+
+
+        let patient = "Kinderen 1 tot 18 jaar"
+
+
+        let schedule = "10 mg/kg/dosis 4 dd"
+
+
+        let tests =
+            testList
+                "Formulary print"
+                [
+                    test "prints the patient text after the link and the schedule text on the next line" {
+                        [| doseRule patient schedule |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> Expect.stringContains "patient and schedule" $"\n\n*Lokaal*: %s{patient}  \n%s{schedule}"
+                    }
+
+                    test "prints only the schedule text when the patient text is empty" {
+                        [| doseRule "" schedule |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> Expect.stringContains "schedule only" $"\n\n*Lokaal*: %s{schedule}"
+                    }
+
+                    test "prints only the patient text when the schedule text is empty" {
+                        [| doseRule patient "" |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> fun md ->
+                            md |> Expect.stringContains "patient" $"\n\n*Lokaal*: %s{patient}"
+                            md |> String.contains $"%s{patient}  \n" |> Expect.isFalse "no line break"
+                    }
+
+                    test "leaves out the patient text when the rules have different patient texts" {
+                        [| doseRule patient schedule; doseRule "Kinderen 1 tot 6 jaar" schedule |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> fun md ->
+                            md |> Expect.stringContains "schedule only" $"\n\n*Lokaal*: %s{schedule}"
+                            md |> String.contains patient |> Expect.isFalse "no patient text"
+                    }
+
+                    test "leaves out the schedule text when the rules have different schedule texts" {
+                        [| doseRule patient schedule; doseRule patient "15 mg/kg/dosis 3 dd" |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> fun md ->
+                            md |> Expect.stringContains "patient only" $"\n\n*Lokaal*: %s{patient}"
+                            md |> String.contains schedule |> Expect.isFalse "no schedule text"
+                    }
+
+                    test "prints no source line when the rules have different patient and schedule texts" {
+                        [| doseRule patient schedule; doseRule "" "15 mg/kg/dosis 3 dd" |]
+                        |> DoseRule.Print.toMarkdown noLink
+                        |> String.contains "*Lokaal*"
+                        |> Expect.isFalse "no source line"
+                    }
+
+                    test "prints the formulary link of the source" {
+                        let link: Source.LinkProvider = fun _ _ -> Some "[Kinderformularium](https://example.org)"
+
+                        [| doseRule patient schedule |]
+                        |> DoseRule.Print.toMarkdown link
+                        |> Expect.stringContains
+                            "link"
+                            $"\n\n[Kinderformularium](https://example.org): %s{patient}  \n%s{schedule}"
+                    }
+                ]
+
+
     /// The boxed resource registry engine (approach a) + GStand as a
     /// function-valued resource. Engine validated in Scripts/ResourcesRegistryImpl.fsx
     /// (incl. live load parity); these are the in-CI unit checks.
@@ -13950,6 +14057,7 @@ module Tests =
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
+                DoseRulePrintTests.tests
                 SolutionRuleFilterTests.tests
                 SolutionRuleLookupTests.tests
                 ResourceRegistryTests.tests
