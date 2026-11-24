@@ -1,7 +1,6 @@
 namespace Informedica.GenPRES.Shared
 
 open System
-open System.Globalization
 
 
 module Measures =
@@ -215,69 +214,6 @@ module Decimal =
 
 
 module Csv =
-
-    open System.Text.RegularExpressions
-    open Types
-
-
-    /// Matches the text that NumberStyles.Float accepts under the invariant culture, except Infinity and NaN:
-    /// optional white space, an optional sign, digits with at most one decimal point and an optional exponent.
-    /// The digits and the six white space characters of .NET are spelled out, because \d and \s differ
-    /// between .NET and JavaScript.
-    let plainDecimal =
-        Regex(@"^[ \t\n\v\f\r]*[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?[ \t\n\v\f\r]*$")
-
-
-    /// True when the text is a plain decimal, the only form in which the sheet writes a number. False for null.
-    let isPlainDecimal (x: string) = not (isNull x) && plainDecimal.IsMatch x
-
-
-    /// Parses a number written with a decimal point, whatever the culture of the host.
-    /// A parse with a culture that uses a decimal comma would read 0.0192 as 192.
-    /// Returns false and 0 when the text is not a number.
-    let tryParseFloat (x: string) =
-#if FABLE_COMPILER
-        // Fable ignores the style and the culture and parses as JavaScript does, which also accepts
-        // the prefixes 0x, 0b and 0o and an underscore. The shape check limits the browser to the
-        // text the server accepts. The JavaScript parse does not depend on the locale of the browser.
-        if isPlainDecimal x then Double.TryParse x else false, 0.
-#else
-        Double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture)
-#endif
-
-
-    let tryCast dt (x: string) =
-        match dt with
-        | StringData -> box (x.Trim())
-        | FloatData ->
-            match tryParseFloat x with
-            | true, n -> n |> box
-            | _ -> raise (System.FormatException $"cannot parse {x} to double")
-        | FloatOptionData ->
-            match tryParseFloat x with
-            | true, n -> n |> Some |> box
-            | _ -> None |> box
-
-
-    let getColumn dt columns sl s =
-        columns
-        |> Array.tryFindIndex ((=) s)
-        |> function
-            | None ->
-                raise (
-                    System.Collections.Generic.KeyNotFoundException
-                        $"""cannot find column {s} in {columns |> String.concat ", "}"""
-                )
-            | Some i -> sl |> Array.item i |> tryCast dt
-
-
-    let getStringColumn columns sl s = getColumn StringData columns sl s |> unbox<string>
-
-
-    let getFloatColumn columns sl s = getColumn FloatData columns sl s |> unbox<float>
-
-
-    let getFloatOptionColumn columns sl s = getColumn FloatOptionData columns sl s |> unbox<float option>
 
 
     let parseCSV (s: string) =

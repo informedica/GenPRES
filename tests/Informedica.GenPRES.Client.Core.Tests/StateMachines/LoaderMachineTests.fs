@@ -69,7 +69,6 @@ let tests =
                         [
                             Load.Settings, LoaderEffect.FetchSettings
                             Load.Localization, LoaderEffect.FetchLocalization
-                            Load.Products, LoaderEffect.FetchProducts
                             Load.DrugNames, LoaderEffect.FetchDrugNames
                         ] do
                         test $"%A{load}" {
@@ -81,10 +80,10 @@ let tests =
                 ]
 
             test "a start while the same load runs changes nothing" {
-                let state, _ = run [ LoaderMsg.Start Load.Products ]
+                let state, _ = run [ LoaderMsg.Start Load.Localization ]
 
                 state
-                |> transition (LoaderMsg.Start Load.Products)
+                |> transition (LoaderMsg.Start Load.Localization)
                 |> Expect.equal "unchanged" (state, [])
             }
 
@@ -109,24 +108,29 @@ let tests =
             }
 
             test "an answer resolves the reading, and the load is loaded" {
-                let state, effects = run [ LoaderMsg.Start Load.Products; LoaderMsg.Landed(Landing.Products(Ok [])) ]
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.Start Load.Localization
+                            LoaderMsg.Landed(Landing.Localization(Ok [||]))
+                        ]
 
                 effects |> Expect.isEmpty "no call"
-                state.Products |> Expect.equal "resolved" (Resolved [])
+                state.Localization |> Expect.equal "resolved" (Resolved [||])
                 state |> out |> Expect.isEmpty "nothing out"
-                state |> loaded |> Expect.equal "loaded" [ Load.Products ]
+                state |> loaded |> Expect.equal "loaded" [ Load.Localization ]
             }
 
             test "a failed required load goes back to not started and is named" {
                 let state, _ =
                     run
                         [
-                            LoaderMsg.Start Load.Products
-                            LoaderMsg.Landed(Landing.Products(Error "down"))
+                            LoaderMsg.Start Load.Localization
+                            LoaderMsg.Landed(Landing.Localization(Error "down"))
                         ]
 
-                state.Products |> Expect.equal "not started" HasNotStartedYet
-                state.Failed |> Expect.equal "named" [ Load.Products ]
+                state.Localization |> Expect.equal "not started" HasNotStartedYet
+                state.Failed |> Expect.equal "named" [ Load.Localization ]
             }
 
             test "the settings failing are not named, since the application runs without them" {

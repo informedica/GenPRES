@@ -817,7 +817,6 @@ module Client =
                 for load in
                     [
                         Load.Settings
-                        Load.Products
                         Load.Localization
                         Load.Formulary
                         Load.Parenteralia

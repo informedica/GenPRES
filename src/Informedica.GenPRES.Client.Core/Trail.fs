@@ -732,7 +732,6 @@ module Trail =
             | Load.Localization -> "Localization"
             | Load.EmergencyList -> "EmergencyList"
             | Load.ContinuousList -> "ContinuousList"
-            | Load.Products -> "Products"
             | Load.Formulary -> "Formulary"
             | Load.Parenteralia -> "Parenteralia"
             | Load.Interactions -> "Interactions"
@@ -791,7 +790,6 @@ module Trail =
 
         /// An answer by its load and its size; never the error text.
         let landing (landing: Landing) =
-            let count (xs: 'a list) = $"%i{xs.Length} items"
             let rows (xs: string[][]) = $"%i{xs.Length} rows"
             let named name _ = name
 
@@ -804,7 +802,6 @@ module Trail =
                 match landing with
                 | Landing.Settings r -> "Settings", r |> Part.result (named "settings")
                 | Landing.Localization r -> "Localization", r |> Part.result rows
-                | Landing.Products r -> "Products", r |> Part.result count
                 | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result interactionReply
                 | Landing.Interactions(check, from, r) ->
                     $"Interactions check %i{check} %s{Part.token from}", r |> Part.result interactionReply
@@ -852,7 +849,6 @@ module Trail =
             match effect with
             | LoaderEffect.FetchSettings -> "FetchSettings"
             | LoaderEffect.FetchLocalization -> "FetchLocalization"
-            | LoaderEffect.FetchProducts -> "FetchProducts"
             | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
             | LoaderEffect.FetchFormulary f -> $"FetchFormulary %s{formulary f}"
             | LoaderEffect.FetchParenteralia p -> $"FetchParenteralia %s{parenteralia p}"

@@ -39,7 +39,6 @@ let allLoads =
         Load.Localization
         Load.EmergencyList
         Load.ContinuousList
-        Load.Products
         Load.Formulary
         Load.Parenteralia
         Load.Interactions
@@ -239,7 +238,6 @@ let tests =
                 [
                     Load.EmergencyList, [ Page.Page.LifeSupport ]
                     Load.ContinuousList, [ Page.Page.ContinuousMeds ]
-                    Load.Products, [ Page.Page.LifeSupport; Page.Page.ContinuousMeds ]
                     Load.Formulary, [ Page.Page.Formulary; Page.Page.Settings ]
                     Load.Parenteralia, [ Page.Page.Parenteralia; Page.Page.Settings ]
                     Load.Interactions, [ Page.Page.Interactions ]

@@ -146,8 +146,6 @@ module private Effects =
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
             Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchProducts ->
-            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
         | LoaderMachine.LoaderEffect.FetchFormulary form ->
             call serverApi.processFormulary form (fun result -> LoaderMachine.Landing.Formulary(opened, result))
         | LoaderMachine.LoaderEffect.FetchParenteralia par ->
@@ -479,7 +477,6 @@ module private Elmish =
             StepTrail.confirmDemo false
             Logging.error "cannot load the server settings" err
         | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
-        | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
         | _ -> ()
 
 
