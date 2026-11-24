@@ -733,6 +733,7 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.IEmergencyList with
         member _.EmergencyList = Client.emergencyList state
+        member _.OnEmergencyListRowChosen ctx = Msg.EmergencyListRowChosen ctx |> dispatch
         member _.EmergencyListFilter = Client.emergencyListFilter state
         member _.OnEmergencyListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch

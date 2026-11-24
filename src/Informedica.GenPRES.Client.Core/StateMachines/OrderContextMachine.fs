@@ -208,6 +208,8 @@ module OrderContextMachine =
         | TurnOfferOff of index: int
         /// A command from the page over the linked order offer with this index in the list.
         | OfferCommand of index: int * OrderViewCommand * request: string
+        /// An order context chosen outside the workbench. It is put in the workbench as it is, without a request.
+        | Chosen of OrderContext
 
 
     /// What the App carries out for the order context machine.
@@ -633,6 +635,11 @@ module OrderContextMachine =
                     ctx
                     request
                     (renewed (OrderContextWorkbench.Evaluated(pat, OrderContextWorkbench.emptyOf state.Category pat)))
+
+            // a chosen context replaces the workbench as it is, for the patient of the state; the formulary and
+            // parenteralia pages follow its filter, as they follow a seed
+            | OrderContextMsg.Chosen ctx, Some(pat, _), None ->
+                renewed (OrderContextWorkbench.Evaluated(pat, ctx)), [ OrderContextEffect.SyncPages ctx.Filter ]
 
             // nothing else comes, because the pages that send it are disabled, and there is nothing to
             // command or reset without patient data

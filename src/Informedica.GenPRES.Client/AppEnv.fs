@@ -232,6 +232,8 @@ type ILogAnalyzer =
 [<Interface>]
 type IEmergencyList =
     abstract EmergencyList: Deferred<Intervention[]>
+    /// Puts the order context of a chosen row in the workbench and moves to the prescribe page.
+    abstract OnEmergencyListRowChosen: OrderContext -> unit
     abstract EmergencyListFilter: string[]
     abstract OnEmergencyListFilterChange: string[] -> unit
 

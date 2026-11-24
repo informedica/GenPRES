@@ -80,6 +80,8 @@ module Client =
         | NewPatient of PatientDataEdit * request: string
         /// The url changed in the address bar, as path segments and as parsed parts.
         | UrlChanged of string list * Url.UrlParts
+        /// The order context of a row chosen on the emergency list.
+        | EmergencyListRowChosen of OrderContext
         /// An item chosen on the continuous medication list.
         | ContinuousMedicationChosen of item: string
         /// Signs the plan with this request id.
@@ -593,6 +595,13 @@ module Client =
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]
+        // the emergency list has rows only for a patient, so a chosen row needs no alert
+        | ClientMsg.EmergencyListRowChosen ctx ->
+            becomes
+                [
+                    ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
+                    ClientMsg.Lanes(LanesMsg.Workbench(OrderContextMsg.Chosen ctx))
+                ]
         | ClientMsg.ContinuousMedicationChosen item ->
             state
             |> chosen newId (state.Loader.ContinuousMedication |> continuousSeed item)

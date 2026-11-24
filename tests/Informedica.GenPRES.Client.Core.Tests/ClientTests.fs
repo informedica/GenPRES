@@ -951,6 +951,37 @@ let emergencyListQueryTests =
 
 
 [<Tests>]
+let emergencyListRowTests =
+    testList
+        "a row chosen on the emergency list"
+        [
+            test "moves to the prescribe page and puts the order context of the row in the workbench" {
+                let row = { OrderContext.empty with OrderContext.Filter.Generic = Some "adrenaline" }
+
+                let chosen =
+                    { initial Url.none with Lanes = Lanes.initial (Some draft) }
+                    |> play [ ClientMsg.EmergencyListRowChosen row ]
+
+                chosen
+                |> hasStep (
+                    function
+                    | ClientStep.Shell(ShellMsg.MovedToPage Page.Page.Prescribe, _, _) -> true
+                    | _ -> false
+                )
+                |> Expect.isTrue "moved to the prescribe page"
+
+                chosen
+                |> hasStep (
+                    function
+                    | ClientStep.Lanes(LanesStep.Workbench(OrderContextMsg.Chosen ctx, _, _)) -> ctx = row
+                    | _ -> false
+                )
+                |> Expect.isTrue "the workbench got the order context of the row"
+            }
+        ]
+
+
+[<Tests>]
 let totalsQueryTests =
     testList
         "the totals query the client sends"
