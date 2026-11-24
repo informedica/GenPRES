@@ -463,6 +463,7 @@ module EmergencyListCommand =
             Name = so.Generic
             SubstanceDoseText = so.SubstanceDose
             InterventionDoseText = so.Preparation
+            Text = so.Advice
             OrderContext =
                 so.Context
                 |> PlanContext.create "" GenOrder.OrderCategory.Medication

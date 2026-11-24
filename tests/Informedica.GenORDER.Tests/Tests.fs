@@ -192,19 +192,6 @@ module Pipeline =
     let private countValues (o: Order) =
         o |> toOrdVars |> List.filter OrderVariable.hasValues |> List.length
 
-    let private mkOnceTimedOrder () =
-        Scenarios.kaliumchlorideOnceTimedText
-        |> MedicationText.fromString
-        |> function
-            | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
-            | Ok med ->
-                med
-                |> Medication.toOrderDto Scenarios.testStart
-                |> Dto.fromDto
-                |> function
-                    | Error msg -> failtest $"Failed to create order: {msg}"
-                    | Ok ord -> ord
-
     [<Tests>]
     let guard_and_run_order_tests =
         testList
@@ -291,7 +278,7 @@ module Pipeline =
             "staged value expansion for timed orders"
             [
                 test "CalcMinMax for kaliumchloride OnceTimed completes without overflow" {
-                    let ord = mkOnceTimedOrder ()
+                    let ord = Scenarios.kaliumchlorideOnceTimed ()
                     let res = OrderProcessor.processPipeline noLogger (CalcMinMax ord)
 
                     match res with
@@ -306,7 +293,7 @@ module Pipeline =
                 }
 
                 test "CalcValues for kaliumchloride OnceTimed completes without overflow" {
-                    let ord = mkOnceTimedOrder ()
+                    let ord = Scenarios.kaliumchlorideOnceTimed ()
 
                     let ordAfterCalcMinMax =
                         OrderProcessor.processPipeline noLogger (CalcMinMax ord)

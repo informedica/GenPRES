@@ -503,17 +503,17 @@ Part 6, the calculation moves to GenORDER:
 
 Part 7, the advice of a standard order:
 
-- Advies shows the limits of the dose rule the scenario was made from: the dose per kg, followed by the
-  absolute dose in brackets. A limit with an equal minimum and maximum is the norm and shows as one value
-  (`DoseLimit.printMinMaxDose`), not as the widened range of the order.
-- The limit is the limit for the substance, in the unit the substance is dosed in. A scenario dosed by
-  volume takes the limit of the component, else the limit of the form.
+- Advies shows the dose limits of the order of the scenario: the limits the order was given from its rule,
+  printed as the prescription text prints them (`Dose.Print.doseQuantityAdjustConstraints` for an order per
+  kg, else `Dose.Print.doseQuantityConstraints`). A norm dose shows as one value, not as the widened range
+  of the order.
+- The limits are those of the substance of the scenario; a scenario dosed by volume takes the limits of the
+  orderable.
 - A once timed order adds the administration time (`ord_sch_tme`) and the rate (`orb_dos_rte`), such as
-  "in 30 - 60 min, 1 - 2 mL/uur". A time or rate with more than one number shows the lowest and the
-  highest number.
-- GenORDER finds the dose rule through the prescription rules of the resource provider for the dose filter of
-  the order context, matched on the route and the dose type of the scenario. A rule lookup that fails is
-  logged as a warning, and the standard order gets no advice.
+  "in 30 - 60 min, 1 - 2 mL/uur", as the prescription texts print them (`OrderVariable.toValueUnitText`):
+  a range as minimum - maximum, up to three values as each value from low to high, more values as the
+  lowest - the highest value.
+- The server puts the advice in the field `Text` of `Intervention`.
 
 Part 8, the client shows the server rows:
 

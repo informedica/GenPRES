@@ -1,6 +1,6 @@
 /// The standard orders of the emergency list: the choice of the next options to evaluate, the evaluation with its
-/// warnings, the texts of a standard order, the context narrowed to its scenario and the standard orders of the rule
-/// sets.
+/// warnings, the texts and the advice of a standard order, the context narrowed to its scenario and the standard
+/// orders of the rule sets.
 module StandardOrderTests
 
 open Expecto
@@ -12,7 +12,7 @@ module Feeding = OrderContextRuleTests.FeedingFixtures
 
 
 /// Fixtures for the tests: a context for the patient of the feeding fixtures, a scenario of a paracetamol
-/// suppository with a dose quantity of the item, and rule sets.
+/// suppository with a dose quantity of the item, rule sets and a once timed order.
 module Fixtures =
 
     let context filter =
@@ -40,13 +40,30 @@ module Fixtures =
         |> StandardOrder.emergencyList System.DateTime.UtcNow OrderLogging.noOp Feeding.provider Feeding.patient
 
 
-    /// The scenario of paracetamol for fever that the feeding fixtures evaluate to, with an item dose quantity
-    /// of 0 to 100 mg and no other values.
-    let scenario =
+    /// The context and the scenario of paracetamol for fever that the feeding fixtures evaluate to, with a dose
+    /// rule of at most 100 mg.
+    let found =
         lazy
             (match emergencyList [| rule "koorts" "paracetamol" |] with
-             | [| so |], _ -> so.Context.Scenarios[0]
-             | found -> invalidOp $"fixture scenario could not be created: %A{found}")
+             | [| so |], _ -> so.Context, so.Context.Scenarios[0]
+             | other -> invalidOp $"fixture scenario could not be created: %A{other}")
+
+
+    /// The scenario of paracetamol for fever, with an item dose quantity of 0 to 100 mg and no other values.
+    let scenario = lazy (snd found.Value)
+
+
+    /// The once timed order of potassium chloride with its minimum and maximum values: a time of 60 to 120
+    /// minutes and a rate of 16 to 32 mL/uur.
+    let onceTimed =
+        lazy
+            (match
+                Scenarios.kaliumchlorideOnceTimed ()
+                |> CalcMinMax
+                |> OrderProcessor.processPipeline OrderLogging.noOp
+             with
+             | Ok ord -> ord
+             | Error _ -> invalidOp "fixture order could not be calculated")
 
 
     /// An evaluation that answers every plan context with the outcome.
@@ -321,6 +338,68 @@ let tests =
                     test "shows the dose of the orderable with the name of the scenario for a scenario without item" {
                         (withoutItem.Value.SubstanceDose, withoutItem.Value.Preparation)
                         |> Expect.equal "the orderable" ("", $" %s{reanimation.Value.Name}")
+                    }
+
+                    test "takes the advice of the scenario" {
+                        withItem.Value.Advice
+                        |> Expect.equal "the advice" (StandardOrder.advice reanimation.Value)
+                    }
+                ]
+
+            testList
+                "itemOf"
+                [
+                    test "returns the item the scenario names" {
+                        scenario.Value
+                        |> StandardOrder.itemOf
+                        |> Option.map (_.Name >> Name.toString)
+                        |> Expect.equal "the item" (Some "paracetamol")
+                    }
+
+                    test "returns None for a scenario dosed by volume" {
+                        { scenario.Value with Item = None }
+                        |> StandardOrder.itemOf
+                        |> Expect.isNone "no item"
+                    }
+                ]
+
+            testList
+                "withTimeAndRate"
+                [
+                    test "adds the time and the rate of a once timed order" {
+                        onceTimed.Value
+                        |> StandardOrder.withTimeAndRate "max 2 mmol/kg"
+                        |> Expect.equal "with time and rate" "max 2 mmol/kg in 60 - 120 min, 16 - 32 mL/uur"
+                    }
+
+                    test "shows the time and the rate alone without limits" {
+                        onceTimed.Value
+                        |> StandardOrder.withTimeAndRate ""
+                        |> Expect.equal "time and rate" "in 60 - 120 min, 16 - 32 mL/uur"
+                    }
+
+                    test "keeps the limits for an order that is not once timed" {
+                        scenario.Value.Order
+                        |> StandardOrder.withTimeAndRate "max 100 mg"
+                        |> Expect.equal "the limits" "max 100 mg"
+                    }
+                ]
+
+            testList
+                "advice"
+                [
+                    test "shows the limits of the substance for an order that is not per kg" {
+                        scenario.Value |> StandardOrder.advice |> Expect.equal "the limits" "0 - 100 mg"
+                    }
+
+                    test "shows the limits per kg of the substance, with the time and the rate of a once timed order" {
+                        { scenario.Value with
+                            Order = onceTimed.Value
+                            Item = Some "kaliumchloride"
+                            UseAdjust = true
+                        }
+                        |> StandardOrder.advice
+                        |> Expect.equal "limits, time and rate" "0,5 mmol/kg in 60 - 120 min, 16 - 32 mL/uur"
                     }
                 ]
 
