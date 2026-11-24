@@ -12,7 +12,8 @@ code from a separate workbook, not by GenORDER from the GenFORM rules. Both issu
 
 The reference for both is the baseline of #1209: `tests/Informedica.GenPRES.Shared.Tests/fixtures/emergencylist.tsv`
 and `tests/Informedica.GenPRES.Client.Core.Tests/fixtures/continuousmeds.tsv`, with copies of the two sheets
-next to them (`emergencylist.csv`, 154 rows; `continuousmeds.csv`, 293 rows).
+next to them (`emergencylist.csv`, 154 rows; `continuousmeds.csv`, 293 rows). The baseline goes when the client
+calculation it covers goes.
 
 ## Approaches considered
 
@@ -340,8 +341,7 @@ What the code offers, checked on 2026-11-22 and 2026-11-23:
 - The order widens a norm dose to 90% to 110% and gives a volume in steps of 0.1 mL, so a dose volume
   far below 1 mL can have no step within that range and the order has no scenario. The list rounds such
   a volume to 0.1 mL instead.
-- The order rounds a volume to the step of the FormRoute sheet; the list rounds to 1 mL above 10 mL, a
-  difference that the comparison with the baseline explains.
+- The order rounds a volume to the step of the FormRoute sheet; the list rounds to 1 mL above 10 mL.
 
 Decided on 2026-11-23, the code that replaces the calculation on the client:
 
@@ -474,6 +474,9 @@ Part 5, the server calculates the medication rows:
     orderable with the dose per kg, Bereiding the dose of the orderable with the name of the product.
 - A value with more than one number shows every number; a value without numbers shows its minimum and
   maximum, or the one limit it has, such as "min 1 mg" or "max 1 mg".
+- The columns go in the text fields of `Intervention`: Berekend in `SubstanceDoseText`, Bereiding in
+  `InterventionDoseText`, Advies in `Text`. The server fills only these text fields; the number fields stay
+  empty. The print takes the cells of the table, as it does today.
 
 Part 6, the advice of a row:
 
@@ -494,8 +497,16 @@ Part 7, the client shows the server rows:
   the patient data change and the patient has a Location.
 - The page shows the rows that are not medication, followed by the server rows, and lays a mask with a
   spinner over the table while the server calculates the rows.
+- The client numbers each list request and ignores an answer to an earlier request, as it does for the
+  interaction checks and the totals queries. When the patient is reset or the patient data lose the
+  Location, the list clears its rows and its selection. The prescribe button is disabled while the rows
+  are calculated.
 - Removed: the medication rows of the emergency list workbook, their calculation in the client and their
   lookup for a row click (`Client.emergencySeed`).
+- Removed: the emergency baseline tests and their fixtures (`EmergencyBaseline.fs`,
+  `EmergencyBaselineTests.fs`, `fixtures/emergencylist.csv` and `.tsv` in `Informedica.GenPRES.Shared.Tests`),
+  with their entries in the test project file. The order calculation is tested in GenSOLVER and GenORDER;
+  whether the rules are right is a matter of medical validation, not of the code.
 
 Part 8, prescribing from the list:
 
@@ -550,14 +561,22 @@ Part 1, the server calculates the rows:
   - A scenario without a substance, dosed by volume, shows the orderable instead: Hoeveelheid empty,
     Oplossing the name of the product, Dosering the rate with the rate per kg of the orderable, Advies the
     rate limits of the component, else of the form.
+- The columns go in the text fields of `Intervention`: Hoeveelheid in `QuantityUnit`, Oplossing in
+  `Solution`, Dosering in `SubstanceDoseText`, Advies in `Text`. The server fills only these text fields; the
+  number fields stay empty. The print takes the cells of the table, as it does today.
 
 Part 2, the client shows the rows and prescribes from them:
 
 - The client asks the server for the rows through Client.Core, when the patient data change and the patient
-  has a Location, and lays a mask with a spinner over the table meanwhile.
+  has a Location, and lays a mask with a spinner over the table meanwhile. Old answers, a reset patient and
+  the prescribe button are handled as on the emergency list (step 3, part 7).
 - The row click and the prescribe button work as on the emergency list (step 3, part 8).
 - Removed: the reading of the `continuousmeds` sheet, its calculation in the client
   (`ContinuousMedicationList.calculate`) and its lookup for a row click (`Client.continuousSeed`).
+- Removed: the continuous baseline tests and their fixtures (`ContinuousBaseline.fs`,
+  `ContinuousBaselineTests.fs`, `fixtures/continuousmeds.csv` and `.tsv` in
+  `Informedica.GenPRES.Client.Core.Tests`), with their entries in the test project file, and the script
+  `Scripts/ListBaseline.fsx` of the Shared tests, which writes both baselines.
 
 ## Issues that touch the steps
 
