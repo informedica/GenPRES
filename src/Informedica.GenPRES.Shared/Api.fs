@@ -531,5 +531,8 @@ module Api =
             // notice to receive.
             processAdmin: AdminCommand -> Async<Result<AdminResponse, string[]>>
             getSettings: unit -> Async<ServerSettings>
+            // Returns the medication rows of the emergency list for the patient, calculated from the rule set of the
+            // kind EmergencyList.
+            getEmergencyList: Request<PatientData> -> Async<Result<Reply<Intervention[]>, string[]>>
             testApi: unit -> Async<string>
         }

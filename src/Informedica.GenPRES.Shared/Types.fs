@@ -423,40 +423,6 @@ module Types =
         | Alert of TextItem[]
 
 
-    type Intervention =
-        {
-            Hospital: string
-            Category: string
-            Name: string
-            MinWeightKg: float option
-            MaxWeightKg: float option
-            /// The quantity of the substance
-            Quantity: float option
-            QuantityUnit: string
-            /// The name of the solution
-            Solution: string
-            /// The total quantity
-            Total: float option
-            TotalUnit: string
-            InterventionDose: float option
-            InterventionDoseUnit: string
-            /// The intervention dose as text
-            InterventionDoseText: string
-            SubstanceDose: float option
-            SubstanceMinDose: float option
-            SubstanceMaxDose: float option
-            SubstanceDoseUnit: string
-            SubstanceDoseAdjust: float option
-            SubstanceNormDoseAdjust: float option
-            SubstanceMinDoseAdjust: float option
-            SubstanceMaxDoseAdjust: float option
-            SubstanceDoseAdjustUnit: string
-            /// Remarks on the substance dose
-            SubstanceDoseText: string
-            Text: string
-        }
-
-
     type Product =
         {
             Indication: string
@@ -663,6 +629,43 @@ module Types =
             /// The id of the plan context that holds the main order of this order; none for an order
             /// that is not linked
             LinkedTo: string option
+        }
+
+
+    type Intervention =
+        {
+            Hospital: string
+            Category: string
+            Name: string
+            MinWeightKg: float option
+            MaxWeightKg: float option
+            /// The quantity of the substance
+            Quantity: float option
+            QuantityUnit: string
+            /// The name of the solution
+            Solution: string
+            /// The total quantity
+            Total: float option
+            TotalUnit: string
+            InterventionDose: float option
+            InterventionDoseUnit: string
+            /// The intervention dose as text
+            InterventionDoseText: string
+            SubstanceDose: float option
+            SubstanceMinDose: float option
+            SubstanceMaxDose: float option
+            SubstanceDoseUnit: string
+            SubstanceDoseAdjust: float option
+            SubstanceNormDoseAdjust: float option
+            SubstanceMinDoseAdjust: float option
+            SubstanceMaxDoseAdjust: float option
+            SubstanceDoseAdjustUnit: string
+            /// Remarks on the substance dose
+            SubstanceDoseText: string
+            Text: string
+            /// The order context of the row, narrowed to the scenario of the row; None for a row that is not
+            /// medication.
+            OrderContext: OrderContext option
         }
 
 

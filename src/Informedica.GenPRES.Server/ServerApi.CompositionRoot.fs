@@ -101,6 +101,14 @@ module CompositionRoot =
                         return settings (env.departments ()) (env.locations ())
                     }
 
+            getEmergencyList =
+                Compute.bound
+                    env
+                    cookie
+                    EmergencyListCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (EmergencyListCommand.processCmd env)
+
             testApi = fun () -> async { return "Hello world!" }
         }
 

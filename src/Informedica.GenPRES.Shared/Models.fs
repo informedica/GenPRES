@@ -299,6 +299,7 @@ module Models =
                 InterventionDoseUnit = ""
                 InterventionDoseText = ""
                 Text = ""
+                OrderContext = None
             }
 
 

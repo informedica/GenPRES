@@ -449,8 +449,9 @@ Decided on 2026-11-24:
 
 Part 5, the server calculates the medication rows:
 
-- The contract gets `getEmergencyList`: it takes the patient data and returns the rows of the emergency
-  list as `Intervention` records, the records the page shows today.
+- The contract gets `getEmergencyList`: it takes the patient data in a `Request` and returns the rows of the
+  emergency list as `Intervention` records, the records the page shows today, in a `Reply`. It runs through
+  `Compute.bound`, as the other calls that calculate.
 - `Intervention` gets the field `OrderContext: OrderContext option`: the order context of the row, narrowed
   to its scenario as the prescribe page narrows it (`narrowedToScenario`); None for a row that is not
   medication. `Intervention` moves below `OrderContext` in the contract, so it can name it.
@@ -545,8 +546,9 @@ columns and the print of today; every row comes from the server.
 
 Part 1, the server calculates the rows:
 
-- The contract gets `getContinuousList`: it takes the patient data and returns the rows as `Intervention`
-  records, each with its order context.
+- The contract gets `getContinuousList`: it takes the patient data in a `Request` and returns the rows as
+  `Intervention` records, each with its order context, in a `Reply`. It runs through `Compute.bound`, as the
+  other calls that calculate.
 - The server takes the rule set of the kind StandardInfusions for the patient and evaluates its rows as for
   the emergency list (step 3, part 5), with the same code.
 - Each scenario gives one row of the list:
