@@ -145,6 +145,11 @@ module TestOrder =
         med |> toOrder |> solve CalcMinMax |> solve CalcValues |> solve SolveOrder
 
 
+    /// The processed order after a reset. A timed order with three or more components is preset to the
+    /// median of each component quantity and of the rate when it is made; a reset gives its value lists back.
+    let processedAndReset med = med |> processed |> solve ReCalcValues
+
+
     /// The values of an order variable, none when it holds no value set.
     let valuesOf ovar =
         ovar
@@ -5790,10 +5795,12 @@ module ReachablePickTests =
                 }
 
                 test "a binding kalium concentration limit raises the first tpn dose quantity from 380 to 530 mL" {
+                    // the tpn is preset when it is made, and a reset gives the lists back
                     let firstDoseQuantity med =
                         med
                         |> solvedWith processed
                         |> snd
+                        |> solve ReCalcValues
                         |> _.Orderable.Dose.Quantity
                         |> Quantity.toOrdVar
                         |> valuesOf
@@ -5971,17 +5978,18 @@ module RateAfterQuantityTests =
         testList
             "the rate of a timed order after the dose quantity"
             [
-                test
-                    "after CalcMinMax the dose quantity starts where the limits allow: tpn at 191 mL, amfo timed at 22 mL" {
-                    let first med = med |> toOrder |> solve CalcMinMax |> doseQuantity |> minimumOf
-
-                    (Scenarios.tpn |> first, Scenarios.amfoTimed |> first)
-                    |> Expect.equal "191 and 22 mL" (Some [| 191N |], Some [| 22N |])
+                test "after CalcMinMax the amfo timed dose quantity starts where the limits allow, at 22 mL" {
+                    Scenarios.amfoTimed
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> doseQuantity
+                    |> minimumOf
+                    |> Expect.equal "22 mL" (Some [| 22N |])
                 }
 
-                test "processed, tpn and amfo timed keep the rate and the time ranges while the dose quantity is a list" {
-                    for med in [ Scenarios.tpn; Scenarios.amfoTimed ] do
-                        let ord = med |> processed
+                test
+                    "processed amfo timed, and tpn after a reset, keep the rate and the time ranges while the dose quantity is a list" {
+                    for ord in [ Scenarios.tpn |> processedAndReset; Scenarios.amfoTimed |> processed ] do
 
                         ord |> doseQuantity |> valuesOf |> Array.length > 1
                         |> Expect.isTrue "a list of dose quantities"
@@ -5990,17 +5998,8 @@ module RateAfterQuantityTests =
                         ord |> time |> valuesOf |> Expect.isEmpty "the time without values"
                 }
 
-                test "tpn through CalcMinMax and SolveOrder, without CalcValues, keeps the rate a range" {
-                    let ord = Scenarios.tpn |> toOrder |> solve CalcMinMax |> solve SolveOrder
-
-                    ord |> doseQuantity |> valuesOf |> Array.length > 1
-                    |> Expect.isTrue "a list of dose quantities"
-
-                    ord |> rate |> isRange |> Expect.isTrue "the rate a range"
-                }
-
                 test "a tpn dose quantity pick gives the rate the median of its list, the time within 20 to 24 uur" {
-                    let ord, _ = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+                    let ord, _ = Scenarios.tpn |> processedAndReset |> pickMiddleDoseQuantity
 
                     ord
                     |> rate
@@ -6015,7 +6014,7 @@ module RateAfterQuantityTests =
                 }
 
                 test "a completed tpn solves with the median rate, 18 mL/uur at 380 mL" {
-                    let ord = Scenarios.tpn |> processed |> complete
+                    let ord = Scenarios.tpn |> processedAndReset |> complete
 
                     ord |> Order.isSolved |> Expect.isTrue "solved"
                     ord |> doseQuantity |> valuesOf |> Expect.equal "380 mL" [| 380N |]
@@ -6055,7 +6054,7 @@ module RateAfterQuantityTests =
                 }
 
                 test "the rate stepper sets a rate that is a range to its minimum, its median and its maximum" {
-                    let ord = Scenarios.tpn |> processed
+                    let ord = Scenarios.tpn |> processedAndReset
                     let range = ord |> rate |> OrderVariable.getVar |> Variable.getValueRange
 
                     let bound get toVu =
@@ -6078,6 +6077,119 @@ module RateAfterQuantityTests =
                     |> Array.forall (fun v -> v > lo[0] && v < hi[0])
                     |> Expect.isTrue "the median between them"
                 }
+            ]
+
+
+/// A timed or once timed order with three or more components, each with one concentration, is preset when
+/// its min and max are calculated: each component quantity is set to its median and then the rate, so the
+/// order is solved when it is shown.
+module MedianPresetTests =
+
+    open TestOrder
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+
+
+    let private calculated med = med |> toOrder |> solve CalcMinMax
+
+
+    let private componentQuantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.map (_.OrderableQuantity >> Quantity.toOrdVar >> valuesOf)
+
+
+    let private doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+
+
+    let private rate (ord: Order) = ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
+
+    let private presetEffects med = med |> toOrder |> OrderProcessor.OrderAction.presetEffects
+
+
+    let tests =
+        testList
+            "the median preset of a timed order with three or more components"
+            [
+                test "after CalcMinMax the tpn is solved, with the median of each component quantity and of the rate" {
+                    let ord = Scenarios.tpn |> calculated
+
+                    ord |> Order.isSolved |> Expect.isTrue "solved"
+
+                    ord
+                    |> componentQuantities
+                    |> Expect.equal "193, 66, 22 and 289 mL" [ [| 193N |]; [| 66N |]; [| 22N |]; [| 289N |] ]
+
+                    ord |> doseQuantity |> valuesOf |> Expect.equal "570 mL" [| 570N |]
+                    ord |> rate |> valuesOf |> Expect.equal "26,2 mL/uur" [| 131N / 5N |]
+                }
+
+                for name, med in
+                    [
+                        "tpn", Scenarios.tpn
+                        "tpnComplete", Scenarios.tpnComplete
+                        "tpnKaliumConcentrationBinding", Scenarios.tpnKaliumConcentrationBinding
+                        "tpnKaliumRateBinding", Scenarios.tpnKaliumRateBinding
+                    ] do
+                    test $"%s{name} is solved after CalcMinMax" {
+                        med |> calculated |> Order.isSolved |> Expect.isTrue "solved"
+                    }
+
+                    test $"%s{name}: the value calculation of a selected scenario leaves the preset order as it is" {
+                        let ord = med |> calculated
+                        ord |> solve CalcValues |> Expect.equal "the same order" ord
+                    }
+
+                    test $"%s{name}: a reset gives the component quantities as value lists again" {
+                        med
+                        |> calculated
+                        |> solve ReCalcValues
+                        |> componentQuantities
+                        |> List.exists (fun vs -> vs |> Array.length > 1)
+                        |> Expect.isTrue "a component quantity with more than one value"
+                    }
+
+                for name, med in
+                    [
+                        "amfo", Scenarios.amfo
+                        "morfCont", Scenarios.morfCont
+                        "morfContWithNaCl", Scenarios.morfContWithNaCl
+                    ] do
+                    test $"%s{name}: an order that is not timed or once timed is not preset" {
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                    }
+
+                for name, med in
+                    [
+                        "naclLargeRate", Scenarios.naclLargeRateText |> parse
+                        "amfoTimed", Scenarios.amfoTimed
+                        "kaliumchlorideOnceTimed", Scenarios.kaliumchlorideOnceTimedText |> parse
+                    ] do
+                    test $"%s{name}: a timed or once timed order with fewer than three components is not preset" {
+                        let ord = med |> toOrder
+
+                        ord.Orderable.Components |> List.length < OrderProcessor.OrderAction.minPresetComponents
+                        |> Expect.isTrue "fewer components than the preset needs"
+
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                    }
+
+                for name, med in
+                    [
+                        "amfoWithNaClTwoStrengthsTimed", Scenarios.amfoWithNaClTwoStrengthsTimed
+                        "morfTimedWithNaCl", Scenarios.morfTimedWithNaCl
+                    ] do
+                    test $"%s{name}: an order with a component in more than one concentration is not preset" {
+                        med
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.length
+                        |> Expect.equal "three components" 3
+
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                        med |> calculated |> Order.isSolved |> Expect.isFalse "not solved"
+                    }
             ]
 
 
@@ -6695,6 +6807,7 @@ let tests =
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
             RateAfterQuantityTests.tests
+            MedianPresetTests.tests
             DoseTotalTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests

@@ -156,6 +156,10 @@ module Fixture =
     let composed = lazy (selected.Value |> compose)
 
 
+    // the TPN after a reset: the preset is gone and the component quantities are lists again
+    let uncomposed = lazy (selected.Value |> run ReCalcValues)
+
+
     // the TPN with a dose and a rate maximum, composed as above
     let capped =
         lazy
@@ -288,8 +292,23 @@ let tests =
                 selected.Value.Schedule.IsTimed |> Expect.isTrue "should be timed"
             }
 
-            test "the composed fixture is composed, the selected order is not" {
-                (composed.Value |> Order.isComposed, selected.Value |> Order.isComposed)
+            test "the selected order is preset to its component quantities and keeps its rate range" {
+                // the dose is a number of the orderable, so the dose quantity is a range after the component
+                // quantities are set, and the preset leaves the rate as it is
+                let ord = selected.Value
+                let isSolved = _.Variable >> Variable.isSolved
+
+                ord |> Order.isComposed |> Expect.isTrue "every component quantity is set"
+                ord |> doseQty |> isSolved |> Expect.isFalse "the dose quantity is a range"
+
+                ord.Orderable.Dose.Rate
+                |> OrderVariable.Rate.toOrdVar
+                |> isSolved
+                |> Expect.isFalse "the rate is a range"
+            }
+
+            test "the composed fixture is composed, the order after a reset is not" {
+                (composed.Value |> Order.isComposed, uncomposed.Value |> Order.isComposed)
                 |> Expect.equal "only the composed order should have every component set" (true, false)
             }
 
@@ -302,12 +321,12 @@ let tests =
 
                         ord |> doseQty, cmpQuantities
 
-                    selected.Value
+                    uncomposed.Value
                     |> OrderProcessor.processChangeProperty OrderLogging.noOp (SetOrderableDoseQuantityPerc p)
                     |> doseQuantities
                     |> Expect.equal
                         "the dose and component quantities should not change"
-                        (selected.Value |> doseQuantities)
+                        (uncomposed.Value |> doseQuantities)
                 }
 
             test "the fixture has no Div, so the products give the step of the dose quantity" {

@@ -67,7 +67,12 @@ let tests =
             }
 
             test "a step on a component quantity that holds a list is refused, and keeps the order" {
-                let ord = Scenarios.tpn |> OrderReCalcTests.processed
+                // the tpn is preset when it is made, and a reset gives the lists back
+                let ord =
+                    Scenarios.tpn
+                    |> OrderReCalcTests.processed
+                    |> Tests.TestOrder.solve ReCalcValues
+
                 let gluc = OrderVariableReference.ComponentOrderableQuantity "gluc 10%"
 
                 gluc

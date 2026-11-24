@@ -294,7 +294,8 @@ let tests =
 
             test "tpn: the item rate recalculated after the median rate gives the rate list back" {
                 let ord =
-                    let processed = Scenarios.tpn |> processed
+                    // the tpn is preset when it is made, and a reset gives the lists back
+                    let processed = Scenarios.tpn |> processed |> Tests.TestOrder.solve ReCalcValues
                     let qty = processed |> doseQuantity
                     let n = qty |> baseValues |> Array.length
 
@@ -411,7 +412,11 @@ let componentQuantityTests =
         "the component quantities set again"
         [
             test "an order whose components do not all hold one quantity has no component quantities" {
-                rebuilt () |> OrderContext.componentQuantities |> Expect.isNone "not solved"
+                // the tpn is preset when it is made, and a reset gives the lists back
+                rebuilt ()
+                |> Tests.TestOrder.solve ReCalcValues
+                |> OrderContext.componentQuantities
+                |> Expect.isNone "not solved"
             }
 
             test "the component quantities are the quantity of every component" {

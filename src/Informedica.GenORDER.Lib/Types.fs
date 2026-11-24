@@ -493,7 +493,8 @@ module Types =
     type OrderAction =
         /// Calculates the constraints of an order made from its medication: applies the defined constraints,
         /// solves for min and max, coarsens the increments, stores the result as the calculated constraints
-        /// and sets the norm dose when there is one.
+        /// and sets the norm dose when there is one. A timed or once timed order with three or more components
+        /// is then preset to the median of each component quantity and of the rate.
         | CalcConstraints
         /// Select a value for one variable.
         | Set of OrderVariableReference * Choice
@@ -577,6 +578,8 @@ module Types =
         /// The dose quantity, or the rate of a continuous order, has a value list or a single value, so
         /// the norm dose can be set.
         | CanSetNormDose
+        /// The dose quantity is a range or a value list, not a single value.
+        | DoseQuantityNotSolved
 
 
     /// One effect on an order. An action is run as a list of effects.

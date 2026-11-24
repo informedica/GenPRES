@@ -121,11 +121,11 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpn
             Totals =
                 [
-                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
-                    "Protein", "#0,587# - #1,47# g||/kg||/dag||"
-                    "Carbohydrate", "#0,00667# - #4,27# g||/kg||/dag||"
-                    "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
-                    "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
+                    "Volume", "#38# mL||/kg||/dag||"
+                    "Protein", "#1,03# g||/kg||/dag||"
+                    "Carbohydrate", "#1,93# g||/kg||/dag||"
+                    "Sodium", "#2,33# mmol||/kg||/dag||"
+                    "Potassium", "#1,72# mmol||/kg||/dag||"
                 ]
         }
         {
@@ -133,16 +133,16 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpnComplete
             Totals =
                 [
-                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
-                    "Energy", "#2,37# - #22,9# kCal||/kg||/dag||"
-                    "Protein", "#0,587# - #1,47# g||/kg||/dag||"
-                    "Carbohydrate", "#0,00667# - #4,27# g||/kg||/dag||"
-                    "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
-                    "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
-                    "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
-                    "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
-                    "Phosphate", "#0,147# - #0,367# mmol||/kg||/dag||"
-                    "Magnesium", "#0,0733# - #0,183# mmol||/kg||/dag||"
+                    "Volume", "#38# mL||/kg||/dag||"
+                    "Energy", "#11,8# kCal||/kg||/dag||"
+                    "Protein", "#1,03# g||/kg||/dag||"
+                    "Carbohydrate", "#1,93# g||/kg||/dag||"
+                    "Sodium", "#2,33# mmol||/kg||/dag||"
+                    "Potassium", "#1,72# mmol||/kg||/dag||"
+                    "Chloride", "#4,57# mmol||/kg||/dag||"
+                    "Calcium", "#0,386# mmol||/kg||/dag||"
+                    "Phosphate", "#0,257# mmol||/kg||/dag||"
+                    "Magnesium", "#0,129# mmol||/kg||/dag||"
                 ]
         }
         {
@@ -160,16 +160,16 @@ let all: GoldenTotals list =
 /// The totals over all the recorded scenarios at once, the way an order plan takes them.
 let together =
     [
-        "Volume", "#31,3# - #142# mL||/kg||/dag||"
-        "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
-        "Protein", "#1,17# - #2,93# g||/kg||/dag||"
-        "Carbohydrate", "#0,176# - #11,1# g||/kg||/dag||"
-        "Sodium", "#4,21# - #5,33# mmol||/kg||/dag||"
-        "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
-        "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
-        "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
-        "Phosphate", "#0,147# - #0,367# mmol||/kg||/dag||"
-        "Magnesium", "#0,0733# - #0,183# mmol||/kg||/dag||"
+        "Volume", "#81,9# - #108# mL||/kg||/dag||"
+        "Energy", "#12,5# - #22,2# kCal||/kg||/dag||"
+        "Protein", "#2,06# g||/kg||/dag||"
+        "Carbohydrate", "#4,02# - #6,45# g||/kg||/dag||"
+        "Sodium", "#4,72# - #4,82# mmol||/kg||/dag||"
+        "Potassium", "#3,45# mmol||/kg||/dag||"
+        "Chloride", "#4,57# mmol||/kg||/dag||"
+        "Calcium", "#0,386# mmol||/kg||/dag||"
+        "Phosphate", "#0,257# mmol||/kg||/dag||"
+        "Magnesium", "#0,129# mmol||/kg||/dag||"
     ]
 
 
