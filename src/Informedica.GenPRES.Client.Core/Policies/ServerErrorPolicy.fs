@@ -22,6 +22,8 @@ module ServerErrorPolicy =
         | Interactions
         /// Counting the combined totals of the nutrition page.
         | Totals
+        /// Loading the rows of the emergency list.
+        | EmergencyList
         /// Logging in to the admin pages.
         | Login
         /// Listing the log files.

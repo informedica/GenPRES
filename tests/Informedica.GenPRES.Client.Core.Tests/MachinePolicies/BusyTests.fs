@@ -37,7 +37,7 @@ let allLoads =
     [
         Load.Settings
         Load.Localization
-        Load.BolusMedication
+        Load.EmergencyList
         Load.ContinuousMedication
         Load.Products
         Load.Formulary
@@ -196,7 +196,9 @@ let tests =
                     |> BusyPolicy.any
                     |> Expect.equal
                         $"%A{request}"
-                        (request <> Request.Load Load.DrugNames && request <> Request.Load Load.Totals)
+                        (request <> Request.Load Load.DrugNames
+                         && request <> Request.Load Load.Totals
+                         && request <> Request.Load Load.EmergencyList)
             }
 
             test "the patient, the Session, the signature, the settings and the localization disable every page" {
@@ -234,7 +236,7 @@ let tests =
 
             test "a page's own load disables that page; the formulary and parenteralia loads Settings as well" {
                 [
-                    Load.BolusMedication, [ Page.Page.LifeSupport ]
+                    Load.EmergencyList, [ Page.Page.LifeSupport ]
                     Load.ContinuousMedication, [ Page.Page.ContinuousMeds ]
                     Load.Products, [ Page.Page.LifeSupport; Page.Page.ContinuousMeds ]
                     Load.Formulary, [ Page.Page.Formulary; Page.Page.Settings ]

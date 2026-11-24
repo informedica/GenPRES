@@ -18,11 +18,9 @@ module EmergencyList =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let envBolus = AppEnv.asEnv<AppEnv.IBolusMedication> props.appEnv
-        let interventions = envBolus.BolusMedication
-        let onSelectItem = envBolus.OnSelectBolusMedicationItem
-        let filterState = envBolus.BolusMedicationFilter
-        let onFilterChange = envBolus.OnBolusMedicationFilterChange
+        let envList = AppEnv.asEnv<AppEnv.IEmergencyList> props.appEnv
+        let filterState = envList.EmergencyListFilter
+        let onFilterChange = envList.OnEmergencyListFilterChange
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -30,7 +28,6 @@ module EmergencyList =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let hosp = context.Hospital
 
         let printOpen, setPrintOpen = React.useState false
         let printLabels = Global.printLabels ()
@@ -115,52 +112,48 @@ module EmergencyList =
                     ]
             |]
 
+        // The rows the server calculated for the patient, also while they are calculated again.
         let rows =
-            match interventions with
-            | Resolved items ->
-                items
-                |> List.filter (fun item -> item.Hospital |> String.isNullOrWhiteSpace || hosp = Some item.Hospital)
-                |> List.distinctBy (fun item -> item.Category, item.Name, item.InterventionDoseText)
-                |> List.toArray
-                |> Array.mapi (fun i m ->
-                    let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
+            envList.EmergencyList
+            |> Deferred.defaultValue [||]
+            |> Array.mapi (fun i m ->
+                let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
-                    {|
-                        cells =
-                            [|
-                                {|
-                                    field = "id"
-                                    value = $"{i + 1}.{m.Hospital}.{m.Category}.{m.Name}"
-                                |}
-                                {|
-                                    field = "category"
-                                    value = $"{m.Category}"
-                                |}
-                                {|
-                                    field = "intervention"
-                                    value = $"**{m.Name}**"
-                                |}
-                                {|
-                                    field = "calculated"
-                                    value =
-                                        if b then
-                                            $"*{m.SubstanceDoseText}*"
-                                        else
-                                            m.SubstanceDoseText
-                                |}
-                                {|
-                                    field = "preparation"
-                                    value = if b then "" else $"*{m.InterventionDoseText}*"
-                                |}
-                                {|
-                                    field = "advice"
-                                    value = $"{m.Text}"
-                                |}
-                            |]
-                        actions = None
-                    |}
-                )
-            | _ -> [||]
+                {|
+                    cells =
+                        [|
+                            {|
+                                field = "id"
+                                value = $"%i{i + 1}"
+                            |}
+                            {|
+                                field = "category"
+                                value = $"{m.Category}"
+                            |}
+                            {|
+                                field = "intervention"
+                                value = $"**{m.Name}**"
+                            |}
+                            {|
+                                field = "calculated"
+                                value =
+                                    if b then
+                                        $"*{m.SubstanceDoseText}*"
+                                    else
+                                        m.SubstanceDoseText
+                            |}
+                            {|
+                                field = "preparation"
+                                value = if b then "" else $"*{m.InterventionDoseText}*"
+                            |}
+                            {|
+                                field = "advice"
+                                value = $"{m.Text}"
+                            |}
+                        |]
+                    actions = None
+                |}
+            )
 
         let rowCreate (cells: string[]) =
             if cells |> Array.length <> 6 then
@@ -253,8 +246,7 @@ module EmergencyList =
                 rows = rows
                 rowCreate = rowCreate
                 height = "100%"
-                onRowClick = onSelectItem
-                // a click goes to the Prescribe page, so no row is marked
+                onRowClick = ignore
                 markedRow = None
                 checkboxSelection = false
                 selectedRows = [||]

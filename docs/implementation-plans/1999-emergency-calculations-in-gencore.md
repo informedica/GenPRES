@@ -126,6 +126,10 @@ depend on the three decisions above, and step 3 depends on part 8 of plan 1210-1
 
 After part 8 of plan 1210-1211, which makes the client ask the server for the list.
 
+Part 8 of plan 1210-1211 shows only the server rows, asks for patient data the server accepts, and makes
+the removals below from Shared and the client. The server writes the Dutch texts of the rows (step 2), so
+the terms of this step are left open.
+
 - The client asks for the list as decision 3 says.
 - `Terms` (`src/Informedica.GenPRES.Client.Core/Models/Terms.fs`) gets a term for each intervention, for
   each formula and for the category of the rows. The fallback of each term is its English text.

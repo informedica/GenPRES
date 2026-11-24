@@ -10,7 +10,9 @@ module Loads =
     type Load =
         | Settings
         | Localization
-        | BolusMedication
+        /// The rows of the emergency list for the patient. They also start without a click, when the patient
+        /// data change or the page is shown, so they never make the menu, the title bar or the panel busy.
+        | EmergencyList
         | ContinuousMedication
         | Products
         | Formulary
@@ -89,10 +91,4 @@ module Loads =
 
 
     /// The loads the application cannot be used without.
-    let required =
-        [
-            Load.Localization
-            Load.BolusMedication
-            Load.ContinuousMedication
-            Load.Products
-        ]
+    let required = [ Load.Localization; Load.ContinuousMedication; Load.Products ]

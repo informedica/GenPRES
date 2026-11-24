@@ -517,27 +517,39 @@ Part 7, the advice of a standard order:
 
 Part 8, the client shows the server rows:
 
-- The client asks the server for the rows through Client.Core, as it does the other server loads, when
-  the patient data change and the patient has a Location.
-- The page shows the rows that are not medication, followed by the server rows, and lays a mask with a
-  spinner over the table while the server calculates the rows.
-- The client numbers each list request and ignores an answer to an earlier request, as it does for the
-  interaction checks and the totals queries. When the patient is reset or the patient data lose the
-  Location, the list clears its rows and its selection. The prescribe button is disabled while the rows
-  are calculated.
-- Removed: the medication rows of the emergency list workbook, their calculation in the client and their
-  lookup for a row click (`Client.emergencySeed`).
+- Since #1999 step 2 the server answers `getEmergencyList` with every row of the list: the calculated rows
+  that are not medication first, then the medication rows. The page shows only the server rows.
+- The client queries the rows through Client.Core, as it queries the totals: `Client.emergencyListQuery`
+  is the patient from the last server answer while the emergency list page is shown and the server accepts
+  the patient data (`PatientData.validate`: an adult mark, an age, or a measured weight with a measured
+  height), and a step that changes it sends `LoaderMsg.QueryEmergencyList`. So the list is asked
+  for when the page is shown, by the menu, a move, the url or a log out, and when the patient data change
+  while it is shown; the same patient data again ask nothing. The calculated rows need no Location, so a
+  patient without a Location is asked for too.
+- The client numbers each query and ignores an answer to an earlier query, as it does for the interaction
+  checks and the totals queries. No query, because the page is left, the patient is reset or the server would
+  not accept the patient data, clears the rows. The rows shown stay while they are queried again. A
+  resource reload queries the list again, because the rules may have changed. A failed query clears the
+  rows and shows the server error.
+- While the rows are queried, the page is disabled with a spinner, as every page is while a request can
+  change it; the menu, the title bar and the patient panel stay free.
+- Until part 9, a click on a row does nothing.
+- Removed: the emergency list workbook load (`Load.BolusMedication`), the calculation of the list in the
+  client (`EmergencyTreatment` and `BolusMedication` in Shared, with `Math.roundBy`, `Math.roundBy0_5` and
+  `List.findNearestMax`), the lookup for a row click (`Client.emergencySeed`) and the start-up term of the
+  workbook list. These are also the removals of step 3 of plan 1999.
 - Removed: the emergency baseline tests and their fixtures (`EmergencyBaseline.fs`,
   `EmergencyBaselineTests.fs`, `fixtures/emergencylist.csv` and `.tsv` in `Informedica.GenPRES.Shared.Tests`),
-  with their entries in the test project file. The order calculation is tested in GenSOLVER and GenORDER;
-  whether the rules are right is a matter of medical validation, not of the code.
+  with their entries in the test project file, and the server test that compared the server rows with the
+  client calculation. The order calculation is tested in GenSOLVER and GenORDER; whether the rules are
+  right is a matter of medical validation, not of the code.
 
 Part 9, prescribing from the list:
 
 - A click on a medication row sends a new order context message that puts the order context of the row in
   the workbench as it is, without a request, and moves to the prescribe page.
 - The list gets a checkbox for each row and a prescribe button, enabled when a selected row has an order
-  context.
+  context and disabled while the rows are queried. When the rows are cleared, the selection is cleared too.
 - The contract gets the plan command `AddOrderContexts`: it takes the plan and the order contexts of the
   selected rows. The server adds them one after the other through the port that adds an order context; when
   one is refused, none of them enters the plan. The plan accepts one request at a time, so one command

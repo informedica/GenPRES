@@ -59,7 +59,6 @@ let everyLoad =
     [
         landed (Landing.Settings(Ok(ShellMachineTests.settings Informedica.GenPRES.Shared.Localization.Dutch)))
         landed (Landing.Localization(Ok [||]))
-        landed (Landing.BolusMedication(Ok [ LoaderMachineTests.bolus "UMCU" ]))
         landed (Landing.ContinuousMedication(Ok []))
         landed (Landing.Products(Ok []))
         landed (Landing.Formulary(None, answered Formulary.empty))
@@ -71,16 +70,6 @@ let hasStep check (_, _, steps) = steps |> List.exists check
 
 
 let hasEffect check (_, effects, _) = effects |> List.exists check
-
-
-/// The emergency list loaded, with an item for adrenaline.
-let withList state =
-    state
-    |> play [ landed (Landing.BolusMedication(Ok [ LoaderMachineTests.bolus "UMCU" ])) ]
-    |> stateOf
-
-
-let adrenaline = "list.UMCU.cat.adrenaline"
 
 
 let seededFrom source =
@@ -325,39 +314,6 @@ let tests =
                             ]
                         |> seededFrom SeedSource.Reload
                         |> Expect.isTrue "seeded again"
-                    }
-                ]
-
-            testList
-                "a list item"
-                [
-                    test "with a patient: the Prescribe page and the seed" {
-                        let result =
-                            initial { Url.none with Patient = Some draft }
-                            |> withList
-                            |> play [ ClientMsg.EmergencyListItemChosen adrenaline ]
-
-                        (stateOf result).Shell.Page |> Expect.equal "Prescribe" Page.Page.Prescribe
-                        result |> seededFrom SeedSource.MedicationList |> Expect.isTrue "seeded"
-                    }
-
-                    test "without a patient: dropped and said" {
-                        let result =
-                            initial Url.none
-                            |> withList
-                            |> play [ ClientMsg.EmergencyListItemChosen adrenaline ]
-
-                        ((stateOf result).Shell.Snackbar, result |> seededFrom SeedSource.MedicationList)
-                        |> Expect.equal "said, not seeded" (Some Alert.Alert.NoPatientForMedication, false)
-                    }
-
-                    test "an item the list does not hold changes nothing" {
-                        let state = initial { Url.none with Patient = Some draft } |> withList
-                        let other = ClientMsg.EmergencyListItemChosen "list.UMCU.cat.other"
-
-                        state
-                        |> play [ other ]
-                        |> Expect.equal "dropped, and said so" (state, [], [ ClientStep.Dropped other ])
                     }
                 ]
 
@@ -870,6 +826,128 @@ module TotalsQueryFixtures =
 
 
 open TotalsQueryFixtures
+
+
+/// The client state with the page shown and the patient from the last server answer.
+let withPageAndPatient page patient =
+    let state = initial Url.none
+
+    { state with
+        Shell = { state.Shell with Page = page }
+        Loader = { state.Loader with Patient = patient }
+    }
+
+
+/// The emergency list requests among the effects of a transition.
+let listFetches (_, effects, _) =
+    effects
+    |> List.choose (
+        function
+        | ClientEffect.Loader(LoaderEffect.FetchEmergencyList(_, pat)) -> Some pat
+        | _ -> None
+    )
+
+
+[<Tests>]
+let emergencyListQueryTests =
+    testList
+        "the emergency list query the client sends"
+        [
+            test "is the patient while the list page is shown and the patient has an age" {
+                withPageAndPatient Page.Page.LifeSupport (Some draft)
+                |> emergencyListQuery
+                |> Expect.equal "the patient" (Some draft)
+            }
+
+            test "is the patient while the list page is shown and the patient is marked as an adult" {
+                let adult = { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
+
+                withPageAndPatient Page.Page.LifeSupport (Some adult)
+                |> emergencyListQuery
+                |> Expect.equal "the patient" (Some adult)
+            }
+
+            test "is the patient while the list page is shown and the patient has a measured weight and height" {
+                let measured =
+                    { PatientData.empty with
+                        Weight = { PatientData.empty.Weight with Measured = Some 10000<gram> }
+                        Height = { PatientData.empty.Height with Measured = Some 80<cm> }
+                    }
+
+                withPageAndPatient Page.Page.LifeSupport (Some measured)
+                |> emergencyListQuery
+                |> Expect.equal "the patient" (Some measured)
+            }
+
+            test "is None for a patient with a weight but without an age and a height" {
+                let weighed =
+                    { PatientData.empty with Weight = { PatientData.empty.Weight with Measured = Some 10000<gram> } }
+
+                withPageAndPatient Page.Page.LifeSupport (Some weighed)
+                |> emergencyListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None for a patient without data" {
+                withPageAndPatient Page.Page.LifeSupport (Some PatientData.empty)
+                |> emergencyListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None without a patient" {
+                withPageAndPatient Page.Page.LifeSupport None
+                |> emergencyListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None on another page" {
+                withPageAndPatient Page.Page.Prescribe (Some draft)
+                |> emergencyListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "a patient answer on the list page requests the list" {
+                withPageAndPatient Page.Page.LifeSupport None
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some draft)) ]
+                |> listFetches
+                |> Expect.equal "requested" [ draft ]
+            }
+
+            test "a patient answer on another page requests nothing" {
+                withPageAndPatient Page.Page.Prescribe None
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some draft)) ]
+                |> listFetches
+                |> Expect.isEmpty "nothing"
+            }
+
+            test "the same patient answer again requests nothing" {
+                withPageAndPatient Page.Page.LifeSupport None
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some draft)) ]
+                |> stateOf
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some draft)) ]
+                |> listFetches
+                |> Expect.isEmpty "nothing"
+            }
+
+            test "moving to the list page with a patient requests the list" {
+                withPageAndPatient Page.Page.Prescribe (Some draft)
+                |> play [ ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.LifeSupport) ]
+                |> listFetches
+                |> Expect.equal "requested" [ draft ]
+            }
+
+            test "leaving the list page clears the rows" {
+                withPageAndPatient Page.Page.LifeSupport None
+                |> play
+                    [
+                        ClientMsg.Loader(LoaderMsg.PatientSet(Some draft))
+                        ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
+                    ]
+                |> stateOf
+                |> _.Loader.EmergencyList
+                |> Expect.equal "cleared" HasNotStartedYet
+            }
+        ]
 
 
 [<Tests>]

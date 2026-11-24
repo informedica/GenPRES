@@ -146,8 +146,6 @@ module private Effects =
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
             Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
-            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
         | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
             Cmd.OfAsync.perform
                 GoogleDocs.loadContinuousMedication
@@ -166,6 +164,11 @@ module private Effects =
                 (fun result -> LoaderMachine.Landing.Interactions(check, opened, result))
         | LoaderMachine.LoaderEffect.FetchTotals(number, query) ->
             call serverApi.processTotals query (fun result -> LoaderMachine.Landing.Totals(number, opened, result))
+        | LoaderMachine.LoaderEffect.FetchEmergencyList(number, pat) ->
+            call
+                serverApi.getEmergencyList
+                pat
+                (fun result -> LoaderMachine.Landing.EmergencyList(number, opened, result))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
             call
                 serverApi.processInteraction
@@ -476,7 +479,6 @@ module private Elmish =
             StepTrail.confirmDemo false
             Logging.error "cannot load the server settings" err
         | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
-        | LoaderMachine.Landing.BolusMedication(Error err) -> Logging.error "cannot load emergency treatment" err
         | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
         | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
         | _ -> ()
@@ -729,13 +731,10 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.AnalyzeLogFile fileName =
             Msg.Admin(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
-    interface AppEnv.IBolusMedication with
-        member _.BolusMedication =
-            calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
-
-        member _.OnSelectBolusMedicationItem itm = Msg.EmergencyListItemChosen itm |> dispatch
-        member _.BolusMedicationFilter = Client.emergencyListFilter state
-        member _.OnBolusMedicationFilterChange filter =
+    interface AppEnv.IEmergencyList with
+        member _.EmergencyList = Client.emergencyList state
+        member _.EmergencyListFilter = Client.emergencyListFilter state
+        member _.OnEmergencyListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch
 
     interface AppEnv.IContinuousMedication with

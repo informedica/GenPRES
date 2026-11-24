@@ -83,11 +83,6 @@ module String =
 module Math =
 
 
-    let roundBy s n = (n / s) |> round |> double |> (fun f -> f * s)
-
-
-    let roundBy0_5 = roundBy 0.5
-
     /// Returns the number of decimals that shows f with at least n significant digits.
     /// For example, 0.0666 |> getPrecision 2 = 3 and 6.6666 |> getPrecision 2 = 1.
     /// A negative n counts as 0. Returns n when f is zero, infinite or not a number.
@@ -116,21 +111,6 @@ module Math =
         else
             // Adding zero turns a negative zero into zero, so that it does not print as "-0".
             Math.Round(f, f |> getPrecision n |> min 15) + 0.
-
-
-module List =
-
-
-    let inline findNearestMax n ns =
-        match ns with
-        | [] -> n
-        | _ ->
-            let n = if n > (ns |> List.max) then ns |> List.max else n
-
-            ns
-            |> List.sort
-            |> List.rev
-            |> List.fold (fun x a -> if (a - x) < (n - x) then x else a) n
 
 
 [<RequireQualifiedAccess>]

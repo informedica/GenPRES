@@ -17,7 +17,6 @@ module GenOrder = Informedica.GenOrder.Lib.Types
 module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
 module SharedFormulary = Informedica.GenPRES.Shared.Models.Formulary
 module SharedPatient = Informedica.GenPRES.Shared.Models.PatientData
-module SharedEmergency = Informedica.GenPRES.Shared.Models.EmergencyTreatment
 
 type LogEvent = Informedica.Logging.Lib.Event
 type Logger = Informedica.Logging.Lib.Logger
@@ -188,20 +187,6 @@ let tests =
                         Emergency.calculate None (32m |> CoreConversions.kgFromDecimal |> Some)
                         |> List.map (ofCalculation >> fun r -> r.Category, r.InterventionDose, r.OrderContext.IsNone)
                         |> Expect.equal "the rows" [ "reanimatie", Some 150., true; "reanimatie", Some 70., true ]
-                    }
-
-                    // The client still calculates these rows until it shows the rows of the server.
-                    test "gives the texts of the client for 0.4 to 120 kg and 0 to 20 years" {
-                        let weights = [ 0.4m..0.05m..3.2m ] @ [ 3.5m..0.5m..120m ] |> List.map Some
-
-                        for weight in None :: weights do
-                            for age in None :: ([ 0..30..7300 ] |> List.map Some) do
-                                SharedEmergency.calculate
-                                    (age |> Option.map (fun days -> float days / 365.))
-                                    (weight |> Option.map float)
-                                    []
-                                |> List.map (fun r -> r.Name, r.SubstanceDoseText, r.Text)
-                                |> Expect.equal $"the rows at %A{weight} kg and %A{age} days" (texts age weight)
                     }
                 ]
 

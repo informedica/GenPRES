@@ -63,11 +63,15 @@ let tests =
                 |> Option.map (fun gate -> gate.Title, gate.Busy)
                 |> Expect.equal "starting" (Some("Starting GenPRES", true))
 
-                startupGate tr (Startup.Failed [ Load.BolusMedication; Load.Products ])
+                startupGate tr (Startup.Failed [ Load.ContinuousMedication; Load.Products ])
                 |> Option.map (fun gate -> gate.Body, gate.Busy, gate.Actions)
                 |> Expect.equal
                     "failed"
-                    (Some("Not loaded: the emergency list, the products. Reload the page to try again.", false, []))
+                    (Some(
+                        "Not loaded: the continuous medication list, the products. Reload the page to try again.",
+                        false,
+                        []
+                    ))
             }
 
             test "the session's gate goes before the start-up's" {
@@ -113,7 +117,6 @@ let tests =
                         Terms.``Startup Gate Failed``
                         Terms.``Startup Gate Failed Text``
                         Terms.``Startup Load Localization``
-                        Terms.``Startup Load Bolus Medication``
                         Terms.``Startup Load Continuous Medication``
                         Terms.``Startup Load Products``
                     ] do

@@ -80,8 +80,6 @@ module Client =
         | NewPatient of PatientDataEdit * request: string
         /// The url changed in the address bar, as path segments and as parsed parts.
         | UrlChanged of string list * Url.UrlParts
-        /// An item chosen on the emergency list.
-        | EmergencyListItemChosen of item: string
         /// An item chosen on the continuous medication list.
         | ContinuousMedicationChosen of item: string
         /// Signs the plan with this request id.
@@ -161,6 +159,15 @@ module Client =
                 }
 
             Some query
+        | _ -> None
+
+
+    /// The patient data the emergency list is queried for: the patient from the last server answer, while the
+    /// emergency list page is shown and the patient data are enough for the server to calculate with: an adult
+    /// mark, an age, or a measured weight with a measured height. None otherwise, which clears the rows.
+    let emergencyListQuery (state: ClientState) =
+        match state.Shell.Page, state.Loader.Patient with
+        | Page.LifeSupport, Some pat when pat |> Models.PatientData.validate |> Result.isOk -> Some pat
         | _ -> None
 
 
@@ -301,8 +308,8 @@ module Client =
     let drugNames (state: ClientState) = state.Loader.DrugNames
 
 
-    /// The medication of the emergency list.
-    let bolusMedication (state: ClientState) = state.Loader.BolusMedication
+    /// The rows of the emergency list.
+    let emergencyList (state: ClientState) = state.Loader.EmergencyList
 
 
     /// The continuous medication list.
@@ -452,23 +459,6 @@ module Client =
         |> Option.isSome
 
 
-    /// Returns the filter seed for an emergency list item; None when the list is not loaded or lacks the item.
-    let emergencySeed (item: string) (meds: Deferred<BolusMedication list>) =
-        match meds with
-        | Resolved meds ->
-            meds
-            |> List.tryFind (fun m -> item.EndsWith($".%s{m.Hospital}.%s{m.Category}.%s{m.Generic}"))
-            |> Option.map (fun m ->
-                let generic =
-                    if m.TemplateGeneric = "" then
-                        m.Generic
-                    else
-                        m.TemplateGeneric
-                FilterSeed.ofListItem generic m.TemplateIndication m.TemplateRoute m.TemplateDoseType
-            )
-        | _ -> None
-
-
     /// Returns the filter seed for a continuous medication list item, with the intravenous route; None when the
     /// list is not loaded or lacks the item.
     let continuousSeed (item: string) (meds: Deferred<ContinuousMedication list>) =
@@ -504,6 +494,17 @@ module Client =
             page @ seedOrAlert newId seed state
         // The list does not have the item.
         | None -> []
+
+
+    /// Returns the message that queries the emergency list when the query of the state after a step differs from
+    /// the query of the state before it; otherwise no message.
+    let emergencyListFollow before after =
+        let query = emergencyListQuery after
+
+        [
+            if query <> emergencyListQuery before then
+                ClientMsg.Loader(LoaderMsg.QueryEmergencyList query)
+        ]
 
 
     /// Runs one message: a step of a part, or follow-up messages for the parts. A client message without
@@ -546,24 +547,28 @@ module Client =
                             ClientMsg.Loader(LoaderMsg.QueryTotals query)
                     ]
             }
+        // Queries the emergency list again when a loader step changed the patient of the query.
         | ClientMsg.Loader m ->
             let loader, effects = LoaderMachine.transition m state.Loader
-            ran
-                { state with Loader = loader }
-                (effects |> List.map ClientEffect.Loader)
-                [ ClientStep.Loader(m, loader, effects) ]
+            let next = { state with Loader = loader }
+
+            { ran next (effects |> List.map ClientEffect.Loader) [ ClientStep.Loader(m, loader, effects) ] with
+                Follow = emergencyListFollow state next
+            }
         | ClientMsg.Admin m ->
             let admin, effects = AdminMachine.transition m state.Admin
             ran
                 { state with Admin = admin }
                 (effects |> List.map ClientEffect.Admin)
                 [ ClientStep.Admin(m, admin, effects) ]
+        // Queries the emergency list again when a shell step changed the page.
         | ClientMsg.Shell m ->
             let shell, effects = ShellMachine.transition m state.Shell
-            ran
-                { state with Shell = shell }
-                (effects |> List.map ClientEffect.Shell)
-                [ ClientStep.Shell(m, shell, effects) ]
+            let next = { state with Shell = shell }
+
+            { ran next (effects |> List.map ClientEffect.Shell) [ ClientStep.Shell(m, shell, effects) ] with
+                Follow = emergencyListFollow state next
+            }
         | ClientMsg.PageChosen page ->
             becomes [ ClientMsg.Shell(ShellMsg.PageChosen(page, state.Admin.IsAuthenticated)) ]
         | ClientMsg.PanelCleared request ->
@@ -588,10 +593,6 @@ module Client =
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]
-        | ClientMsg.EmergencyListItemChosen item ->
-            state
-            |> chosen newId (state.Loader.BolusMedication |> emergencySeed item)
-            |> becomes
         | ClientMsg.ContinuousMedicationChosen item ->
             state
             |> chosen newId (state.Loader.ContinuousMedication |> continuousSeed item)
@@ -775,7 +776,6 @@ module Client =
                 for load in
                     [
                         Load.Settings
-                        Load.BolusMedication
                         Load.ContinuousMedication
                         Load.Products
                         Load.Localization
