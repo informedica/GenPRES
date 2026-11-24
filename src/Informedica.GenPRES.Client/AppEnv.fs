@@ -247,10 +247,9 @@ type IEmergencyList =
     abstract OnEmergencyListFilterChange: string[] -> unit
 
 
-/// The continuous medication list, calculated for the patient data.
+/// The rows of the continuous medication list, calculated by the server for the patient data.
 [<Interface>]
-type IContinuousMedication =
-    abstract ContinuousMedication: Deferred<Intervention list>
-    abstract OnSelectContinuousMedicationItem: string -> unit
-    abstract ContinuousMedicationFilter: string[]
-    abstract OnContinuousMedicationFilterChange: string[] -> unit
+type IContinuousList =
+    abstract ContinuousList: Deferred<Intervention[]>
+    abstract ContinuousListFilter: string[]
+    abstract OnContinuousListFilterChange: string[] -> unit

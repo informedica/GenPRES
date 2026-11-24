@@ -82,8 +82,6 @@ module Client =
         | UrlChanged of string list * Url.UrlParts
         /// The order context of a row chosen on the emergency list.
         | EmergencyListRowChosen of OrderContext
-        /// An item chosen on the continuous medication list.
-        | ContinuousMedicationChosen of item: string
         /// Signs the plan with this request id.
         | Sign of OrderPlan * request: string
         /// Takes the EHR data in the sign dialog.
@@ -170,6 +168,17 @@ module Client =
     let emergencyListQuery (state: ClientState) =
         match state.Shell.Page, state.Loader.Patient with
         | Page.LifeSupport, Some pat when pat |> Models.PatientData.validate |> Result.isOk -> Some pat
+        | _ -> None
+
+
+    /// The patient data the continuous medication list is queried for: the patient from the last server answer,
+    /// while the continuous medication list page is shown, the patient has a Location and the patient data are
+    /// enough for the server to calculate with: an adult mark, an age, or a measured weight with a measured height.
+    /// None otherwise, which clears the rows.
+    let continuousListQuery (state: ClientState) =
+        match state.Shell.Page, state.Loader.Patient with
+        | Page.ContinuousMeds, Some pat when pat.Location.IsSome && pat |> Models.PatientData.validate |> Result.isOk ->
+            Some pat
         | _ -> None
 
 
@@ -333,8 +342,8 @@ module Client =
         |> Array.choose (emergencyListRowContext state)
 
 
-    /// The continuous medication list.
-    let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
+    /// The rows of the continuous medication list.
+    let continuousList (state: ClientState) = state.Loader.ContinuousList
 
 
     /// The hospitals to choose from: the locations of the server settings.
@@ -480,17 +489,6 @@ module Client =
         |> Option.isSome
 
 
-    /// Returns the filter seed for a continuous medication list item, with the intravenous route; None when the
-    /// list is not loaded or lacks the item.
-    let continuousSeed (item: string) (meds: Deferred<ContinuousMedication list>) =
-        match meds with
-        | Resolved meds ->
-            meds
-            |> List.tryFind (fun m -> item.EndsWith($".%s{m.Medication}"))
-            |> Option.map (fun m -> FilterSeed.ofListItem m.Generic m.Indication "INTRAVENEUS" m.DoseType)
-        | _ -> None
-
-
     /// Seeds the workbench filter when there is patient data; otherwise raises an alert, because the patient
     /// is part of the filter.
     let seedOrAlert newId seed state =
@@ -502,21 +500,6 @@ module Client =
         | None -> [ ClientMsg.Shell(ShellMsg.AlertRaised Alert.Alert.NoPatientForMedication) ]
 
 
-    /// Handles a chosen list item: with patient data, moves to the Prescribe page and seeds the workbench;
-    /// without patient data, raises an alert. Does nothing when the seed is None.
-    let chosen newId seed state =
-        match seed with
-        | Some seed ->
-            let page =
-                patient state
-                |> Option.map (fun _ -> ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe))
-                |> Option.toList
-
-            page @ seedOrAlert newId seed state
-        // The list does not have the item.
-        | None -> []
-
-
     /// Returns the message that queries the emergency list when the query of the state after a step differs from
     /// the query of the state before it; otherwise no message.
     let emergencyListFollow before after =
@@ -525,6 +508,17 @@ module Client =
         [
             if query <> emergencyListQuery before then
                 ClientMsg.Loader(LoaderMsg.QueryEmergencyList query)
+        ]
+
+
+    /// Returns the message that queries the continuous medication list when the query of the state after a step
+    /// differs from the query of the state before it; otherwise no message.
+    let continuousListFollow before after =
+        let query = continuousListQuery after
+
+        [
+            if query <> continuousListQuery before then
+                ClientMsg.Loader(LoaderMsg.QueryContinuousList query)
         ]
 
 
@@ -568,13 +562,13 @@ module Client =
                             ClientMsg.Loader(LoaderMsg.QueryTotals query)
                     ]
             }
-        // Queries the emergency list again when a loader step changed the patient of the query.
+        // Queries a list again when a loader step changed the patient of its query.
         | ClientMsg.Loader m ->
             let loader, effects = LoaderMachine.transition m state.Loader
             let next = { state with Loader = loader }
 
             { ran next (effects |> List.map ClientEffect.Loader) [ ClientStep.Loader(m, loader, effects) ] with
-                Follow = emergencyListFollow state next
+                Follow = emergencyListFollow state next @ continuousListFollow state next
             }
         | ClientMsg.Admin m ->
             let admin, effects = AdminMachine.transition m state.Admin
@@ -582,13 +576,13 @@ module Client =
                 { state with Admin = admin }
                 (effects |> List.map ClientEffect.Admin)
                 [ ClientStep.Admin(m, admin, effects) ]
-        // Queries the emergency list again when a shell step changed the page.
+        // Queries a list again when a shell step changed the page.
         | ClientMsg.Shell m ->
             let shell, effects = ShellMachine.transition m state.Shell
             let next = { state with Shell = shell }
 
             { ran next (effects |> List.map ClientEffect.Shell) [ ClientStep.Shell(m, shell, effects) ] with
-                Follow = emergencyListFollow state next
+                Follow = emergencyListFollow state next @ continuousListFollow state next
             }
         | ClientMsg.PageChosen page ->
             becomes [ ClientMsg.Shell(ShellMsg.PageChosen(page, state.Admin.IsAuthenticated)) ]
@@ -621,10 +615,6 @@ module Client =
                     ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
                     ClientMsg.Lanes(LanesMsg.Workbench(OrderContextMsg.Chosen ctx))
                 ]
-        | ClientMsg.ContinuousMedicationChosen item ->
-            state
-            |> chosen newId (state.Loader.ContinuousMedication |> continuousSeed item)
-            |> becomes
         // The differences are taken now, so a plan change during signing does not alter what is signed.
         | ClientMsg.Sign(plan, request) ->
             let differences = planDifferences state plan
@@ -804,7 +794,6 @@ module Client =
                 for load in
                     [
                         Load.Settings
-                        Load.ContinuousMedication
                         Load.Products
                         Load.Localization
                         Load.Formulary

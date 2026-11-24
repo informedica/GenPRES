@@ -47,7 +47,6 @@ module StartupPolicy =
         | Terms.``Startup Gate Failed`` -> "GenPRES could not start"
         | Terms.``Startup Gate Failed Text`` -> "Not loaded: {0}. Reload the page to try again."
         | Terms.``Startup Load Localization`` -> "the translations"
-        | Terms.``Startup Load Continuous Medication`` -> "the continuous medication list"
         | Terms.``Startup Load Products`` -> "the products"
         | _ -> SessionGatePolicy.english term
 
@@ -56,7 +55,6 @@ module StartupPolicy =
     let loadName (tr: Terms -> string) load =
         match load with
         | Load.Localization -> tr Terms.``Startup Load Localization``
-        | Load.ContinuousMedication -> tr Terms.``Startup Load Continuous Medication``
         | Load.Products -> tr Terms.``Startup Load Products``
         | _ -> $"%A{load}"
 

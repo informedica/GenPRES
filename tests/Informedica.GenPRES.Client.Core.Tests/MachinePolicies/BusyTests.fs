@@ -38,7 +38,7 @@ let allLoads =
         Load.Settings
         Load.Localization
         Load.EmergencyList
-        Load.ContinuousMedication
+        Load.ContinuousList
         Load.Products
         Load.Formulary
         Load.Parenteralia
@@ -179,7 +179,7 @@ let tests =
                     idle [ load ] |> Expect.equal $"%A{load}" [ Request.Load load ]
             }
 
-            test "every request holds the menu, the drug names and the totals excepted" {
+            test "every request holds the menu, the drug names, the totals and the two list loads excepted" {
                 let requests =
                     [
                         Request.Patient
@@ -198,7 +198,8 @@ let tests =
                         $"%A{request}"
                         (request <> Request.Load Load.DrugNames
                          && request <> Request.Load Load.Totals
-                         && request <> Request.Load Load.EmergencyList)
+                         && request <> Request.Load Load.EmergencyList
+                         && request <> Request.Load Load.ContinuousList)
             }
 
             test "the patient, the Session, the signature, the settings and the localization disable every page" {
@@ -237,7 +238,7 @@ let tests =
             test "a page's own load disables that page; the formulary and parenteralia loads Settings as well" {
                 [
                     Load.EmergencyList, [ Page.Page.LifeSupport ]
-                    Load.ContinuousMedication, [ Page.Page.ContinuousMeds ]
+                    Load.ContinuousList, [ Page.Page.ContinuousMeds ]
                     Load.Products, [ Page.Page.LifeSupport; Page.Page.ContinuousMeds ]
                     Load.Formulary, [ Page.Page.Formulary; Page.Page.Settings ]
                     Load.Parenteralia, [ Page.Page.Parenteralia; Page.Page.Settings ]

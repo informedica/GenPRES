@@ -19,7 +19,6 @@
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\AgeToStringOracle.fsx" />
-    <None Include="Scripts\ListBaseline.fsx" />
   </ItemGroup>
 
   <ItemGroup>

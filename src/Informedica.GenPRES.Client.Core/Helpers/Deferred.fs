@@ -30,19 +30,6 @@ module Deferred =
             | Refreshing value -> Refreshing(transform value)
 
 
-        /// Applies a function that returns a Deferred to the value. A Resolved result for a Refreshing
-        /// value stays Refreshing, so the value still shows as reloading.
-        let bind (transform: 'T -> Deferred<'U>) (deferred: Deferred<'T>) : Deferred<'U> =
-            match deferred with
-            | HasNotStartedYet -> HasNotStartedYet
-            | InProgress -> InProgress
-            | Resolved value -> transform value
-            | Refreshing value ->
-                match transform value with
-                | Resolved result -> Refreshing result
-                | other -> other
-
-
         /// The value, or the default while there is none.
         let defaultValue defVal =
             function

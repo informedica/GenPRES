@@ -24,6 +24,8 @@ module ServerErrorPolicy =
         | Totals
         /// Loading the rows of the emergency list.
         | EmergencyList
+        /// Loading the rows of the continuous medication list.
+        | ContinuousList
         /// Logging in to the admin pages.
         | Login
         /// Listing the log files.

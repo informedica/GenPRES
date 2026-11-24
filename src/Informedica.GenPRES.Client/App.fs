@@ -146,11 +146,6 @@ module private Effects =
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
             Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
-            Cmd.OfAsync.perform
-                GoogleDocs.loadContinuousMedication
-                ()
-                (landed LoaderMachine.Landing.ContinuousMedication)
         | LoaderMachine.LoaderEffect.FetchProducts ->
             Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
         | LoaderMachine.LoaderEffect.FetchFormulary form ->
@@ -169,6 +164,11 @@ module private Effects =
                 serverApi.getEmergencyList
                 pat
                 (fun result -> LoaderMachine.Landing.EmergencyList(number, opened, result))
+        | LoaderMachine.LoaderEffect.FetchContinuousList(number, pat) ->
+            call
+                serverApi.getContinuousList
+                pat
+                (fun result -> LoaderMachine.Landing.ContinuousList(number, opened, result))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
             call
                 serverApi.processInteraction
@@ -479,7 +479,6 @@ module private Elmish =
             StepTrail.confirmDemo false
             Logging.error "cannot load the server settings" err
         | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
-        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
         | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
         | _ -> ()
 
@@ -528,20 +527,6 @@ let private program () =
 #else
     program
 #endif
-
-
-/// Calculates the medication list for the patient data. Without patient data the list is empty, not
-/// pending, so the page says what is missing; the spinner shows only while the list loads.
-let private calculateInterventions calc meds pat =
-    meds
-    |> Deferred.bind (fun xs ->
-        match pat with
-        | None -> Resolved []
-        | Some p ->
-            let a = p |> PatientRead.getAgeInYears
-            let w = p |> PatientRead.getWeightInKg
-            xs |> calc a w |> Resolved
-    )
 
 
 /// Implements the AppEnv interfaces: the views read the client state and dispatch their messages
@@ -751,21 +736,10 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.OnEmergencyListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch
 
-    interface AppEnv.IContinuousMedication with
-        member _.ContinuousMedication =
-            let calc =
-                fun _ w meds ->
-                    match w with
-                    | Some w' -> ContinuousMedicationList.calculate w' meds
-                    | None -> []
-
-            calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
-
-        member _.OnSelectContinuousMedicationItem itm = Msg.ContinuousMedicationChosen itm |> dispatch
-
-        member _.ContinuousMedicationFilter = Client.continuousMedsFilter state
-
-        member _.OnContinuousMedicationFilterChange filter =
+    interface AppEnv.IContinuousList with
+        member _.ContinuousList = Client.continuousList state
+        member _.ContinuousListFilter = Client.continuousMedsFilter state
+        member _.OnContinuousListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered filter) |> dispatch
 
 

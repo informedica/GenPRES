@@ -32,7 +32,7 @@ module BusyPolicy =
         | Request.Workbench, Page.Settings
         | Request.Load(Load.Formulary | Load.Parenteralia), Page.Settings -> true
         | Request.Load Load.EmergencyList, Page.LifeSupport
-        | Request.Load Load.ContinuousMedication, Page.ContinuousMeds
+        | Request.Load Load.ContinuousList, Page.ContinuousMeds
         | Request.Load Load.Products, (Page.LifeSupport | Page.ContinuousMeds)
         | Request.Load Load.Formulary, Page.Formulary
         | Request.Load Load.Parenteralia, Page.Parenteralia
@@ -43,13 +43,12 @@ module BusyPolicy =
 
 
     /// Whether a pending request disables the menu, the title bar and the patient panel. Every request
-    /// does, except the medication names, the totals and the emergency list loads, which start without a user
-    /// action.
+    /// does, except the medication names, the totals and the two list loads, which start without a user action.
     let any out =
         out
         |> List.exists (fun request ->
             match request with
-            | Request.Load(Load.DrugNames | Load.Totals | Load.EmergencyList) -> false
+            | Request.Load(Load.DrugNames | Load.Totals | Load.EmergencyList | Load.ContinuousList) -> false
             | _ -> true
         )
 
