@@ -1022,21 +1022,52 @@ module Types =
         | Nutrition of NutritionCategory
 
 
-    /// An order context narrowed to one scenario, with the texts a list shows for it.
-    type StandardOrder =
+    /// The texts of a standard order on the emergency list.
+    type BolusTexts =
         {
-            /// The order context, narrowed to the scenario
-            Context: OrderContext
-            /// The indication without the prefix, such as "Noodlijst "
-            Category: string
-            /// The generic of the context, else the name of the scenario
-            Generic: string
             /// The dose of the substance, with the dose per kg in brackets for an order per kg
             SubstanceDose: string
             /// The dose of the orderable with the concentration of the substance in it
             Preparation: string
             /// The limits of the dose rule of the scenario, with the time and the rate for a once timed order
             Advice: string
+        }
+
+
+    /// The texts of a standard order on the continuous medication list.
+    type InfusionTexts =
+        {
+            /// The quantity of the substance in the orderable
+            Quantity: string
+            /// The quantity of the orderable, followed by the diluent
+            Solution: string
+            /// The rate of the orderable, followed by the rate per kg of the substance for an order per kg
+            Dose: string
+            /// The rate limits of the dose rule of the scenario
+            Advice: string
+        }
+
+
+    /// The texts a list shows for a standard order.
+    [<RequireQualifiedAccess>]
+    type StandardOrderTexts =
+        /// The texts of the emergency list
+        | Bolus of BolusTexts
+        /// The texts of the continuous medication list
+        | Infusion of InfusionTexts
+
+
+    /// An order context narrowed to one scenario, with the texts a list shows for it.
+    type StandardOrder =
+        {
+            /// The order context, narrowed to the scenario
+            Context: OrderContext
+            /// The indication without the prefix of the list, such as "Noodlijst "
+            Category: string
+            /// The generic of the context, else the name of the scenario
+            Generic: string
+            /// The texts of the list the standard order is on
+            Texts: StandardOrderTexts
         }
 
 

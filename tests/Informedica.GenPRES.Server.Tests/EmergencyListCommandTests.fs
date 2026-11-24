@@ -36,9 +36,13 @@ module Fixtures =
                 }
             Category = "Reanimatie"
             Generic = "paracetamol"
-            SubstanceDose = "0 - 100 mg"
-            Preparation = "1 zetpil van 100 mg/stuk"
-            Advice = "max 100 mg"
+            Texts =
+                GenOrder.StandardOrderTexts.Bolus
+                    {
+                        SubstanceDose = "0 - 100 mg"
+                        Preparation = "1 zetpil van 100 mg/stuk"
+                        Advice = "max 100 mg"
+                    }
         }
 
 
@@ -132,6 +136,29 @@ let tests =
                     }
 
                     test "puts the advice in the text" { row.Text |> Expect.equal "the advice" "max 100 mg" }
+
+                    test "puts the texts of an infusion in the quantity, the solution, the dose and the text" {
+                        let infusion =
+                            { Fixtures.standardOrder with
+                                Texts =
+                                    GenOrder.StandardOrderTexts.Infusion
+                                        {
+                                            Quantity = "10 mg"
+                                            Solution = "50 mL gluc 10%"
+                                            Dose = "0,7 - 2,8 mL/uur = 10 - 40 microg/kg/uur"
+                                            Advice = "10 - 40 microg/kg/uur"
+                                        }
+                            }
+                            |> toIntervention false
+
+                        (infusion.QuantityUnit, infusion.Solution, infusion.SubstanceDoseText, infusion.Text)
+                        |> Expect.equal
+                            "the texts"
+                            ("10 mg",
+                             "50 mL gluc 10%",
+                             "0,7 - 2,8 mL/uur = 10 - 40 microg/kg/uur",
+                             "10 - 40 microg/kg/uur")
+                    }
 
                     test "carries the order context of the standard order as a medication" {
                         row.OrderContext

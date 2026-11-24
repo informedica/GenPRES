@@ -480,14 +480,28 @@ module EmergencyListCommand =
         | GenOrder.StandardOrderWarning.Failed(ind, gen, messages) -> text ind gen messages
 
 
-    /// Maps a standard order to a row of the emergency list, with the order context of the standard order.
+    /// Maps a standard order to a row of its list, with the order context of the standard order. The texts go in
+    /// the text fields the list shows.
     let toIntervention demo (so: GenOrder.StandardOrder) =
-        { Intervention.emptyIntervention with
+        let texts =
+            match so.Texts with
+            | GenOrder.StandardOrderTexts.Bolus t ->
+                { Intervention.emptyIntervention with
+                    SubstanceDoseText = t.SubstanceDose
+                    InterventionDoseText = t.Preparation
+                    Text = t.Advice
+                }
+            | GenOrder.StandardOrderTexts.Infusion t ->
+                { Intervention.emptyIntervention with
+                    QuantityUnit = t.Quantity
+                    Solution = t.Solution
+                    SubstanceDoseText = t.Dose
+                    Text = t.Advice
+                }
+
+        { texts with
             Category = so.Category
             Name = so.Generic
-            SubstanceDoseText = so.SubstanceDose
-            InterventionDoseText = so.Preparation
-            Text = so.Advice
             OrderContext =
                 so.Context
                 |> PlanContext.create "" GenOrder.OrderCategory.Medication

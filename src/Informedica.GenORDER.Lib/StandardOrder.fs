@@ -149,9 +149,9 @@ module StandardOrder =
         withTimeAndRate limits sc.Order
 
 
-    /// Returns the standard order of a scenario of the context, with its advice. A scenario with a substance shows
-    /// the substance; a scenario dosed by volume shows the orderable.
-    let ofScenario (ctx: OrderContext, sc: OrderScenario) =
+    /// Returns the bolus texts of a scenario. A scenario with a substance shows the substance; a scenario dosed by
+    /// volume shows the orderable.
+    let bolusTexts (sc: OrderScenario) =
         let orb = sc.Order.Orderable
 
         // The values have the precision of the prescription texts of the scenario.
@@ -182,13 +182,83 @@ module StandardOrder =
                     $"%s{orbQty} van %s{cnc}"
             | None -> withAdjust sc.UseAdjust orbQty orbQtyAdj, $"%s{orbQty} %s{sc.Name}"
 
+        StandardOrderTexts.Bolus
+            {
+                SubstanceDose = substanceDose
+                Preparation = preparation
+                Advice = advice sc
+            }
+
+
+    /// Returns the infusion texts of a scenario. A scenario with a substance shows the substance; a scenario dosed by
+    /// volume shows the orderable, and the rate limits of its component, else of the orderable.
+    let infusionTexts (sc: OrderScenario) =
+        let orb = sc.Order.Orderable
+
+        // The values have the precision of the prescription texts of the scenario.
+        let rate = orb.Dose.Rate |> OrderVariable.toValueUnitText OrderVariable.Rate.toOrdVar -1
+
+        // The rate, followed by the rate per kg of the dose for an order per kg, else by the rate of the dose.
+        let withRate (dose: Dose) =
+            let doseRate =
+                if sc.UseAdjust then
+                    dose.RateAdjust
+                    |> OrderVariable.toValueUnitText OrderVariable.RateAdjust.toOrdVar 3
+                else
+                    dose.Rate |> OrderVariable.toValueUnitText OrderVariable.Rate.toOrdVar 3
+
+            if doseRate = "" then rate else $"%s{rate} = %s{doseRate}"
+
+        // The rate limits of the dose, per kg for an order per kg.
+        let limits (dose: Dose) =
+            if sc.UseAdjust then
+                dose |> DosePrint.doseRateAdjustConstraints 3
+            else
+                dose |> DosePrint.doseRateConstraints 3
+
+        match itemOf sc with
+        | Some i ->
+            let qty =
+                i.OrderableQuantity
+                |> OrderVariable.toValueUnitText OrderVariable.Quantity.toOrdVar 3
+            let orbQty =
+                orb.OrderableQuantity
+                |> OrderVariable.toValueUnitText OrderVariable.Quantity.toOrdVar -1
+            let diluent = sc.Diluent |> Option.defaultValue ""
+
+            StandardOrderTexts.Infusion
+                {
+                    Quantity = qty
+                    Solution = $"%s{orbQty} %s{diluent}" |> String.trim
+                    Dose = withRate i.Dose
+                    Advice = limits i.Dose
+                }
+        | None ->
+            let advice =
+                orb.Components
+                |> List.tryHead
+                |> Option.map (_.Dose >> limits)
+                |> Option.filter (String.isNullOrWhiteSpace >> not)
+                |> Option.defaultWith (fun () -> limits orb.Dose)
+
+            StandardOrderTexts.Infusion
+                {
+                    Quantity = ""
+                    Solution = sc.Name
+                    // Without a substance, only the rate per kg of the orderable adds to the rate.
+                    Dose = if sc.UseAdjust then withRate orb.Dose else rate
+                    Advice = advice
+                }
+
+
+    /// Returns the standard order of a scenario of the context: the category is the indication without the prefix,
+    /// and toTexts makes the texts.
+    let ofScenario prefix toTexts (ctx: OrderContext, sc: OrderScenario) =
         {
             Context = narrowed ctx sc
-            Category = categoryOf "Noodlijst " sc.Indication
+            Category = categoryOf prefix sc.Indication
             Generic = ctx.Filter.Generic |> Option.defaultValue sc.Name
-            SubstanceDose = substanceDose
-            Preparation = preparation
-            Advice = advice sc
+            Texts = toTexts sc
         }
 
 
@@ -206,17 +276,34 @@ module StandardOrder =
         }
 
 
-    /// Returns the standard orders of the rule sets of the kind EmergencyList for the patient, a standard order with
-    /// its advice for each scenario, with a warning for each evaluation that gives no scenarios. The rules are
-    /// evaluated in chunks of Parallel.totalWorders: the chunks run in parallel, the rules in a chunk one after the
-    /// other.
-    let emergencyList start logger provider patientData (sets: RuleSet[]) =
+    /// Returns the standard orders of the rule sets of the kind for the patient, a standard order for each scenario,
+    /// with a warning for each evaluation that gives no scenarios. The rules are evaluated in chunks of
+    /// Parallel.totalWorders: the chunks run in parallel, the rules in a chunk one after the other.
+    let standardOrders kind prefix toTexts start logger provider patientData (sets: RuleSet[]) =
         let found =
             sets
-            |> Array.filter (fun s -> s.Kind = RuleSetKind.EmergencyList)
+            |> Array.filter (fun s -> s.Kind = kind)
             |> Array.collect _.Rows
             |> Array.chunkBySize Parallel.totalWorders
             |> Array.Parallel.map (Array.map (contextOf patientData >> scenarios (evaluate start logger provider) 0))
             |> Array.concat
 
-        found |> Array.collect fst |> Array.map ofScenario, found |> Array.collect snd
+        found |> Array.collect fst |> Array.map (ofScenario prefix toTexts), found |> Array.collect snd
+
+
+    /// Returns the standard orders of the emergency list for the patient, with the bolus texts.
+    let emergencyList start logger provider patientData sets =
+        standardOrders RuleSetKind.EmergencyList "Noodlijst " bolusTexts start logger provider patientData sets
+
+
+    /// Returns the standard orders of the continuous medication list for the patient, with the infusion texts.
+    let standardInfusions start logger provider patientData sets =
+        standardOrders
+            RuleSetKind.StandardInfusions
+            "Standaard infusie "
+            infusionTexts
+            start
+            logger
+            provider
+            patientData
+            sets
