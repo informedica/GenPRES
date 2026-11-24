@@ -232,8 +232,17 @@ type ILogAnalyzer =
 [<Interface>]
 type IEmergencyList =
     abstract EmergencyList: Deferred<Intervention[]>
-    /// Puts the order context of a chosen row in the workbench and moves to the prescribe page.
-    abstract OnEmergencyListRowChosen: OrderContext -> unit
+    /// Puts the order context of the row with this number, from 1, in the workbench and moves to the
+    /// prescribe page. A calculated row has no order context, so nothing happens.
+    abstract OnEmergencyListRowChosen: int -> unit
+    /// The numbers of the checked rows, from 1.
+    abstract EmergencyListChecked: int[]
+    /// The order contexts of the checked rows; a calculated row has none.
+    abstract EmergencyListCheckedContexts: OrderContext[]
+    /// Stores the numbers of the checked rows, from 1.
+    abstract OnEmergencyListRowsChecked: int[] -> unit
+    /// Adds the order contexts of the checked rows to the plan and moves to the plan page.
+    abstract OnEmergencyListPrescribe: unit -> unit
     abstract EmergencyListFilter: string[]
     abstract OnEmergencyListFilterChange: string[] -> unit
 

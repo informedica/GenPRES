@@ -314,6 +314,25 @@ module Client =
     let emergencyList (state: ClientState) = state.Loader.EmergencyList
 
 
+    /// Returns the numbers of the checked rows of the emergency list.
+    let emergencyListChecked (state: ClientState) = state.Loader.EmergencyListChecked
+
+
+    /// Returns the order context of the emergency list row with this number, from 1. Returns None for a
+    /// calculated row or a number without a row.
+    let emergencyListRowContext (state: ClientState) number =
+        state.Loader.EmergencyList
+        |> Deferred.defaultValue [||]
+        |> Array.tryItem (number - 1)
+        |> Option.bind _.OrderContext
+
+
+    /// Returns the order contexts of the checked rows of the emergency list; a calculated row has none.
+    let emergencyListCheckedContexts (state: ClientState) =
+        state.Loader.EmergencyListChecked
+        |> Array.choose (emergencyListRowContext state)
+
+
     /// The continuous medication list.
     let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
 

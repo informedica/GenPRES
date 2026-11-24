@@ -1190,6 +1190,7 @@ let changeTests =
 
                 [
                     OrderPlanChange.Add(ctx, [||]), OrderPlanCommand.AddOrderContext(two, ctx, [||])
+                    OrderPlanChange.AddMany [| ctx |], OrderPlanCommand.AddOrderContexts(two, [| ctx |])
                     OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
                     OrderPlanChange.FilterRows [| "c-1" |], OrderPlanCommand.FilterRows([| "c-1" |], two)
                     OrderPlanChange.OrderDialogCommand("c-1", step),

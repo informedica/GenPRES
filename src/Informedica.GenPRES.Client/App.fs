@@ -733,7 +733,20 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.IEmergencyList with
         member _.EmergencyList = Client.emergencyList state
-        member _.OnEmergencyListRowChosen ctx = Msg.EmergencyListRowChosen ctx |> dispatch
+        member _.OnEmergencyListRowChosen number =
+            Client.emergencyListRowContext state number
+            |> Option.iter (Msg.EmergencyListRowChosen >> dispatch)
+
+        member _.EmergencyListChecked = Client.emergencyListChecked state
+        member _.EmergencyListCheckedContexts = Client.emergencyListCheckedContexts state
+
+        member _.OnEmergencyListRowsChecked numbers =
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckEmergencyListRows numbers) |> dispatch
+
+        member _.OnEmergencyListPrescribe() =
+            let contexts = Client.emergencyListCheckedContexts state
+            Msg.Lanes(LanesMsg.PrescribeContexts(contexts, Elmish.newRequest ()))
+            |> dispatch
         member _.EmergencyListFilter = Client.emergencyListFilter state
         member _.OnEmergencyListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch

@@ -115,13 +115,25 @@ module EmergencyList =
         // The rows the server calculated for the patient, also while they are calculated again.
         let interventions = envList.EmergencyList |> Deferred.defaultValue [||]
 
-        // A row is found by its id, its number in the list. A calculated row has no order context, so a click on it
-        // does nothing.
-        let handleRowClick (id: string) =
-            interventions
-            |> Array.tryItem (int id - 1)
-            |> Option.bind _.OrderContext
-            |> Option.iter envList.OnEmergencyListRowChosen
+        // The table gives the id of the clicked row, which is its number in the list.
+        let handleRowClick (id: string) = id |> int |> envList.OnEmergencyListRowChosen
+
+        // The table gives the ids of the checked rows, which are their numbers in the list.
+        let handleSelectChange (ids: string[]) = ids |> Array.map int |> envList.OnEmergencyListRowsChecked
+
+        let selectedRows = envList.EmergencyListChecked |> Array.map string
+
+        // The button is disabled while no checked row has an order context.
+        let prescribeAction =
+            {|
+                label = Terms.``Prescribe`` |> getTerm "Prescribe"
+                kind = Components.ActionBar.Kind.Primary
+                onClick = envList.OnEmergencyListPrescribe
+                disabled = envList.EmergencyListCheckedContexts |> Array.isEmpty
+                icon = Some Mui.Icons.Add
+            |}
+
+        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
 
         let rows =
             interventions
@@ -257,9 +269,9 @@ module EmergencyList =
                 height = "100%"
                 onRowClick = handleRowClick
                 markedRow = None
-                checkboxSelection = false
-                selectedRows = [||]
-                onSelectChange = ignore
+                checkboxSelection = true
+                selectedRows = selectedRows
+                onSelectChange = handleSelectChange
                 showToolbar = true
                 showFooter = true
                 onPrint =
@@ -288,6 +300,7 @@ module EmergencyList =
 
         <Box sx={boxSx}>
             {patientNotice}
+            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>

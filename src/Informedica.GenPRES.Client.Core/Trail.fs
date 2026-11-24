@@ -318,6 +318,7 @@ module Trail =
         let change (c: OrderPlanMachine.OrderPlanChange) =
             match c with
             | OrderPlanMachine.OrderPlanChange.Add(ctx, linked) -> $"Add %s{context ctx} %i{linked.Length} linked"
+            | OrderPlanMachine.OrderPlanChange.AddMany contexts -> $"AddMany %i{contexts.Length}"
             | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.FilterRows ids -> $"FilterRows %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.OrderDialogCommand(id, cmd) ->
@@ -838,6 +839,7 @@ module Trail =
             | LoaderMsg.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
             | LoaderMsg.QueryTotals query -> $"QueryTotals %s{query |> Part.orNone TotalsQuery.toString}"
             | LoaderMsg.QueryEmergencyList p -> $"QueryEmergencyList %s{Part.patientOption p}"
+            | LoaderMsg.CheckEmergencyListRows numbers -> $"CheckEmergencyListRows %i{numbers.Length}"
 
 
         /// Describes a loader effect.
