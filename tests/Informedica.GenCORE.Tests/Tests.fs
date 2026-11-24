@@ -476,6 +476,42 @@ module Tests =
                                 calculate None None |> Expect.isEmpty "the interventions"
                             }
                         ]
+
+                    testList
+                        "PatientData.emergencyInterventions"
+                        [
+                            let patientWith age weight =
+                                PatientData.create
+                                    Department.unknown
+                                    [||]
+                                    UnknownGender
+                                    (age |> Option.map AgeValue.fromDays)
+                                    weight
+                                    Height.unknown
+                                    None
+
+                            let weight = WeightAtDate.undated (WeightValue.weightInKg 32m)
+
+                            test "takes the age in days and the measured weight" {
+                                Weight.create [ weight ] None [] (Some(Measured weight))
+                                |> patientWith (Some 3650<day>)
+                                |> PatientData.emergencyInterventions
+                                |> Expect.equal "the interventions" (calculate (Some 3650<day>) (Some 32m<kg>))
+                            }
+
+                            test "takes the estimated weight when no weight is measured" {
+                                Weight.create [] None [] (Some(Estimated weight))
+                                |> patientWith None
+                                |> PatientData.emergencyInterventions
+                                |> Expect.equal "the interventions" (calculate None (Some 32m<kg>))
+                            }
+
+                            test "gives no interventions for a patient without an age and a weight" {
+                                PatientData.unknown
+                                |> PatientData.emergencyInterventions
+                                |> Expect.isEmpty "the interventions"
+                            }
+                        ]
                 ]
 
 

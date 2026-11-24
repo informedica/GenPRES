@@ -2505,6 +2505,7 @@ module PatientData =
 
     module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
+    module Emergency = Informedica.GenCore.Lib.Calculations.Emergency
 
     /// Sets the adult mark and the need for the gestational age from the age. A patient marked as an adult
     /// keeps the mark when the age allows it.
@@ -2594,6 +2595,15 @@ module PatientData =
     /// is None without a calculation weight and height.
     let calculateBodySurfaceArea dat =
         { dat with BodySurfaceArea = dat |> calcBsa (fun _ -> BSA.calcDuBois (Some 2)) }
+
+
+    /// Calculates the interventions of the emergency list that are not medication, from the age and from the
+    /// calculation weight, measured or estimated.
+    let emergencyInterventions (dat: PatientData) =
+        Emergency.calculate
+            (dat.Age |> Option.map AgeValue.getAgeInDays)
+            (dat.Weight.Calculation
+             |> Option.map (Source.value >> _.Weight >> WeightValue.getWeightInKg))
 
 
     /// Returns the body surface area in m2 that is set on the patient data.

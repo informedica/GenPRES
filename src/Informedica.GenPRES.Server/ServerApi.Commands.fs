@@ -433,8 +433,11 @@ module EmergencyListCommand =
 
     open Logging
     open Informedica.Logging.Lib
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenPRES.Shared.Types
 
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module Emergency = Informedica.GenCore.Lib.Calculations.Emergency
     module GenOrder = Informedica.GenOrder.Lib.Types
     module PlanContext = Informedica.GenOrder.Lib.PlanContext
     module Intervention = Informedica.GenPRES.Shared.Models.Intervention
@@ -468,12 +471,63 @@ module EmergencyListCommand =
         }
 
 
+    /// Returns the formula of a calculated intervention as the Dutch text of the emergency list.
+    let formulaText formula =
+        match formula with
+        | Emergency.Formula.TubeSizeByWeight -> "< 1 kg: 2.5, 1-3 kg: 3.0"
+        | Emergency.Formula.OralTubeLengthByWeight -> "6.632 + 1.822 x ln(kg)"
+        | Emergency.Formula.NasalTubeLengthByWeight -> "(45 + 1.15 x √ (gram)) / 10"
+        | Emergency.Formula.UmbilicalLineSizeByWeight -> "< 1.5 kg: 3,5 anders 5 "
+        | Emergency.Formula.UmbilicalArteryLineLengthUnder1500Gram -> "kg x 4 + 7"
+        | Emergency.Formula.UmbilicalArteryLineLengthFrom1500Gram -> "kg x 2.5 + 9.7"
+        | Emergency.Formula.UmbilicalVeinLineLengthByWeight -> "kg x 1.5 + 5.5"
+        | Emergency.Formula.CuffedTubeSizeByAge -> "3,5 + leeftijd / 4"
+        | Emergency.Formula.UncuffedTubeSizeByAge -> "4 + leeftijd / 4"
+        | Emergency.Formula.OralTubeLengthByAge -> "12 + leeftijd / 2"
+        | Emergency.Formula.NasalTubeLengthByAge -> "15 + leeftijd / 2"
+        | Emergency.Formula.DefibrillationByWeight -> "4 joule/kg"
+        | Emergency.Formula.CardioversionByWeight -> "2 joule/kg"
+
+
+    /// Maps a calculated intervention to a row of the emergency list, with the Dutch name, the value as text and
+    /// the formula as the advice. A tube size from the age shows with the sizes 0.5 mm below and above it.
+    let ofCalculation (calc: Emergency.Calculation) =
+        let toStr = Decimal.toStringNumberNLWithoutTrailingZeros
+        let withUnit unit value = $"%s{toStr value} %s{unit}"
+
+        let withNeighbours value =
+            $"%s{toStr (value - 0.5m)} - %s{toStr value} - %s{toStr (value + 0.5m)}"
+
+        let name, value, text =
+            match calc.Intervention with
+            | Emergency.Intervention.TubeSize v -> "tube maat", decimal v, toStr
+            | Emergency.Intervention.CuffedTubeSize v -> "tube (met cuff) maat", decimal v, withNeighbours
+            | Emergency.Intervention.UncuffedTubeSize v -> "tube (zonder cuff) maat", decimal v, withNeighbours
+            | Emergency.Intervention.OralTubeLength v -> "tube lengte oraal", decimal v, withUnit "cm"
+            | Emergency.Intervention.NasalTubeLength v -> "tube lengte nasaal", decimal v, withUnit "cm"
+            | Emergency.Intervention.UmbilicalLineSize v -> "navel lijn maat", decimal v, withUnit "French"
+            | Emergency.Intervention.UmbilicalArteryLineLength v ->
+                "navel arterie lijn lengte", decimal v, withUnit "cm"
+            | Emergency.Intervention.UmbilicalVeinLineLength v -> "navel vene lijn lengte", decimal v, withUnit "cm"
+            | Emergency.Intervention.Defibrillation v -> "defibrillatie", decimal v, withUnit "joule"
+            | Emergency.Intervention.Cardioversion v -> "cardioversie", decimal v, withUnit "joule"
+
+        { Intervention.emptyIntervention with
+            Category = "reanimatie"
+            Name = name
+            InterventionDose = value |> float |> Some
+            SubstanceDoseText = text value
+            Text = calc.Formula |> formulaText
+        }
+
+
     /// Returns a short name for the log instead of the whole request.
     let toString (_: PatientData) = "EmergencyList"
 
 
-    /// Returns the medication rows of the emergency list for the patient and logs a warning for each rule that gives
-    /// no rows. Returns the messages when the patient data are invalid.
+    /// Returns the rows of the emergency list for the patient, the calculated interventions before the medication
+    /// rows, and logs a warning for each rule that gives no rows. Returns the messages when the patient data are
+    /// invalid.
     let processCmd (env: AppEnv) (pat: PatientData) =
         async {
             match pat |> Patient.toCore (env.today ()) with
@@ -481,7 +535,13 @@ module EmergencyListCommand =
             | Ok core ->
                 let orders, warnings = core |> env.emergencyList
                 warnings |> Array.iter (warning >> Logging.logWarning env.logger)
-                return orders |> Array.map (toIntervention env.demo) |> Ok
+                let calculated = core |> CorePatientData.emergencyInterventions |> List.map ofCalculation
+
+                return
+                    orders
+                    |> Array.map (toIntervention env.demo)
+                    |> Array.append (calculated |> List.toArray)
+                    |> Ok
         }
 
 
