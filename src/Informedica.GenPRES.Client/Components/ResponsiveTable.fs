@@ -86,11 +86,24 @@ module ResponsiveTable =
                                     marginRight = 1
                                 |}
 
+                            // the shown values of the card name the checkbox for a screen reader, because the
+                            // title alone can be the same on several cards
+                            let checkboxSlotProps =
+                                let label =
+                                    row.cells
+                                    |> Array.filter (fun c ->
+                                        c.field <> "id" && c.value |> String.isNullOrWhiteSpace |> not
+                                    )
+                                    |> Array.map _.value.Replace("*", "")
+                                    |> String.concat " "
+
+                                {| input = {| ``aria-label`` = label |} |}
+
                             JSX.jsx
                                 $"""
                             import Checkbox from '@mui/material/Checkbox';
 
-                            <Checkbox size="small" checked={isChecked} onClick={handleCheckClick} onChange={handleCheckChange} sx={checkboxSx} />
+                            <Checkbox size="small" checked={isChecked} onClick={handleCheckClick} onChange={handleCheckChange} sx={checkboxSx} slotProps={checkboxSlotProps} />
                             """
                             |> toReact
                         else
