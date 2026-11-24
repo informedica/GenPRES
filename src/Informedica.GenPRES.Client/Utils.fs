@@ -78,10 +78,6 @@ module GoogleDocs =
     open Informedica.GenPRES.Shared.Models
 
 
-    let loadBolusMedication () =
-        dataEMLUrlId |> createUrl "emergencylist" |> getUrl EmergencyTreatment.parse
-
-
     let loadContinuousMedication () =
         dataEMLUrlId |> createUrl "continuousmeds" |> getUrl ContinuousMedication.parse
 

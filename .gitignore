@@ -339,9 +339,6 @@
 # Add Informedica.GenPRES.Shared
 !/tests/Informedica.GenPRES.Shared.Tests
 !/tests/Informedica.GenPRES.Shared.Tests/Scripts/
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.csv
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.tsv
 # Informedica.GenPRES.Client.Core.Tests
 !/tests/Informedica.GenPRES.Client.Core.Tests/
 !/tests/Informedica.GenPRES.Client.Core.Tests/Helpers/

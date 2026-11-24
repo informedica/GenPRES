@@ -16,13 +16,10 @@
     <Compile Include="ApiTests.fs" />
     <Compile Include="CsvTests.fs" />
     <Compile Include="DecimalTests.fs" />
-    <Compile Include="EmergencyBaseline.fs" />
-    <Compile Include="EmergencyBaselineTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\AgeToStringOracle.fsx" />
     <None Include="Scripts\ListBaseline.fsx" />
-    <Content Include="fixtures\*.csv;fixtures\*.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

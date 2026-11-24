@@ -12,26 +12,6 @@ open Loads
 open LoaderMachine
 
 
-let bolus hospital : BolusMedication =
-    {
-        Hospital = hospital
-        Category = "cat"
-        Generic = "adrenaline"
-        MinWeight = 0.
-        MaxWeight = 0.
-        NormDose = 0.
-        MinDose = 0.
-        MaxDose = 0.
-        Concentration = 0.
-        Unit = "mg"
-        Remark = ""
-        TemplateGeneric = ""
-        TemplateRoute = ""
-        TemplateDoseType = ""
-        TemplateIndication = ""
-    }
-
-
 let drugNames names notice =
     Landing.DrugNames(
         Some(OpenedToken "t"),
@@ -89,7 +69,6 @@ let tests =
                         [
                             Load.Settings, LoaderEffect.FetchSettings
                             Load.Localization, LoaderEffect.FetchLocalization
-                            Load.BolusMedication, LoaderEffect.FetchBolusMedication
                             Load.ContinuousMedication, LoaderEffect.FetchContinuousMedication
                             Load.Products, LoaderEffect.FetchProducts
                             Load.DrugNames, LoaderEffect.FetchDrugNames
@@ -161,28 +140,6 @@ let tests =
 
                 state.Settings |> Expect.equal "not started" HasNotStartedYet
                 state.Failed |> Expect.isEmpty "not named"
-            }
-
-            test "the emergency medication loads" {
-                let state, _ =
-                    run
-                        [
-                            LoaderMsg.Start Load.BolusMedication
-                            LoaderMsg.Landed(Landing.BolusMedication(Ok [ bolus "UMCU" ]))
-                        ]
-
-                state |> loaded |> Expect.equal "loaded" [ Load.BolusMedication ]
-            }
-
-            test "the emergency medication failing is named" {
-                let state, _ =
-                    run
-                        [
-                            LoaderMsg.Start Load.BolusMedication
-                            LoaderMsg.Landed(Landing.BolusMedication(Error "down"))
-                        ]
-
-                state.Failed |> Expect.equal "named" [ Load.BolusMedication ]
             }
 
             testList
@@ -788,5 +745,162 @@ let totalsTests =
                 fst cleared
                 |> LoaderMachine.transition (landedTotals 1 (Ok someTotals))
                 |> Expect.equal "the answer still out dropped" (fst cleared, [])
+            }
+        ]
+
+
+/// Patient data for the emergency list: with an age, with a weight, and the rows of an answer.
+module EmergencyListFixtures =
+
+    /// Patient data with an age of 2 years and nothing else.
+    let withAge = { PatientData.empty with Age = Some { PatientData.Age.ageZero with Age.Years = 2<year> } }
+
+
+    /// Patient data with a measured weight of 10 kg and nothing else.
+    let withWeight =
+        { PatientData.empty with Weight = { PatientData.empty.Weight with Measured = Some 10000<gram> } }
+
+
+    let row name = { Intervention.emptyIntervention with Name = name }
+
+
+    let landedList number result =
+        LoaderMsg.Landed(Landing.EmergencyList(number, Some(OpenedToken "t"), result))
+
+
+    let fetches effects =
+        effects
+        |> List.filter (
+            function
+            | LoaderEffect.FetchEmergencyList _ -> true
+            | _ -> false
+        )
+
+
+open EmergencyListFixtures
+
+
+[<Tests>]
+let emergencyListTests =
+    testList
+        "the emergency list query"
+        [
+            test "a query requests the list as query 1" {
+                let state, effects = run [ LoaderMsg.QueryEmergencyList(Some withAge) ]
+
+                effects
+                |> Expect.equal "fetched" [ LoaderEffect.FetchEmergencyList(1, withAge) ]
+                state.EmergencyList |> Expect.equal "loading" InProgress
+            }
+
+            test "no query clears the rows and requests nothing" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                effects |> Expect.isEmpty "no request"
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "the rows shown stay while the list is queried again" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                        ]
+
+                state.EmergencyList
+                |> Expect.equal "refreshing" (Refreshing [| row "adrenaline" |])
+            }
+
+            test "the answer sets the rows and reports the success" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "the rows" (Resolved [| row "adrenaline" |])
+
+                effects
+                |> Expect.equal
+                    "succeeded"
+                    [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.EmergencyList ]
+            }
+
+            test "an answer to an earlier query is ignored" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                            landedList 1 (answered [| row "old" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "still loading" InProgress
+                effects |> Expect.isEmpty "nothing"
+            }
+
+            test "an answer after the query was cleared is ignored" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            LoaderMsg.QueryEmergencyList None
+                            landedList 1 (answered [| row "old" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "a failed request clears the rows and reports the errors" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (Error [| "down" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+
+                effects
+                |> Expect.equal
+                    "failed"
+                    [
+                        LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.EmergencyList, [| "down" |])
+                    ]
+            }
+
+            test "a resource reload queries the list again for the current query" {
+                let _, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.ResourcesReloaded
+                        ]
+
+                effects
+                |> fetches
+                |> Expect.equal "fetched again" [ LoaderEffect.FetchEmergencyList(2, withAge) ]
+            }
+
+            test "a resource reload without a query does not query the list" {
+                let _, effects = run [ LoaderMsg.ResourcesReloaded ]
+
+                effects |> fetches |> Expect.isEmpty "no request"
+            }
+
+            test "the emergency list load is not required to start" {
+                Loads.required
+                |> List.contains Load.EmergencyList
+                |> Expect.isFalse "not required"
             }
         ]

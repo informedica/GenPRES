@@ -228,13 +228,12 @@ type ILogAnalyzer =
     abstract AnalyzeLogFile: string -> unit
 
 
-/// The emergency medication list, calculated for the patient data.
+/// The rows of the emergency list, calculated by the server for the patient data.
 [<Interface>]
-type IBolusMedication =
-    abstract BolusMedication: Deferred<Intervention list>
-    abstract OnSelectBolusMedicationItem: string -> unit
-    abstract BolusMedicationFilter: string[]
-    abstract OnBolusMedicationFilterChange: string[] -> unit
+type IEmergencyList =
+    abstract EmergencyList: Deferred<Intervention[]>
+    abstract EmergencyListFilter: string[]
+    abstract OnEmergencyListFilterChange: string[] -> unit
 
 
 /// The continuous medication list, calculated for the patient data.

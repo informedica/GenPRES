@@ -364,30 +364,7 @@ module Types =
         }
 
 
-    type Medication =
-        | Bolus of BolusMedication
-        | Continuous of ContinuousMedication
-
-    and BolusMedication =
-        {
-            Hospital: string
-            Category: string
-            Generic: string
-            MinWeight: float
-            MaxWeight: float
-            NormDose: float
-            MinDose: float
-            MaxDose: float
-            Concentration: float
-            Unit: string
-            Remark: string
-            TemplateGeneric: string
-            TemplateRoute: string
-            TemplateDoseType: string
-            TemplateIndication: string
-        }
-
-    and ContinuousMedication =
+    type ContinuousMedication =
         {
             Hospital: string
             Category: string
