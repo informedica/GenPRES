@@ -280,8 +280,8 @@ let tests =
                 | Error e -> failtest $"refused: %A{e}"
             }
 
-            test "outside L3: blank text items are dropped, and the scenario number is the Dto's" {
-                let blank =
+            test "outside L3: empty text items are dropped, blank ones kept, and the scenario number is the Dto's" {
+                let items =
                     { context with
                         Scenarios =
                             [|
@@ -291,10 +291,10 @@ let tests =
                             |]
                     }
 
-                let back = blank |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
+                let back = items |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
 
                 back.Scenarios[0].Prescription
-                |> Expect.equal "the blank ones gone" [| [| Valid [| Bold "240 mg" |] |] |]
+                |> Expect.equal "the empty one gone" [| [| Valid [| Bold "240 mg"; Normal "  " |] |] |]
 
                 (context |> OrderContextMapper.ofModel).Context.Scenarios
                 |> Array.map _.No
@@ -343,7 +343,7 @@ let tests =
                 |> Expect.equal "the domain's text again" text
             }
 
-            test "text: rendering and parsing are inverse on items with text; a blank item is dropped" {
+            test "text: rendering and parsing are inverse on items with text; a blank item is kept" {
                 let items = [| Normal "a "; Bold "b"; Normal " and "; Italic "c"; Normal " d" |]
 
                 items
@@ -358,7 +358,7 @@ let tests =
                 [| Bold "b"; Normal " "; Italic "c" |]
                 |> OrderContextMapper.TextItem.render
                 |> Mappers.parseTextItem
-                |> Expect.equal "the blank item between gone" [| Bold "b"; Italic "c" |]
+                |> Expect.equal "the blank item between kept" [| Bold "b"; Normal " "; Italic "c" |]
             }
 
             test "every command verb becomes the domain command over the context given" {
