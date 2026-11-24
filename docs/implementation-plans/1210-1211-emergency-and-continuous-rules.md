@@ -12,7 +12,8 @@ code from a separate workbook, not by GenORDER from the GenFORM rules. Both issu
 
 The reference for both is the baseline of #1209: `tests/Informedica.GenPRES.Shared.Tests/fixtures/emergencylist.tsv`
 and `tests/Informedica.GenPRES.Client.Core.Tests/fixtures/continuousmeds.tsv`, with copies of the two sheets
-next to them (`emergencylist.csv`, 154 rows; `continuousmeds.csv`, 293 rows).
+next to them (`emergencylist.csv`, 154 rows; `continuousmeds.csv`, 293 rows). The baseline goes when the client
+calculation it covers goes.
 
 ## Approaches considered
 
@@ -340,8 +341,7 @@ What the code offers, checked on 2026-11-22 and 2026-11-23:
 - The order widens a norm dose to 90% to 110% and gives a volume in steps of 0.1 mL, so a dose volume
   far below 1 mL can have no step within that range and the order has no scenario. The list rounds such
   a volume to 0.1 mL instead.
-- The order rounds a volume to the step of the FormRoute sheet; the list rounds to 1 mL above 10 mL, a
-  difference that the comparison with the baseline explains.
+- The order rounds a volume to the step of the FormRoute sheet; the list rounds to 1 mL above 10 mL.
 
 Decided on 2026-11-23, the code that replaces the calculation on the client:
 
@@ -431,11 +431,97 @@ Decided on 2026-11-23, how every patient gets the hospital:
   `Api.withDefaultDepartment`, `ServerSettings.DefaultDepartment` and the default department shown on the
   patient panel are removed. A patient without a department gets only the rules without a Dep.
 
-Open, to be decided later: whether a row of the emergency list or the standard infusions can be prescribed
-straight into the order plan, which the client cannot do today, and if so, which rows can (for example a
-row with one order and no dose range) and which go to the prescribe view.
+The parts after part 4 build what the prototype on branch `proto/1210-emergency-list` shows, decided on
+2026-11-24. The page keeps the table, the columns and the print of today; only the medication rows come
+from the server. The rows that are not medication stay in the client until their own plan.
 
-The parts that follow are worked out after part 4.
+Decided on 2026-11-24:
+
+- A row of the list is an order context narrowed to one scenario: one scenario gives one order context and
+  one row. The rules decide which scenarios there are, so a medication with more scenarios shows a row for
+  each.
+- A click on a medication row opens the prescribe page with the order context of that row, as it is.
+- The prescriber can select one or more medication rows; the prescribe button of the list puts their order
+  contexts on the order plan as they are, without linked orders. A choice the order still holds is made in
+  the plan. Linked orders go through the prescribe page.
+- The rows that are not medication cannot be prescribed.
+- Each part removes the code it replaces.
+
+Part 5, the server calculates the medication rows:
+
+- The contract gets `getEmergencyList`: it takes the patient data and returns the rows of the emergency
+  list as `Intervention` records, the records the page shows today.
+- `Intervention` gets the field `OrderContext: OrderContext option`: the order context of the row, narrowed
+  to its scenario as the prescribe page narrows it (`narrowedToScenario`); None for a row that is not
+  medication. `Intervention` moves below `OrderContext` in the contract, so it can name it.
+- The server takes the rule set of the kind EmergencyList for the patient (`ruleSets` with
+  `RuleSet.forPatient`), so only the rows for the Location and the Department of the patient count.
+- Each row becomes an order context with the patient data, the indication and the generic of the row,
+  evaluated as the prescribe page evaluates it. A context without scenarios is evaluated again for each
+  option of the first open choice, in the order generic, route, dose type, form, at most four choices deep,
+  so a row with more routes, dose types or forms gives the scenarios of each.
+- The rows are evaluated in chunks of `Parallel.totalWorders`: the chunks run in parallel, the rows in a
+  chunk one after the other, as GenFORM loads its rules.
+- Each scenario gives one row of the list:
+  - Categorie: the indication without the word "Noodlijst".
+  - Interventie: the generic of the row.
+  - Berekend: the dose of the substance (`itm_dos_qty`), followed by the dose per kg (`itm_dos_qty_adj`)
+    in brackets when the order is per kg.
+  - Bereiding: the dose of the orderable (`orb_dos_qty`), followed by "van" and the concentration of the
+    substance in the orderable (`itm_orb_cnc`).
+  - The substance is the item the scenario names, not an additional substance of the product.
+  - A scenario without a substance, dosed by volume, shows the orderable instead: Berekend the dose of the
+    orderable with the dose per kg, Bereiding the dose of the orderable with the name of the product.
+- A value with more than one number shows every number; a value without numbers shows its minimum and
+  maximum, or the one limit it has, such as "min 1 mg" or "max 1 mg".
+- The columns go in the text fields of `Intervention`: Berekend in `SubstanceDoseText`, Bereiding in
+  `InterventionDoseText`, Advies in `Text`. The server fills only these text fields; the number fields stay
+  empty. The print takes the cells of the table, as it does today.
+
+Part 6, the advice of a row:
+
+- Advies shows the limits of the dose rule the scenario was made from: the dose per kg, followed by the
+  absolute dose in brackets. A limit with an equal minimum and maximum is the norm and shows as one value
+  (`DoseLimit.printMinMaxDose`), not as the widened range of the order.
+- The limit is the limit for the substance, in the unit the substance is dosed in. A scenario dosed by
+  volume takes the limit of the component, else the limit of the form.
+- A once timed order adds the administration time (`ord_sch_tme`) and the rate (`orb_dos_rte`), such as
+  "in 30 - 60 min, 1 - 2 mL/uur". A time or rate with more than one number shows the lowest and the
+  highest number.
+- The server finds the dose rule through the prescription rules for the dose filter of the order context,
+  matched on the route and the dose type of the scenario.
+
+Part 7, the client shows the server rows:
+
+- The client asks the server for the rows through Client.Core, as it does the other server loads, when
+  the patient data change and the patient has a Location.
+- The page shows the rows that are not medication, followed by the server rows, and lays a mask with a
+  spinner over the table while the server calculates the rows.
+- The client numbers each list request and ignores an answer to an earlier request, as it does for the
+  interaction checks and the totals queries. When the patient is reset or the patient data lose the
+  Location, the list clears its rows and its selection. The prescribe button is disabled while the rows
+  are calculated.
+- Removed: the medication rows of the emergency list workbook, their calculation in the client and their
+  lookup for a row click (`Client.emergencySeed`).
+- Removed: the emergency baseline tests and their fixtures (`EmergencyBaseline.fs`,
+  `EmergencyBaselineTests.fs`, `fixtures/emergencylist.csv` and `.tsv` in `Informedica.GenPRES.Shared.Tests`),
+  with their entries in the test project file. The order calculation is tested in GenSOLVER and GenORDER;
+  whether the rules are right is a matter of medical validation, not of the code.
+
+Part 8, prescribing from the list:
+
+- A click on a medication row sends a new order context message that puts the order context of the row in
+  the workbench as it is, without a request, and moves to the prescribe page.
+- The list gets a checkbox for each row and a prescribe button, enabled when a selected row has an order
+  context.
+- The contract gets the plan command `AddOrderContexts`: it takes the plan and the order contexts of the
+  selected rows. The server adds them one after the other through the port that adds an order context; when
+  one is refused, none of them enters the plan. The plan accepts one request at a time, so one command
+  carries every selected row.
+
+A script times the calculation of each row at the level of the server
+(`src/Informedica.GenPRES.Server/Scripts/EmergencyListTiming.fsx` in the prototype worktree, not
+committed). A slow row is a matter of the rules, not of the code.
 
 ### Step 4: #1211 the continuous medication rules in the rules spreadsheet
 
@@ -451,6 +537,46 @@ Content updates needed to replace the continuous medication list, as the issue l
 
 Open questions of #1208: the rule form of the morphine case and the mapping of the hospital column.
 Whether either needs a code change is settled in this step.
+
+The code parts build what the prototype on branch `proto/1210-emergency-list` shows for the continuous
+medication list, decided on 2026-11-24. They reuse the code of step 3: a row is an order context narrowed to
+one scenario, and the row click and the prescribe button work as in step 3. The page keeps the table, the
+columns and the print of today; every row comes from the server.
+
+Part 1, the server calculates the rows:
+
+- The contract gets `getContinuousList`: it takes the patient data and returns the rows as `Intervention`
+  records, each with its order context.
+- The server takes the rule set of the kind StandardInfusions for the patient and evaluates its rows as for
+  the emergency list (step 3, part 5), with the same code.
+- Each scenario gives one row of the list:
+  - Categorie: the indication without the words "Standaard infusie".
+  - Medicatie: the generic of the row.
+  - Hoeveelheid: the quantity of the substance in the orderable (`itm_orb_qty`).
+  - Oplossing: the quantity of the orderable (`orb_orb_qty`), followed by the diluent.
+  - Dosering: the rate (`orb_dos_rte`), followed by "=" and the rate per kg of the substance
+    (`itm_dos_rte_adj`), such as "0,1 - 15 mL/uur = 5 - 15 microg/kg/min".
+  - Advies: the rate limits per kg of the substance in the dose rule (`itm_dos_rte_adj`), in the unit the
+    substance is dosed in; the absolute rate limits when the dose rule has no rate limits per kg.
+  - A scenario without a substance, dosed by volume, shows the orderable instead: Hoeveelheid empty,
+    Oplossing the name of the product, Dosering the rate with the rate per kg of the orderable, Advies the
+    rate limits of the component, else of the form.
+- The columns go in the text fields of `Intervention`: Hoeveelheid in `QuantityUnit`, Oplossing in
+  `Solution`, Dosering in `SubstanceDoseText`, Advies in `Text`. The server fills only these text fields; the
+  number fields stay empty. The print takes the cells of the table, as it does today.
+
+Part 2, the client shows the rows and prescribes from them:
+
+- The client asks the server for the rows through Client.Core, when the patient data change and the patient
+  has a Location, and lays a mask with a spinner over the table meanwhile. Old answers, a reset patient and
+  the prescribe button are handled as on the emergency list (step 3, part 7).
+- The row click and the prescribe button work as on the emergency list (step 3, part 8).
+- Removed: the reading of the `continuousmeds` sheet, its calculation in the client
+  (`ContinuousMedicationList.calculate`) and its lookup for a row click (`Client.continuousSeed`).
+- Removed: the continuous baseline tests and their fixtures (`ContinuousBaseline.fs`,
+  `ContinuousBaselineTests.fs`, `fixtures/continuousmeds.csv` and `.tsv` in
+  `Informedica.GenPRES.Client.Core.Tests`), with their entries in the test project file, and the script
+  `Scripts/ListBaseline.fsx` of the Shared tests, which writes both baselines.
 
 ## Issues that touch the steps
 
