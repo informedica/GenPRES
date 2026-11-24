@@ -585,7 +585,6 @@ module Trail =
         let seedSource (source: SeedSource) =
             match source with
             | SeedSource.Url -> "url"
-            | SeedSource.MedicationList -> "list"
             | SeedSource.Formulary -> "formulary"
             | SeedSource.Parenteralia -> "parenteralia"
             | SeedSource.Reload -> "reload"

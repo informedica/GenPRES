@@ -380,21 +380,6 @@ let seedTests =
                 ctx.Scenarios |> Expect.equal "the scenarios kept" pcmContext.Scenarios
             }
 
-            test "a list item is written over an empty filter, the patient kept" {
-                let ctx = seed SeedSource.MedicationList None (Some "ibuprofen") (Some "or") None None
-
-                ctx.Filter
-                |> Expect.equal
-                    "the item's choices alone"
-                    { OrderContext.emptyFilter with
-                        Generic = Some "ibuprofen"
-                        Route = Some "or"
-                    }
-
-                ctx.Scenarios |> Expect.isEmpty "no scenarios"
-                ctx.PatientData |> Expect.equal "the patient kept" pcmContext.PatientData
-            }
-
             test "a reload changes nothing" {
                 seed SeedSource.Reload None None None None None
                 |> Expect.equal "the context as it is" pcmContext
@@ -403,7 +388,6 @@ let seedTests =
             test "a seed answers in the plan as the update of the context it seeds" {
                 [
                     SeedSource.Url
-                    SeedSource.MedicationList
                     SeedSource.Formulary
                     SeedSource.Parenteralia
                     SeedSource.Reload
