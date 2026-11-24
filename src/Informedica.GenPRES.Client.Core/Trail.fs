@@ -731,7 +731,7 @@ module Trail =
             | Load.Settings -> "Settings"
             | Load.Localization -> "Localization"
             | Load.EmergencyList -> "EmergencyList"
-            | Load.ContinuousMedication -> "ContinuousMedication"
+            | Load.ContinuousList -> "ContinuousList"
             | Load.Products -> "Products"
             | Load.Formulary -> "Formulary"
             | Load.Parenteralia -> "Parenteralia"
@@ -752,6 +752,7 @@ module Trail =
             | ServerErrorPolicy.ErrorSource.Interactions -> "Interactions"
             | ServerErrorPolicy.ErrorSource.Totals -> "Totals"
             | ServerErrorPolicy.ErrorSource.EmergencyList -> "EmergencyList"
+            | ServerErrorPolicy.ErrorSource.ContinuousList -> "ContinuousList"
             | ServerErrorPolicy.ErrorSource.Login -> "Login"
             | ServerErrorPolicy.ErrorSource.LogFiles -> "LogFiles"
             | ServerErrorPolicy.ErrorSource.LogAnalysis -> "LogAnalysis"
@@ -803,7 +804,6 @@ module Trail =
                 match landing with
                 | Landing.Settings r -> "Settings", r |> Part.result (named "settings")
                 | Landing.Localization r -> "Localization", r |> Part.result rows
-                | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
                 | Landing.Products r -> "Products", r |> Part.result count
                 | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result interactionReply
                 | Landing.Interactions(check, from, r) ->
@@ -812,6 +812,9 @@ module Trail =
                     $"Totals %i{number} %s{Part.token from}", r |> Part.result (named "totals")
                 | Landing.EmergencyList(number, from, r) ->
                     $"EmergencyList %i{number} %s{Part.token from}",
+                    r |> Part.result (fun reply -> $"%i{reply.Response.Length} rows")
+                | Landing.ContinuousList(number, from, r) ->
+                    $"ContinuousList %i{number} %s{Part.token from}",
                     r |> Part.result (fun reply -> $"%i{reply.Response.Length} rows")
                 | Landing.Formulary(from, r) -> $"Formulary %s{Part.token from}", r |> Part.result (named "formulary")
                 | Landing.Parenteralia(from, r) ->
@@ -840,6 +843,7 @@ module Trail =
             | LoaderMsg.QueryTotals query -> $"QueryTotals %s{query |> Part.orNone TotalsQuery.toString}"
             | LoaderMsg.QueryEmergencyList p -> $"QueryEmergencyList %s{Part.patientOption p}"
             | LoaderMsg.CheckEmergencyListRows numbers -> $"CheckEmergencyListRows %i{numbers.Length}"
+            | LoaderMsg.QueryContinuousList p -> $"QueryContinuousList %s{Part.patientOption p}"
 
 
         /// Describes a loader effect.
@@ -847,7 +851,6 @@ module Trail =
             match effect with
             | LoaderEffect.FetchSettings -> "FetchSettings"
             | LoaderEffect.FetchLocalization -> "FetchLocalization"
-            | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
             | LoaderEffect.FetchProducts -> "FetchProducts"
             | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
             | LoaderEffect.FetchFormulary f -> $"FetchFormulary %s{formulary f}"
@@ -856,6 +859,7 @@ module Trail =
                 $"FetchInteractions check %i{check} %i{drugs.Length} drugs"
             | LoaderEffect.FetchTotals(number, query) -> $"FetchTotals %i{number} %s{TotalsQuery.toString query}"
             | LoaderEffect.FetchEmergencyList(number, p) -> $"FetchEmergencyList %i{number} %s{Part.patient p}"
+            | LoaderEffect.FetchContinuousList(number, p) -> $"FetchContinuousList %i{number} %s{Part.patient p}"
             | LoaderEffect.SeedWorkbench seed ->
                 $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
             | LoaderEffect.SettingsLanded s ->
@@ -1110,7 +1114,6 @@ module Trail =
             | ClientMsg.NewPatient(_, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
             | ClientMsg.EmergencyListRowChosen ctx -> $"EmergencyListRowChosen %s{Part.context ctx}"
-            | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"
             | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
             | ClientMsg.TakeEhrData -> "TakeEhrData"
 

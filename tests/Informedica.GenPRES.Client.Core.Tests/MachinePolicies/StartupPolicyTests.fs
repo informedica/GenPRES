@@ -50,10 +50,10 @@ let tests =
             }
 
             test "a failed required load is named, also while other requests are out" {
-                status [ Request.Session ] [ Load.Localization ] [ Load.Products; Load.ContinuousMedication ]
+                status [ Request.Session ] [] [ Load.Products; Load.Localization ]
                 |> Expect.equal
                     "the two, in the order of the required loads"
-                    (Startup.Failed [ Load.ContinuousMedication; Load.Products ])
+                    (Startup.Failed [ Load.Localization; Load.Products ])
             }
 
             test "the gate while starting, after a failure, and none once started" {
@@ -63,15 +63,11 @@ let tests =
                 |> Option.map (fun gate -> gate.Title, gate.Busy)
                 |> Expect.equal "starting" (Some("Starting GenPRES", true))
 
-                startupGate tr (Startup.Failed [ Load.ContinuousMedication; Load.Products ])
+                startupGate tr (Startup.Failed [ Load.Localization; Load.Products ])
                 |> Option.map (fun gate -> gate.Body, gate.Busy, gate.Actions)
                 |> Expect.equal
                     "failed"
-                    (Some(
-                        "Not loaded: the continuous medication list, the products. Reload the page to try again.",
-                        false,
-                        []
-                    ))
+                    (Some("Not loaded: the translations, the products. Reload the page to try again.", false, []))
             }
 
             test "the session's gate goes before the start-up's" {
@@ -117,7 +113,6 @@ let tests =
                         Terms.``Startup Gate Failed``
                         Terms.``Startup Gate Failed Text``
                         Terms.``Startup Load Localization``
-                        Terms.``Startup Load Continuous Medication``
                         Terms.``Startup Load Products``
                     ] do
                     english term |> Expect.notEqual $"default for {term}" $"{term}"

@@ -69,7 +69,6 @@ let tests =
                         [
                             Load.Settings, LoaderEffect.FetchSettings
                             Load.Localization, LoaderEffect.FetchLocalization
-                            Load.ContinuousMedication, LoaderEffect.FetchContinuousMedication
                             Load.Products, LoaderEffect.FetchProducts
                             Load.DrugNames, LoaderEffect.FetchDrugNames
                         ] do
@@ -934,6 +933,171 @@ let emergencyListTests =
             test "the emergency list load is not required to start" {
                 Loads.required
                 |> List.contains Load.EmergencyList
+                |> Expect.isFalse "not required"
+            }
+        ]
+
+
+/// Patient data for the continuous medication list: with an age and a Location, older, and the rows of an answer.
+module ContinuousListFixtures =
+
+    /// Patient data with an age of 2 years and the Location UMCU.
+    let located = { withAge with Location = Some "UMCU" }
+
+
+    /// Patient data with an age of 3 years and the Location UMCU.
+    let older = { located with Age = Some { PatientData.Age.ageZero with Age.Years = 3<year> } }
+
+
+    let landedContinuous number result =
+        LoaderMsg.Landed(Landing.ContinuousList(number, Some(OpenedToken "t"), result))
+
+
+    let continuousFetches effects =
+        effects
+        |> List.filter (
+            function
+            | LoaderEffect.FetchContinuousList _ -> true
+            | _ -> false
+        )
+
+
+open ContinuousListFixtures
+
+
+[<Tests>]
+let continuousListTests =
+    testList
+        "the continuous list query"
+        [
+            test "a query requests the list as query 1" {
+                let state, effects = run [ LoaderMsg.QueryContinuousList(Some located) ]
+
+                effects
+                |> Expect.equal "fetched" [ LoaderEffect.FetchContinuousList(1, located) ]
+                state.ContinuousList |> Expect.equal "loading" InProgress
+            }
+
+            test "no query clears the rows and requests nothing" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryContinuousList None
+                        ]
+
+                effects |> Expect.isEmpty "no request"
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "the rows shown stay while the list is queried again" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryContinuousList(Some older)
+                        ]
+
+                state.ContinuousList
+                |> Expect.equal "refreshing" (Refreshing [| row "morfine" |])
+            }
+
+            test "the answer sets the rows and reports the success" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "the rows" (Resolved [| row "morfine" |])
+
+                effects
+                |> Expect.equal
+                    "succeeded"
+                    [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.ContinuousList ]
+            }
+
+            test "an answer to an earlier query is ignored" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            LoaderMsg.QueryContinuousList(Some older)
+                            landedContinuous 1 (answered [| row "old" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "still loading" InProgress
+                effects |> Expect.isEmpty "nothing"
+            }
+
+            test "an answer after the query was cleared is ignored" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            LoaderMsg.QueryContinuousList None
+                            landedContinuous 1 (answered [| row "old" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "a failed request clears the rows and reports the errors" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (Error [| "down" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+
+                effects
+                |> Expect.equal
+                    "failed"
+                    [
+                        LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.ContinuousList, [| "down" |])
+                    ]
+            }
+
+            test "an emergency list query leaves the continuous list alone" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                state.ContinuousList |> Expect.equal "the rows" (Resolved [| row "morfine" |])
+            }
+
+            test "a resource reload queries the list again for the current query" {
+                let _, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.ResourcesReloaded
+                        ]
+
+                effects
+                |> continuousFetches
+                |> Expect.equal "fetched again" [ LoaderEffect.FetchContinuousList(2, located) ]
+            }
+
+            test "a resource reload without a query does not query the list" {
+                let _, effects = run [ LoaderMsg.ResourcesReloaded ]
+
+                effects |> continuousFetches |> Expect.isEmpty "no request"
+            }
+
+            test "the continuous list load is not required to start" {
+                Loads.required
+                |> List.contains Load.ContinuousList
                 |> Expect.isFalse "not required"
             }
         ]

@@ -22,7 +22,6 @@
     <Compile Include="Models/TotalsDisplay.fs" />
     <Compile Include="Models/DoseTypeText.fs" />
     <Compile Include="Models/OrderContextText.fs" />
-    <Compile Include="Models/ContinuousMedicationList.fs" />
 
     <!-- helpers: no decisions, used by every kind below -->
     <Compile Include="Helpers/Deferred.fs" />

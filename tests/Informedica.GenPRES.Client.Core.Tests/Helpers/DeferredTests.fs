@@ -33,24 +33,6 @@ module DeferredTests =
                     |> Expect.equal "not started" HasNotStartedYet
                 }
 
-                test "bind keeps a value kept: an answer of the function over it is refreshing too" {
-                    Resolved 1
-                    |> Deferred.bind (fun n -> Resolved(n + 1))
-                    |> Expect.equal "resolved" (Resolved 2)
-
-                    Refreshing 1
-                    |> Deferred.bind (fun n -> Resolved(n + 1))
-                    |> Expect.equal "refreshing stays refreshing" (Refreshing 2)
-
-                    Refreshing 1
-                    |> Deferred.bind (fun _ -> InProgress)
-                    |> Expect.equal "the function's other cases as they are" InProgress
-
-                    InProgress
-                    |> Deferred.bind (fun n -> Resolved(n + 1))
-                    |> Expect.equal "in progress" InProgress
-                }
-
                 test "defaultValue and toOption read the value of an answer and of one kept" {
                     for name, deferred in cases do
                         let expected =

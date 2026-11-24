@@ -364,29 +364,6 @@ module Types =
         }
 
 
-    type ContinuousMedication =
-        {
-            Hospital: string
-            Category: string
-            Indication: string
-            DoseType: string
-            Medication: string
-            Generic: string
-            Unit: string
-            Quantity: float
-            Total: float
-            DoseUnit: string
-            MinWeight: float
-            MaxWeight: float
-            MinDose: float
-            MaxDose: float
-            AbsMax: float
-            MinConc: float
-            MaxConc: float
-            Solution: string
-        }
-
-
     type TextItem =
         | Normal of string
         | Bold of string

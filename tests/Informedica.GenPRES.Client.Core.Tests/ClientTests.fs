@@ -59,7 +59,6 @@ let everyLoad =
     [
         landed (Landing.Settings(Ok(ShellMachineTests.settings Informedica.GenPRES.Shared.Localization.Dutch)))
         landed (Landing.Localization(Ok [||]))
-        landed (Landing.ContinuousMedication(Ok []))
         landed (Landing.Products(Ok []))
         landed (Landing.Formulary(None, answered Formulary.empty))
         landed (Landing.Parenteralia(None, answered Parenteralia.empty))
@@ -945,6 +944,92 @@ let emergencyListQueryTests =
                     ]
                 |> stateOf
                 |> _.Loader.EmergencyList
+                |> Expect.equal "cleared" HasNotStartedYet
+            }
+        ]
+
+
+/// The patient with an age of ten years and the Location UMCU.
+let located = { draft with Location = Some "UMCU" }
+
+
+/// The continuous medication list requests among the effects of a transition.
+let continuousFetches (_, effects, _) =
+    effects
+    |> List.choose (
+        function
+        | ClientEffect.Loader(LoaderEffect.FetchContinuousList(_, pat)) -> Some pat
+        | _ -> None
+    )
+
+
+[<Tests>]
+let continuousListQueryTests =
+    testList
+        "the continuous list query the client sends"
+        [
+            test "is the patient while the list page is shown and the patient has a Location and an age" {
+                withPageAndPatient Page.Page.ContinuousMeds (Some located)
+                |> continuousListQuery
+                |> Expect.equal "the patient" (Some located)
+            }
+
+            test "is None for a patient without a Location" {
+                withPageAndPatient Page.Page.ContinuousMeds (Some draft)
+                |> continuousListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None for a patient with a Location but without data the server can calculate with" {
+                withPageAndPatient Page.Page.ContinuousMeds (Some { PatientData.empty with Location = Some "UMCU" })
+                |> continuousListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None without a patient" {
+                withPageAndPatient Page.Page.ContinuousMeds None
+                |> continuousListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "is None on another page" {
+                withPageAndPatient Page.Page.LifeSupport (Some located)
+                |> continuousListQuery
+                |> Expect.isNone "no query"
+            }
+
+            test "a patient answer on the list page requests the list" {
+                withPageAndPatient Page.Page.ContinuousMeds None
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some located)) ]
+                |> continuousFetches
+                |> Expect.equal "requested" [ located ]
+            }
+
+            test "the same patient answer again requests nothing" {
+                withPageAndPatient Page.Page.ContinuousMeds None
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some located)) ]
+                |> stateOf
+                |> play [ ClientMsg.Loader(LoaderMsg.PatientSet(Some located)) ]
+                |> continuousFetches
+                |> Expect.isEmpty "nothing"
+            }
+
+            test "moving to the list page with a patient requests the list" {
+                withPageAndPatient Page.Page.Prescribe (Some located)
+                |> play [ ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.ContinuousMeds) ]
+                |> continuousFetches
+                |> Expect.equal "requested" [ located ]
+            }
+
+            test "leaving the list page clears the rows" {
+                withPageAndPatient Page.Page.ContinuousMeds None
+                |> play
+                    [
+                        ClientMsg.Loader(LoaderMsg.PatientSet(Some located))
+                        ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
+                    ]
+                |> stateOf
+                |> _.Loader.ContinuousList
                 |> Expect.equal "cleared" HasNotStartedYet
             }
         ]

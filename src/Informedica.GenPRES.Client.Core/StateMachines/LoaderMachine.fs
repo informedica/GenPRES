@@ -6,8 +6,8 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// is added to the failed loads. The server is checked until it answers. The medication names are requested
 /// again after a failure, up to three failures.
 /// The formulary and parenteralia pages follow the workbench filter and the patient, and a choice on either
-/// page seeds the workbench filter. Interaction checks, totals queries and emergency list queries are numbered,
-/// so an answer to an earlier request is ignored.
+/// page seeds the workbench filter. Interaction checks, totals queries and the queries of both lists are
+/// numbered, so an answer to an earlier request is ignored.
 module LoaderMachine =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -28,8 +28,6 @@ module LoaderMachine =
             Settings: Deferred<ServerSettings>
             /// The terms of every language, as rows of the localization sheet.
             Localization: Deferred<string[][]>
-            /// The continuous medication list.
-            ContinuousMedication: Deferred<ContinuousMedication list>
             /// The products.
             Products: Deferred<Product list>
             /// The medication names the interactions page offers.
@@ -52,6 +50,12 @@ module LoaderMachine =
             /// The numbers of the checked rows of the emergency list, from 1. Every query clears them, because a
             /// number points to a row of the rows queried before.
             EmergencyListChecked: int[]
+            /// The rows of the continuous medication list for the patient data of the latest continuous list query.
+            ContinuousList: Deferred<Intervention[]>
+            /// The patient data of the latest continuous list query; None when the rows are not asked for.
+            ContinuousListQuery: PatientData option
+            /// The number of the latest continuous list query. An answer to an earlier query is ignored.
+            ContinuousListQueryNumber: int
             /// The formulary page.
             Formulary: Deferred<Formulary>
             /// A workbench filter that arrived while the formulary was loading; it is applied when the load ends.
@@ -81,7 +85,6 @@ module LoaderMachine =
     type Landing =
         | Settings of Result<ServerSettings, string>
         | Localization of Result<string[][], string>
-        | ContinuousMedication of Result<ContinuousMedication list, string>
         | Products of Result<Product list, string>
         /// The medication names, with the token the request was sent with.
         | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
@@ -91,6 +94,8 @@ module LoaderMachine =
         | Totals of number: int * from: OpenedToken option * Result<Reply<Totals>, string[]>
         /// The rows of the emergency list of a numbered query, with the token the request was sent with.
         | EmergencyList of number: int * from: OpenedToken option * Result<Reply<Intervention[]>, string[]>
+        /// The rows of the continuous medication list of a numbered query, with the token the request was sent with.
+        | ContinuousList of number: int * from: OpenedToken option * Result<Reply<Intervention[]>, string[]>
         /// The formulary page, with the token the request was sent with.
         | Formulary of from: OpenedToken option * Result<Reply<Formulary>, string[]>
         /// The parenteralia page, with the token the request was sent with.
@@ -130,6 +135,8 @@ module LoaderMachine =
         | QueryEmergencyList of PatientData option
         /// The rows of the emergency list with these numbers, from 1, are checked.
         | CheckEmergencyListRows of int[]
+        /// Queries the rows of the continuous medication list for the patient data; None clears the rows.
+        | QueryContinuousList of PatientData option
 
 
     /// An effect the App carries out: a server call whose answer returns as a message, a delayed message,
@@ -138,7 +145,6 @@ module LoaderMachine =
     type LoaderEffect =
         | FetchSettings
         | FetchLocalization
-        | FetchContinuousMedication
         | FetchProducts
         | FetchDrugNames
         | FetchFormulary of Formulary
@@ -149,6 +155,8 @@ module LoaderMachine =
         | FetchTotals of number: int * TotalsQuery
         /// Requests the rows of the emergency list for the patient data, with the query number.
         | FetchEmergencyList of number: int * PatientData
+        /// Requests the rows of the continuous medication list for the patient data, with the query number.
+        | FetchContinuousList of number: int * PatientData
         /// Seeds the workbench filter.
         | SeedWorkbench of FilterSeed
         /// Passes on the loaded server settings: the default language and the demo flag.
@@ -179,7 +187,6 @@ module LoaderMachine =
             {
                 Settings = HasNotStartedYet
                 Localization = HasNotStartedYet
-                ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
                 DrugNames = HasNotStartedYet
                 Interactions = HasNotStartedYet
@@ -190,6 +197,9 @@ module LoaderMachine =
                 EmergencyListQuery = None
                 EmergencyListQueryNumber = 0
                 EmergencyListChecked = [||]
+                ContinuousList = HasNotStartedYet
+                ContinuousListQuery = None
+                ContinuousListQueryNumber = 0
                 Formulary = HasNotStartedYet
                 FormularyAskAgain = None
                 Parenteralia = HasNotStartedYet
@@ -209,7 +219,6 @@ module LoaderMachine =
             [
                 Load.Settings, reading state.Settings
                 Load.Localization, reading state.Localization
-                Load.ContinuousMedication, reading state.ContinuousMedication
                 Load.Products, reading state.Products
                 Load.Formulary, reading state.Formulary
                 Load.Parenteralia, reading state.Parenteralia
@@ -217,6 +226,7 @@ module LoaderMachine =
                 Load.Interactions, reading state.Interactions
                 Load.Totals, reading state.Totals
                 Load.EmergencyList, reading state.EmergencyList
+                Load.ContinuousList, reading state.ContinuousList
             ]
 
 
@@ -357,6 +367,29 @@ module LoaderMachine =
             [ LoaderEffect.FetchEmergencyList(number, pat) ]
 
 
+    /// Queries the rows of the continuous medication list for the patient data and stores the query. Every query
+    /// gets a new number, so an earlier answer is ignored. No query clears the rows; otherwise the rows shown stay
+    /// until the answer.
+    let queryContinuousList query (state: LoaderState) =
+        let number = state.ContinuousListQueryNumber + 1
+
+        match query with
+        | None ->
+            { state with
+                ContinuousList = HasNotStartedYet
+                ContinuousListQuery = None
+                ContinuousListQueryNumber = number
+            },
+            []
+        | Some pat ->
+            { state with
+                ContinuousList = state.ContinuousList |> Deferred.refresh
+                ContinuousListQuery = query
+                ContinuousListQueryNumber = number
+            },
+            [ LoaderEffect.FetchContinuousList(number, pat) ]
+
+
     /// Returns the effect that passes the notice of a reply to the Session, or no effect without a notice.
     let told from (reply: Reply<'a>) =
         reply.Notice
@@ -374,9 +407,6 @@ module LoaderMachine =
         | LoaderMsg.Start Load.Localization ->
             let reading, effects = state.Localization |> start LoaderEffect.FetchLocalization
             { state with Localization = reading }, effects
-        | LoaderMsg.Start Load.ContinuousMedication ->
-            let reading, effects = state.ContinuousMedication |> start LoaderEffect.FetchContinuousMedication
-            { state with ContinuousMedication = reading }, effects
         | LoaderMsg.Start Load.Products ->
             let reading, effects = state.Products |> start LoaderEffect.FetchProducts
             { state with Products = reading }, effects
@@ -398,9 +428,6 @@ module LoaderMachine =
         | LoaderMsg.Landed(Landing.Localization result) ->
             let reading, state = state |> settle Load.Localization result
             { state with Localization = reading }, []
-        | LoaderMsg.Landed(Landing.ContinuousMedication result) ->
-            let reading, state = state |> settle Load.ContinuousMedication result
-            { state with ContinuousMedication = reading }, []
         | LoaderMsg.Landed(Landing.Products result) ->
             let reading, state = state |> settle Load.Products result
             { state with Products = reading }, []
@@ -502,6 +529,19 @@ module LoaderMachine =
             { state with EmergencyList = HasNotStartedYet },
             [
                 LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.EmergencyList, errs)
+            ]
+
+        // An answer to an earlier query is ignored.
+        | LoaderMsg.Landed(Landing.ContinuousList(number, _, _)) when number <> state.ContinuousListQueryNumber ->
+            state, []
+        | LoaderMsg.Landed(Landing.ContinuousList(_, from, Ok reply)) ->
+            { state with ContinuousList = Resolved reply.Response },
+            LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.ContinuousList
+            :: told from reply
+        | LoaderMsg.Landed(Landing.ContinuousList(_, _, Error errs)) ->
+            { state with ContinuousList = HasNotStartedYet },
+            [
+                LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.ContinuousList, errs)
             ]
 
         | LoaderMsg.CheckServer ->
@@ -631,16 +671,18 @@ module LoaderMachine =
             let state, parenteralia = state |> startParenteralia
             state, formulary @ seeded @ parenteralia
         // With a patient, an empty reload seed evaluates the workbench again, which also updates both pages.
-        // Without a patient, only the pages are requested again. The emergency list is queried again, because the
-        // rules may have changed.
+        // Without a patient, only the pages are requested again. Both lists are queried again, because the rules
+        // may have changed.
         | LoaderMsg.ResourcesReloaded ->
             let state, emergencyList = state |> queryEmergencyList state.EmergencyListQuery
+            let state, continuousList = state |> queryContinuousList state.ContinuousListQuery
 
             match state.Patient with
             | Some _ ->
                 state,
                 [
                     yield! emergencyList
+                    yield! continuousList
                     LoaderEffect.SeedWorkbench
                         {
                             Source = SeedSource.Reload
@@ -653,7 +695,7 @@ module LoaderMachine =
                 ]
             | None ->
                 let state, pages = state |> startPages
-                state, emergencyList @ pages
+                state, emergencyList @ continuousList @ pages
         // Every check gets a new number, so earlier answers are ignored. Fewer than two medications clears
         // the interactions; otherwise the rows shown stay until the answer.
         | LoaderMsg.CheckInteractions drugs ->
@@ -691,5 +733,6 @@ module LoaderMachine =
                 [ LoaderEffect.FetchTotals(number, query) ]
         | LoaderMsg.QueryEmergencyList query -> state |> queryEmergencyList query
         | LoaderMsg.CheckEmergencyListRows numbers -> { state with EmergencyListChecked = numbers }, []
+        | LoaderMsg.QueryContinuousList query -> state |> queryContinuousList query
 
         | _ -> state, []

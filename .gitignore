@@ -346,9 +346,6 @@
 !/tests/Informedica.GenPRES.Client.Core.Tests/StateMachines/
 !/tests/Informedica.GenPRES.Client.Core.Tests/MachinePolicies/
 !/tests/Informedica.GenPRES.Client.Core.Tests/Models/
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.csv
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.tsv
 # Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/

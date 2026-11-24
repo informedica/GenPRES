@@ -64,9 +64,9 @@ module GoogleDocs =
 
 
     // The emergency list spreadsheet, a separate workbook from the one GENPRES_URL_ID selects. The
-    // client fetches its sheets "emergencylist", "continuousmeds" and "products" directly, not through
-    // the GenFORM resource loading. The id is fixed in code, so a deployment cannot point the emergency
-    // data elsewhere. The parsers are in Shared/Models.fs.
+    // client fetches its sheet "products" directly, not through the GenFORM resource loading. The id is
+    // fixed in code, so a deployment cannot point the emergency data elsewhere. The parser is in
+    // Shared/Models.fs.
     //https://docs.google.com/spreadsheets/d/1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM/edit?usp=sharing
     [<Literal>]
     let private dataEMLUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
@@ -76,10 +76,6 @@ module GoogleDocs =
 
 
     open Informedica.GenPRES.Shared.Models
-
-
-    let loadContinuousMedication () =
-        dataEMLUrlId |> createUrl "continuousmeds" |> getUrl ContinuousMedication.parse
 
 
     let loadProducts () = dataEMLUrlId |> createUrl "products" |> getUrl Products.parse
