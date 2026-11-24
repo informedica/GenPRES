@@ -84,7 +84,8 @@ module DoseRule =
 
         /// <summary>
         /// Writes the dose rules of one generic as markdown: per indication, route and patient category the
-        /// products, synonyms, dose types, schedules, formulary links and dose limits.
+        /// products, synonyms, dose types, schedules and dose limits, and per dose type the formulary link with the
+        /// patient text and the schedule text of the source.
         /// </summary>
         /// <remarks>
         /// With rules of several generics, only the last generic is written; use <c>printGenerics</c> for those.
@@ -155,19 +156,31 @@ module DoseRule =
             let printDoses (rules: DoseRule array) =
                 ("", rules |> Array.groupBy _.DoseType)
                 ||> Array.fold (fun acc (dt, ds) ->
-                    let pedForm =
+                    let sourceText =
                         let link =
                             ds
                             |> Array.tryHead
                             |> Option.bind (fun dr -> dr.Generic.Label |> getLink dr.Source)
                             |> Option.defaultValue "*Lokaal*"
 
-                        ds
-                        |> Array.map _.ScheduleText
-                        |> Array.distinct
-                        |> function
-                            | [| s |] -> $"\n\n%s{link}: %s{s}"
-                            | _ -> ""
+                        // A text is written only when all rules of the dose type have the same text.
+                        let sameText texts =
+                            texts
+                            |> Array.distinct
+                            |> function
+                                | [| s |] -> Some s
+                                | _ -> None
+
+                        let patient = ds |> Array.map _.PatientText |> sameText |> Option.filter String.notEmpty
+
+                        let schedule = ds |> Array.map _.ScheduleText |> sameText
+
+                        match [ patient; schedule ] |> List.choose id with
+                        | [] -> ""
+                        | texts ->
+                            // Two spaces at the end of a markdown line break the line within the paragraph.
+                            let texts = texts |> List.filter String.notEmpty |> String.concat "  \n"
+                            $"\n\n%s{link}: %s{texts}"
 
                     ds
                     |> Array.fold
@@ -184,7 +197,7 @@ module DoseRule =
                             if acc |> String.containsCapsInsens md then
                                 acc // a rule repeats per product form, so a dose already written is skipped
                             else
-                                $"%s{acc}\n%s{md}%s{pedForm}"
+                                $"%s{acc}\n%s{md}%s{sourceText}"
 
                         )
                         acc
