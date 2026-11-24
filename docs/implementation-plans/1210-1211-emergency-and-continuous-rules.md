@@ -509,11 +509,14 @@ Part 7, the advice of a standard order:
 - The limit is the limit for the substance, in the unit the substance is dosed in. A scenario dosed by
   volume takes the limit of the component, else the limit of the form.
 - A once timed order adds the administration time (`ord_sch_tme`) and the rate (`orb_dos_rte`), such as
-  "in 30 - 60 min, 1 - 2 mL/uur". A time or rate with more than one number shows the lowest and the
-  highest number.
+  "in 30 - 60 min, 1 - 2 mL/uur", as the prescription texts print them (`OrderVariable.toValueUnitText`):
+  a range as minimum - maximum, up to three values as each value from low to high, more values as the
+  lowest - the highest value.
 - GenORDER finds the dose rule through the prescription rules of the resource provider for the dose filter of
-  the order context, matched on the route and the dose type of the scenario. A rule lookup that fails is
-  logged as a warning, and the standard order gets no advice.
+  the order context, matched on the route and the dose type of the scenario, and narrowed to the rule of the
+  scenario (`OrderContext.ruleOfScenario`). A rule lookup that fails is logged, as the other rule lookups of
+  GenORDER log it, and the standard order gets no limits in its advice.
+- The server puts the advice in the field `Text` of `Intervention`.
 
 Part 8, the client shows the server rows:
 
