@@ -949,8 +949,6 @@ module Types =
     type SeedSource =
         /// The medication in the URL, written over the current filter.
         | Url
-        /// An item of the emergency or continuous medication list, written over an empty filter.
-        | MedicationList
         /// The choices made in the formulary.
         | Formulary
         /// The medication, route and form chosen in the parenteralia.

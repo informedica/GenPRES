@@ -65,8 +65,8 @@ module Api =
         | ReCalcItemProperty of cmp: string * itm: string * property: ItemProperty
         /// Sets the argumentation the user writes for a deviation from the rules.
         | SetArgumentationProperty of text: string
-        /// Sets the filter choices by name from outside the filter, such as from the url or a
-        /// medication list. The source decides how the choices are written.
+        /// Sets the filter choices by name from outside the filter, such as from the url or a page. The
+        /// source decides how the choices are written.
         | SeedFilter of
             source: SeedSource *
             indication: string option *

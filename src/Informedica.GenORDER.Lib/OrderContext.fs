@@ -1211,8 +1211,8 @@ module OrderContext =
 
     /// Sets the filter choices from a seed source. A Formulary or Parenteralia seed removes the
     /// scenarios and keeps the diluent only when the generic, the route and the form are unchanged, for
-    /// Formulary also the indication. A Url seed keeps the diluent and the scenarios. A MedicationList
-    /// seed empties the filter first. A Reload changes nothing. The picked products and the components
+    /// Formulary also the indication. A Url seed keeps the diluent and the scenarios. A Reload changes
+    /// nothing. The picked products and the components
     /// stay only when all five choices are unchanged.
     let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
         let f = ctx.Filter
@@ -1242,7 +1242,6 @@ module OrderContext =
         | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
         | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
         | SeedSource.Url -> ctx |> write true
-        | SeedSource.MedicationList -> ctx |> clearAll |> write true
         | SeedSource.Reload -> ctx
 
 

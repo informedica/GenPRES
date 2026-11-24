@@ -160,7 +160,6 @@ let seedTests =
     let sources =
         [
             SeedSource.Url, S.SeedSource.Url
-            SeedSource.MedicationList, S.SeedSource.MedicationList
             SeedSource.Formulary, S.SeedSource.Formulary
             SeedSource.Parenteralia, S.SeedSource.Parenteralia
             SeedSource.Reload, S.SeedSource.Reload

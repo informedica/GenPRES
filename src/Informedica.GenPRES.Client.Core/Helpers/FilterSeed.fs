@@ -9,11 +9,11 @@ module FilterSeed =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// Filter choices set from outside the filter fields, such as from a url or a medication list. The
+    /// Filter choices set from outside the filter fields, such as from a url or a page. The
     /// server applies them by the rule of their source.
     type FilterSeed =
         {
-            /// Where the choices come from: the url, a medication list, a page, or a reload.
+            /// Where the choices come from: the url, a page, or a reload.
             Source: SeedSource
             Indication: string option
             Generic: string option

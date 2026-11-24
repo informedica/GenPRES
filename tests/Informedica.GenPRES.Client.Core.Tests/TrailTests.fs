@@ -146,7 +146,7 @@ let tests =
             test "a seed message shows its source and how many choices, never their text" {
                 let seed: FilterSeed.FilterSeed =
                     {
-                        Source = SeedSource.MedicationList
+                        Source = SeedSource.Formulary
                         Indication = None
                         Generic = Some "Jan Jansen"
                         Route = None
@@ -156,7 +156,7 @@ let tests =
 
                 OrderContextMsg.SeedFilter(seed, "r-4")
                 |> Trail.OrderContext.msg
-                |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
+                |> Expect.equal "the count" "SeedFilter formulary 1 choices r-4"
             }
 
             test "a linked order offer turned on or off names its index, a command on it the command too" {

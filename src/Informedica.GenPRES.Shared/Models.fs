@@ -1019,7 +1019,7 @@ module Models =
         /// Sets the indication, generic, route, form and dose type from a source outside the filter fields.
         /// Formulary and Parenteralia keep the diluent only when the generic, route and form are the same (for
         /// Formulary also the indication), and clear the scenarios. Url writes over the current filter and keeps
-        /// the diluent, MedicationList writes over an empty context, and Reload changes nothing. The selected
+        /// the diluent, and Reload changes nothing. The selected
         /// components and picked products stay only when all five choices are the same. OrderContext.seedFilter in
         /// GenORDER applies the same rules; an agreement test in the server tests keeps both equal.
         let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
@@ -1047,7 +1047,6 @@ module Models =
             | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
             | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
             | SeedSource.Url -> ctx |> write true
-            | SeedSource.MedicationList -> ctx |> clearAll |> write true
             | SeedSource.Reload -> ctx
 
 

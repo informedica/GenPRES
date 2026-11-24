@@ -392,7 +392,6 @@ module OrderContextMapper =
         let seedSource (source: SeedSource) =
             match source with
             | SeedSource.Url -> Informedica.GenOrder.Lib.Types.SeedSource.Url
-            | SeedSource.MedicationList -> Informedica.GenOrder.Lib.Types.SeedSource.MedicationList
             | SeedSource.Formulary -> Informedica.GenOrder.Lib.Types.SeedSource.Formulary
             | SeedSource.Parenteralia -> Informedica.GenOrder.Lib.Types.SeedSource.Parenteralia
             | SeedSource.Reload -> Informedica.GenOrder.Lib.Types.SeedSource.Reload
