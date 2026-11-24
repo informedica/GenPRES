@@ -11167,6 +11167,118 @@ module Tests =
                         |> Expect.equal "allowed, allowed, not" [ true; true; false ]
                     }
 
+                    test "every rule set kind is read back from its category name" {
+                        let nutritionCases =
+                            Microsoft.FSharp.Reflection.FSharpType.GetUnionCases typeof<NutritionCategory>
+                            |> Array.length
+
+                        RuleSet.categories
+                        |> Array.length
+                        |> Expect.equal "every nutrition category is listed" nutritionCases
+
+                        RuleSet.kinds
+                        |> Array.map (RuleSet.kindName >> RuleSet.kindOfName)
+                        |> Expect.equal "every kind round-trips" (RuleSet.kinds |> Array.map Some)
+                    }
+
+                    test "a name that is not a rule set category maps to no rule set kind" {
+                        [ "Enteral"; "tpn"; "" ]
+                        |> List.map RuleSet.kindOfName
+                        |> Expect.equal "none" [ None; None; None ]
+                    }
+
+                    test "the rules of a category are one rule set with its rules in their order" {
+                        let intubation =
+                            { row "EmergencyList" "Noodlijst" "Intubatie" "propofol" with
+                                RuleSetData.Location = Some "UMCU"
+                            }
+
+                        let lipid = row "Lipid" "Vetten" "Parenterale vetten" ""
+                        let icp = row "EmergencyList" "Noodlijst" "Verhoogde ICP" "NaCl 3%"
+
+                        [| intubation; lipid; icp |]
+                        |> RuleSet.ofData
+                        |> Expect.equal
+                            "two sets"
+                            [|
+                                {
+                                    Kind = RuleSetKind.EmergencyList
+                                    Label = "Noodlijst"
+                                    Rows = [| intubation; icp |]
+                                }
+                                {
+                                    Kind = RuleSetKind.Nutrition NutritionCategory.Lipid
+                                    Label = "Vetten"
+                                    Rows = [| lipid |]
+                                }
+                            |]
+                    }
+
+                    test "the rules of a category that is not a rule set category are left out" {
+                        [|
+                            row "Enteral" "x" "Enterale voeding" "MM"
+                            row "Enteral" "x" "Enterale voeding" "Infatrini"
+                            row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                        |]
+                        |> RuleSet.ofData
+                        |> Array.map _.Kind
+                        |> Expect.equal "only the TPN set" [| RuleSetKind.Nutrition NutritionCategory.TPN |]
+                    }
+
+                    test "each category that is not a rule set category, once, in its order" {
+                        [|
+                            row "Enteral" "x" "Enterale voeding" ""
+                            row "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" ""
+                            row "Supplement" "x" "Enterale toevoeging" ""
+                            row "Enteral" "x" "Enterale voeding" ""
+                        |]
+                        |> RuleSet.unknownCategories
+                        |> Expect.equal "two names" [| "Enteral"; "Supplement" |]
+                    }
+
+                    test "rules of rule set categories give no category that is not a rule set category" {
+                        [|
+                            row "Lipid" "Vetten" "Parenterale vetten" ""
+                            row "EmergencyList" "Noodlijst" "Intubatie" ""
+                        |]
+                        |> RuleSet.unknownCategories
+                        |> Expect.isEmpty "none"
+                    }
+
+                    test "a rule set without rules is not found with rules" {
+                        let feeding = [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+
+                        [ feeding; [||] ]
+                        |> List.map (fun rows ->
+                            [|
+                                {
+                                    Kind = RuleSetKind.Nutrition NutritionCategory.EnteralFeeding
+                                    Label = "Enterale Voeding"
+                                    Rows = rows
+                                }
+                            |]
+                            |> RuleSet.tryFindWithRows NutritionCategory.EnteralFeeding
+                            |> Option.isSome
+                        )
+                        |> Expect.equal "found with a rule, not found without" [ true; false ]
+                    }
+
+                    test "the nutrition category of an indication and a generic the rule set names" {
+                        let sets =
+                            [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+                            |> RuleSet.ofData
+
+                        [
+                            RuleSet.nutritionCategoryOf sets (Some "enterale VOEDING") (Some "mm")
+                            RuleSet.nutritionCategoryOf sets (Some "Enterale voeding") (Some "Infatrini")
+                            RuleSet.nutritionCategoryOf sets None (Some "MM")
+                            RuleSet.nutritionCategoryOf sets (Some "Enterale voeding") None
+                        ]
+                        |> Expect.equal
+                            "the feeding without regard to case, none for another generic or a missing name"
+                            [ Some NutritionCategory.EnteralFeeding; None; None; None ]
+                    }
+
                     test "a product is found without regard to case" {
                         [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
                         |> RuleSet.check doseRules (set [ "mm"; "NUTRILON PEPTI 1" ])

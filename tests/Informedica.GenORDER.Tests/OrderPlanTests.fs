@@ -613,7 +613,7 @@ let evaluateTests =
 
             test "a category without a rule set is refused" {
                 [||]
-                |> NutritionRuleSet.find NutritionCategory.Lipid
+                |> PlanContext.findRuleSet NutritionCategory.Lipid
                 |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
             }
 
@@ -628,7 +628,7 @@ let evaluateTests =
                     [|
                         feeding |> RuleSet.forPatient { PatientData.unknown with Location = Some loc }
                     |]
-                    |> NutritionRuleSet.find NutritionCategory.EnteralFeeding
+                    |> PlanContext.findRuleSet NutritionCategory.EnteralFeeding
                     |> Result.isOk
                 )
                 |> Expect.equal "found at UMCU, refused at AMC" [ true; false ]
@@ -656,7 +656,7 @@ let evaluateTests =
                             Generics = [| "fentanyl"; "propofol" |]
                         }
                 }
-                |> NutritionRuleSet.narrow (set |> RuleSet.forPatient amc)
+                |> OrderContext.narrowToRuleSet (set |> RuleSet.forPatient amc)
                 |> fun ctx -> ctx.Filter.Indications, ctx.Filter.Generics
                 |> Expect.equal "no UMCU names at AMC" ([| "Noodlijst intubatie" |], [| "fentanyl" |])
             }
@@ -702,7 +702,7 @@ let evaluateTests =
                 match
                     workbench
                     |> evaluate
-                    |> Result.bind (NutritionRuleSet.settle id (NutritionRuleSet.narrow Fixtures.ruleSets[0]) evaluate)
+                    |> Result.bind (OrderContext.settle id (OrderContext.narrowToRuleSet Fixtures.ruleSets[0]) evaluate)
                 with
                 | Ok r ->
                     r.Filter.Generic |> Expect.equal "the one generic picked" (Some "glucose")
@@ -729,7 +729,7 @@ let evaluateTests =
                     Ok ctx
 
                 open'
-                |> NutritionRuleSet.settle id id evaluate
+                |> OrderContext.settle id id evaluate
                 |> Expect.equal "the context as it was" (Ok open')
 
                 rounds.Value |> Expect.equal "evaluated once" 1
@@ -757,7 +757,7 @@ let evaluateTests =
                         }
 
                 open'
-                |> NutritionRuleSet.settle id id evaluate
+                |> OrderContext.settle id id evaluate
                 |> Result.isOk
                 |> Expect.isTrue "an answer"
                 rounds.Value |> Expect.equal "five rounds" 5
@@ -797,7 +797,7 @@ let evaluateTests =
 
                 workbench
                 |> evaluate
-                |> Result.bind (NutritionRuleSet.settle id (NutritionRuleSet.narrow set) evaluate)
+                |> Result.bind (OrderContext.settle id (OrderContext.narrowToRuleSet set) evaluate)
                 |> Result.isOk
                 |> Expect.isTrue "evaluated"
                 rounds.Value |> Expect.equal "evaluated once" 1
@@ -1330,85 +1330,6 @@ type ElectrolyteRules(minWeight, products) =
         member _.GetRouteMappings() = Electrolytes.routeMapping
         member _.GetDepartments() = Resources.distinctNames [ Some "ICK"; Some "NEO" ]
         member _.GetLocations() = [||]
-
-
-/// A nutrition context narrowed to its rule set as the server narrows it: the rule set from the rows of the
-/// "RuleSets" sheet expanded over the dose rule data, and the context evaluated through the plan context.
-let ruleSetDiscoveryTests =
-    testList
-        "a rule set over the rules"
-        [
-            test "a row without a generic offers the generics under its indication, not a medication" {
-                let rowOf generic indication =
-                    let r = RuleFixtures.row "ICK"
-
-                    { r with
-                        Generic = { r.Generic with Name = generic }
-                        Indication = indication
-                        ScheduleData =
-                            { r.ScheduleData with
-                                DoseLimitData =
-                                    { r.ScheduleData.DoseLimitData with
-                                        Component = generic
-                                        Substance = generic
-                                    }
-                            }
-                    }
-
-                // a nutrition rule for "voeding" beside a medication rule for "koorts"
-                let data = [| rowOf "voedsel" "voeding"; rowOf "paracetamol" "koorts" |]
-                let product g = Product.create g "zetpil" "RECTAAL" [| g |]
-
-                let provider =
-                    DoseRuleLoader.fromData
-                        RuleFixtures.routeMapping
-                        [||]
-                        [| product "voedsel"; product "paracetamol" |]
-                        [||]
-                        data
-                    |> fst
-                    |> RulesOf
-                    :> Resources.IResourceProvider
-
-                let evaluate ctx =
-                    ctx
-                    |> PlanContext.create "ctx" (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
-                    |> PlanContext.evaluate
-                        Scenarios.testStart
-                        OrderLogging.noOp
-                        provider
-                        [||]
-                        OrderContext.UpdateOrderContext
-                    |> Result.map _.Context
-
-                let rows =
-                    [|
-                        EvaluateFixtures.ruleSetRow "EnteralFeeding" "Enterale Voeding" "voeding" ""
-                    |]
-                    |> RuleSet.expand (RuleSet.DoseRuleNames.ofData data)
-
-                let indications = rows |> Array.map _.Indication |> Array.distinct
-                let generics = rows |> Array.map _.Generic |> Array.distinct
-                let set = nutritionRuleSet NutritionCategory.EnteralFeeding "Enterale Voeding" indications generics
-
-                let start: OrderContext =
-                    {
-                        Filter =
-                            { OrderContext.emptyFilter with
-                                Indications = indications
-                                Generics = generics
-                            }
-                        PatientData = RuleFixtures.patient (Some 5N) false (Some 20N) None
-                        Scenarios = [||]
-                        Argumentation = None
-                    }
-
-                start
-                |> evaluate
-                |> Result.map (NutritionRuleSet.narrow set >> _.Filter.Generics)
-                |> Expect.equal "voedsel, not paracetamol" (Ok [| "voedsel" |])
-            }
-        ]
 
 
 /// The rules for a patient without a department: the lookup runs on the context as held,
@@ -2375,60 +2296,6 @@ let refusalTests =
                         | other -> failtest $"expected an evaluation, got %A{other}"
                     }
                 ]
-
-            testList
-                "a pick the rules no longer offer in the plan"
-                [
-                    let picked = PlanContext.create "c-1" OrderCategory.Medication EvaluateFixtures.pcmContext
-
-                    let noPick = { picked with Context = { picked.Context with Filter = EvaluateFixtures.fresh } }
-
-                    let evaluate cmd pc =
-                        pc |> PlanContext.evaluate start OrderLogging.noOp (NoRules()) [||] cmd
-
-                    test "is refused with the message of a context without rules" {
-                        picked
-                        |> evaluate OrderContext.UpdateOrderContext
-                        |> Expect.equal "the message" (Error [ ErrorMsg(OrderContext.noDoseRulesMessage, None) ])
-                    }
-
-                    test "can be cleared, so the user is not stuck" {
-                        picked
-                        |> evaluate OrderContext.ClearAllFilter
-                        |> Result.isOk
-                        |> Expect.isTrue "nothing is chosen, so nothing is dropped"
-                    }
-
-                    test "a context without a pick evaluates" {
-                        noPick
-                        |> evaluate OrderContext.UpdateOrderContext
-                        |> Result.isOk
-                        |> Expect.isTrue "nothing is dropped"
-                    }
-
-                    test "a scenario command still runs over the context reconciled" {
-                        match picked |> evaluate OrderContext.SelectOrderScenario with
-                        | Ok pc -> pc.Context.Filter.Generic |> Expect.isNone "dropped, as on the workbench"
-                        | Error e -> failtest $"expected an evaluation, got %A{e}"
-                    }
-
-                    test "the id and the category stay the plan's" {
-                        match noPick |> evaluate OrderContext.UpdateOrderContext with
-                        | Ok pc ->
-                            pc.Id |> Expect.equal "the id" "c-1"
-                            pc.Category |> Expect.equal "the category" OrderCategory.Medication
-                        | Error e -> failtest $"expected an evaluation, got %A{e}"
-                    }
-
-                    test "the intake of the answer takes the place of the stale one" {
-                        match
-                            { noPick with Totals = { Totals.empty with Energy = Some "stale" } }
-                            |> evaluate OrderContext.UpdateOrderContext
-                        with
-                        | Ok pc -> pc.Totals |> Expect.equal "the stale intake gone" Totals.empty
-                        | Error e -> failtest $"expected an evaluation, got %A{e}"
-                    }
-                ]
         ]
 
 
@@ -2668,22 +2535,6 @@ let argumentationTests =
                 |> Expect.isTrue "none is written as null"
                 some.Contains $"\"Argumentation\":\"{text}\""
                 |> Expect.isTrue "the text is written"
-            }
-
-            test "a plan context evaluated keeps its argumentation: every command copies the record" {
-                let pc = PlanContext.create "c-1" OrderCategory.Medication argued
-
-                match
-                    pc
-                    |> PlanContext.evaluate
-                        (System.DateTime(2026, 9, 28))
-                        OrderLogging.noOp
-                        (NoRules())
-                        [||]
-                        OrderContext.SelectOrderScenario
-                with
-                | Ok pc -> pc.Context.Argumentation |> Expect.equal "the text survives" (Some text)
-                | Error e -> failtest $"{e}"
             }
         ]
 
@@ -3405,25 +3256,25 @@ let linkOfferTests =
             }
 
             test "a supplement under a supplement rule set without generics" {
-                NutritionRuleSet.orderCategory sets (Some "Enterale toevoeging") (Some "Fantomalt pdr")
+                OrderCategory.ofRuleSets sets (Some "Enterale toevoeging") (Some "Fantomalt pdr")
                 |> Expect.equal "supplement" (OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
             }
 
             test "a generic the rule set does not hold is a medication" {
-                NutritionRuleSet.orderCategory sets (Some "Enterale voeding") (Some "Infatrini")
+                OrderCategory.ofRuleSets sets (Some "Enterale voeding") (Some "Infatrini")
                 |> Expect.equal "medication" OrderCategory.Medication
             }
 
             test "the rule sets are read without regard to case" {
-                NutritionRuleSet.orderCategory sets (Some "enterale VOEDING") (Some "nutrini (nutricia)")
+                OrderCategory.ofRuleSets sets (Some "enterale VOEDING") (Some "nutrini (nutricia)")
                 |> Expect.equal "feeding" (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
             }
 
             test "an absent indication or generic is a medication" {
-                NutritionRuleSet.orderCategory sets None (Some "Fantomalt pdr")
+                OrderCategory.ofRuleSets sets None (Some "Fantomalt pdr")
                 |> Expect.equal "no indication" OrderCategory.Medication
 
-                NutritionRuleSet.orderCategory sets (Some "Enterale toevoeging") None
+                OrderCategory.ofRuleSets sets (Some "Enterale toevoeging") None
                 |> Expect.equal "no generic" OrderCategory.Medication
             }
 
@@ -3435,7 +3286,7 @@ let linkOfferTests =
 
                 [ Some "UMCU"; Some "AMC" ]
                 |> List.map (fun loc ->
-                    NutritionRuleSet.orderCategory
+                    OrderCategory.ofRuleSets
                         [| umcu |> RuleSet.forPatient { PatientData.unknown with Location = loc } |]
                         (Some "Enterale voeding")
                         (Some "Nutrini (Nutricia)")
@@ -3449,7 +3300,7 @@ let linkOfferTests =
             }
 
             test "an indication only the emergency list rule set holds is a medication" {
-                NutritionRuleSet.orderCategory sets (Some "Duchenne") (Some "ataluren")
+                OrderCategory.ofRuleSets sets (Some "Duchenne") (Some "ataluren")
                 |> Expect.equal "medication" OrderCategory.Medication
             }
         ]

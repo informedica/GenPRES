@@ -2176,6 +2176,106 @@ Scenarios: {scenarios}
         }
 
 
+    /// Narrows the indication and generic lists of the context filter to the names the rule set allows.
+    /// The other lists and the picks do not change.
+    let narrowToRuleSet (set: RuleSet) (ctx: OrderContext) =
+        let allowed names (xs: string[]) = xs |> Array.filter (RuleSet.allows names)
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indications = ctx.Filter.Indications |> allowed (set.Rows |> RuleSet.distinctOf _.Indication)
+                    Generics = ctx.Filter.Generics |> allowed (set.Rows |> RuleSet.distinctOf _.Generic)
+                }
+        }
+
+
+    /// Narrows the answer and evaluates it again while a pick list with one entry has no pick, at most five
+    /// times, once for each list that can be left open. Stops when an evaluation does not change the
+    /// narrowed filter. Returns the error of a failed evaluation.
+    let settle (contextOf: 'a -> OrderContext) (narrow: 'a -> 'a) (evaluate: 'a -> Result<'a, 'e>) (answer: 'a) =
+        // An evaluation rebuilds the order and loses the component quantities restored after a component
+        // selection or a diluent choice. Such a change starts from a settled context, where every list with
+        // one entry has its pick, so no evaluation follows it.
+        let rec go rounds a =
+            let narrowed = narrow a
+
+            if rounds > 0 && (contextOf narrowed |> choicesOpen) then
+                narrowed
+                |> evaluate
+                |> Result.bind (fun e ->
+                    if (contextOf (narrow e)).Filter = (contextOf narrowed).Filter then
+                        Ok(narrow e)
+                    else
+                        go (rounds - 1) e
+                )
+            else
+                Ok narrowed
+
+        go 5 answer
+
+
+    /// Returns the dose rules for the context as it is, before a command changes it: the stand-alone dose rules,
+    /// plus the dose rules that need a main order when the context selects them. The context selects them with a
+    /// picked indication and generic, where a single-option list counts as picked, and a dose type list of exactly
+    /// one. Only a linked offer, whose dose types are narrowed to the link side, has such a list, because a pick
+    /// or a seed does not change the lists of an evaluated context. Prescribing still refuses an order that needs
+    /// a main order and has none. Returns an empty array when a resource is missing from the provider.
+    let doseRulesOf (provider: Resources.IResourceProvider) (ctx: OrderContext) =
+        let picks = ctx |> filterPicks
+
+        // a reload between two reads can leave a resource out of the provider; then there are no dose rules
+        try
+            let standAlone = provider.Get Resources.Keys.standAloneDoseRules
+
+            match picks.Indication, picks.Generic, ctx.Filter.DoseTypes with
+            | Some _, Some _, [| doseType |] ->
+                let routes = provider.GetRouteMappings()
+
+                // Every form of the dose, so clearing the form lists the other forms again; the lookup after the
+                // command applies the picked form.
+                provider.GetDoseRules()
+                |> DoseRule.filter
+                    routes
+                    { picks with
+                        Form = None
+                        DoseType = Some doseType
+                    }
+                |> Array.filter (LinkRule.needsMainOrder routes (provider.Get Resources.Keys.linkRules))
+                |> Array.append standAlone
+            | _ -> standAlone
+        with :? System.Collections.Generic.KeyNotFoundException ->
+            [||]
+
+
+    /// Wraps the provider so its dose rules are the dose rules of the context from doseRulesOf. Every dose rule
+    /// lookup of an evaluation with the wrapped provider reads them: the pick lists, the scenarios and the refusal.
+    let withDoseRulesOf (ctx: OrderContext) (provider: Resources.IResourceProvider) =
+        { new Resources.IResourceProvider with
+            member _.Get key = provider.Get key
+            member _.GetData() = provider.GetData()
+            member _.GetUnitMappings() = provider.GetUnitMappings()
+            member _.GetRouteMappings() = provider.GetRouteMappings()
+            member _.GetValidForms() = provider.GetValidForms()
+            member _.GetFormRoutes() = provider.GetFormRoutes()
+            member _.GetFormularyProducts() = provider.GetFormularyProducts()
+            member _.GetReconstitution() = provider.GetReconstitution()
+            member _.GetParenteralMeds() = provider.GetParenteralMeds()
+            member _.GetEnteralFeeding() = provider.GetEnteralFeeding()
+            member _.GetProducts() = provider.GetProducts()
+
+            member _.GetDoseRules() = ctx |> doseRulesOf provider
+
+            member _.GetSolutionRules() = provider.GetSolutionRules()
+            member _.GetRenalRules() = provider.GetRenalRules()
+            member _.GetTotals() = provider.GetTotals()
+            member _.GetGStandProvider() = provider.GetGStandProvider()
+            member _.GetDepartments() = provider.GetDepartments()
+            member _.GetLocations() = provider.GetLocations()
+            member _.GetResourceInfo() = provider.GetResourceInfo()
+        }
+
+
     /// The serializable shape of an OrderContext. The filter, the patient data and the scenarios are
     /// stored as their own Dtos, the argumentation as text.
     module Dto =

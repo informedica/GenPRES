@@ -156,9 +156,56 @@ module RuleSet =
         |]
 
 
+    /// Returns the category name of a rule set kind in the rule set data.
+    let kindName =
+        function
+        | RuleSetKind.Nutrition NutritionCategory.EnteralFeeding -> "EnteralFeeding"
+        | RuleSetKind.Nutrition NutritionCategory.EnteralSupplement -> "EnteralSupplement"
+        | RuleSetKind.Nutrition NutritionCategory.TPN -> "TPN"
+        | RuleSetKind.Nutrition NutritionCategory.Lipid -> "Lipid"
+        | RuleSetKind.Nutrition NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
+        | RuleSetKind.EmergencyList -> "EmergencyList"
+        | RuleSetKind.StandardInfusions -> "StandardInfusions"
+
+
+    /// Returns the rule set kind of a category name in the rule set data, or None for another name.
+    let kindOfName name = kinds |> Array.tryFind (kindName >> (=) name)
+
+
+    /// Creates a rule set for every kind in the rule set data, with the label of the first rule of the kind and
+    /// the rules in their order. Leaves out the rules of a category that is not a rule set category.
+    let ofData (rows: RuleSetData[]) =
+        rows
+        |> Array.groupBy _.Category
+        |> Array.choose (fun (name, rs) ->
+            kindOfName name
+            |> Option.map (fun kind ->
+                {
+                    Kind = kind
+                    Label = rs[0].Label
+                    Rows = rs
+                }
+            )
+        )
+
+
+    /// Returns the distinct category names in the rule set data that are not a rule set category, in their order.
+    let unknownCategories (rows: RuleSetData[]) =
+        rows
+        |> Array.map _.Category
+        |> Array.distinct
+        |> Array.filter (kindOfName >> Option.isNone)
+
+
     /// Returns the rule set of a nutrition category, or None when there is none.
     let tryFind category (sets: RuleSet[]) =
         sets |> Array.tryFind (fun s -> s.Kind = RuleSetKind.Nutrition category)
+
+
+    /// Returns the rule set of a nutrition category, or None when there is none or when it has no rules, as a
+    /// rule set for a patient has when none of its rules apply to the patient.
+    let tryFindWithRows category sets =
+        sets |> tryFind category |> Option.filter (_.Rows >> Array.isEmpty >> not)
 
 
     /// Returns the rule set with only the rows that apply to the patient. A row without a location applies to
@@ -185,3 +232,24 @@ module RuleSet =
     let allows (allowed: string[]) name =
         allowed |> Array.isEmpty
         || allowed |> Array.exists (String.equalsCapInsens name)
+
+
+    /// Returns the nutrition category whose rule set names the indication and allows the generic, or None when
+    /// there is none, also when the indication or the generic is missing.
+    let nutritionCategoryOf (sets: RuleSet[]) indication generic =
+        match indication, generic with
+        | Some ind, Some gen ->
+            sets
+            |> Array.tryPick (fun s ->
+                match s.Kind with
+                | RuleSetKind.Nutrition category ->
+                    if
+                        s.Rows |> distinctOf _.Indication |> Array.exists (String.equalsCapInsens ind)
+                        && allows (s.Rows |> distinctOf _.Generic) gen
+                    then
+                        Some category
+                    else
+                        None
+                | _ -> None
+            )
+        | _ -> None

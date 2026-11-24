@@ -137,12 +137,53 @@ module PlanContext =
         |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData restore cmd)
 
 
-    /// Evaluates the plan context against the rules and returns a refusal as an error message, so a pick
-    /// that the rules no longer offer is not lost without notice.
-    let evaluate start logger provider totalsData cmd pc =
-        pc
-        |> evaluateOutcome start logger provider (fun () -> totalsData) cmd
-        |> Result.bind OrderContext.ofOutcome
+    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none or when it has no
+    /// rules.
+    let findRuleSet category sets =
+        sets
+        |> RuleSet.tryFindWithRows category
+        |> Result.requireSome (OrderPlanError.NoRuleSet category)
+
+
+    /// Returns the rule sets for the patient and the rule set of a nutrition category, or the error NoRuleSet
+    /// when there is no rule set for the category. For a medication, returns no rule sets and no rule set.
+    let ruleSetOf provider pat category =
+        match category with
+        | Some c ->
+            let sets = Api.getRuleSets provider pat
+            sets |> findRuleSet c |> Result.map (fun s -> sets, Some s)
+        | None -> Ok([||], None)
+
+
+    /// Evaluates the plan context with the command and returns the outcome. An evaluated nutrition context is
+    /// narrowed to the rule set and evaluated again, with every single-option list taken as its choice, until no
+    /// single-option list is left without a choice; a refusal along the way is returned as the refused context.
+    /// A refused nutrition context is also narrowed to the rule set, so it offers no medication of another
+    /// category. A medication context, which has no rule set, is evaluated once.
+    let evaluateSettled start logger (provider: Resources.IResourceProvider) set cmd pc =
+        let evaluate cmd pc =
+            pc |> evaluateOutcome start logger provider provider.GetTotals cmd
+
+        let narrowTo set =
+            Outcome.map (fun (pc: PlanContext) -> { pc with Context = pc.Context |> OrderContext.narrowToRuleSet set })
+
+        match pc |> evaluate cmd, set with
+        | Ok(Evaluated e), Some set ->
+            Evaluated e
+            |> OrderContext.settle
+                (Outcome.get >> _.Context)
+                (narrowTo set)
+                (function
+                | Evaluated pc ->
+                    // The evaluation rebuilds the lists from a fresh context and keeps a narrowed list only when
+                    // its field has a choice, so every single-option list is made the choice first.
+                    { pc with Context = pc.Context |> OrderContext.withFilterPicks }
+                    |> evaluate OrderContext.UpdateOrderContext
+                // A refusal is returned unchanged, so the filter stays the same and the settling stops.
+                | refused -> Ok refused
+                )
+        | Ok(Refused _ as refused), Some set -> refused |> narrowTo set |> Ok
+        | answer, _ -> answer
 
 
     /// The serializable shape of a PlanContext: the category as a string, the context and
@@ -199,81 +240,15 @@ module PlanContext =
                 )
 
 
-module NutritionRuleSet =
-
-    open Informedica.Utils.Lib.BCL
-
-
-    /// Returns the rule set of a nutrition category, or the error NoRuleSet when there is none or when it has no
-    /// rows, as a rule set for a patient none of whose rows apply has none.
-    let find category sets =
-        sets
-        |> RuleSet.tryFind category
-        |> Option.filter (_.Rows >> Array.isEmpty >> not)
-        |> Result.requireSome (OrderPlanError.NoRuleSet category)
-
+/// The order category of an order.
+module OrderCategory =
 
     /// Returns the nutrition category whose rule set names the indication and allows the generic, otherwise
     /// Medication, also when the indication or the generic is missing.
-    let orderCategory (sets: RuleSet[]) indication generic =
-        match indication, generic with
-        | Some ind, Some gen ->
-            sets
-            |> Array.tryPick (fun s ->
-                match s.Kind with
-                | RuleSetKind.Nutrition category ->
-                    if
-                        s.Rows
-                        |> RuleSet.distinctOf _.Indication
-                        |> Array.exists (String.equalsCapInsens ind)
-                        && RuleSet.allows (s.Rows |> RuleSet.distinctOf _.Generic) gen
-                    then
-                        Some(OrderCategory.Nutrition category)
-                    else
-                        None
-                | _ -> None
-            )
-            |> Option.defaultValue OrderCategory.Medication
-        | _ -> OrderCategory.Medication
-
-
-    /// Narrows the indication and generic lists of the context filter to the names the rule set allows.
-    /// The other lists and the picks do not change.
-    let narrow (set: RuleSet) (ctx: OrderContext) : OrderContext =
-        let keep allowed (xs: string[]) = xs |> Array.filter (RuleSet.allows allowed)
-
-        { ctx with
-            Filter =
-                { ctx.Filter with
-                    Indications = ctx.Filter.Indications |> keep (set.Rows |> RuleSet.distinctOf _.Indication)
-                    Generics = ctx.Filter.Generics |> keep (set.Rows |> RuleSet.distinctOf _.Generic)
-                }
-        }
-
-
-    /// Narrows the answer and evaluates it again while a pick list with one entry has no pick, at most five
-    /// times, once for each list that can be left open. Stops when an evaluation does not change the
-    /// narrowed filter. Returns the error of a failed evaluation.
-    let settle (contextOf: 'a -> OrderContext) (narrow: 'a -> 'a) (evaluate: 'a -> Result<'a, 'e>) (answer: 'a) =
-        // An evaluation rebuilds the order and loses the component quantities restored after a component
-        // selection or a diluent choice. Such a change starts from a settled context, where every list with
-        // one entry has its pick, so no evaluation follows it.
-        let rec go rounds a =
-            let narrowed = narrow a
-
-            if rounds > 0 && (contextOf narrowed |> OrderContext.choicesOpen) then
-                narrowed
-                |> evaluate
-                |> Result.bind (fun e ->
-                    if (contextOf (narrow e)).Filter = (contextOf narrowed).Filter then
-                        Ok(narrow e)
-                    else
-                        go (rounds - 1) e
-                )
-            else
-                Ok narrowed
-
-        go 5 answer
+    let ofRuleSets sets indication generic =
+        RuleSet.nutritionCategoryOf sets indication generic
+        |> Option.map OrderCategory.Nutrition
+        |> Option.defaultValue OrderCategory.Medication
 
 
 module OrderPlan =
@@ -367,7 +342,7 @@ module OrderPlan =
                     |> PlanContext.nutritionCategory
                     |> Option.bind (fun c -> ruleSets |> RuleSet.tryFind c)
                 with
-                | Some set -> evaluated.Context |> NutritionRuleSet.narrow set
+                | Some set -> evaluated.Context |> OrderContext.narrowToRuleSet set
                 | None -> evaluated.Context
 
             let updated =
@@ -476,6 +451,60 @@ module OrderPlan =
         |> Array.fold
             (fun acc pc -> acc |> Result.bind (add newId { pc with LinkedTo = Some mainId }))
             (plan |> add (fun () -> mainId) { main with LinkedTo = None })
+
+
+    /// Returns the plan contexts the link rules offer to link to the main context when it is narrowed to one
+    /// order. There is one offer per rule, or for a rule without a generic one offer per generic the dose rules
+    /// give. Each offer is evaluated for the patient of the main context, with its dose types narrowed to the
+    /// link side, its category from the rule sets and, for a nutrition category, its lists narrowed to that rule
+    /// set. When the narrowing leaves one dose type of several, the offer is evaluated again to get the scenarios
+    /// of that dose type. An offer is left out when the rules refuse it, its evaluation fails, or it has no dose
+    /// type of the link side.
+    let linkedOffers routeMapping rules sets evaluate (main: PlanContext) =
+        let offer side (ctx: OrderContext) =
+            let category = OrderCategory.ofRuleSets sets ctx.Filter.Indication ctx.Filter.Generic
+
+            let set =
+                match category with
+                | OrderCategory.Nutrition c -> sets |> RuleSet.tryFind c
+                | OrderCategory.Medication -> None
+
+            match ctx |> PlanContext.create "" category |> evaluate set with
+            | Ok(Evaluated pc) ->
+                // The evaluation picks a dose type when it finds only one, so an offer without a dose type of the
+                // link side is left out rather than offered with another dose type.
+                let narrowed = pc.Context |> OrderContext.narrowToLinkSide side
+
+                match narrowed.Filter.DoseTypes with
+                | [||] -> None
+                | [| _ |] when pc.Context.Filter.DoseTypes.Length > 1 ->
+                    // Without a picked dose type the evaluation finds no scenarios. Evaluated again, the single
+                    // dose type left in the list counts as the pick, so the answer has only that dose type and
+                    // needs no narrowing.
+                    match { pc with Context = narrowed } |> evaluate set with
+                    | Ok(Evaluated pc) -> Some pc
+                    | _ -> None
+                | _ -> Some { pc with Context = narrowed }
+            | _ -> None
+
+        let offers (rule: LinkRule) =
+            let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.PatientData
+
+            match unpicked.Filter.Generic with
+            | Some _ -> [| unpicked |]
+            | None ->
+                // A rule without a generic offers every generic the dose rules give for its other fields; a
+                // refusal offers none.
+                match unpicked |> PlanContext.create "" OrderCategory.Medication |> evaluate None with
+                | Ok(Evaluated pc) ->
+                    pc.Context.Filter.Generics
+                    |> Array.map (fun g -> { unpicked with OrderContext.Filter.Generic = Some g })
+                | _ -> [||]
+            |> Array.choose (offer rule.Linked)
+
+        main.Context
+        |> OrderContext.rulesForMainOrder routeMapping rules
+        |> Array.collect offers
 
 
     /// The serializable shape of an OrderPlan: the patient data, the filtered ids, every context and the

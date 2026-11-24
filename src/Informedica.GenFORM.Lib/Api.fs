@@ -106,6 +106,14 @@ module Api =
     let getProductPredilutions (provider: IResourceProvider) = provider.Get Keys.productPredilutions
 
 
+    /// Reads the rule sets from the rule set data of the provider on every call, so a reload of the resources is
+    /// seen. Each rule set has only the rules that apply to the patient.
+    let getRuleSets (provider: IResourceProvider) pat =
+        provider.Get Keys.ruleSetData
+        |> RuleSet.ofData
+        |> Array.map (RuleSet.forPatient pat)
+
+
     /// Returns the prescription rules of the patient. The rules come from the cache of the load when the provider
     /// holds a cache, gives the solution rules, renal rules, route mappings, additive lookup and product
     /// predilutions the cache was built from, and gives the dose rules or the stand-alone dose rules of that load.
