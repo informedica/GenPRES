@@ -5,9 +5,6 @@ module StandardOrderTests
 
 open Expecto
 open Expecto.Flip
-open Informedica.Utils.Lib.BCL
-open Informedica.GenUnits.Lib
-open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
@@ -15,7 +12,7 @@ module Feeding = OrderContextRuleTests.FeedingFixtures
 
 
 /// Fixtures for the tests: a context for the patient of the feeding fixtures, a scenario of a paracetamol
-/// suppository with a dose quantity of the item, rule sets, dose limits and a once timed order.
+/// suppository with a dose quantity of the item, rule sets and a once timed order.
 module Fixtures =
 
     let context filter =
@@ -54,49 +51,6 @@ module Fixtures =
 
     /// The scenario of paracetamol for fever, with an item dose quantity of 0 to 100 mg and no other values.
     let scenario = lazy (snd found.Value)
-
-
-    /// The prescription rules of the scenario of paracetamol for fever, with the dose rule changed by f.
-    let rulesWith f =
-        let ctx, _ = found.Value
-
-        match ctx |> OrderContext.rulesFor OrderLogging.noOp Feeding.provider ctx.PatientData with
-        | Ok rules -> rules |> Array.map (fun pr -> { pr with DoseRule = pr.DoseRule |> f })
-        | Error errs -> invalidOp $"fixture rules could not be found: %A{errs}"
-
-
-    /// The prescription rules of the scenario of paracetamol for fever, with each component limit changed by f and
-    /// the form limit set to formLimit.
-    let rulesWithLimits formLimit f =
-        rulesWith (fun dr ->
-            { dr with
-                ComponentLimits = dr.ComponentLimits |> Array.map f
-                FormLimit = formLimit
-            }
-        )
-
-
-    let mg = Units.Mass.milliGram
-    let mL = Units.Volume.milliLiter
-    let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
-
-
-    /// A range in the unit, with inclusive limits.
-    let minMax unit min max : MinMax =
-        let limit v = v |> ValueUnit.singleWithUnit unit |> Inclusive
-
-        {
-            Min = min |> Option.map limit
-            Max = max |> Option.map limit
-        }
-
-
-    /// A dose limit with only a quantity per kg and a quantity.
-    let limit qtyAdj qty =
-        { DoseLimit.limit with
-            QuantityAdjust = qtyAdj
-            Quantity = qty
-        }
 
 
     /// The once timed order of potassium chloride with its minimum and maximum values: a time of 60 to 120
@@ -347,13 +301,14 @@ let tests =
                     let withGeneric = { OrderContext.emptyFilter with Generic = Some "paracetamol 500" } |> context
 
                     let reanimation = lazy { scenario.Value with Indication = "Noodlijst Reanimatie" }
-                    let withItem = lazy (StandardOrder.ofScenario "max 100 mg" (withGeneric, reanimation.Value))
+                    let withItem = lazy (StandardOrder.ofScenario (withGeneric, reanimation.Value))
 
                     let withoutItem =
                         lazy
-                            (StandardOrder.ofScenario
-                                ""
-                                (context OrderContext.emptyFilter, { reanimation.Value with Item = None }))
+                            (StandardOrder.ofScenario (
+                                context OrderContext.emptyFilter,
+                                { reanimation.Value with Item = None }
+                            ))
 
                     test "takes the category from the indication without Noodlijst" {
                         withItem.Value.Category |> Expect.equal "the category" "Reanimatie"
@@ -385,7 +340,10 @@ let tests =
                         |> Expect.equal "the orderable" ("", $" %s{reanimation.Value.Name}")
                     }
 
-                    test "takes the advice" { withItem.Value.Advice |> Expect.equal "the advice" "max 100 mg" }
+                    test "takes the advice of the scenario" {
+                        withItem.Value.Advice
+                        |> Expect.equal "the advice" (StandardOrder.advice reanimation.Value)
+                    }
                 ]
 
             testList
@@ -402,73 +360,6 @@ let tests =
                         { scenario.Value with Item = None }
                         |> StandardOrder.itemOf
                         |> Expect.isNone "no item"
-                    }
-                ]
-
-            testList
-                "limitText"
-                [
-                    test "shows the absolute limits when there are no limits per kg" {
-                        limit MinMax.empty (minMax mg None (Some 100N))
-                        |> StandardOrder.limitText
-                        |> Expect.equal "the absolute limit" "max 100 mg"
-                    }
-
-                    test "shows the limits per kg followed by the absolute limits in brackets" {
-                        limit (minMax mgPerKg (Some 1N) (Some 2N)) (minMax mg None (Some 100N))
-                        |> StandardOrder.limitText
-                        |> Expect.equal "per kg with absolute" "1 - 2 mg/kg (max 100 mg)"
-                    }
-
-                    test "shows a limit with an equal minimum and maximum as one value" {
-                        limit MinMax.empty (minMax mg (Some 10N) (Some 10N))
-                        |> StandardOrder.limitText
-                        |> Expect.equal "the norm" "10 mg"
-                    }
-
-                    test "is empty without limits" {
-                        limit MinMax.empty MinMax.empty
-                        |> StandardOrder.limitText
-                        |> Expect.equal "empty" ""
-                    }
-                ]
-
-            testList
-                "limitOf"
-                [
-                    test "takes the limit of the substance in the unit the substance is dosed in" {
-                        rulesWith id
-                        |> StandardOrder.limitOf scenario.Value
-                        |> Option.map StandardOrder.limitText
-                        |> Expect.equal "the limit in mg" (Some "max 100 mg")
-                    }
-
-                    test "takes no limit of the substance in another unit" {
-                        let inMmol (dl: DoseLimit) = { dl with DoseUnit = Units.Molar.milliMole }
-
-                        rulesWithLimits
-                            None
-                            (fun cl -> { cl with SubstanceLimits = cl.SubstanceLimits |> Array.map inMmol })
-                        |> StandardOrder.limitOf scenario.Value
-                        |> Expect.isNone "no limit"
-                    }
-
-                    test "takes the limit of the component for a scenario dosed by volume" {
-                        rulesWithLimits
-                            (Some(limit MinMax.empty (minMax mL None (Some 9N))))
-                            (fun cl -> { cl with Limit = Some(limit MinMax.empty (minMax mL None (Some 5N))) })
-                        |> StandardOrder.limitOf { scenario.Value with Item = None }
-                        |> Option.map StandardOrder.limitText
-                        |> Expect.equal "the component limit" (Some "max 5 mL")
-                    }
-
-                    test "takes the limit of the form for a scenario dosed by volume without a component limit" {
-                        rulesWithLimits
-                            (Some(limit MinMax.empty (minMax mL None (Some 9N))))
-                            (fun cl -> { cl with Limit = None })
-                        |> StandardOrder.limitOf { scenario.Value with Item = None }
-                        |> Option.map StandardOrder.limitText
-                        |> Expect.equal "the form limit" (Some "max 9 mL")
                     }
                 ]
 
@@ -497,18 +388,18 @@ let tests =
             testList
                 "advice"
                 [
-                    test "shows the limit of the dose rule of the scenario" {
-                        found.Value
-                        |> StandardOrder.advice OrderLogging.noOp Feeding.provider
-                        |> Expect.equal "the limit" "max 100 mg"
+                    test "shows the limits of the substance for an order that is not per kg" {
+                        scenario.Value |> StandardOrder.advice |> Expect.equal "the limits" "0 - 100 mg"
                     }
 
-                    test "gives no limit for a scenario of another route" {
-                        let ctx, sc = found.Value
-
-                        (ctx, { sc with Route = "ORAAL" })
-                        |> StandardOrder.advice OrderLogging.noOp Feeding.provider
-                        |> Expect.equal "no limit" ""
+                    test "shows the limits per kg of the substance, with the time and the rate of a once timed order" {
+                        { scenario.Value with
+                            Order = onceTimed.Value
+                            Item = Some "kaliumchloride"
+                            UseAdjust = true
+                        }
+                        |> StandardOrder.advice
+                        |> Expect.equal "limits, time and rate" "0,5 mmol/kg in 60 - 120 min, 16 - 32 mL/uur"
                     }
                 ]
 
@@ -537,12 +428,6 @@ let tests =
                         emergencyList [| rule "koorts" "paracetamol" |]
                         |> fun (orders, warnings) -> orders |> Array.map _.Generic, warnings
                         |> Expect.equal "one standard order" ([| "paracetamol" |], [||])
-                    }
-
-                    test "gives each standard order its advice" {
-                        emergencyList [| rule "koorts" "paracetamol" |]
-                        |> fun (orders, warnings) -> orders |> Array.map _.Advice, warnings
-                        |> Expect.equal "the advice" ([| "max 100 mg" |], [||])
                     }
 
                     test "takes only the rule sets of the kind EmergencyList" {

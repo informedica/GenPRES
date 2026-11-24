@@ -9,7 +9,7 @@ module StandardOrder =
     open Informedica.GenForm.Lib
 
     module Parallel = Informedica.GenSolver.Lib.Utils.Parallel
-    module Variable = Informedica.GenSolver.Lib.Variable
+    module DosePrint = Order.Orderable.Dose.Print
 
 
     /// Returns the options of the first open choice of the filter, in the order generic, route, dose type, form,
@@ -117,44 +117,6 @@ module StandardOrder =
         |> List.tryFind (fun i -> Some(i.Name |> Name.toString) = sc.Item)
 
 
-    /// Returns the limits of the dose limit as text: the limits per kg, followed by the absolute limits in
-    /// brackets. A limit with an equal minimum and maximum shows as one value.
-    let limitText (dl: DoseLimit) =
-        match dl.QuantityAdjust |> DoseLimit.printMinMaxDose "", dl.Quantity |> DoseLimit.printMinMaxDose "" with
-        | adj, "" -> adj
-        | "", abs -> abs
-        | adj, abs -> $"%s{adj} (%s{abs})"
-
-
-    /// Returns the dose limit of the rules for the scenario: for the substance of the scenario the limit in the
-    /// unit the substance is dosed in; for a scenario dosed by volume the limit of the component, else the limit
-    /// of the form.
-    let limitOf (sc: OrderScenario) (rules: PrescriptionRule[]) =
-        let doseRules = rules |> Array.map _.DoseRule
-
-        match itemOf sc with
-        | Some item ->
-            let name = item.Name |> Name.toString
-            let unit =
-                item.Dose.Quantity
-                |> OrderVariable.Quantity.toOrdVar
-                |> OrderVariable.getVar
-                |> Variable.getUnit
-
-            doseRules
-            |> Array.collect (_.ComponentLimits >> Array.collect _.SubstanceLimits)
-            |> Array.tryFind (fun dl ->
-                dl.DoseLimitTarget
-                |> LimitTarget.substanceTargetToString
-                |> String.equalsCapInsens name
-                && Some dl.DoseUnit = unit
-            )
-        | None ->
-            doseRules
-            |> Array.tryPick (_.ComponentLimits >> Array.tryPick _.Limit)
-            |> Option.orElse (doseRules |> Array.tryPick _.FormLimit)
-
-
     /// Returns the limits followed, for a once timed order, by the time and the rate of the order, with the
     /// precision of the prescription texts.
     let withTimeAndRate limits (ord: Order) =
@@ -169,31 +131,27 @@ module StandardOrder =
         | _ -> limits
 
 
-    /// Returns the advice of the scenario of the context: the limits of the dose rule the scenario was made from,
-    /// followed for a once timed order by the time and the rate. The dose rule is the prescription rule for the
-    /// dose filter of the context with the route and the dose type of the scenario. A failed rule lookup is logged
-    /// and gives no limits.
-    let advice logger provider (ctx: OrderContext, sc: OrderScenario) =
-        let isOfScenario (pr: PrescriptionRule) =
-            pr.DoseRule.Route |> String.equalsCapInsens sc.Route
-            && pr.DoseRule.DoseType = sc.DoseType
+    /// Returns the advice of the scenario: the dose limits of the order as the prescription text prints them, per
+    /// kg for an order per kg, followed for a once timed order by the time and the rate. The limits are those of the
+    /// substance of the scenario, or of the orderable for a scenario dosed by volume.
+    let advice (sc: OrderScenario) =
+        let dose =
+            match itemOf sc with
+            | Some item -> item.Dose
+            | None -> sc.Order.Orderable.Dose
 
         let limits =
-            ctx
-            |> OrderContext.rulesFor logger provider ctx.PatientData
-            |> FilterHelpers.orLogErrors logger [||]
-            |> Array.filter isOfScenario
-            |> OrderContext.ruleOfScenario provider sc ctx
-            |> limitOf sc
-            |> Option.map limitText
-            |> Option.defaultValue ""
+            if sc.UseAdjust then
+                dose |> DosePrint.doseQuantityAdjustConstraints 3
+            else
+                dose |> DosePrint.doseQuantityConstraints 3
 
         withTimeAndRate limits sc.Order
 
 
-    /// Returns the standard order of a scenario of the context with the advice. A scenario with a substance shows
+    /// Returns the standard order of a scenario of the context, with its advice. A scenario with a substance shows
     /// the substance; a scenario dosed by volume shows the orderable.
-    let ofScenario advice (ctx: OrderContext, sc: OrderScenario) =
+    let ofScenario (ctx: OrderContext, sc: OrderScenario) =
         let orb = sc.Order.Orderable
 
         // The values have the precision of the prescription texts of the scenario.
@@ -230,7 +188,7 @@ module StandardOrder =
             Generic = ctx.Filter.Generic |> Option.defaultValue sc.Name
             SubstanceDose = substanceDose
             Preparation = preparation
-            Advice = advice
+            Advice = advice sc
         }
 
 
@@ -261,7 +219,4 @@ module StandardOrder =
             |> Array.Parallel.map (Array.map (contextOf patientData >> scenarios (evaluate start logger provider) 0))
             |> Array.concat
 
-        found
-        |> Array.collect fst
-        |> Array.map (fun s -> ofScenario (advice logger provider s) s),
-        found |> Array.collect snd
+        found |> Array.collect fst |> Array.map ofScenario, found |> Array.collect snd
