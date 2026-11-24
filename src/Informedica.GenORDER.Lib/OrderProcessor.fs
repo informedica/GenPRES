@@ -655,6 +655,11 @@ module OrderProcessor =
             | OrderCondition.OrderSolved -> ord |> isSolved
             | OrderCondition.HasValues -> ord |> hasValues
             | OrderCondition.CanSetNormDose -> ord |> canSetNormDose
+            | OrderCondition.DoseQuantityNotSolved ->
+                ord.Orderable.Dose.Quantity
+                |> Quantity.toOrdVar
+                |> OrderVariable.isSolved
+                |> not
 
 
     module OrderEffect =
@@ -1263,6 +1268,51 @@ module OrderProcessor =
 
     module OrderAction =
 
+        /// The smallest number of components a timed or once timed order has to get the median preset.
+        let minPresetComponents = 3
+
+
+        /// Returns the effects that preset a timed or once timed order with at least minPresetComponents
+        /// components, so that the order is solved when it is shown. The orderable quantity of each component is
+        /// set to its median, in the order of the components, and the order is solved for min and max after each
+        /// one. When a component quantity cannot be set to a median, the order stays as it was. The dose rate is
+        /// then set to its median, unless the dose quantity is not a single value at that time. Returns no effects
+        /// for any other order, and for an order with a component that has more than one concentration, because
+        /// the prescriber chooses the concentration first.
+        let presetEffects (ord: Order) =
+            let selectMedian ovarRef =
+                [
+                    OrderEffect.SelectOrderVariableValue(ovarRef, Choice.Median)
+                    OrderEffect.SolveOrder SolveMode.MinMax
+                ]
+
+            let hasOneConcentration cmp =
+                cmp |> Orderable.Component.concentrations (fun _ -> true) |> List.length <= 1
+
+            if
+                ord |> rateWaits
+                && ord.Orderable.Components |> List.length >= minPresetComponents
+                && ord.Orderable.Components |> List.forall hasOneConcentration
+            then
+                [
+                    ord.Orderable.Components
+                    |> List.collect (fun cmp ->
+                        cmp.Name
+                        |> WrappedString.Name.toString
+                        |> OrderVariableReference.ComponentOrderableQuantity
+                        |> selectMedian
+                    )
+                    |> OrderEffect.Try
+
+                    OrderEffect.Unless(
+                        [ OrderCondition.DoseQuantityNotSolved ],
+                        OrderEffect.Try(selectMedian (OrderVariableReference.OrderableDose DoseProperty.Rate))
+                    )
+                ]
+            else
+                []
+
+
         /// Returns the effects of an action on the order. Returns NoSuchVariable for a reference the order
         /// does not have, and NoRecipe for an action without a recipe.
         let effects action (ord: Order) =
@@ -1426,6 +1476,8 @@ module OrderProcessor =
                             )
 
                             OrderEffect.SetNormDose
+
+                        yield! ord |> presetEffects
                     ]
             | OrderAction.Reset ->
                 // Creating the order set calculated constraints within the defined constraints of every
