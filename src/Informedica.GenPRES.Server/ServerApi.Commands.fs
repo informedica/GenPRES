@@ -452,26 +452,23 @@ module OrderContextCommand =
     let processCmd (env: AppEnv) (OrderContextCommand.Command(cmd, ctx)) = processViewCmd env (cmd, ctx)
 
 
-/// Maps the standard orders of the emergency list to the medication rows of the list.
-module EmergencyListCommand =
+/// Maps the standard orders of a list to the rows of the list, and a rule that gives no rows to a warning.
+module StandardOrderCommand =
 
     open Logging
     open Informedica.Logging.Lib
-    open Informedica.Utils.Lib.BCL
     open Informedica.GenPRES.Shared.Types
 
-    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
-    module Emergency = Informedica.GenCore.Lib.Calculations.Emergency
     module GenOrder = Informedica.GenOrder.Lib.Types
     module PlanContext = Informedica.GenOrder.Lib.PlanContext
     module Intervention = Informedica.GenPRES.Shared.Models.Intervention
 
 
-    /// Returns the warning that a rule of the emergency list gives no rows, with the indication, the generic and the
-    /// reason.
-    let warning standardOrderWarning =
+    /// Returns the warning that a rule of the list gives no rows, with the name of the list, the indication, the
+    /// generic and the reason.
+    let warning list standardOrderWarning =
         let text ind gen reason =
-            ServerLogging.Warning $"EmergencyList: %s{ind}, %s{gen} gives no rows: %s{reason}"
+            ServerLogging.Warning $"%s{list}: %s{ind}, %s{gen} gives no rows: %s{reason}"
 
         match standardOrderWarning with
         | GenOrder.StandardOrderWarning.NoScenarios(ind, gen) -> text ind gen "no scenarios and no open choice"
@@ -508,6 +505,23 @@ module EmergencyListCommand =
                 |> OrderContextService.toModel demo
                 |> Some
         }
+
+
+    /// Logs a warning for each rule of the list that gives no rows, and returns a row for each standard order.
+    let toRows (env: AppEnv) list (orders, warnings) =
+        warnings |> Array.iter (warning list >> Logging.logWarning env.logger)
+        orders |> Array.map (toIntervention env.demo)
+
+
+/// Handles a request for the rows of the emergency list.
+module EmergencyListCommand =
+
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenPRES.Shared.Types
+
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module Emergency = Informedica.GenCore.Lib.Calculations.Emergency
+    module Intervention = Informedica.GenPRES.Shared.Models.Intervention
 
 
     /// Returns the formula of a calculated intervention as the Dutch text of the emergency list.
@@ -572,14 +586,34 @@ module EmergencyListCommand =
             match pat |> Patient.toCore (env.today ()) with
             | Error errs -> return Error errs
             | Ok core ->
-                let orders, warnings = core |> env.emergencyList
-                warnings |> Array.iter (warning >> Logging.logWarning env.logger)
+                let rows = core |> env.emergencyList |> StandardOrderCommand.toRows env "EmergencyList"
                 let calculated = core |> CorePatientData.emergencyInterventions |> List.map ofCalculation
 
+                return rows |> Array.append (calculated |> List.toArray) |> Ok
+        }
+
+
+/// Handles a request for the rows of the continuous medication list.
+module ContinuousListCommand =
+
+    open Informedica.GenPRES.Shared.Types
+
+
+    /// Returns a short name for the log instead of the whole request.
+    let toString (_: PatientData) = "ContinuousList"
+
+
+    /// Returns the rows of the continuous medication list for the patient, and logs a warning for each rule that
+    /// gives no rows. Returns the messages when the patient data are invalid.
+    let processCmd (env: AppEnv) (pat: PatientData) =
+        async {
+            match pat |> Patient.toCore (env.today ()) with
+            | Error errs -> return Error errs
+            | Ok core ->
                 return
-                    orders
-                    |> Array.map (toIntervention env.demo)
-                    |> Array.append (calculated |> List.toArray)
+                    core
+                    |> env.standardInfusions
+                    |> StandardOrderCommand.toRows env "ContinuousList"
                     |> Ok
         }
 

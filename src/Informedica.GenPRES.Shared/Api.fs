@@ -538,5 +538,8 @@ module Api =
             // Returns the medication rows of the emergency list for the patient, calculated from the rule set of the
             // kind EmergencyList.
             getEmergencyList: Request<PatientData> -> Async<Result<Reply<Intervention[]>, string[]>>
+            // Returns the rows of the continuous medication list for the patient, calculated from the rule set of the
+            // kind StandardInfusions.
+            getContinuousList: Request<PatientData> -> Async<Result<Reply<Intervention[]>, string[]>>
             testApi: unit -> Async<string>
         }

@@ -109,6 +109,14 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (EmergencyListCommand.processCmd env)
 
+            getContinuousList =
+                Compute.bound
+                    env
+                    cookie
+                    ContinuousListCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (ContinuousListCommand.processCmd env)
+
             testApi = fun () -> async { return "Hello world!" }
         }
 
