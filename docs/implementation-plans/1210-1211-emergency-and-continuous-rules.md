@@ -446,8 +446,14 @@ Decided on 2026-11-24:
   the plan. Linked orders go through the prescribe page.
 - The rows that are not medication cannot be prescribed.
 - Each part removes the code it replaces.
+- The calculation belongs in GenORDER: the rules run in the core and the server maps the result to the
+  contract (ADR-0001, ADR-0008), as for the nutrition rule sets. Decided on 2026-11-24, after part 5 put the
+  calculation in the server; part 6 moves it.
+- GenORDER calls what it calculates a standard order: an order context narrowed to one scenario, with the
+  texts and the advice the list shows. A row is the UI form of a standard order; the list shows one row
+  for each standard order.
 
-Part 5, the server calculates the medication rows:
+Part 5, the server calculates the medication rows (merged, #1992):
 
 - The contract gets `getEmergencyList`: it takes the patient data in a `Request` and returns the rows of the
   emergency list as `Intervention` records, the records the page shows today, in a `Reply`. It runs through
@@ -479,7 +485,20 @@ Part 5, the server calculates the medication rows:
   `InterventionDoseText`, Advies in `Text`. The server fills only these text fields; the number fields stay
   empty. The print takes the cells of the table, as it does today.
 
-Part 6, the advice of a row:
+Part 6, the calculation moves to GenORDER:
+
+- GenORDER calculates the standard orders. It takes the rule set for the patient, the patient data, the
+  logger and the resource provider, and returns a standard order for each scenario.
+- The evaluation, the choice of the options and the texts stay as in part 5, now on the domain order context
+  and the domain order. GenORDER makes the texts of a standard order as it makes the prescription texts of a
+  scenario.
+- The server command maps the patient data to the domain, calls GenORDER and maps each standard order to an
+  `Intervention`.
+- Removed from the server: the evaluation through the contract (`OrderContextCommand.evaluated`), the choice
+  of the options and the text functions of `EmergencyListCommand`.
+- The part is a move: the rows of the list and their texts do not change.
+
+Part 7, the advice of a standard order:
 
 - Advies shows the limits of the dose rule the scenario was made from: the dose per kg, followed by the
   absolute dose in brackets. A limit with an equal minimum and maximum is the norm and shows as one value
@@ -489,10 +508,11 @@ Part 6, the advice of a row:
 - A once timed order adds the administration time (`ord_sch_tme`) and the rate (`orb_dos_rte`), such as
   "in 30 - 60 min, 1 - 2 mL/uur". A time or rate with more than one number shows the lowest and the
   highest number.
-- The server finds the dose rule through the prescription rules for the dose filter of the order context,
-  matched on the route and the dose type of the scenario.
+- GenORDER finds the dose rule through the prescription rules of the resource provider for the dose filter of
+  the order context, matched on the route and the dose type of the scenario. A rule lookup that fails is
+  logged as a warning, and the standard order gets no advice.
 
-Part 7, the client shows the server rows:
+Part 8, the client shows the server rows:
 
 - The client asks the server for the rows through Client.Core, as it does the other server loads, when
   the patient data change and the patient has a Location.
@@ -509,7 +529,7 @@ Part 7, the client shows the server rows:
   with their entries in the test project file. The order calculation is tested in GenSOLVER and GenORDER;
   whether the rules are right is a matter of medical validation, not of the code.
 
-Part 8, prescribing from the list:
+Part 9, prescribing from the list:
 
 - A click on a medication row sends a new order context message that puts the order context of the row in
   the workbench as it is, without a request, and moves to the prescribe page.
@@ -549,8 +569,9 @@ Part 1, the server calculates the rows:
 - The contract gets `getContinuousList`: it takes the patient data in a `Request` and returns the rows as
   `Intervention` records, each with its order context, in a `Reply`. It runs through `Compute.bound`, as the
   other calls that calculate.
-- The server takes the rule set of the kind StandardInfusions for the patient and evaluates its rows as for
-  the emergency list (step 3, part 5), with the same code.
+- GenORDER takes the rule set of the kind StandardInfusions for the patient and calculates its standard
+  orders as for the emergency list (step 3, part 6), with the same code, and makes the texts of each standard
+  order. The server maps each standard order to an `Intervention`.
 - Each scenario gives one row of the list:
   - Categorie: the indication without the words "Standaard infusie".
   - Medicatie: the generic of the row.
@@ -564,15 +585,16 @@ Part 1, the server calculates the rows:
     Oplossing the name of the product, Dosering the rate with the rate per kg of the orderable, Advies the
     rate limits of the component, else of the form.
 - The columns go in the text fields of `Intervention`: Hoeveelheid in `QuantityUnit`, Oplossing in
-  `Solution`, Dosering in `SubstanceDoseText`, Advies in `Text`. The server fills only these text fields; the
-  number fields stay empty. The print takes the cells of the table, as it does today.
+  `Solution`, Dosering in `SubstanceDoseText`, Advies in `Text`. The server copies the texts of the standard
+  order into only these text fields; the number fields stay empty. The print takes the cells of the table, as
+  it does today.
 
 Part 2, the client shows the rows and prescribes from them:
 
 - The client asks the server for the rows through Client.Core, when the patient data change and the patient
   has a Location, and lays a mask with a spinner over the table meanwhile. Old answers, a reset patient and
-  the prescribe button are handled as on the emergency list (step 3, part 7).
-- The row click and the prescribe button work as on the emergency list (step 3, part 8).
+  the prescribe button are handled as on the emergency list (step 3, part 8).
+- The row click and the prescribe button work as on the emergency list (step 3, part 9).
 - Removed: the reading of the `continuousmeds` sheet, its calculation in the client
   (`ContinuousMedicationList.calculate`) and its lookup for a row click (`Client.continuousSeed`).
 - Removed: the continuous baseline tests and their fixtures (`ContinuousBaseline.fs`,
