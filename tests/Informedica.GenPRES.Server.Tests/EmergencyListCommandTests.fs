@@ -36,6 +36,7 @@ module Fixtures =
             Generic = "paracetamol"
             SubstanceDose = "0 - 100 mg"
             Preparation = "1 zetpil van 100 mg/stuk"
+            Advice = "max 100 mg"
         }
 
 
@@ -128,7 +129,7 @@ let tests =
                         |> Expect.equal "the texts" ("0 - 100 mg", "1 zetpil van 100 mg/stuk")
                     }
 
-                    test "leaves the advice empty" { row.Text |> Expect.equal "no advice" "" }
+                    test "puts the advice in the text" { row.Text |> Expect.equal "the advice" "max 100 mg" }
 
                     test "carries the order context of the standard order as a medication" {
                         row.OrderContext

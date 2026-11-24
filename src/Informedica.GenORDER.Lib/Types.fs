@@ -1035,6 +1035,8 @@ module Types =
             SubstanceDose: string
             /// The dose of the orderable with the concentration of the substance in it
             Preparation: string
+            /// The limits of the dose rule of the scenario, with the time and the rate for a once timed order
+            Advice: string
         }
 
 

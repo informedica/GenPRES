@@ -1,14 +1,15 @@
 namespace Informedica.GenOrder.Lib
 
 
-/// The standard orders of a rule set: each rule evaluated to its scenarios, with the texts a list shows for each
-/// scenario.
+/// The standard orders of a rule set: each rule evaluated to its scenarios, with the texts and the advice a list
+/// shows for each scenario.
 module StandardOrder =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
 
     module Parallel = Informedica.GenSolver.Lib.Utils.Parallel
+    module DosePrint = Order.Orderable.Dose.Print
 
 
     /// Returns the options of the first open choice of the filter, in the order generic, route, dose type, form,
@@ -62,14 +63,14 @@ module StandardOrder =
     /// evaluation that gives no scenarios. A context without scenarios is evaluated again for each option of the
     /// first open choice, at most four choices deep.
     let rec scenarios evaluate depth (ctx: OrderContext) =
-        let names (c: OrderContext) =
+        let indicationAndGeneric (c: OrderContext) =
             c.Filter.Indication |> Option.defaultValue "", c.Filter.Generic |> Option.defaultValue ""
 
         match ctx |> PlanContext.create "" OrderCategory.Medication |> evaluate with
         | Ok(Evaluated pc) when pc.Context.Scenarios |> Array.isEmpty |> not ->
             pc.Context.Scenarios |> Array.map (fun sc -> pc.Context, sc), [||]
         | Ok(Evaluated pc) ->
-            let ind, gen = names pc.Context
+            let ind, gen = indicationAndGeneric pc.Context
 
             match branches pc.Context with
             | [||] -> [||], [| StandardOrderWarning.NoScenarios(ind, gen) |]
@@ -78,10 +79,10 @@ module StandardOrder =
                 let found = bs |> Array.map (scenarios evaluate (depth + 1))
                 found |> Array.collect fst, found |> Array.collect snd
         | Ok(Refused(pc, refusal)) ->
-            let ind, gen = names pc.Context
+            let ind, gen = indicationAndGeneric pc.Context
             [||], [| StandardOrderWarning.Refused(ind, gen, refusal) |]
         | Error messages ->
-            let ind, gen = names ctx
+            let ind, gen = indicationAndGeneric ctx
             [||], [| StandardOrderWarning.Failed(ind, gen, messages) |]
 
 
@@ -108,8 +109,48 @@ module StandardOrder =
         }
 
 
-    /// Returns the standard order of a scenario of the context. A scenario with a substance shows the substance; a
-    /// scenario dosed by volume shows the orderable.
+    /// Returns the item of the scenario: the substance that is dosed, not an additional substance of the product.
+    /// Returns None for a scenario dosed by volume.
+    let itemOf (sc: OrderScenario) =
+        sc.Order.Orderable.Components
+        |> List.collect _.Items
+        |> List.tryFind (fun i -> Some(i.Name |> Name.toString) = sc.Item)
+
+
+    /// Returns the limits followed, for a once timed order, by the time and the rate of the order, with the
+    /// precision of the prescription texts.
+    let withTimeAndRate limits (ord: Order) =
+        match ord.Schedule with
+        | Schedule.OnceTimed time ->
+            let time = time |> OrderVariable.toValueUnitText OrderVariable.Time.toOrdVar -1
+            let rate =
+                ord.Orderable.Dose.Rate
+                |> OrderVariable.toValueUnitText OrderVariable.Rate.toOrdVar -1
+
+            $"%s{limits} in %s{time}, %s{rate}" |> String.trim
+        | _ -> limits
+
+
+    /// Returns the advice of the scenario: the dose limits of the order as the prescription text prints them, per
+    /// kg for an order per kg, followed for a once timed order by the time and the rate. The limits are those of the
+    /// substance of the scenario, or of the orderable for a scenario dosed by volume.
+    let advice (sc: OrderScenario) =
+        let dose =
+            match itemOf sc with
+            | Some item -> item.Dose
+            | None -> sc.Order.Orderable.Dose
+
+        let limits =
+            if sc.UseAdjust then
+                dose |> DosePrint.doseQuantityAdjustConstraints 3
+            else
+                dose |> DosePrint.doseQuantityConstraints 3
+
+        withTimeAndRate limits sc.Order
+
+
+    /// Returns the standard order of a scenario of the context, with its advice. A scenario with a substance shows
+    /// the substance; a scenario dosed by volume shows the orderable.
     let ofScenario (ctx: OrderContext, sc: OrderScenario) =
         let orb = sc.Order.Orderable
 
@@ -121,14 +162,8 @@ module StandardOrder =
             orb.Dose.QuantityAdjust
             |> OrderVariable.toValueUnitText OrderVariable.QuantityAdjust.toOrdVar 2
 
-        // The item of the scenario: the substance that is dosed, not an additional substance of the product.
-        let item =
-            orb.Components
-            |> List.collect _.Items
-            |> List.tryFind (fun i -> Some(i.Name |> Name.toString) = sc.Item)
-
         let substanceDose, preparation =
-            match item with
+            match itemOf sc with
             | Some i ->
                 let qty =
                     i.Dose.Quantity
@@ -153,6 +188,7 @@ module StandardOrder =
             Generic = ctx.Filter.Generic |> Option.defaultValue sc.Name
             SubstanceDose = substanceDose
             Preparation = preparation
+            Advice = advice sc
         }
 
 
@@ -170,9 +206,10 @@ module StandardOrder =
         }
 
 
-    /// Returns the standard orders of the rule sets of the kind EmergencyList for the patient, a standard order for
-    /// each scenario, with a warning for each evaluation that gives no scenarios. The rules are evaluated in chunks
-    /// of Parallel.totalWorders: the chunks run in parallel, the rules in a chunk one after the other.
+    /// Returns the standard orders of the rule sets of the kind EmergencyList for the patient, a standard order with
+    /// its advice for each scenario, with a warning for each evaluation that gives no scenarios. The rules are
+    /// evaluated in chunks of Parallel.totalWorders: the chunks run in parallel, the rules in a chunk one after the
+    /// other.
     let emergencyList start logger provider patientData (sets: RuleSet[]) =
         let found =
             sets

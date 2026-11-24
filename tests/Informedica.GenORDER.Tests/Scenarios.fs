@@ -1132,6 +1132,16 @@ Components:
 """
 
 
+/// The order of the kaliumchloride once timed scenario, before any calculation.
+let kaliumchlorideOnceTimed () =
+    match kaliumchlorideOnceTimedText |> MedicationText.fromString with
+    | Ok med ->
+        match med |> Medication.toOrder testStart with
+        | Ok ord -> ord
+        | Error msg -> invalidOp $"kaliumchloride once timed order could not be created: %A{msg}"
+    | Error errs -> invalidOp $"kaliumchloride once timed medication could not be parsed: %A{errs}"
+
+
 /// Amoxicilline/clavulaanzuur powder diluted with NaCl 0,9%: two components, and two items in the
 /// first whose concentrations stand in a fixed ratio of ten to one.
 let amoxClavText =
