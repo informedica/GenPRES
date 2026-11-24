@@ -71,13 +71,7 @@ module NutritionSlot =
     /// disabled while the slot cannot be prescribed.
     let prescribeBar getTerm (resetAction: Components.ActionBar.Action) (onPrescribe: (unit -> unit) option) =
         let prescribe =
-            {|
-                label = Terms.``Prescribe`` |> getTerm "Prescribe"
-                kind = Components.ActionBar.Kind.Primary
-                onClick = onPrescribe |> Option.defaultValue ignore
-                disabled = onPrescribe.IsNone
-                icon = Some Mui.Icons.Add
-            |}
+            Components.ActionBar.prescribe getTerm (onPrescribe |> Option.defaultValue ignore) onPrescribe.IsNone
 
         Components.ActionBar.View {| actions = [| resetAction; prescribe |] |}
 

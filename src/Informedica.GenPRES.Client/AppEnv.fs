@@ -251,5 +251,16 @@ type IEmergencyList =
 [<Interface>]
 type IContinuousList =
     abstract ContinuousList: Deferred<Intervention[]>
+    /// Puts the order context of the row with this number, from 1, in the workbench and moves to the
+    /// prescribe page.
+    abstract OnContinuousListRowChosen: int -> unit
+    /// The numbers of the checked rows, from 1.
+    abstract ContinuousListChecked: int[]
+    /// The order contexts of the checked rows.
+    abstract ContinuousListCheckedContexts: OrderContext[]
+    /// Stores the numbers of the checked rows, from 1.
+    abstract OnContinuousListRowsChecked: int[] -> unit
+    /// Adds the order contexts of the checked rows to the plan and moves to the plan page.
+    abstract OnContinuousListPrescribe: unit -> unit
     abstract ContinuousListFilter: string[]
     abstract OnContinuousListFilterChange: string[] -> unit

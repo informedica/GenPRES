@@ -125,13 +125,10 @@ module EmergencyList =
 
         // The button is disabled while no checked row has an order context.
         let prescribeAction =
-            {|
-                label = Terms.``Prescribe`` |> getTerm "Prescribe"
-                kind = Components.ActionBar.Kind.Primary
-                onClick = envList.OnEmergencyListPrescribe
-                disabled = envList.EmergencyListCheckedContexts |> Array.isEmpty
-                icon = Some Mui.Icons.Add
-            |}
+            Components.ActionBar.prescribe
+                getTerm
+                envList.OnEmergencyListPrescribe
+                (envList.EmergencyListCheckedContexts |> Array.isEmpty)
 
         let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
 

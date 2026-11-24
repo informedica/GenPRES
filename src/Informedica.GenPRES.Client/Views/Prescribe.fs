@@ -480,13 +480,7 @@ module Prescribe =
                                         disabled = false
                                         icon = Some Mui.Icons.CalculateIcon
                                     |}
-                                    {|
-                                        label = Terms.``Prescribe`` |> getTerm "Prescribe"
-                                        kind = Components.ActionBar.Kind.Primary
-                                        onClick = prescribe
-                                        disabled = prescribeDisabled
-                                        icon = Some Mui.Icons.Add
-                                    |}
+                                    Components.ActionBar.prescribe getTerm prescribe prescribeDisabled
                                 |]
                         |}
 

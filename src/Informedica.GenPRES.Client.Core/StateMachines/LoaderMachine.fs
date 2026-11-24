@@ -56,6 +56,9 @@ module LoaderMachine =
             ContinuousListQuery: PatientData option
             /// The number of the latest continuous list query. An answer to an earlier query is ignored.
             ContinuousListQueryNumber: int
+            /// The numbers of the checked rows of the continuous medication list, from 1. Every query clears them,
+            /// because a number points to a row of the rows queried before.
+            ContinuousListChecked: int[]
             /// The formulary page.
             Formulary: Deferred<Formulary>
             /// A workbench filter that arrived while the formulary was loading; it is applied when the load ends.
@@ -137,6 +140,8 @@ module LoaderMachine =
         | CheckEmergencyListRows of int[]
         /// Queries the rows of the continuous medication list for the patient data; None clears the rows.
         | QueryContinuousList of PatientData option
+        /// The rows of the continuous medication list with these numbers, from 1, are checked.
+        | CheckContinuousListRows of int[]
 
 
     /// An effect the App carries out: a server call whose answer returns as a message, a delayed message,
@@ -200,6 +205,7 @@ module LoaderMachine =
                 ContinuousList = HasNotStartedYet
                 ContinuousListQuery = None
                 ContinuousListQueryNumber = 0
+                ContinuousListChecked = [||]
                 Formulary = HasNotStartedYet
                 FormularyAskAgain = None
                 Parenteralia = HasNotStartedYet
@@ -379,6 +385,7 @@ module LoaderMachine =
                 ContinuousList = HasNotStartedYet
                 ContinuousListQuery = None
                 ContinuousListQueryNumber = number
+                ContinuousListChecked = [||]
             },
             []
         | Some pat ->
@@ -386,6 +393,7 @@ module LoaderMachine =
                 ContinuousList = state.ContinuousList |> Deferred.refresh
                 ContinuousListQuery = query
                 ContinuousListQueryNumber = number
+                ContinuousListChecked = [||]
             },
             [ LoaderEffect.FetchContinuousList(number, pat) ]
 
@@ -734,5 +742,6 @@ module LoaderMachine =
         | LoaderMsg.QueryEmergencyList query -> state |> queryEmergencyList query
         | LoaderMsg.CheckEmergencyListRows numbers -> { state with EmergencyListChecked = numbers }, []
         | LoaderMsg.QueryContinuousList query -> state |> queryContinuousList query
+        | LoaderMsg.CheckContinuousListRows numbers -> { state with ContinuousListChecked = numbers }, []
 
         | _ -> state, []

@@ -844,6 +844,7 @@ module Trail =
             | LoaderMsg.QueryEmergencyList p -> $"QueryEmergencyList %s{Part.patientOption p}"
             | LoaderMsg.CheckEmergencyListRows numbers -> $"CheckEmergencyListRows %i{numbers.Length}"
             | LoaderMsg.QueryContinuousList p -> $"QueryContinuousList %s{Part.patientOption p}"
+            | LoaderMsg.CheckContinuousListRows numbers -> $"CheckContinuousListRows %i{numbers.Length}"
 
 
         /// Describes a loader effect.
@@ -1114,6 +1115,7 @@ module Trail =
             | ClientMsg.NewPatient(_, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
             | ClientMsg.EmergencyListRowChosen ctx -> $"EmergencyListRowChosen %s{Part.context ctx}"
+            | ClientMsg.ContinuousListRowChosen ctx -> $"ContinuousListRowChosen %s{Part.context ctx}"
             | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
             | ClientMsg.TakeEhrData -> "TakeEhrData"
 
