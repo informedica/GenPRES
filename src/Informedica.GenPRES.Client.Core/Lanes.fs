@@ -59,6 +59,8 @@ module Lanes =
         /// the plan, with the linked orders that are turned on. The workbench or the slot is emptied when the
         /// plan has added the orders.
         | Prescribe of slotId: string option * orderId: string * request: string
+        /// Adds the order contexts from a list to the plan, each without linked orders.
+        | PrescribeContexts of OrderContext[] * request: string
         /// A url brought a patient, a medication or a launch. Sets the patient, the workbench, the slots, the
         /// plan and the signing back to their state at page load with this patient data, and closes the
         /// session. A launch is not part of this message: the App passes it to the session after the browser
@@ -129,6 +131,15 @@ module Lanes =
     /// Runs one message on its machine and returns the new lanes, the effects and the steps. When a
     /// session message ends an open session, also tells the signing machine that the session ended.
     let rec step msg (lanes: LanesState) =
+        // Sends the change to the plan. Without a slot, the plan page opens when the plan request was sent.
+        let addToPlan slotId change request lanes =
+            let lanes, effects, taken = step (LanesMsg.Plan(OrderPlanMsg.Change(change, request))) lanes
+
+            if slotId |> Option.isNone && lanes.OrderPlan |> OrderPlanState.awaits request then
+                lanes, effects @ [ LanesEffect.GoToPlanPage ], taken
+            else
+                lanes, effects, taken
+
         match msg with
         | LanesMsg.Signing m ->
             let next, effects = SigningState.transition m lanes.Signing
@@ -256,14 +267,11 @@ module Lanes =
             | Some(ctx, linked) ->
                 // the context goes with its slot id, so that the answer empties that slot
                 let ctx = { ctx with Id = slotId |> Option.defaultValue ctx.Id }
-                let add = OrderPlanChange.Add(ctx, linked)
-                let lanes, effects, taken = step (LanesMsg.Plan(OrderPlanMsg.Change(add, request))) lanes
-
-                if slotId.IsNone && lanes.OrderPlan |> OrderPlanState.awaits request then
-                    lanes, effects @ [ LanesEffect.GoToPlanPage ], taken
-                else
-                    lanes, effects, taken
+                lanes |> addToPlan slotId (OrderPlanChange.Add(ctx, linked)) request
             | None -> lanes, [], []
+        // As for the workbench, the plan page opens at once, but only when the plan request was sent.
+        | LanesMsg.PrescribeContexts(contexts, request) ->
+            lanes |> addToPlan None (OrderPlanChange.AddMany contexts) request
         // an answer to a request of a lane set back finds no request and is dropped
         | LanesMsg.StartOver draft ->
             let reset = { initial draft with Session = lanes.Session }

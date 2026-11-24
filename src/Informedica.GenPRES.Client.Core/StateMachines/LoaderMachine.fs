@@ -49,6 +49,9 @@ module LoaderMachine =
             EmergencyListQuery: PatientData option
             /// The number of the latest emergency list query. An answer to an earlier query is ignored.
             EmergencyListQueryNumber: int
+            /// The numbers of the checked rows of the emergency list, from 1. Every query clears them, because a
+            /// number points to a row of the rows queried before.
+            EmergencyListChecked: int[]
             /// The formulary page.
             Formulary: Deferred<Formulary>
             /// A workbench filter that arrived while the formulary was loading; it is applied when the load ends.
@@ -125,6 +128,8 @@ module LoaderMachine =
         | QueryTotals of TotalsQuery option
         /// Queries the rows of the emergency list for the patient data; None clears the rows.
         | QueryEmergencyList of PatientData option
+        /// The rows of the emergency list with these numbers, from 1, are checked.
+        | CheckEmergencyListRows of int[]
 
 
     /// An effect the App carries out: a server call whose answer returns as a message, a delayed message,
@@ -184,6 +189,7 @@ module LoaderMachine =
                 EmergencyList = HasNotStartedYet
                 EmergencyListQuery = None
                 EmergencyListQueryNumber = 0
+                EmergencyListChecked = [||]
                 Formulary = HasNotStartedYet
                 FormularyAskAgain = None
                 Parenteralia = HasNotStartedYet
@@ -338,6 +344,7 @@ module LoaderMachine =
                 EmergencyList = HasNotStartedYet
                 EmergencyListQuery = None
                 EmergencyListQueryNumber = number
+                EmergencyListChecked = [||]
             },
             []
         | Some pat ->
@@ -345,6 +352,7 @@ module LoaderMachine =
                 EmergencyList = state.EmergencyList |> Deferred.refresh
                 EmergencyListQuery = query
                 EmergencyListQueryNumber = number
+                EmergencyListChecked = [||]
             },
             [ LoaderEffect.FetchEmergencyList(number, pat) ]
 
@@ -682,5 +690,6 @@ module LoaderMachine =
                 },
                 [ LoaderEffect.FetchTotals(number, query) ]
         | LoaderMsg.QueryEmergencyList query -> state |> queryEmergencyList query
+        | LoaderMsg.CheckEmergencyListRows numbers -> { state with EmergencyListChecked = numbers }, []
 
         | _ -> state, []

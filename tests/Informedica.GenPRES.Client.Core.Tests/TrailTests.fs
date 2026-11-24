@@ -185,6 +185,16 @@ let tests =
                 |> Expect.equal "the context" $"EmergencyListRowChosen %s{Trail.Part.context ctx}"
             }
 
+            test "the trail counts the checked rows and the contexts added" {
+                LoaderMachine.LoaderMsg.CheckEmergencyListRows [| 1; 2 |]
+                |> Trail.Loader.msg
+                |> Expect.equal "the rows" "CheckEmergencyListRows 2"
+
+                OrderPlanChange.AddMany [| OrderContext.empty |]
+                |> Trail.Part.change
+                |> Expect.equal "the contexts" "AddMany 1"
+            }
+
             test "a plan command that adds order contexts shows how many, never the contexts" {
                 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create PatientData.empty [||]
 

@@ -898,6 +898,39 @@ let emergencyListTests =
                 effects |> fetches |> Expect.isEmpty "no request"
             }
 
+            test "checked rows are stored by their numbers" {
+                let state, effects = run [ LoaderMsg.CheckEmergencyListRows [| 2; 3 |] ]
+
+                state.EmergencyListChecked |> Expect.equal "the numbers" [| 2; 3 |]
+                effects |> Expect.isEmpty "no effects"
+            }
+
+            test "a query for the patient clears the checked rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.CheckEmergencyListRows [| 1 |]
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                        ]
+
+                state.EmergencyListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "no query clears the checked rows with the rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.CheckEmergencyListRows [| 1 |]
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                state.EmergencyListChecked |> Expect.isEmpty "cleared"
+            }
+
             test "the emergency list load is not required to start" {
                 Loads.required
                 |> List.contains Load.EmergencyList

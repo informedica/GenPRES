@@ -41,11 +41,11 @@ let pageMsg (cmd: OrderPlanCommand, request) =
     let change =
         match cmd with
         | OrderPlanCommand.AddOrderContext(_, ctx, linked) -> OrderPlanChange.Add(ctx, linked)
+        | OrderPlanCommand.AddOrderContexts(_, contexts) -> OrderPlanChange.AddMany contexts
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanChange.Remove ids
         | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanChange.FilterRows ids
         | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, _) -> OrderPlanChange.OrderDialogCommand(id, ctxCmd)
         | OrderPlanCommand.UpdatePatientData _
-        | OrderPlanCommand.AddOrderContexts _
         | OrderPlanCommand.Open _ -> invalidArg (nameof cmd) "no page sends this command"
 
     OrderPlanMsg.Change(change, request)

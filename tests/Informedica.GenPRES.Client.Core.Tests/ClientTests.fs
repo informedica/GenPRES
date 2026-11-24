@@ -982,6 +982,45 @@ let emergencyListRowTests =
 
 
 [<Tests>]
+let emergencyListCheckedTests =
+    let adrenaline = { OrderContext.empty with OrderContext.Filter.Generic = Some "adrenaline" }
+    let atropine = { OrderContext.empty with OrderContext.Filter.Generic = Some "atropine" }
+
+    // A calculated row without an order context, then two medication rows.
+    let rows =
+        [|
+            Intervention.emptyIntervention
+            { Intervention.emptyIntervention with OrderContext = Some adrenaline }
+            { Intervention.emptyIntervention with OrderContext = Some atropine }
+        |]
+
+    let withChecked rows numbers =
+        { initial Url.none with
+            Loader =
+                { LoaderState.initial with
+                    EmergencyList = rows
+                    EmergencyListChecked = numbers
+                }
+        }
+
+    testList
+        "the checked rows of the emergency list"
+        [
+            test "give their order contexts; a calculated row gives none" {
+                withChecked (Resolved rows) [| 1; 3 |]
+                |> emergencyListCheckedContexts
+                |> Expect.equal "the atropine context" [| atropine |]
+            }
+
+            test "give no contexts without rows" {
+                withChecked HasNotStartedYet [| 2 |]
+                |> emergencyListCheckedContexts
+                |> Expect.isEmpty "none"
+            }
+        ]
+
+
+[<Tests>]
 let totalsQueryTests =
     testList
         "the totals query the client sends"

@@ -1118,6 +1118,34 @@ let tests =
                 |> Expect.isSome "the order is still on the workbench"
             }
 
+            test "prescribing from a list: the contexts into the plan and the plan page opened" {
+                let lanes = { Lanes.initial (Some draft) with OrderPlan = settled one None }
+
+                let after, effects, _ =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.PrescribeContexts([| context "" "atropine" |], "r-1"))
+
+                after.OrderPlan
+                |> OrderPlanState.awaits "r-1"
+                |> Expect.isTrue "the request is sent"
+
+                effects
+                |> List.last
+                |> Expect.equal "the plan page opened" LanesEffect.GoToPlanPage
+            }
+
+            test "prescribing from a list without a plan: nothing is sent, the page stays" {
+                let after, effects, _ =
+                    Lanes.initial (Some draft)
+                    |> Lanes.transition (counter ()) (LanesMsg.PrescribeContexts([| context "" "atropine" |], "r-1"))
+
+                after.OrderPlan |> OrderPlanState.awaits "r-1" |> Expect.isFalse "no request"
+
+                effects
+                |> List.contains LanesEffect.GoToPlanPage
+                |> Expect.isFalse "no page switch"
+            }
+
             test "a prescription that fails: the plan as before, the workbench narrowed to the order, no reset" {
                 let clicked, _, _ =
                     twoOrdersOnWorkbench ()
