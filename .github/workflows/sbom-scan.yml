@@ -1,0 +1,131 @@
+name: SBOM vulnerability scan
+
+# Scans each GitHub Release SBOM weekly. SBOMs do not change, but advisory databases do, so vulnerabilities published
+# after a release can appear here even if the release-time scan in tag-release.yml didn't find any. Releases without a
+# genpres-<tag>.spdx.json asset are skipped.
+#
+# Findings appear in the job summary and a tracking issue that this workflow creates, updates and closes. The scan is
+# report-only and fails only if osv-scanner itself fails.
+#
+# Scheduled runs use the default branch. To test another branch, run `gh workflow run sbom-scan.yml --ref <branch>`.
+# Manual runs leave the tracking issue unchanged unless update_issue is set.
+
+on:
+  schedule:
+    # Mondays at 06:15 UTC.
+    - cron: '15 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_issue:
+        description: Create, update or close the tracking issue as a scheduled run does
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sbom-scan
+  cancel-in-progress: false
+
+env:
+  # Pinned by digest. The scan in tag-release.yml uses the same image.
+  OSV_SCANNER_IMAGE: >-
+    ghcr.io/google/osv-scanner:v2.7.1@sha256:a70ffffc2bfd33482953e5d6b64c6fcdb30239717a07b0f0d3ab2859ce3e4cde
+  # The title matches the format checked by issue-title-lint.yml.
+  ISSUE_TITLE: 'fix(deps): known vulnerabilities in the SBOM of a release'
+
+jobs:
+  scan:
+    name: Scan the SBOMs of the releases
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download the SBOMs of the releases
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        mkdir sboms
+        for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName'); do
+          if ! gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'genpres-*.spdx.json' --dir sboms \
+            2> /dev/null; then
+            echo "::notice::Release $tag has no SBOM, skipped"
+          fi
+        done
+        echo "Downloaded $(find sboms -name '*.spdx.json' | wc -l) SBOMs"
+
+    - name: Scan the SBOMs
+      id: scan
+      # Exit code 1 means findings and other non-zero codes mean the scan failed. The result is none, clean, or found,
+      # and the shell reads the exit code instead of propagating it.
+      run: |
+        set -uo pipefail
+        files=(sboms/*.spdx.json)
+        if [ ! -e "${files[0]}" ]; then
+          echo "::notice::No release has an SBOM yet, nothing to scan"
+          echo "result=none" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        args=()
+        for file in "${files[@]}"; do
+          args+=(-L "/sboms/$(basename "$file")")
+        done
+        status=0
+        docker run --rm -v "$PWD/sboms":/sboms:ro -v "$RUNNER_TEMP":/out "$OSV_SCANNER_IMAGE" \
+          scan source "${args[@]}" --format markdown --output-file /out/osv-report.md || status=$?
+        if [ "$status" -gt 1 ]; then
+          echo "::error::osv-scanner failed with exit code $status"
+          exit 1
+        fi
+        if [ "$status" -eq 0 ]; then
+          echo "result=clean" >> "$GITHUB_OUTPUT"
+        else
+          echo "result=found" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Report the findings in the job summary
+      env:
+        RESULT: ${{ steps.scan.outputs.result }}
+      run: |
+        set -euo pipefail
+        {
+          echo "### Known vulnerabilities in the SBOMs of the releases"
+          case "$RESULT" in
+            found) cat "$RUNNER_TEMP/osv-report.md" ;;
+            clean) echo "None found by osv-scanner in $(find sboms -name '*.spdx.json' | wc -l) SBOMs." ;;
+            *) echo "No release has an SBOM yet." ;;
+          esac
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Update the tracking issue
+      # Update the issue after scheduled runs and manual runs that request it.
+      if: github.event_name == 'schedule' || inputs.update_issue
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RESULT: ${{ steps.scan.outputs.result }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" \
+          --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -n 1)
+
+        if [ "$RESULT" = "found" ]; then
+          {
+            echo "The weekly scan of the SBOMs of the releases found known vulnerabilities."
+            echo "Scan of $(date -u +%F), [run]($RUN_URL)."
+            echo
+            # An issue body holds at most 65536 characters.
+            head -c 60000 "$RUNNER_TEMP/osv-report.md"
+          } > "$RUNNER_TEMP/issue-body.md"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue-body.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --label dependencies --label mdr \
+              --body-file "$RUNNER_TEMP/issue-body.md"
+          fi
+        elif [ -n "$number" ]; then
+          gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+            --comment "The scan of $(date -u +%F) found no known vulnerabilities ([run]($RUN_URL))."
+        fi
