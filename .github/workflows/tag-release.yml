@@ -28,6 +28,10 @@ on:
   pull_request:
     types: [ closed ]
     branches: [ master ]
+  # A manual run is a dry run of publish-sbom only: tag-and-release's condition reads the merged pull request, which a
+  # manual run has none of, so it is skipped and publish-docker-image with it. The SBOM is kept as a workflow artifact,
+  # not attached to any release.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -394,3 +398,122 @@ jobs:
           docker buildx imagetools inspect "$tag"
           echo "Published \`$tag\` (linux/amd64, linux/arm64)" >> "$GITHUB_STEP_SUMMARY"
         done <<< "$TAGS"
+
+  publish-sbom:
+    name: Generate and attach the SBOM
+    # An SPDX 2.2 SBOM of the release bundle (the server publish output and the client bundle that the Docker image
+    # copies to /app), attached to the GitHub Release as the list of the SOUP that ships. A job here and not in
+    # build.yml: a release exists only once tag-and-release has run, and events from this workflow's GITHUB_TOKEN start
+    # no other workflow, so a `release: published` trigger elsewhere would never fire. Independent of
+    # publish-docker-image, so a Docker Hub failure does not leave a release without its SBOM.
+    #
+    # The bundle is built again from the same merge commit, so the components resolve from the same paket.lock and
+    # package-lock.json as the image; file hashes in the SBOM need not match the image byte for byte. The base image
+    # (mcr.microsoft.com/dotnet/aspnet and its Debian packages) is not covered.
+    needs: tag-and-release
+    # A skipped needed job skips this one unless the condition says otherwise. On a release it runs only after
+    # tag-and-release succeeded; on a manual run, where tag-and-release is skipped, it runs alone.
+    if: >-
+      always() &&
+      (needs.tag-and-release.result == 'success' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      SBOM_TOOL_VERSION: 4.1.13
+
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        # A manual run has no merge commit and checks out the commit it was started on.
+        ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+    - name: Use .NET Core 10.0 SDK
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+      with:
+        global-json-file: global.json
+
+    - name: Use Node.js
+      # The version the Dockerfile installs, so the client bundle is built with the same toolchain.
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 22.12.0
+
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Build the release bundle
+      # The same target the Dockerfile runs. It restores only the server's project closure and the client, so no test or
+      # benchmark project gets an obj/project.assets.json in this job.
+      env:
+        HUSKY: 0
+        CI: true
+      run: dotnet run bundle
+
+    - name: Install sbom-tool
+      run: >-
+        dotnet tool install Microsoft.Sbom.DotNetTool
+        --version "$SBOM_TOOL_VERSION"
+        --tool-path "$RUNNER_TEMP/sbom-tool"
+
+    - name: Stage the shipped components
+      # component-detection reports every manifest under the component path; on the repository root that includes
+      # paket.lock with the Test, Build and Benchmark groups, and the client's devDependencies. The script stages only
+      # the assets files of the projects in the server's deps.json and of the client projects, and the client lockfile
+      # without its dev entries.
+      run: >-
+        dotnet fsi scripts/SbomComponents.fsx stage
+        deploy/Informedica.GenPRES.Server.deps.json
+        "$RUNNER_TEMP/sbom-input"
+
+    - name: Generate the SBOM
+      env:
+        # A manual run has no release version; it is named after the run.
+        VERSION: ${{ needs.tag-and-release.outputs.version || format('0.0.0-dryrun.{0}', github.run_number) }}
+      # -li fetches declared licences from ClearlyDefined. The default 30 second timeout expired with no licence found;
+      # 180 seconds found licences for most components. A timeout only warns, so the licence fields can come back as
+      # NOASSERTION without failing the job.
+      run: >-
+        "$RUNNER_TEMP/sbom-tool/sbom-tool" generate
+        -b deploy
+        -bc "$RUNNER_TEMP/sbom-input"
+        -pn GenPRES
+        -pv "$VERSION"
+        -ps Informedica
+        -nsb "${{ github.server_url }}/${{ github.repository }}"
+        -m "$RUNNER_TEMP/sbom"
+        -li true
+        -lto 180
+        -V Warning
+
+    - name: Verify the SBOM scope
+      # Fails when a package in the server's deps.json is missing, when a NuGet package that occurs only in the
+      # non-shipping Paket groups is listed, or when an npm package the lockfile marks dev only is listed.
+      run: >-
+        dotnet fsi scripts/SbomComponents.fsx verify
+        deploy/Informedica.GenPRES.Server.deps.json
+        "$RUNNER_TEMP/sbom/_manifest/spdx_2.2/manifest.spdx.json"
+
+    - name: Keep the dry-run SBOM as a workflow artifact
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: sbom-dryrun-${{ github.run_number }}
+        path: ${{ runner.temp }}/sbom/_manifest/spdx_2.2/manifest.spdx.json
+        retention-days: 7
+
+    - name: Attach the SBOM to the GitHub Release
+      if: github.event_name != 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ needs.tag-and-release.outputs.tag }}
+      # --clobber so a re-run replaces the asset rather than failing on it.
+      run: |
+        set -euo pipefail
+        out="$RUNNER_TEMP/genpres-$TAG.spdx.json"
+        cp "$RUNNER_TEMP/sbom/_manifest/spdx_2.2/manifest.spdx.json" "$out"
+        (cd "$RUNNER_TEMP" && sha256sum "genpres-$TAG.spdx.json" > "genpres-$TAG.spdx.json.sha256")
+        gh release upload "$TAG" "$out" "$out.sha256" --clobber
+        echo "Attached \`genpres-$TAG.spdx.json\` to $TAG" >> "$GITHUB_STEP_SUMMARY"
