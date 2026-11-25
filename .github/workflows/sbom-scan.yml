@@ -7,8 +7,9 @@ name: SBOM vulnerability scan
 # Findings appear in the job summary and a tracking issue that this workflow creates, updates and closes. The scan is
 # report-only and fails only if osv-scanner itself fails.
 #
-# Scheduled runs use the default branch. To test another branch, run `gh workflow run sbom-scan.yml --ref <branch>`.
-# Manual runs leave the tracking issue unchanged unless update_issue is set.
+# Scheduled runs use the default branch. A manual run (`gh workflow run sbom-scan.yml`) also needs this file on the
+# default branch, so a changed version can be tried by hand only after it is merged. Manual runs leave the tracking
+# issue unchanged unless update_issue is set.
 
 on:
   schedule:
