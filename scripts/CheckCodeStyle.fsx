@@ -577,8 +577,8 @@ let checkSource file (source: string) =
 
 
 // ---------------------------------------------------------------------------
-// The libraries the rules run over. The gate starts with GenUNITS, at the bottom of the dependency
-// order, and moves upward (GenSOLVER, then GenORDER) as each library is brought under it.
+// The libraries the rules run over. The gate covers GenUNITS and GenSOLVER, from the bottom of the
+// dependency order upward; GenORDER follows when it is brought under it.
 // ---------------------------------------------------------------------------
 
 let root = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, ".."))
@@ -590,6 +590,7 @@ let baselinePath = Path.Combine(__SOURCE_DIRECTORY__, "CheckCodeStyle.baseline.t
 let projects =
     [
         "src/Informedica.GenUNITS.Lib/Informedica.GenUNITS.Lib.fsproj"
+        "src/Informedica.GenSOLVER.Lib/Informedica.GenSOLVER.Lib.fsproj"
     ]
 
 
@@ -665,9 +666,10 @@ let compareBaseline (baseline: string list) (findings: Finding list) =
 
 let baselineHeader =
     [
-        "# Findings of scripts/CheckCodeStyle.fsx present when the check was adopted (issue #1665)."
+        "# Findings of scripts/CheckCodeStyle.fsx present when GenUNITS and GenSOLVER joined the check (issue #1665)."
+        "# Reason, for every line: present at adoption, no effect on a calculated value or a clinical text."
         "# Rule, file and key, tab separated. Fix a finding and run --prune-baseline to delete its line."
-        "# Never add a line: a new finding is fixed, not baselined."
+        "# Add lines only when a library joins the check; a new finding in a checked library is fixed, not baselined."
     ]
 
 
