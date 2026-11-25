@@ -536,6 +536,9 @@ jobs:
         name: sbom-dryrun-${{ github.run_number }}
         path: ${{ runner.temp }}/sbom/_manifest/spdx_2.2/manifest.spdx.json
         retention-days: 7
+        # A re-run of a job is the same run and has the same run number: without this, "Re-run jobs" fails at this
+        # step with a name conflict. The re-run's SBOM replaces the earlier attempt's.
+        overwrite: true
 
     - name: Attach the SBOM to the GitHub Release
       if: github.event_name != 'workflow_dispatch'

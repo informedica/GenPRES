@@ -46,15 +46,17 @@ jobs:
     - name: Download the SBOMs of the releases
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # One paginated listing of the assets of all releases tells a release without an SBOM apart from a failed request.
+      # A failed listing or download stops the job, so an incomplete scan is never reported as clean.
       run: |
         set -euo pipefail
         mkdir sboms
-        for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName'); do
-          if ! gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'genpres-*.spdx.json' --dir sboms \
-            2> /dev/null; then
-            echo "::notice::Release $tag has no SBOM, skipped"
-          fi
-        done
+        gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '
+          .[] | select(.draft | not) | .tag_name as $tag | .assets[]
+          | select(.name | test("^genpres-.*[.]spdx[.]json$")) | [$tag, .name] | @tsv' > "$RUNNER_TEMP/sbom-assets.tsv"
+        while IFS=$'\t' read -r tag name; do
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$name" --dir sboms
+        done < "$RUNNER_TEMP/sbom-assets.tsv"
         echo "Downloaded $(find sboms -name '*.spdx.json' | wc -l) SBOMs"
 
     - name: Scan the SBOMs
