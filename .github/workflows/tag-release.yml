@@ -475,18 +475,21 @@ jobs:
       # -li fetches declared licences from ClearlyDefined. The default 30 second timeout expired with no licence found;
       # 180 seconds found licences for most components. A timeout only warns, so the licence fields can come back as
       # NOASSERTION without failing the job.
-      run: >-
-        "$RUNNER_TEMP/sbom-tool/sbom-tool" generate
-        -b deploy
-        -bc "$RUNNER_TEMP/sbom-input"
-        -pn GenPRES
-        -pv "$VERSION"
-        -ps Informedica
-        -nsb "${{ github.server_url }}/${{ github.repository }}"
-        -m "$RUNNER_TEMP/sbom"
-        -li true
-        -lto 180
-        -V Warning
+      # sbom-tool stops with "ManifestDirPath directory not found" when the -m folder is absent, so it is made first.
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/sbom"
+        "$RUNNER_TEMP/sbom-tool/sbom-tool" generate \
+          -b deploy \
+          -bc "$RUNNER_TEMP/sbom-input" \
+          -pn GenPRES \
+          -pv "$VERSION" \
+          -ps Informedica \
+          -nsb "${{ github.server_url }}/${{ github.repository }}" \
+          -m "$RUNNER_TEMP/sbom" \
+          -li true \
+          -lto 180 \
+          -V Warning
 
     - name: Verify the SBOM scope
       # Fails when a package in the server's deps.json is missing, when a NuGet package that occurs only in the
