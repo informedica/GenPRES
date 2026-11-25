@@ -1,0 +1,457 @@
+# Findings of scripts/CheckCodeStyle.fsx in GenUNITS present when the check was adopted (issue #1665).
+# Reason, for every line: present at adoption, no effect on a calculated value or a clinical text.
+# Rule, file and key, tab separated. Fix a finding and run --prune-baseline to delete its line.
+# Never add a line: a new finding is fixed, not baselined.
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.BSA
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Count
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Distance
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Energy
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Height
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.InterNatUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Mass
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Molar
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.NoGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Time
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Volume
+BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Weight
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.BSAUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.DistanceUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.EnergyUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.HeightUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.InternationalUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.MassUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.MolarUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.TimeUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.Unit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.VolumeUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Types.fs	Informedica.GenUnits.Lib.Types.WeightUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.BSA.m2
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.BSA.nM2
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.nTimes
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.times
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Count.toCount
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.Constants.CentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.Constants.MilliMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.centimeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.meter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.millimeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nCentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.nMilliMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Distance.toDistance
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.Constants.KiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.calorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.kiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Energy.nKiloCalorie
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.General.general
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.Constants.CentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.centiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.meter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.nCentiMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Height.nMeter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.Constants.IU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.Constants.MilliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.iu
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.mIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.milliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nMIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.InterNational.nMilliIU
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.Gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.MicroGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.MilliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.Constants.NanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.kiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.microGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.milliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nKiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nMicroGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nMilliGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nNanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Mass.nanoGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.Constants.MicroMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.Constants.MilliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.microMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.milliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.mole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMicroMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMilliMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Molar.nMole
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Day
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Hour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Minute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Month
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Second
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.Constants.Week
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.day
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.hour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.minute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.month
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nDay
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nHour
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nMinute
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nMonth
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nSecond
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nWeek
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.nYear
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.second
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.week
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Time.year
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.DeciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.Droplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.MicroLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.Constants.MilliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.deciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.droplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.dropletSetDropsPerMl
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.dropletWithDropsPerMl
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.liter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.microLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.milliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nDeciLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nDroplet
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nMicroLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Volume.nMilliLiter
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.Constants.Gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.gram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.kiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.nGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.Weight.nKiloGram
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/Units.fs	Informedica.GenUnits.Lib.Units.toStringEngShortWithoutGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.dto
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.dutch
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDto
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Dto.toString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.contains
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.eqsGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getGroupUnits
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getGroups
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.getUnitCombinations
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.numDenom
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.toString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.toStringDutch
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Group.unitToGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.centi
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.day
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.deci
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.hour
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.kilo
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.micro
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.milli
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.minute
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.month
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.nano
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.one
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.second
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.toBase
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.toUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.week
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Multipliers.year
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_DivideQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsEqualsGreater
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterEqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessEqualsQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_MinusQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.Operators.op_PlusQmark
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.applyToValue
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.count
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.createCombiUnit
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.gtZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.gteZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.minus
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.opFromString
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.per
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.plus
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.stZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.steZero
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.times
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toBaseValue
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalDutchShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDecimalEngShortWithoutGroup
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringDutchLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngLong
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngShort
+BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.unitToReadableDutchStringWithWrappers
+COMMENT-002	src/Informedica.GenUNITS.Lib/Combine.fs	/// Distance (Meter 2N) |> times (Distance (Meter 3N)) = CombiUnit (Distance (Meter 2N), OpTimes, Distance (Meter 3N))
+COMMENT-002	src/Informedica.GenUNITS.Lib/Parser.fs	/// "mg/kg[Weight]" |> run parseUnit -> Success: CombiUnit (Mass (MilliGram 1N), OpPer, Weight (WeightKiloGram 1N)) <br/>
+COMMENT-002	src/Informedica.GenUNITS.Lib/Units.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
+COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
+COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// calc true (+) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) =
+DOC-001	src/Informedica.GenUNITS.Lib/Api.fs	module Informedica.GenUnits.Lib.Api
+DOC-001	src/Informedica.GenUNITS.Lib/Combine.fs	module Informedica.GenUnits.Lib.Combine
+DOC-001	src/Informedica.GenUNITS.Lib/Core.fs	module Informedica.GenUnits.Lib.Core
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	module Informedica.GenUnits.Lib.Group
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	module Informedica.GenUnits.Lib.Group.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.BSAGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.CombiGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.CountGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.DistanceGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.EnergyGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.GeneralGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.HeightGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.InterNatUnitGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.MassGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.MolarGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.NoGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.TimeGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.VolumeGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.WeightGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	union case Informedica.GenUnits.Lib.Group.ZeroGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.General
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.InterNatUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.NoGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.Constants.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Group.fs	value or function Informedica.GenUnits.Lib.Group.toStringDutch
+DOC-001	src/Informedica.GenUNITS.Lib/Parser.fs	module Informedica.GenUnits.Lib.Parser
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	module Informedica.GenUnits.Lib.Types
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.BSAUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.CountUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.DistanceUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.EnergyUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.HeightUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.InternationalUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.MassUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.MolarUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.Operator
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.TimeUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.VolumeUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	type Informedica.GenUnits.Lib.Types.WeightUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.BSAUnit.M2
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.CountUnit.Times
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.DistanceUnit.MilliMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.EnergyUnit.Calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.EnergyUnit.KiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.HeightUnit.HeightCentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.HeightUnit.HeightMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.IU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.MIU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.InternationalUnit.MilliIU
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.MicroGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.MilliGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MassUnit.NanoGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.MicroMole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.MilliMole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.MolarUnit.Mole
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpMinus
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpPer
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpPlus
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Operator.OpTimes
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Day
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Hour
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Minute
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Month
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Second
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Week
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.TimeUnit.Year
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.CombiUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.General
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.International
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.NoUnit
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.Unit.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.DeciLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.Liter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.MicroLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.VolumeUnit.MilliLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.WeightUnit.WeightGram
+DOC-001	src/Informedica.GenUNITS.Lib/Types.fs	union case Informedica.GenUnits.Lib.Types.WeightUnit.WeightKiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.BSA
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.BSA.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Count
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Count.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Distance
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Distance.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Energy
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Energy.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.General
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Height
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Height.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.InterNational
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.InterNational.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Mass
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Mass.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Molar
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Molar.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Time
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Time.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Volume
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Volume.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Weight
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	module Informedica.GenUnits.Lib.Units.Weight.Constants
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.Dut
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.DutchPlural
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.Eng
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.Language.EngPlural
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Abbreviation
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Group
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Name
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Synonyms
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	record field Informedica.GenUnits.Lib.Units.UnitDetails.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Language
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Localization
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.UnitDetails
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	type Informedica.GenUnits.Lib.Units.Verbal
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Localization.Dutch
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Localization.English
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Verbal.Long
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	union case Informedica.GenUnits.Lib.Units.Verbal.Short
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.BSA.Constants.M2
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Count.Constants.Times
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Distance.Constants.MilliMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.Constants.Calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.Constants.KiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.calorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.kiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.nCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.nKiloCalorie
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Energy.toEnergy
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Height.Constants.CentiMeter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Height.Constants.Meter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.IU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.MIU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.InterNational.Constants.MilliIU
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.MicroGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.MilliGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Mass.Constants.NanoGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.MicroMole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.MilliMole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Molar.Constants.Mole
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Day
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Hour
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Minute
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Month
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Second
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Week
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Time.Constants.Year
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.DeciLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.Droplet
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.Liter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.MicroLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Volume.Constants.MilliLiter
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Weight.Constants.Gram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.Weight.Constants.KiloGram
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.hasGroup
+DOC-001	src/Informedica.GenUNITS.Lib/Units.fs	value or function Informedica.GenUnits.Lib.Units.nUnit
+DOC-001	src/Informedica.GenUNITS.Lib/UnitsParse.fs	module Informedica.GenUnits.Lib.UnitsParse
+DOC-001	src/Informedica.GenUNITS.Lib/UnitsParse.fs	value or function Informedica.GenUnits.Lib.UnitsParse.groupIsGeneralOrNone
+DOC-001	src/Informedica.GenUNITS.Lib/Utils.fs	module Informedica.GenUnits.Lib.Array
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Addition
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Division
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_EqualsEqualsGreater
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_EqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_GreaterEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_GreaterQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_LessEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_LessQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Multiply
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	member Informedica.GenUnits.Lib.ValueUnit.op_Subtraction
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Multipliers
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	module Informedica.GenUnits.Lib.ValueUnit.Operators
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Group
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Json
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Language
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Short
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Unit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	property Informedica.GenUnits.Lib.ValueUnit.Dto.Dto.Value
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	type Informedica.GenUnits.Lib.ValueUnit.Dto.Dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	union case Informedica.GenUnits.Lib.ValueUnit.ValueUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.dto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.dutch
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.english
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.fromDto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDto
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchLong
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoDutchShort
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishLong
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toDtoEnglishShort
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Dto.toString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.contains
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.eqsGroup
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getGroupUnits
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getGroups
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.getUnitCombinations
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.numDenom
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.toString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.toStringDutch
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Group.unitToGroup
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.centi
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.day
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.deci
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.hour
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.kilo
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.micro
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.milli
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.minute
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.month
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.nano
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.one
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.second
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.week
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.year
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Multipliers.zero
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_DivideQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_EqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_GreaterQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessEqualsQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_LessQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_MinusQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_MultiplyQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.Operators.op_PlusQmark
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.count
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.createCombiUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.hasNoUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.hasZeroUnit
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.minus
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.opFromString
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.opToStr
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.per
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.pickIndices
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.pickNearestHigherElseLower
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.plus
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.times
+DOC-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	value or function Informedica.GenUnits.Lib.ValueUnit.toToken
