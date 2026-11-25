@@ -1,7 +1,50 @@
-# Findings of scripts/CheckCodeStyle.fsx in GenUNITS present when the check was adopted (issue #1665).
+# Findings of scripts/CheckCodeStyle.fsx present when GenUNITS and GenSOLVER joined the check (issue #1665).
 # Reason, for every line: present at adoption, no effect on a calculated value or a clinical text.
 # Rule, file and key, tab separated. Fix a finding and run --prune-baseline to delete its line.
-# Never add a line: a new finding is fixed, not baselined.
+# Add lines only when a library joins the check; a new finding in a checked library is fixed, not baselined.
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.Dto
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.create
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.createProd
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.createSum
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.toDto
+BLANK-001	src/Informedica.GenSOLVER.Lib/Equation.fs	Informedica.GenSolver.Lib.Equation.Dto.toString
+BLANK-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	Informedica.GenSolver.Lib.SolverLogging.noOp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Types.fs	Informedica.GenSolver.Lib.Types.Events
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.MAX_BIGINT
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.MAX_CALC_COUNT
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.Constants.PRUNE
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.one
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.three
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.two
+BLANK-001	src/Informedica.GenSOLVER.Lib/Utils.fs	Informedica.GenSolver.Lib.Utils.ValueUnit.Operators.|Mul|Div|Add|Sub|
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Dto.withName
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsAdd
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsDiv
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsMult
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.opIsSubtr
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtLessMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_AtPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.Operators.op_HatPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtLessMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatDivide
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMinus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatPlus
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createIncrProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxExclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxInclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinExclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinInclProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.Property.createValsProp
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.ValueRange.map
+BLANK-001	src/Informedica.GenSOLVER.Lib/Variable.fs	Informedica.GenSolver.Lib.Variable.isMinIncr
 BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.BSA
 BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Count
 BLANK-001	src/Informedica.GenUNITS.Lib/Group.fs	Informedica.GenUnits.Lib.Group.Constants.Distance
@@ -187,11 +230,177 @@ BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.Val
 BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngLong
 BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.toStringEngShort
 BLANK-001	src/Informedica.GenUNITS.Lib/ValueUnit.fs	Informedica.GenUnits.Lib.ValueUnit.unitToReadableDutchStringWithWrappers
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>MinIncr</c>: a minimum with the domain consisting of multiples of one increment</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>MinIncrMax</c>: a minimum with a domain of multiples of an increment with a maximum</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Types.fs	/// <item><description><c>NonZeroNoneNegative</c>: any positive rational number greater than zero</description></item>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns IncrMax (Increment (ValueUnit ([|2N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|4N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns MinIncr (Minimum.MinIncl (ValueUnit ([|4N|], Mass (Gram 1N))), Increment (ValueUnit ([|2N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// // returns MinMax (Minimum.MinIncl (ValueUnit ([|3N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|5N|], Mass (Gram 1N))))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the <c>ValueUnit</c> is empty</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyMaximumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyMinimumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// <exception cref="Exceptions.ValueRangeEmptyValueSetException">When the <c>ValueSet</c> is empty</exception>
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// let incrs = [2N;20N;50N;100N;500N] |> List.map (fun i -> Increment.create ( [| i |] |> ValueUnit.create Units.Mass.gram))
+COMMENT-002	src/Informedica.GenSOLVER.Lib/Variable.fs	/// let vs = [| 1N; 2N; 3N; 4N; 5N; 6N; 7N; 8N; 9N; 10N |] |> ValueUnit.create Units.Mass.gram |> ValueSet.create
 COMMENT-002	src/Informedica.GenUNITS.Lib/Combine.fs	/// Distance (Meter 2N) |> times (Distance (Meter 3N)) = CombiUnit (Distance (Meter 2N), OpTimes, Distance (Meter 3N))
 COMMENT-002	src/Informedica.GenUNITS.Lib/Parser.fs	/// "mg/kg[Weight]" |> run parseUnit -> Success: CombiUnit (Mass (MilliGram 1N), OpPer, Weight (WeightKiloGram 1N)) <br/>
 COMMENT-002	src/Informedica.GenUNITS.Lib/Units.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
 COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// <param name="hasGroup">When true, includes the unit group in brackets (e.g., "[Mass]"); when false, omits it</param>
 COMMENT-002	src/Informedica.GenUNITS.Lib/ValueUnit.fs	/// calc true (+) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) =
+DOC-001	src/Informedica.GenSOLVER.Lib/Constraint.fs	module Informedica.GenSolver.Lib.Constraint
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	module Informedica.GenSolver.Lib.Equation.Dto
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	module Informedica.GenSolver.Lib.Equation.SolveResult
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	record field Informedica.GenSolver.Lib.Equation.Dto.Dto.IsProdEq
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	record field Informedica.GenSolver.Lib.Equation.Dto.Dto.Vars
+DOC-001	src/Informedica.GenSOLVER.Lib/Equation.fs	type Informedica.GenSolver.Lib.Equation.Dto.VariableDto
+DOC-001	src/Informedica.GenSOLVER.Lib/Exceptions.fs	module Informedica.GenSolver.Lib.Exceptions
+DOC-001	src/Informedica.GenSOLVER.Lib/Logging.fs	module Informedica.GenSolver.Lib.Logger
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	module Informedica.GenSolver.Lib.SolverLogging
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.logSolverException
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.logSolverWarning
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.printException
+DOC-001	src/Informedica.GenSOLVER.Lib/SolverLogging.fs	value or function Informedica.GenSolver.Lib.SolverLogging.printSolverEvent
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Events
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Exceptions
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	module Informedica.GenSolver.Lib.Types.Logging
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Constraint.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Constraint.Property
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Variable.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	record field Informedica.GenSolver.Lib.Types.Variable.Values
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Events.Event
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Exceptions.Message
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	type Informedica.GenSolver.Lib.Types.Logging.SolverMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Equation.ProductEquation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Equation.SumEquation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstrainedSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstraintApplied
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.ConstraintSortOrder
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationCouldNotBeSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationFinishedCalculation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationFinishedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationStartCalculation
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.EquationStartedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverFinishedSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverLoopedQue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Events.Event.SolverStartSolving
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ConstraintVariableNotFound
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationDuplicateVariables
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationEmptyVariableList
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.EquationSumUnitMismatch
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.NameLongerThan1000
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.NameNullOrWhiteSpaceException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverErrored
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverInvalidEquations
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.SolverTooManyLoops
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.UnexpectedException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeBoundaryOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeBoundaryShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeEmptyIncrement
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeEmptyValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMaxOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMaxShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinLargerThanMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinMaxException
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinOverFlow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeMinShouldHaveOneValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueRangeNotAValidOperator
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.ValueSetOverflow
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.VariableCannotCalcVariables
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Exceptions.Message.VariableCannotSetValueRange
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Increment.Increment
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Logging.SolverMessage.ExceptionMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Logging.SolverMessage.SolverEventMessage
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Maximum.MaxExcl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Maximum.MaxIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Minimum.MinExcl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Minimum.MinIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Name.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.IncrProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.MaxProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.MinProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.Property.ValsProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Changed
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Errored
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.SolveResult.Unchanged
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Incr
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.IncrMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Max
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Min
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinIncr
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinIncrMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.MinMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.NonZeroPositive
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.Unrestricted
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueRange.ValSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Types.fs	union case Informedica.GenSolver.Lib.Types.ValueSet.ValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.Constants
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.Parallel
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.ValueUnit
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	module Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	value or function Informedica.GenSolver.Lib.Utils.Parallel.maxDepth
+DOC-001	src/Informedica.GenSOLVER.Lib/Utils.fs	value or function Informedica.GenSolver.Lib.Utils.Parallel.totalWorders
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Dto.Tests
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Increment
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Maximum
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Operators
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.Property
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	module Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.IncrOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.IsNonZeroPositive
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MaxIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MaxOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MinIncl
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.MinOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.Name
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	property Informedica.GenSolver.Lib.Variable.Dto.Dto.ValsOpt
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.dto
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.isUnr
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Dto.withName
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtLessMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_AtPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.op_HatPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.Operators.toString
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtLessMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_AtPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatDivide
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMinus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatMultiply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Operators.op_HatPlus
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createIncrProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxExclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxInclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMaxProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinExclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinInclProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createMinProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.createValsProp
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getIncr
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getMax
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.getMin
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.mapValue
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.toString
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.Property.toValueRange
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet.apply
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.isSolved
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.isSubSetOf
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.ValueRange.minIsMultipleOf
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.eqsUnitGroup
+DOC-001	src/Informedica.GenSOLVER.Lib/Variable.fs	value or function Informedica.GenSolver.Lib.Variable.raiseExc
 DOC-001	src/Informedica.GenUNITS.Lib/Api.fs	module Informedica.GenUnits.Lib.Api
 DOC-001	src/Informedica.GenUNITS.Lib/Combine.fs	module Informedica.GenUnits.Lib.Combine
 DOC-001	src/Informedica.GenUNITS.Lib/Core.fs	module Informedica.GenUnits.Lib.Core

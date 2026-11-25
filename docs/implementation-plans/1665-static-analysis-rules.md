@@ -13,7 +13,7 @@ Fantomas does not enforce them: blank lines between declarations, and comment st
 The maintainer agreed to start with GenUNITS and work upward through the libraries that change less
 often first. This plan follows that, and takes the smallest step that makes the gate real.
 
-## This step
+## First step: GenUNITS
 
 - A checker script, `scripts/CheckCodeStyle.fsx`, in the style of `scripts/CheckDependencyRule.fsx`. It
   reads the untyped syntax tree with Fantomas.FCS, so it needs no build and has no dependency on the
@@ -31,10 +31,19 @@ often first. This plan follows that, and takes the smallest step that makes the 
   runs its tests, which have a case that fires and a case that passes for each rule, and the CI step
   runs them before it checks the source.
 
-## Not in this step
+## Second step: GenSOLVER
 
-- GenSOLVER and GenORDER. Each is added to the project list in the checker, with its baseline, in
-  its own step, in that order.
+GenSOLVER is added to the project list of the checker. The rules are unchanged, and no file under
+`src/` or `tests/` changes. The only change to the checker besides the project list is the baseline
+header it writes, which now matches the header of the file. GenSOLVER has 209 findings: 154 DOC-001,
+43 BLANK-001 and 12 COMMENT-002. They are added to `scripts/CheckCodeStyle.baseline.tsv` for the same
+reason as the GenUNITS entries, which are untouched: the baseline now holds 662 entries, 453 for
+GenUNITS and 209 for GenSOLVER. The header names both libraries and allows new lines only when a
+library joins the check. GenORDER is the next library to join.
+
+## Not in these steps
+
+- GenORDER. It is added to the project list in the checker, with its baseline, in its own step.
 - Rules on the safety of a calculation, such as `failwith`, catch-all exception handlers that return
   a fallback value, partial collection functions and culture-sensitive string functions. These need a
   decision per finding and should be checked against the hazards in the risk management file, which
@@ -42,10 +51,11 @@ often first. This plan follows that, and takes the smallest step that makes the 
 - Treating compiler warnings as errors. No project sets `TreatWarningsAsErrors` today.
 - Moving the checker from a script to a compiled project with tests under `tests/`.
 - The text of SW-TPL-01 and SW-TPL-11, which lives in the MDR documentation repository. It should
-  describe this check as a layout and comment check on GenUNITS, and add each library as it joins.
+  describe this check as a layout and comment check on GenUNITS and GenSOLVER, and add each library as
+  it joins.
 
 ## Open questions
 
-- Whether the 453 baseline entries are fixed before more libraries join, or stay in the baseline.
+- Whether the 662 baseline entries are fixed before more libraries join, or stay in the baseline.
   Fixing the DOC-001 entries means writing comments, which the AGENTS.md policy allows without a
   script; the BLANK-001 entries are whitespace edits to `.fs` files, which the policy does not list.
