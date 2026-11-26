@@ -1642,12 +1642,16 @@ module SolutionRule =
                 |> Array.toList
                 |> List.map
                     (fun ((route, _, minAge, maxAge, minWeight, maxWeight, vol, expansion, solvent, notes), rules) ->
+                        // A rule without a department applies to every department, so the line then names no
+                        // department.
                         let deps =
-                            rules
-                            |> Array.map (_.Department >> departmentToString)
-                            |> Array.filter String.notEmpty
-                            |> Array.distinct
-                            |> String.concat ", "
+                            if rules |> Array.exists (_.Department >> Option.isNone) then
+                                ""
+                            else
+                                rules
+                                |> Array.map (_.Department >> departmentToString)
+                                |> Array.distinct
+                                |> String.concat ", "
 
                         let applies =
                             [
@@ -1682,13 +1686,17 @@ module SolutionRule =
             let routes = rules |> Array.map _.Route |> Array.distinct
             let cond = condition (routes.Length > 1)
 
+            // The dilution targets are named when there are more of them, or when the only target is not the
+            // medication itself, such as one substance of a combination or a diluent.
             let showTarget =
                 rules
                 |> Array.collect _.DilutionLimits
-                |> Array.map _.DilutionLimitTarget
+                |> Array.map (_.DilutionLimitTarget >> DilutionTarget.toString)
                 |> Array.distinct
-                |> Array.length
-                |> (<) 1
+                |> function
+                    | [||] -> false
+                    | [| target |] -> target |> String.equalsCapInsens generic |> not
+                    | _ -> true
 
             let header =
                 [

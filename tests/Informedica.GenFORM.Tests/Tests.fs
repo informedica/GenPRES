@@ -15514,6 +15514,42 @@ module Tests =
                         |> Expect.equal "no dangling text" [ "- **MEROPENEM 500MG:** geen oplosvoorschrift bekend" ]
                     }
 
+                    test "a reconstitution rule without a department makes the line apply to every department" {
+                        { Product.create "meropenem" "" "iv" [||] with
+                            Label = "MEROPENEM 500MG"
+                            RequiresReconstitution = true
+                            Reconstitution =
+                                [|
+                                    ReconstitutionPatientTests.reconstitution
+                                    { ReconstitutionPatientTests.reconstitution with Department = Some "ICK" }
+                                |]
+                                |> Array.map (Product.ProductReconstitution.create [||])
+                        }
+                        |> SolutionRule.Print.reconstitutionLines
+                        |> Expect.equal "no department" [ "- **MEROPENEM 500MG:** los op in 10 mL water (iv)" ]
+                    }
+
+                    test "a single dilution target that is not the medication is named" {
+                        let limit =
+                            { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "amoxicilline") with
+                                Quantity =
+                                    { MinMax.empty with
+                                        Max = 500N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Inclusive |> Some
+                                    }
+                            }
+
+                        [|
+                            { Fixtures.rule with
+                                Generic = "amoxicilline/clavulaanzuur"
+                                DilutionLimits = [| limit |]
+                            }
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains
+                            "the target by name"
+                            "- **Hoeveelheid en concentratie:**\n    - amoxicilline: max. 500 mg"
+                    }
+
                     test "reconstitution rules that differ only in the department give one line" {
                         let rule dep : Reconstitution =
                             { ReconstitutionPatientTests.reconstitution with
