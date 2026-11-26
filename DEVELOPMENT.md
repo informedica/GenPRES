@@ -258,7 +258,9 @@ macOS:
 2. Install the .NET SDK from `global.json`
 3. `dotnet tool restore`
 4. `dotnet fantomas --check .` (fails on unformatted code)
-5. `dotnet run ServerTests`
+5. `dotnet fsi scripts/CheckCodeStyle.fsx` (fails on a new code style finding, see
+   [CONTRIBUTING.md](CONTRIBUTING.md#code-style-check))
+6. `dotnet run ServerTests`
 
 CI sets `CI: true` and `GENPRES_DEBUG: 1`. It does not set `GENPRES_URL_ID`, so tests run against
 demo and cached data only. A separate `benchmark` job runs `dotnet run BenchmarkBuild`, because the

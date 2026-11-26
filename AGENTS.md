@@ -83,6 +83,20 @@ Only Infrastructure and Presentation touch the network, filesystem, environment,
 
 `scripts/CheckDependencyRule.fsx` enforces this in CI. Existing violations are listed in it as allowances, and an allowance that no longer matches fails the run, so deleting code can fail it too. Run the script after any change to project references or IO.
 
+## Code Style Check
+
+`scripts/CheckCodeStyle.fsx` checks the comment and layout rules of the F# coding instructions that Fantomas does not enforce, for the libraries in its project list (GenUNITS and GenSOLVER for now). It parses the source only and needs no build. CI runs it on every build, and the pre-commit hook runs it when a commit stages a file of a checked library or of the checker.
+
+Findings present when a library joined the check are listed in `scripts/CheckCodeStyle.baseline.tsv`. A new finding fails the run, and so does a baseline entry that no longer matches a finding, so fixing or deleting code can fail it too.
+
+```bash
+dotnet fsi scripts/CheckCodeStyle.fsx                    # check against the baseline
+dotnet fsi scripts/CheckCodeStyle.fsx --prune-baseline   # delete the entries that match no finding
+dotnet fsi scripts/CheckCodeStyle.fsx --report           # list every finding
+```
+
+Fix a new finding in the code; never add it to the baseline. After a fix removes a listed finding, run `--prune-baseline` and commit the changed baseline with the fix.
+
 ## BigRational & ValueUnit Semantics
 
 - All medication calculations use BigRational. Use the existing helpers in `Informedica.GenUnits.Lib` (`ValueUnit.singleWithUnit`, `ValueUnit.withUnit`, ...)
@@ -163,6 +177,7 @@ A change that affects dosing, rules, parsing or resource mapping comes with unit
 - [ ] At most 200 changed lines of shipped code under `src/` (`.fs`, `.sql`, project files); `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md
 - [ ] Unit tests added or updated; in a migration, moved from the script
 - [ ] `dotnet run servertests` passes for the affected projects
+- [ ] `dotnet fsi scripts/CheckCodeStyle.fsx` passes when the change touches a checked library
 - [ ] The pull request that completes a migration deletes the script
 - [ ] `Data` record `///` comments and the column-contract test updated when sheet columns or semantics change
 - [ ] Conventional commit message with scope and short description

@@ -578,7 +578,8 @@ let checkSource file (source: string) =
 
 // ---------------------------------------------------------------------------
 // The libraries the rules run over. The gate covers GenUNITS and GenSOLVER, from the bottom of the
-// dependency order upward; GenORDER follows when it is brought under it.
+// dependency order upward; GenORDER follows when it is brought under it. A library added to this
+// list is added to the include list of the code-style-check task in .husky/task-runner.json too.
 // ---------------------------------------------------------------------------
 
 let root = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, ".."))
