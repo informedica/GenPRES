@@ -243,6 +243,22 @@ module PatientCategory =
         | _ -> ""
 
 
+    /// Prints a weight range in kilograms as Dutch text, such as gewicht vanaf 2 kg. An empty range gives an
+    /// empty string.
+    let printWeightMinMax (weight: MinMax) =
+        let toStr lim =
+            lim
+            |> Limit.getValueUnit
+            |> ValueUnit.convertTo Units.Weight.kiloGram
+            |> Utils.ValueUnit.toString -1
+
+        match weight.Min, weight.Max with
+        | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr}"
+        | Some min, None -> $"gewicht vanaf %s{min |> toStr}"
+        | None, Some max -> $"gewicht tot %s{max |> toStr}"
+        | None, None -> ""
+
+
     /// Prints the age of a category: volwassenen for an adult category, otherwise the age range.
     let ageToString (pat: PatientCategory) =
         match pat.Age with
@@ -297,18 +313,7 @@ module PatientCategory =
                 $"{s} zwangerschapsduur tot %s{max}"
             | _ -> ""
 
-        let weight =
-            let toStr lim =
-                lim
-                |> Limit.getValueUnit
-                |> ValueUnit.convertTo Units.Weight.kiloGram
-                |> Utils.ValueUnit.toString -1
-
-            match pat.Weight.Min, pat.Weight.Max with
-            | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr}"
-            | Some min, None -> $"gewicht vanaf %s{min |> toStr}"
-            | None, Some max -> $"gewicht tot %s{max |> toStr}"
-            | None, None -> ""
+        let weight = pat.Weight |> printWeightMinMax
 
         [ pat.Department |> Option.defaultValue ""; gender; neonate; age; weight ]
         |> List.filter String.notEmpty

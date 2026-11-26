@@ -4280,7 +4280,7 @@ module Tests =
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
-                    test "a dilution limit is headed by the rule's access, the tube included" {
+                    test "the condition of a solution rule names its access, the tube included" {
                         let rule access : SolutionRule =
                             {
                                 Id = ""
@@ -4308,15 +4308,12 @@ module Tests =
                                 DilutionLimits = [||]
                             }
 
-                        let limit = SolutionRule.DilutionLimit.create (DilutionTarget.Substance "paracetamol")
+                        let condition access = rule access |> SolutionRule.Print.condition false
 
-                        let heading access =
-                            (SolutionRule.Print.printDilutionLimit (rule access) false limit).head
-
-                        heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
-                        heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
-                        heading PVL |> Expect.stringStarts "peripheral" "\n###### perifeer: \n* "
-                        heading AnyAccess |> Expect.stringStarts "any access, no heading" "\n* "
+                        condition EnteralTube |> Expect.equal "a tube" "sonde"
+                        condition CVL |> Expect.equal "central" "centraal"
+                        condition PVL |> Expect.equal "peripheral" "perifeer"
+                        condition AnyAccess |> Expect.equal "any access, no word" ""
                     }
 
                     test "the string forms round-trip, the tube included" {
@@ -15409,6 +15406,143 @@ module Tests =
                 ]
 
 
+    module SolutionRulePrintTests =
+
+        module Fixtures =
+
+            let rule: SolutionRule =
+                {
+                    Id = ""
+                    SourceText = ""
+                    GPKs = [||]
+                    HPKs = [||]
+                    ShelfLife = None
+                    MinPh = None
+                    MaxPh = None
+                    SameLine = [||]
+                    NotSameLine = [||]
+                    Notes = ""
+                    PrepText = ""
+                    AdminText = ""
+                    Generic = "paracetamol"
+                    Form = None
+                    Route = "iv"
+                    Indication = None
+                    DoseType = NoDoseType
+                    PatientCategory = PatientCategory.empty
+                    Dose = MinMax.empty
+                    AdjustUnit = None
+                    Diluents = [||]
+                    SolutionLimit = SolutionRule.SolutionLimit.empty
+                    DilutionLimits = [||]
+                }
+
+
+            let mL v = v |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+            let withVolume v (r: SolutionRule) =
+                { r with
+                    SolutionLimit =
+                        { r.SolutionLimit with Volume = { MinMax.empty with Max = v |> mL |> Inclusive |> Some } }
+                }
+
+
+        let tests =
+            testList
+                "SolutionRule.Print"
+                [
+                    test "a rule without diluents gives the title, the route and an undiluted administration" {
+                        [| Fixtures.rule |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.equal
+                            "title, route and undiluted"
+                            "# paracetamol\n\n**Toedieningsweg:** iv\n\n## Bereiden en toedienen\n\n### Alle patiënten\n\n- **Verdunnen:** onverdund toedienen\n"
+                    }
+
+                    test "the condition is one line with the department, the patient and the access" {
+                        { Fixtures.rule with
+                            PatientCategory =
+                                { PatientCategory.empty with
+                                    Department = Some "AICU"
+                                    Access = CVL
+                                }
+                        }
+                        |> SolutionRule.Print.condition false
+                        |> Expect.equal "ICC and central" "ICC · centraal"
+                    }
+
+                    test "the route is in the condition only when the rules have more routes" {
+                        [| Fixtures.rule; { Fixtures.rule with Route = "im" } |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains "a condition per route" "### im"
+                    }
+
+                    test "rules with the same condition share one heading" {
+                        [|
+                            Fixtures.rule |> Fixtures.withVolume 50N
+                            Fixtures.rule |> Fixtures.withVolume 100N
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains
+                            "one heading, two alternatives"
+                            "### Alle patiënten\n\n- **Verdunnen:** in een volume van max. 50 mL\n\n**of**\n\n- **Verdunnen:** in een volume van max. 100 mL"
+                    }
+
+                    test "a rule without volume and diluents is given undiluted" {
+                        Fixtures.rule
+                        |> SolutionRule.Print.dilutionStep ""
+                        |> Expect.equal "undiluted" "onverdund toedienen"
+                    }
+
+                    test "a dilution is a step with the quantity, the volume and the diluents" {
+                        let nacl = Product.create "NaCl 0,9%" "" "iv" [||]
+                        let gluc = Product.create "gluc 5%" "" "iv" [||]
+
+                        { Fixtures.rule with Diluents = [| nacl; gluc |] }
+                        |> Fixtures.withVolume 50N
+                        |> SolutionRule.Print.dilutionStep "80 mg"
+                        |> Expect.equal "the step" "verdun 80 mg tot max. 50 mL met NaCl 0,9% of gluc 5%"
+                    }
+
+                    test "a product that requires reconstitution without a rule says so" {
+                        { Product.create "meropenem" "" "iv" [||] with
+                            Label = "MEROPENEM 500MG"
+                            RequiresReconstitution = true
+                        }
+                        |> SolutionRule.Print.reconstitutionLines
+                        |> Expect.equal "no dangling text" [ "- **MEROPENEM 500MG:** geen oplosvoorschrift bekend" ]
+                    }
+
+                    test "reconstitution rules that differ only in the department give one line" {
+                        let rule dep : Reconstitution =
+                            { ReconstitutionPatientTests.reconstitution with
+                                Department = Some dep
+                                MinAge = Some 28N
+                                MaxAge = Some 365N
+                                MinWeight = Some 3000N
+                                MaxWeight = Some 10000N
+                                ExpansionVolume = Some(1N / 2N |> ValueUnit.singleWithUnit Units.Volume.milliLiter)
+                                Notes = Some "voorzichtig zwenken"
+                            }
+
+                        { Product.create "meropenem" "" "iv" [||] with
+                            Label = "MEROPENEM 500MG"
+                            RequiresReconstitution = true
+                            Reconstitution =
+                                [| rule "ICK"; rule "NEO" |]
+                                |> Array.map (Product.ProductReconstitution.create [||])
+                        }
+                        |> SolutionRule.Print.reconstitutionLines
+                        |> Expect.equal
+                            "one line with both departments"
+                            [
+                                "- **MEROPENEM 500MG:** los op in 10 mL water (iv · ICK, NEO · leeftijd 4 weken tot 1 jaar · gewicht 3 kg tot 10 kg)\n    - volumetoename: 0,5 mL\n    - voorzichtig zwenken"
+                            ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -15467,4 +15601,5 @@ module Tests =
                 SolutionRuleColumnTests.tests
                 SolutionRuleAdjustUnitPairTests.tests
                 SolutionRuleAdjustUnitCheckTests.tests
+                SolutionRulePrintTests.tests
             ]
