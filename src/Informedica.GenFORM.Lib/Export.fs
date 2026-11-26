@@ -92,13 +92,14 @@ module Analyze =
 
 
     let patKey (p: PatientCategoryData) =
-        // Leaves out the ages when IsAdult is set, because the forward map sets IsAdult.
-        let minAge, maxAge = if p.IsAdult then "", "" else brStr p.MinAge, brStr p.MaxAge
+        // Leaves out the ages of a row that marks adults, because the forward map sets IsAdult for it.
+        let isAdult = p |> DoseRule.marksAdults
+        let minAge, maxAge = if isAdult then "", "" else brStr p.MinAge, brStr p.MaxAge
 
         [
             p.Location
             p.Dep
-            string p.IsAdult
+            string isAdult
             $"%A{p.Gender}"
             minAge
             maxAge

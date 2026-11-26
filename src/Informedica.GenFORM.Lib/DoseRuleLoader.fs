@@ -88,6 +88,9 @@ module DoseRuleLoader =
         // value without an adjust unit.
         let data, unitWarnings = data |> DoseRuleData.checkUnits
 
+        // A row with IsAdult and an age gets the age range.
+        let adultWarnings = data |> DoseRuleData.adultRowsWithAge
+
         let addFormLimits = DoseRule.addFormLimits routeMapping formRoutes
 
         let grouped =
@@ -134,7 +137,7 @@ module DoseRuleLoader =
         // Leaves out the dose rules without limits, such as a valid row without dose values, except
         // a dose rule that a solution rule limits.
         |> DoseRule.removeEmptyLimits (SolutionRule.anyLimitsDoseRule routeMapping solutionRules),
-        ([ warnings; unitWarnings; dedupWarnings ]
+        ([ warnings; unitWarnings; adultWarnings; dedupWarnings ]
          |> Array.concat
          |> Array.map Warning
          |> Array.toList)

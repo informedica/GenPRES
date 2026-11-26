@@ -1131,8 +1131,9 @@ module Types =
                 Location: string
                 /// sheet column "Dep": the department or ward
                 Dep: string
-                /// sheet column "IsAdult", "x" for true: the rule applies to adults, and MinAge and MaxAge are
-                /// empty. An empty cell does not mean the rule excludes adults.
+                /// sheet column "IsAdult", "x" for true: the rule applies to adults when MinAge and MaxAge are
+                /// empty; with an age the rule gets the age range, with a warning. An empty cell does not mean the
+                /// rule excludes adults.
                 IsAdult: bool
                 Gender: Gender
                 /// age bounds in DAYS
