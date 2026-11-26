@@ -41,8 +41,9 @@ follows where they differ from the issue:
   an order looks up a dilution limit by. The kind is in the hash, so a component and a substance with the same
   name are two targets. The diluent rows are expanded to their diluents first, so a diluent row and a row for
   one of its diluents have the same target. The dilution limits of the row are left out, so two rows of a rule
-  with the same target have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a dilution limit, so a rule
-  has one dilution limit for each target, and the load gives a warning when their dilution limits differ.
+  with the same target have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a
+  dilution limit, so a rule has one dilution limit for each target, and the load gives a warning when their
+  dilution limits differ.
 - **Id** is a hash of every field of the row except the ids and SourceText, the dilution limits included, in
   the order of the columns of the sheet. `SolutionRule.setDataId` calculates it before the diluent rows are
   expanded, so it identifies the row of the sheet.
