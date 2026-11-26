@@ -148,7 +148,7 @@ let tests =
             testList
                 "the formulary and parenteralia pages"
                 [
-                    test "the patient set asks both pages again, the formulary for that patient" {
+                    test "the patient set asks both pages again for that patient" {
                         let state, effects = run [ LoaderMsg.PatientSet(Some patient) ]
 
                         effects
@@ -156,7 +156,7 @@ let tests =
                             "both asked"
                             [
                                 LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
-                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                                LoaderEffect.FetchParenteralia { Parenteralia.empty with PatientData = Some patient }
                             ]
 
                         state |> out |> Expect.equal "both out" [ Load.Formulary; Load.Parenteralia ]
@@ -222,7 +222,7 @@ let tests =
                             "one request for each page"
                             [
                                 LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
-                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                                LoaderEffect.FetchParenteralia { Parenteralia.empty with PatientData = Some patient }
                             ]
                     }
 
@@ -318,6 +318,7 @@ let tests =
                                     { Parenteralia.empty with
                                         Generic = Some "paracetamol"
                                         Route = Some "oraal"
+                                        PatientData = Some patient
                                     }
                             ]
                     }

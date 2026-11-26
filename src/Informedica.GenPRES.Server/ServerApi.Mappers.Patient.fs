@@ -428,6 +428,14 @@ module Patient =
         )
 
 
+    /// Maps the optional contract patient to GenCORE patient data on today's date; no patient gives the
+    /// unknown patient. Returns the messages when a value is invalid or the data is not enough to select rules.
+    let toCoreOrUnknown today model =
+        model
+        |> Option.map (toCore today)
+        |> Option.defaultValue (Ok CorePatientData.unknown)
+
+
     /// Reads a GenCORE Dto of patient data on today's date with the resources, and maps it to the contract
     /// patient with the options. Returns the messages when a value is invalid.
     let completeDto today resources dto =

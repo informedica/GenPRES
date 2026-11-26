@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="TestDates.fs" />
+    <Compile Include="TestProviders.fs" />
     <Compile Include="ResourceErrorTests.fs" />
     <Compile Include="../Informedica.GenCORE.Tests/CalculationWeightsAndHeightsFixture.fs" />
     <Compile Include="../Informedica.GenORDER.Tests/SamplePatients.fs" />
@@ -20,6 +21,7 @@
     <Compile Include="StubAdapterTests.fs" />
     <Compile Include="StubTestPatientsTests.fs" />
     <Compile Include="DoseCheckTests.fs" />
+    <Compile Include="ParenteraliaServiceTests.fs" />
     <Compile Include="TotalsTests.fs" />
     <Compile Include="MappersPatientTests.fs" />
     <Compile Include="MappersOrderContextTests.fs" />

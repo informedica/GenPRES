@@ -278,9 +278,11 @@ module LoaderMachine =
         { state with Formulary = reading }, effects
 
 
-    /// Requests the parenteralia again with the current choices.
+    /// Requests the parenteralia again with the current choices, for the patient from the server.
     let startParenteralia (state: LoaderState) =
-        let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
+        let par =
+            { (state.Parenteralia |> Deferred.defaultValue Parenteralia.empty) with PatientData = state.Patient }
+
         let reading, effects = state.Parenteralia |> start (LoaderEffect.FetchParenteralia par)
         { state with Parenteralia = reading }, effects
 
