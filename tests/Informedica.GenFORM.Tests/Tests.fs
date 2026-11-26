@@ -13884,6 +13884,12 @@ module Tests =
                                     (Ok [| ([||], "", None, None, None), ([], [], "", "", "") |])
                             }
 
+                            test "an empty cell of the column Diluents gives no diluents" {
+                                parse []
+                                |> Result.map (Array.map _.Diluents)
+                                |> Expect.equal "no diluents" (Ok [| [] |])
+                            }
+
                             test "reads the cell of the column GPKs" {
                                 parse [ "GPKs", "12345; 67890" ]
                                 |> Result.map (Array.map _.GPKs)
@@ -14488,6 +14494,123 @@ module Tests =
                             }
 
                             test "no rows give no rules" { [||] |> rules |> Expect.isEmpty "no rules" }
+                        ]
+
+                    testList
+                        "the export"
+                        [
+                            let fullRow =
+                                { row with
+                                    GPKs = [| "12345"; "67890" |]
+                                    HPKs = [| "111" |]
+                                    Form = "injectievloeistof"
+                                    Indication = "pijn"
+                                    DoseType = "timed"
+                                    DoseText = "bolus"
+                                    Location = Some "UMCU"
+                                    Department = Some "NEO"
+                                    SourceText = "bron"
+                                    CVL = "x"
+                                    MinAge = Some 28N
+                                    MaxAge = Some 365N
+                                    MinWeight = Some 3000N
+                                    MaxWeight = Some 10000N
+                                    MinGestAge = Some 259N
+                                    MaxGestAge = Some 300N
+                                    MinDose = Some 1N
+                                    MaxDose = Some 10N
+                                    Diluents = [ "NaCl 0,9%"; "glucose 5%" ]
+                                    Div = Some 10N
+                                    Volumes = [| 50N; 100N |]
+                                    MinVol = Some 10N
+                                    MaxVol = Some 50N
+                                    MinVolAdj = Some 1N
+                                    MaxVolAdj = Some 5N
+                                    MinDrip = Some 1N
+                                    MaxDrip = Some 10N
+                                    MinPerc = Some(1N / 2N)
+                                    MaxPerc = Some 1N
+                                    AdjustUnit = "kg"
+                                    Component = "morfine"
+                                    Quantities = [| 5N; 10N |]
+                                    MinQty = Some 1N
+                                    MaxQty = Some 10N
+                                    MinQtyAdj = Some(1N / 10N)
+                                    MaxQtyAdj = Some 1N
+                                    ShelfLife = Some 1440N
+                                    MinPh = Some 3.5m<pH>
+                                    MaxPh = Some 7m<pH>
+                                    CombY = [ "heparine"; "naloxon" ]
+                                    NonCombY = [ "amiodaron" ]
+                                    PrepText = "oplossen in 10 mL"
+                                    AdminText = "over 30 min"
+                                    Notes = "let op"
+                                }
+
+                            let parseLines (lines: string list) =
+                                lines
+                                |> List.map (String.split "\t" >> List.toArray)
+                                |> List.toArray
+                                |> SolutionRule.parseSolutionRuleData
+
+                            test "the header has the columns of the column contract" {
+                                let _, columns, _, _, _ =
+                                    ColumnContract.sheets
+                                    |> List.find (fun (name, _, _, _, _) -> name = "SolutionRules")
+
+                                SolutionRule.headers
+                                |> List.exactlyOne
+                                |> String.split "\t"
+                                |> List.sort
+                                |> Expect.equal "the same columns" (columns |> List.sort)
+                            }
+
+                            test "the header line comes first, then one line per row" {
+                                [| row; fullRow |]
+                                |> SolutionRule.dataToCsv
+                                |> List.length
+                                |> Expect.equal "three lines" 3
+                            }
+
+                            test "parsing the export gives the rows back" {
+                                let rows = [| row; fullRow |] |> Export.exportSolutionData
+
+                                rows
+                                |> SolutionRule.dataToCsv
+                                |> parseLines
+                                |> Expect.equal "the same rows" (Ok rows)
+                            }
+
+                            test "tabs and newlines in a text become spaces" {
+                                [|
+                                    { row with
+                                        Notes = "let\top"
+                                        AdminText = "over\n30 min"
+                                    }
+                                |]
+                                |> SolutionRule.dataToCsv
+                                |> parseLines
+                                |> Result.map (Array.map (fun r -> r.Notes, r.AdminText))
+                                |> Expect.equal "the texts with spaces" (Ok [| "let op", "over 30 min" |])
+                            }
+
+                            test "exportSolutionData sets the ids and puts the rows of a rule together" {
+                                [|
+                                    row
+                                    { row with Generic = "fentanyl" }
+                                    { row with
+                                        Component = "diluent"
+                                        Substance = ""
+                                    }
+                                |]
+                                |> Export.exportSolutionData
+                                |> Array.map (fun r ->
+                                    r.Generic, r.RowNo, [ r.Id; r.RowId; r.RuleId ] |> List.forall ((<>) HashId.empty)
+                                )
+                                |> Expect.equal
+                                    "the rows of morfine first, each with its ids"
+                                    [| "morfine", 0, true; "morfine", 1, true; "fentanyl", 0, true |]
+                            }
                         ]
 
                     testList

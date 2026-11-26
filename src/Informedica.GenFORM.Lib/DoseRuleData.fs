@@ -254,17 +254,6 @@ module DoseRuleData =
 
         let brOptToString = Option.map (BigRational.toDouble >> string) >> Option.defaultValue ""
 
-        // Free text and the check messages can contain tabs and newlines. These become spaces,
-        // so each row stays one line.
-        let clean (s: string) =
-            if isNull s then
-                ""
-            else
-                s
-                |> String.replace "\t" " "
-                |> String.replace "\r" " "
-                |> String.replace "\n" " "
-
         data
         |> Array.toList
         |> List.map (fun d ->
@@ -337,7 +326,7 @@ module DoseRuleData =
                 d.FreqCheck |> Option.defaultValue ""
                 d.DoseCheck |> Option.defaultValue ""
             ]
-            |> List.map clean
+            |> List.map Tsv.cell
             |> String.concat "\t"
         )
         |> List.append headers

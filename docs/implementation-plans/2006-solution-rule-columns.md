@@ -145,19 +145,10 @@ work does not belong to this plan. The estimates count the shipped lines of the 
 - Tests: empty GPKs and HPKs keep every product; the diluents keep their products; the warning.
 - Estimate: 40 to 60 lines.
 
-### Step 5: export the solution rules
-
-- `SolutionRule.headers` and `SolutionRule.dataToCsv` write solution rule rows as TSV in the column order of the
-  sheet. `Export.exportSolutionData` sets the ids and the row numbers and puts the rows of a rule together;
-  `Export.writeSolutionExport` writes the file. The parser reads an empty Diluents cell as no diluents, so an
-  export parses back to the same rows.
-- The script `src/Informedica.GenFORM.Lib/Scripts/ExportSolutionRules.fsx` exports the sheet twice and checks that
-  the second export equals the first.
-- Tests: an export parses back to the same rows.
-- Estimate: 160 to 190 lines.
-
 ## Issues that touch the steps
 
+- #2038 exports the solution rules as TSV, with the ids and the row numbers. It was step 5 of this plan; #2006
+  does not ask for it.
 - #1953 asks for the same columns of the SolutionRules sheet, and for ShelfLife of the Reconstitution sheet.
   After this plan only the Reconstitution column is left of it.
 - #1834, the parenteralia view as preparation instructions: its plan starts after step 1 of this plan, which adds
