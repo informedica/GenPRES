@@ -277,6 +277,58 @@ module ProductIdTests =
             ]
 
 
+module HashIdTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+
+    let tests =
+        testList
+            "HashId"
+            [
+                test "ofFields gives 12 lowercase hexadecimal characters" {
+                    [ "morfine"; "INTRAVENEUS" ]
+                    |> HashId.ofFields
+                    |> HashId.toString
+                    |> HashId.isHash
+                    |> Expect.isTrue "a hash"
+                }
+
+                test "create keeps a hash" {
+                    "0687555379e8"
+                    |> HashId.create
+                    |> HashId.toString
+                    |> Expect.equal "the hash" "0687555379e8"
+                }
+
+                test "create removes white space and a leading apostrophe and makes the hash lower case" {
+                    " '0687555379E8 "
+                    |> HashId.create
+                    |> HashId.toString
+                    |> Expect.equal "the hash" "0687555379e8"
+                }
+
+                testList
+                    "create gives the empty HashId for a text that is not a hash"
+                    [
+                        for s in [ ""; "   "; "'"; "6.88E+16"; "0687555379e"; "0687555379e81"; "abcdefghijkl" ] do
+                            test $"'%s{s}'" { s |> HashId.create |> Expect.equal "empty" HashId.empty }
+                    ]
+
+                test "create gives the empty HashId for null" {
+                    null |> HashId.create |> Expect.equal "empty" HashId.empty
+                }
+
+                test "create of the text of a hash gives the same HashId" {
+                    let id = [ "morfine" ] |> HashId.ofFields
+                    id |> HashId.toString |> HashId.create |> Expect.equal "the same id" id
+                }
+            ]
+
+
 module DoseRuleProductTests =
 
 
@@ -453,9 +505,9 @@ module DoseRuleProductTests =
 
     let private baseData: DoseRuleData =
         {
-            RowId = ""
-            RuleId = ""
-            GrpId = ""
+            RowId = HashId.empty
+            RuleId = HashId.empty
+            GrpId = HashId.empty
             SortNo = 1
             Source = "FTK"
             SourceText = ""
@@ -651,7 +703,7 @@ module DoseRuleProductTests =
                 test "combination substances collapse into one component (not split by DataId/SortNo)" {
                     let mk subst sortNo dataId =
                         { baseData with
-                            RuleId = dataId
+                            RuleId = HashId.ofFields [ dataId ]
                             SortNo = sortNo
                             Route = "ORAAL"
                             Generic = { emptyGen with Name = "amoxicilline/clavulaanzuur" }
@@ -3036,7 +3088,7 @@ module Tests =
 
         let data =
             cases
-            |> List.map (fun (label, fs) -> mkRow (("RowId", label) :: fs))
+            |> List.map (snd >> mkRow)
             |> List.toArray
             |> Array.append [| headerCols |]
 
@@ -3184,9 +3236,13 @@ module Tests =
                 dl |> PrescriptionRule.adjustDoseLimitToPatient freqVU pat, pat, freqVU
             )
 
+        /// The label of each case, in the order of the parsed rows.
+        let labels = cases |> List.map fst |> List.toArray
+
+
         let byLabel =
-            Array.zip parsed doseLimits
-            |> Array.map (fun (d, dl) -> d.RowId, (d, dl))
+            Array.zip3 labels parsed doseLimits
+            |> Array.map (fun (label, d, dl) -> label, (d, dl))
             |> Map.ofArray
 
         let tests =
@@ -3201,13 +3257,13 @@ module Tests =
 
                     // one test per MaxQty-bounded rule: the resolved DoseLimit must
                     // leave at least one feasible frequency (no empty-set crash)
-                    for d, dl in Array.zip parsed doseLimits do
-                        test $"{d.RowId}: adjusted-vs-MaxQty conflict resolves to a solvable dose limit" {
+                    for label, d, dl in Array.zip3 labels parsed doseLimits do
+                        test $"%s{label}: adjusted-vs-MaxQty conflict resolves to a solvable dose limit" {
                             match resolveConflict d dl with
-                            | None -> failtestf "%s: expected an adjusted-vs-MaxQty conflict to test" d.RowId
+                            | None -> failtestf "%s: expected an adjusted-vs-MaxQty conflict to test" label
                             | Some(res, pat, freqVU) ->
                                 isSolvable res pat freqVU
-                                |> Expect.isTrue $"{d.RowId} should have a feasible frequency after adjustment"
+                                |> Expect.isTrue $"%s{label} should have a feasible frequency after adjustment"
                         }
 
                     // explicit branch coverage
@@ -12855,9 +12911,9 @@ module Tests =
         /// timed, once a day, 20 to 24 hours, in mL per kg, without dose values.
         let row cmp (maxQtyAdj: BigRational option) : DoseRuleData =
             {
-                RowId = ""
-                RuleId = ""
-                GrpId = ""
+                RowId = HashId.empty
+                RuleId = HashId.empty
+                GrpId = HashId.empty
                 SortNo = 1
                 Source = "test"
                 SourceText = ""
@@ -14474,6 +14530,7 @@ module Tests =
                 LimitTargetTests.tests
                 GenericLabelTests.tests
                 ProductFilterTests.tests
+                HashIdTests.tests
                 ProductIdTests.tests
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests

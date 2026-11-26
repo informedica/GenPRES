@@ -283,7 +283,7 @@ module Analyze =
                 d.ScheduleData.DoseLimitData.Substance |> String.isNullOrWhiteSpace
                 && allLimitsEmpty d
             )
-            || ruleIdsWithoutLimits.Contains (d |> DoseRuleData.setDataHashIds).RuleId
+            || ruleIdsWithoutLimits.Contains((d |> DoseRuleData.setDataHashIds).RuleId |> HashId.toString)
         )
 
     let trunc n (s: string) = if s.Length > n then s[.. n - 1] + "…" else s
