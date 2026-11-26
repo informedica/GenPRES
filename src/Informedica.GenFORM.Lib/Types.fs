@@ -609,6 +609,8 @@ module Types =
     /// Dose range: the diluents and the limits for the solution.
     type SolutionRule =
         {
+            /// A hash of the fields that identify the SolutionRule. Treated as opaque.
+            Id: string
             /// The original source text the SolutionRule is built on.
             SourceText: string
             /// The Generic of the SolutionRule
@@ -1242,6 +1244,20 @@ module Types =
         /// </remarks>
         type SolutionRuleData =
             {
+                /// A hash of every field of the row except RowId, RowNo, RuleId and SourceText, the dilution limits
+                /// included. SolutionRule.setDataId calculates it.
+                Id: HashId
+                /// A hash of the fields that identify the row: the fields of the rule, with the kind and the name
+                /// of the dilution target. Of the rows with the same RowId, SolutionRule.dedupRowsByRowId keeps
+                /// the first with a dilution limit, and warns when their dilution limits differ.
+                /// SolutionRule.setDataHashIds calculates it.
+                RowId: HashId
+                /// The place of the row in its rule, for a strict order of the rows in the rule, counted from 0.
+                /// SolutionRule.setDataHashIds calculates it.
+                RowNo: int
+                /// A hash of the fields that identify the solution rule: every field that is the same for all
+                /// rows of the rule, except the source text. SolutionRule.setDataHashIds calculates it.
+                RuleId: HashId
                 // solution rule section
                 /// The generic of the rule
                 Generic: string

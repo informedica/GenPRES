@@ -706,6 +706,8 @@ module Resources =
                 // - a generic for the same line that the Formulary does not have
                 // - a solution rule with a diluent row but no diluent
                 // - a solution rule with more than one dilution limit for the same component or substance
+                // - rows of a solution rule for the same dilution target with different dilution limits
+                // - a solution rule whose rows give different source texts
                 // - a solution rule with a volume or a quantity per adjust but no adjust unit
                 // - the rows of a solution rule that give different adjust units
                 // - a dose rule and a solution rule with different adjust units
@@ -726,6 +728,9 @@ module Resources =
                        |> SolutionRule.missingAdjustUnits (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData |> SolutionRule.mixedSourceTexts)
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.duplicateRows (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
