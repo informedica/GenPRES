@@ -10,6 +10,8 @@ module SolutionRule =
 
     open Utils
 
+    type GenPresProduct = Informedica.ZIndex.Lib.Types.GenPresProduct
+
 
     module DilutionTarget =
 
@@ -1045,16 +1047,19 @@ module SolutionRule =
         |> Array.toList
 
 
-    /// Returns one warning for each solution rule with HPKs that are not trade products of its GPKs. A rule without
-    /// GPKs or without HPKs gives no warning.
-    let hpksOutsideGpks (products: ProductComponent[]) (data: SolutionRuleData[]) =
+    /// Returns one warning for each solution rule with HPKs that are not trade products of its GPKs in the
+    /// G-Standaard products. A rule without GPKs or without HPKs gives no warning. The G-Standaard products are
+    /// used, not the loaded products, because a GPK that no dose rule selects is not loaded.
+    let hpksOutsideGpks (genPresProducts: GenPresProduct[]) (data: SolutionRuleData[]) =
         data
         |> Array.distinctBy (fun r -> r.Generic, r.Route, r.GPKs, r.HPKs)
         |> Array.choose (fun r ->
             let known =
-                products
-                |> Product.narrow "" r.GPKs [||]
-                |> Array.collect (_.TradeProducts >> List.map _.HPK >> List.toArray)
+                genPresProducts
+                |> Array.collect _.GenericProducts
+                |> Array.filter (fun gp -> r.GPKs |> Array.contains (string gp.Id))
+                |> Array.collect (_.PrescriptionProducts >> Array.collect _.TradeProducts)
+                |> Array.map (_.Id >> string)
 
             match r.GPKs, r.HPKs |> Array.filter (fun hpk -> known |> Array.contains hpk |> not) with
             | [||], _

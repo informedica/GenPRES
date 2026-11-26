@@ -9696,15 +9696,21 @@ module Tests =
             | ws -> ws |> failtestf "expected one warning, got %A"
 
 
-        // The entry of the default registry, run on hand-built dose rules and solution rules.
-        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) (rows: SolutionRuleData[]) =
+        /// Runs the rule checks entry of the default registry on hand-built G-Standaard products, dose rules,
+        /// solution rules and solution rule rows, and returns the texts of the warnings.
+        let ruleCheckWarningsWith
+            (genPresProducts: Informedica.ZIndex.Lib.Types.GenPresProduct[])
+            (doseRules: DoseRule[])
+            (solutionRules: SolutionRule[])
+            (rows: SolutionRuleData[])
+            =
             let reg =
                 Map
                     [
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
                         Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
-                        Keys.products.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
+                        Keys.genPresProducts.Name, ofResult (fun () -> Ok genPresProducts)
                         Keys.formularyProducts.Name, ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                         Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
@@ -9714,6 +9720,10 @@ module Tests =
             let eng = LoadEngine reg
             eng.Resolve Keys.ruleChecks
             eng.Warnings |> List.map warningText
+
+
+        // The entry of the default registry, run on hand-built dose rules and solution rules.
+        let ruleCheckWarnings doseRules solutionRules rows = ruleCheckWarningsWith [||] doseRules solutionRules rows
 
 
         let divisibleProduct gpk formUnit div : ProductComponent =
@@ -11113,7 +11123,10 @@ module Tests =
                                             Keys.parenteralMeds.Name,
                                             ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
                                             Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
-                                            Keys.products.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
+                                            Keys.genPresProducts.Name,
+                                            ofResult (fun () ->
+                                                Ok(Array.empty<Informedica.ZIndex.Lib.Types.GenPresProduct>)
+                                            )
                                             Keys.formularyProducts.Name,
                                             ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
@@ -13722,6 +13735,9 @@ module Tests =
     module SolutionRuleColumnTests =
 
         open Informedica.GenCore.Lib.Measures
+        open Informedica.GenForm.Lib.Resources
+
+        module Z = Informedica.ZIndex.Lib.Types
 
         module ColumnContract = DoseRuleToDataTests.ColumnContract
 
@@ -13760,6 +13776,36 @@ module Tests =
 
         /// The morphine products: GPK 1 with HPK 11, GPK 2 with HPKs 21 and 22.
         let morfineProducts = [| product "morfine" "1" [ "11" ]; product "morfine" "2" [ "21"; "22" ] |]
+
+
+        /// A G-Standaard product of morphine with the GPK and trade products with the HPKs.
+        let genPresProduct gpk hpks =
+            let tradeProduct hpk : Z.TradeProduct =
+                {
+                    Id = hpk
+                    Name = ""
+                    Label = ""
+                    Brand = ""
+                    Company = ""
+                    Denominator = 1
+                    UnitWeight = 0.
+                    Route = [||]
+                    Substances = [||]
+                    ConsumerProducts = [||]
+                }
+
+            let gp = ProductNameTests.genericProduct gpk "MORFINE" "MORFINE" "MORFINE" 10.
+
+            { gp with
+                PrescriptionProducts =
+                    gp.PrescriptionProducts
+                    |> Array.map (fun pp -> { pp with TradeProducts = hpks |> Array.map tradeProduct })
+            }
+            |> ProductNameTests.genPresProduct
+
+
+        /// The G-Standaard products of morphine: GPK 1 with HPK 11, GPK 2 with HPKs 21 and 22.
+        let morfineGenPresProducts = [| genPresProduct 1 [| 11 |]; genPresProduct 2 [| 21; 22 |] |]
 
 
         /// Maps the rows with the products into solution rules and returns the GPK and the HPKs of the products
@@ -14500,7 +14546,7 @@ module Tests =
                                         HPKs = [| "11"; "21" |]
                                     }
                                 |]
-                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> SolutionRule.hpksOutsideGpks morfineGenPresProducts
                                 |> Expect.equal
                                     "one warning that names the HPK and the GPKs"
                                     [
@@ -14516,14 +14562,33 @@ module Tests =
                                         HPKs = [| "11"; "22" |]
                                     }
                                 |]
-                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> SolutionRule.hpksOutsideGpks morfineGenPresProducts
                                 |> Expect.isEmpty "no warning"
                             }
 
                             test "HPKs without GPKs give no warning" {
                                 [| { row with HPKs = [| "99" |] } |]
-                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> SolutionRule.hpksOutsideGpks morfineGenPresProducts
                                 |> Expect.isEmpty "no warning"
+                            }
+
+                            test "the load checks use the G-Standaard products, also for a GPK no dose rule selects" {
+                                let rows =
+                                    [|
+                                        { row with
+                                            GPKs = [| "1"; "2" |]
+                                            HPKs = [| "22" |]
+                                        }
+                                    |]
+
+                                let warnings genPresProducts =
+                                    rows
+                                    |> RuleCheckTests.ruleCheckWarningsWith genPresProducts [||] [||]
+                                    |> List.filter (String.contains "are not trade products")
+
+                                (morfineGenPresProducts |> warnings,
+                                 [| genPresProduct 1 [| 11 |] |] |> warnings |> List.length)
+                                |> Expect.equal "no warning with GPK 2 in the G-Standaard, one without it" ([], 1)
                             }
                         ]
 

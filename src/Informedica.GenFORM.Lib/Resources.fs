@@ -731,7 +731,7 @@ module Resources =
                        |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRuleData |> SolutionRule.mixedSourceTexts)
                     @ (r.Get Keys.solutionRuleData
-                       |> SolutionRule.hpksOutsideGpks (r.Get Keys.products))
+                       |> SolutionRule.hpksOutsideGpks (r.Get Keys.genPresProducts))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.duplicateRows (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRules
