@@ -1521,10 +1521,11 @@ module SolutionRule =
             | Some min, Some max -> $"%s{min |> toPerc} - %s{max |> toPerc}%%"
 
 
-        /// Returns the lines of the instruction of a rule, each a labelled list item: the dilution, the
-        /// concentration and the administration. A line without data is left out. With showTarget, or with more
-        /// than one dilution limit, the quantity and the concentration are given per dilution target, by name.
-        let instruction showTarget (r: SolutionRule) =
+        /// Returns the lines of the instruction of a rule, each a labelled list item: the preparation text, the
+        /// dilution, the concentration, the administration and then the extra labelled values. A line without
+        /// data is left out. With showTarget, or with more than one dilution limit, the quantity and the
+        /// concentration are given per dilution target, by name.
+        let instruction showTarget extra (r: SolutionRule) =
             let item label text =
                 if text |> String.isNullOrWhiteSpace then
                     None
@@ -1574,11 +1575,13 @@ module SolutionRule =
                     r.SolutionLimit.DripRate
                     |> minMaxToString
                     |> fun s -> if s |> String.notEmpty then $"inloopsnelheid %s{s}" else ""
+                    r.AdminText
                 ]
                 |> List.filter String.notEmpty
                 |> String.concat "; "
 
             [
+                item "Bereiden" r.PrepText
                 item "Verdunnen" (r |> dilutionStep (single |> Option.map quantity |> Option.defaultValue ""))
                 if perTarget |> List.isEmpty |> not then
                     Some("- **Hoeveelheid en concentratie:**\n" + (perTarget |> String.concat "\n"))
@@ -1588,6 +1591,7 @@ module SolutionRule =
                      |> Option.map (_.Concentration >> minMaxToString)
                      |> Option.defaultValue "")
                 item "Toedienen" administration
+                yield! extra |> List.map (fun (label, value) -> item label value)
             ]
             |> List.choose id
 
@@ -1597,6 +1601,74 @@ module SolutionRule =
             match lines with
             | [] -> ""
             | _ -> $"## %s{heading}\n\n" + (lines |> String.concat "\n") + "\n"
+
+
+        /// Returns the lines of a section for a value of the rules. When every rule gives the same value, toLine
+        /// gets an empty condition and the value. Otherwise toLine gets, for each distinct value, the conditions
+        /// of the rules with that value, separated by semicolons. Rules without the value are left out, and no
+        /// rule with the value gives no lines.
+        let valueLines toLine (cond: SolutionRule -> string) value (rules: SolutionRule[]) =
+            let withValue =
+                rules
+                |> Array.map (fun r -> r, r |> value)
+                |> Array.filter (snd >> String.notEmpty)
+
+            match withValue |> Array.map snd |> Array.distinct with
+            | [||] -> []
+            | [| v |] when withValue.Length = rules.Length -> [ v |> toLine "" ]
+            | values ->
+                values
+                |> Array.toList
+                |> List.map (fun v ->
+                    let conds =
+                        withValue
+                        |> Array.filter (snd >> (=) v)
+                        |> Array.map (fst >> cond)
+                        |> Array.map (fun c ->
+                            if c |> String.isNullOrWhiteSpace then
+                                "alle patiënten"
+                            else
+                                c
+                        )
+                        |> Array.distinct
+                        |> String.concat "; "
+
+                    v |> toLine conds
+                )
+
+
+        /// Returns a list item with a label and a value, with the conditions after the label when they are given.
+        let valueItem label conds value =
+            match conds with
+            | "" -> $"- **%s{label}:** %s{value}"
+            | c -> $"- **%s{label}** (%s{c}): %s{value}"
+
+
+        /// Formats a shelf life in minutes as Dutch text: whole hours as hours, otherwise minutes.
+        let shelfLifeToString vu =
+            match vu |> ValueUnit.getValue |> Array.tryHead with
+            | None -> ""
+            | Some m ->
+                let h = m / 60N
+
+                if m > 0N && h.Denominator = 1I then
+                    $"%s{h |> BigRational.toString} uur"
+                else
+                    $"%s{m |> BigRational.toString} minuten"
+
+
+        /// Formats a pH as Dutch text with a decimal comma.
+        let phToString (ph: decimal<pH>) = ph |> decimal |> string |> String.replace "." ","
+
+
+        /// Returns the pH range of a rule as text, such as 4,5 - 7; empty without a pH.
+        let phRange (r: SolutionRule) =
+            match r.MinPh, r.MaxPh with
+            | Some min, Some max when min = max -> min |> phToString
+            | Some min, Some max -> $"%s{min |> phToString} - %s{max |> phToString}"
+            | Some min, None -> $"vanaf %s{min |> phToString}"
+            | None, Some max -> $"tot %s{max |> phToString}"
+            | None, None -> ""
 
 
         /// Returns the products of the rules, each once, with the products of the lowest concentration first.
@@ -1714,6 +1786,28 @@ module SolutionRule =
 
             let prods = rules |> products
 
+            let shelfLife (r: SolutionRule) =
+                r.ShelfLife |> Option.map shelfLifeToString |> Option.defaultValue ""
+
+            // A value that every rule gives the same is a section of its own. Any other value is a line of
+            // the instruction of each rule that gives it, because the rules without it have no data, not
+            // another value.
+            let uniformValue value =
+                match rules |> Array.map value |> Array.distinct with
+                | [| v |] when v |> String.notEmpty -> Some v
+                | _ -> None
+
+            let uniformSection heading value =
+                value
+                |> uniformValue
+                |> Option.map (fun v -> [ $"- %s{v}" ])
+                |> Option.defaultValue []
+                |> section heading
+
+            let perRule =
+                [ "Houdbaar na bereiding", shelfLife; "pH", phRange; "Let op", _.Notes ]
+                |> List.filter (snd >> uniformValue >> Option.isNone)
+
             // Rules with the same condition are alternatives, for example for another quantity, and share one
             // heading. List.sortBy is stable, so the rules keep their order within a department.
             let instructions =
@@ -1726,7 +1820,9 @@ module SolutionRule =
                         | "" -> "Alle patiënten"
                         | c -> c
 
-                    c, r |> instruction showTarget
+                    c,
+                    r
+                    |> instruction showTarget (perRule |> List.map (fun (label, value) -> label, r |> value))
                 )
                 |> List.filter (snd >> List.isEmpty >> not)
                 |> List.distinct
@@ -1750,6 +1846,16 @@ module SolutionRule =
                 |> section "Oplossen"
                 if instructions |> List.isEmpty |> not then
                     "## Bereiden en toedienen\n\n" + (instructions |> String.concat "\n")
+                uniformSection "Houdbaarheid na bereiding" shelfLife
+                uniformSection "pH" phRange
+                [
+                    yield! rules |> valueLines (valueItem "Wel") cond (_.SameLine >> String.concat ", ")
+                    yield!
+                        rules
+                        |> valueLines (valueItem "Niet") cond (_.NotSameLine >> String.concat ", ")
+                ]
+                |> section "Via dezelfde lijn"
+                uniformSection "Bijzonderheden" _.Notes
             ]
             |> List.filter String.notEmpty
             |> String.concat "\n"
