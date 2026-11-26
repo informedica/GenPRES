@@ -363,7 +363,13 @@ module SolutionRule =
         |> dedupRowsByRowId
 
 
-    let map routeMapping (parenteral: ProductComponent[]) products data : Result<_, Message list> =
+    let map
+        routeMapping
+        (parenteral: ProductComponent[])
+        (products: ProductComponent[])
+        data
+        : Result<_, Message list>
+        =
         data
         // One row for each dilution target of a rule, the diluent rows expanded to their diluents.
         |> dedupedRows parenteral
@@ -468,6 +474,13 @@ module SolutionRule =
                                        |> Option.defaultValue true
                                     && p.Routes |> Array.exists (Mapping.eqsRoute routeMapping (Some solRule.Route))
                                 )
+                                // the GPKs and HPKs of the rule are products of its generic, not of its diluents
+                                // or other components
+                                |> fun ps ->
+                                    if l.Component |> String.equalsCapInsens solRule.Generic then
+                                        ps |> Product.narrow "" solRule.GPKs solRule.HPKs
+                                    else
+                                        ps
                         }
                     )
                     // filter out dilution limits that are empty
@@ -1028,6 +1041,31 @@ module SolutionRule =
             let dil = xs |> Array.head |> fst
             let generics = xs |> Array.map snd |> Array.distinct |> String.concat ", "
             Warning $"the diluent %s{dil} is not marked IsDiluent in the Formulary, named by %s{generics}"
+        )
+        |> Array.toList
+
+
+    /// Returns one warning for each solution rule with HPKs that are not trade products of its GPKs. A rule without
+    /// GPKs or without HPKs gives no warning.
+    let hpksOutsideGpks (products: ProductComponent[]) (data: SolutionRuleData[]) =
+        data
+        |> Array.distinctBy (fun r -> r.Generic, r.Route, r.GPKs, r.HPKs)
+        |> Array.choose (fun r ->
+            let known =
+                products
+                |> Product.narrow "" r.GPKs [||]
+                |> Array.collect (_.TradeProducts >> List.map _.HPK >> List.toArray)
+
+            match r.GPKs, r.HPKs |> Array.filter (fun hpk -> known |> Array.contains hpk |> not) with
+            | [||], _
+            | _, [||] -> None
+            | gpks, hpks ->
+                let gpks = gpks |> String.concat ", "
+                let hpks = hpks |> String.concat ", "
+
+                Warning
+                    $"solution rule %s{r.Generic}, %s{r.Route}: the HPKs %s{hpks} are not trade products of the GPKs %s{gpks}"
+                |> Some
         )
         |> Array.toList
 

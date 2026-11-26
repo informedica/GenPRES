@@ -9704,6 +9704,7 @@ module Tests =
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
                         Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
+                        Keys.products.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
                         Keys.formularyProducts.Name, ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                         Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
@@ -11112,6 +11113,7 @@ module Tests =
                                             Keys.parenteralMeds.Name,
                                             ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
                                             Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
+                                            Keys.products.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
                                             Keys.formularyProducts.Name,
                                             ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
@@ -13746,6 +13748,36 @@ module Tests =
             | Error msgs -> failtest $"%A{msgs}"
 
 
+        /// An intravenous product of the generic with the GPK and trade products with the HPKs.
+        let product generic gpk hpks : ProductComponent =
+            { ProductFilterTests.baseProd with
+                GPK = gpk
+                Generic = generic
+                Routes = [| "INTRAVENEUS" |]
+                TradeProducts = hpks |> List.map (fun hpk -> ProductFilterTests.trade hpk "" [])
+            }
+
+
+        /// The morphine products: GPK 1 with HPK 11, GPK 2 with HPKs 21 and 22.
+        let morfineProducts = [| product "morfine" "1" [ "11" ]; product "morfine" "2" [ "21"; "22" ] |]
+
+
+        /// Maps the rows with the products into solution rules and returns the GPK and the HPKs of the products
+        /// of each dilution limit.
+        let productsOf products rows =
+            match rows |> SolutionRule.map RuleCheckTests.ivRouteMapping [||] products with
+            | Ok rules ->
+                rules
+                |> Array.collect _.DilutionLimits
+                |> Array.map (
+                    _.Products
+                    >> Array.map (fun p -> p.GPK, p.TradeProducts |> List.map _.HPK)
+                    >> Array.toList
+                )
+                |> Array.toList
+            | Error msgs -> failtest $"%A{msgs}"
+
+
         /// Formulary products with the given generics.
         let formulary generics =
             generics
@@ -14410,6 +14442,89 @@ module Tests =
                             }
 
                             test "no rows give no rules" { [||] |> rules |> Expect.isEmpty "no rules" }
+                        ]
+
+                    testList
+                        "the GPKs and HPKs narrow the products of the generic"
+                        [
+                            test "without GPKs and HPKs the rule keeps every product" {
+                                [| { row with Component = "morfine" } |]
+                                |> productsOf morfineProducts
+                                |> Expect.equal "both products" [ [ "1", [ "11" ]; "2", [ "21"; "22" ] ] ]
+                            }
+
+                            test "the GPKs keep the products with one of the GPKs" {
+                                [|
+                                    { row with
+                                        Component = "morfine"
+                                        GPKs = [| "2" |]
+                                    }
+                                |]
+                                |> productsOf morfineProducts
+                                |> Expect.equal "the product with GPK 2" [ [ "2", [ "21"; "22" ] ] ]
+                            }
+
+                            test "the HPKs keep the trade products with one of the HPKs" {
+                                [|
+                                    { row with
+                                        Component = "morfine"
+                                        GPKs = [| "1"; "2" |]
+                                        HPKs = [| "22" |]
+                                    }
+                                |]
+                                |> productsOf morfineProducts
+                                |> Expect.equal "the product with GPK 2 and HPK 22" [ [ "2", [ "22" ] ] ]
+                            }
+
+                            test "a component other than the generic keeps every product" {
+                                [|
+                                    { row with
+                                        Component = "glucose"
+                                        Substance = ""
+                                        GPKs = [| "1" |]
+                                        HPKs = [| "11" |]
+                                    }
+                                |]
+                                |> productsOf (Array.append morfineProducts [| product "glucose" "9" [ "91" ] |])
+                                |> Expect.equal "the glucose product" [ [ "9", [ "91" ] ] ]
+                            }
+                        ]
+
+                    testList
+                        "hpksOutsideGpks"
+                        [
+                            test "an HPK of another GPK gives one warning" {
+                                [|
+                                    { row with
+                                        GPKs = [| "1" |]
+                                        HPKs = [| "11"; "21" |]
+                                    }
+                                |]
+                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> Expect.equal
+                                    "one warning that names the HPK and the GPKs"
+                                    [
+                                        Warning
+                                            "solution rule morfine, INTRAVENEUS: the HPKs 21 are not trade products of the GPKs 1"
+                                    ]
+                            }
+
+                            test "HPKs of the GPKs give no warning" {
+                                [|
+                                    { row with
+                                        GPKs = [| "1"; "2" |]
+                                        HPKs = [| "11"; "22" |]
+                                    }
+                                |]
+                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> Expect.isEmpty "no warning"
+                            }
+
+                            test "HPKs without GPKs give no warning" {
+                                [| { row with HPKs = [| "99" |] } |]
+                                |> SolutionRule.hpksOutsideGpks morfineProducts
+                                |> Expect.isEmpty "no warning"
+                            }
                         ]
 
                     testList
