@@ -1060,6 +1060,15 @@ module Product =
             )
 
 
+    /// Returns the products with one of the GPKs, and of those the trade products of the brand, or with one of the
+    /// HPKs when no brand is given. Empty GPKs keep every product; an empty brand and empty HPKs keep every trade
+    /// product. When a brand or HPKs are given, a product without a matching trade product is left out.
+    let narrow brand gpks hpks (prods: ProductComponent[]) =
+        prods
+        |> Array.filter (fun p -> gpks |> Array.isEmpty || gpks |> Array.contains p.GPK)
+        |> filterOutTradeProducts brand hpks
+
+
     /// <summary>
     /// Returns the products that match the route, and the name, form and GPKs when given, with their trade
     /// products narrowed by brand or HPKs. When a brand or HPKs are given, a product without a matching
@@ -1092,20 +1101,13 @@ module Product =
                 let s2 = s2 |> repl
                 s1 |> String.equalsCapInsens s2
 
-        let filterGPK gpk =
-            if gpks |> Array.length = 0 then
-                true
-            else
-                gpks |> Array.exists ((=) gpk)
-
         prods
         |> Array.filter (fun p ->
             p.Generic |> eqsIfNotEmpty name
             && p.Routes |> Array.exists (eqsRoute (Some route))
             && p.Form |> eqsIfNotEmpty form
-            && filterGPK p.GPK
         )
-        |> filterOutTradeProducts brand hpks
+        |> narrow brand gpks hpks
 
 
     /// Returns the distinct generics of the products.

@@ -708,6 +708,7 @@ module Resources =
                 // - a solution rule with more than one dilution limit for the same component or substance
                 // - rows of a solution rule for the same dilution target with different dilution limits
                 // - a solution rule whose rows give different source texts
+                // - a solution rule with HPKs that are not trade products of its GPKs
                 // - a solution rule with a volume or a quantity per adjust but no adjust unit
                 // - the rows of a solution rule that give different adjust units
                 // - a dose rule and a solution rule with different adjust units
@@ -729,6 +730,8 @@ module Resources =
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRuleData |> SolutionRule.mixedSourceTexts)
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.hpksOutsideGpks (r.Get Keys.genPresProducts))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.duplicateRows (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRules
