@@ -703,6 +703,7 @@ module Resources =
                 // - two solution rules that apply to one dose rule and one patient
                 // - a diluent that is also a component of a dose rule the solution rule applies to
                 // - a diluent whose Formulary product is not marked IsDiluent
+                // - a generic for the same line that the Formulary does not have
                 // - a solution rule with a diluent row but no diluent
                 // - a solution rule with more than one dilution limit for the same component or substance
                 // - a solution rule with a volume or a quantity per adjust but no adjust unit
@@ -717,6 +718,8 @@ module Resources =
                      |> SolutionRule.missingDiluents (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.unknownLineGenerics (r.Get Keys.formularyProducts))
                     @ (r.Get Keys.solutionRuleData
                        |> SolutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.solutionRuleData

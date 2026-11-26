@@ -125,6 +125,17 @@ module TestOrder =
     /// A solution rule for the amphotericin B scenario with the solution limit sl.
     let solutionRule sl : SolutionRule =
         {
+            SourceText = ""
+            GPKs = [||]
+            HPKs = [||]
+            ShelfLife = None
+            MinPh = None
+            MaxPh = None
+            SameLine = [||]
+            NotSameLine = [||]
+            Notes = ""
+            PrepText = ""
+            AdminText = ""
             Generic = "amfotericine b liposomaal"
             Form = None
             Route = "iv"

@@ -170,18 +170,8 @@ module DoseRuleData =
                                 Name = get "Generic"
                                 Form = get "Form"
                                 Brand = get "Brand"
-                                GPKs =
-                                    get "GPKs"
-                                    |> String.splitAt ';'
-                                    |> Array.map String.trim
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
-                                HPKs =
-                                    get "HPKs"
-                                    |> String.splitAt ';'
-                                    |> Array.map String.trim
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
+                                GPKs = get "GPKs" |> ProductId.parseCodes
+                                HPKs = get "HPKs" |> ProductId.parseCodes
                             }
                         Route = get "Route"
                         Indication = get "Indication"

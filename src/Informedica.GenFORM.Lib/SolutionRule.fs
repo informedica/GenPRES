@@ -75,14 +75,21 @@ module SolutionRule =
 
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
+                    let toPhOpt = toBrOpt >> Option.map (BigRational.toDecimal >> (*) 1m<pH>)
+
+                    let names = String.split "|" >> List.map String.trim >> List.filter String.notEmpty
+
                     {
                         // solution rule section
                         Generic = get "Generic"
                         Form = get "Form"
                         Route = get "Route"
                         Indication = get "Indication"
+                        GPKs = get "GPKs" |> ProductId.parseCodes
+                        HPKs = get "HPKs" |> ProductId.parseCodes
                         Location = getOpt "Loc"
                         Department = getOpt "Dep"
+                        SourceText = get "SourceText"
                         CVL = get "CVL"
                         PVL = get "PVL"
                         MinAge = get "MinAge" |> toBrOpt
@@ -118,6 +125,14 @@ module SolutionRule =
                         MaxDrip = get "MaxDrip" |> toBrOpt
                         MinConc = get "MinConc" |> toBrOpt
                         MaxConc = get "MaxConc" |> toBrOpt
+                        ShelfLife = get "ShelfLife" |> toBrOpt
+                        MinPh = get "MinPh" |> toPhOpt
+                        MaxPh = get "MaxPh" |> toPhOpt
+                        CombY = get "CombY" |> names
+                        NonCombY = get "NonCombY" |> names
+                        Notes = get "Notes"
+                        PrepText = get "PrepText"
+                        AdminText = get "AdminText"
                     }
                 )
             |> Ok
@@ -159,6 +174,10 @@ module SolutionRule =
             let au = r.AdjustUnit |> Units.adjustUnit
 
             {
+                // set below from the first row of the rule: the source text does not identify the rule
+                SourceText = ""
+                GPKs = r.GPKs
+                HPKs = r.HPKs
                 Generic = r.Generic
                 Form =
                     if r.Form |> String.isNullOrWhiteSpace then
@@ -208,10 +227,19 @@ module SolutionRule =
                         DoseFraction = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
                     }
                 DilutionLimits = [||]
+                ShelfLife = r.ShelfLife |> Option.map (ValueUnit.singleWithUnit Units.Time.minute)
+                MinPh = r.MinPh
+                MaxPh = r.MaxPh
+                SameLine = r.CombY |> List.toArray
+                NotSameLine = r.NonCombY |> List.toArray
+                Notes = r.Notes
+                PrepText = r.PrepText
+                AdminText = r.AdminText
             }
         )
         |> Array.map (fun (solRule, rs) ->
             { solRule with
+                SourceText = rs |> Array.head |> _.SourceText
                 DilutionLimits =
                     rs
                     |> expandDiluentRows (solRule.Diluents |> Array.map _.Generic)
@@ -376,10 +404,11 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// Maps one SolutionRules row on its own to its solution rule; None when the row does not map.
+    /// Maps one SolutionRules row on its own to its solution rule, without the source text; None when the row does not
+    /// map. The source text does not identify a rule, so rows of one rule with different source texts give one rule.
     let ruleOfRow parenteral r =
         match [| r |] |> map [||] parenteral [||] with
-        | Ok [| solRule |] -> Some solRule
+        | Ok [| solRule |] -> Some { solRule with SourceText = "" }
         | _ -> None
 
 
@@ -790,6 +819,29 @@ module SolutionRule =
             let dil = xs |> Array.head |> fst
             let generics = xs |> Array.map snd |> Array.distinct |> String.concat ", "
             Warning $"the diluent %s{dil} is not marked IsDiluent in the Formulary, named by %s{generics}"
+        )
+        |> Array.toList
+
+
+    /// Returns one warning for each generic whose solution rule rows name, in CombY or NonCombY, a generic
+    /// that the Formulary does not have. The names are compared without regard to case.
+    let unknownLineGenerics (formulary: FormularyProduct[]) (data: SolutionRuleData[]) =
+        let known =
+            formulary
+            |> Array.map (_.Generic >> String.trim >> String.toLower)
+            |> Set.ofArray
+
+        data
+        |> Array.collect (fun r ->
+            r.CombY @ r.NonCombY
+            |> List.filter (String.toLower >> known.Contains >> not)
+            |> List.map (fun name -> r.Generic, name)
+            |> List.toArray
+        )
+        |> Array.groupBy fst
+        |> Array.map (fun (generic, xs) ->
+            let names = xs |> Array.map snd |> Array.distinct |> String.concat ", "
+            Warning $"solution rule %s{generic}: CombY or NonCombY names %s{names}, which the Formulary does not have"
         )
         |> Array.toList
 

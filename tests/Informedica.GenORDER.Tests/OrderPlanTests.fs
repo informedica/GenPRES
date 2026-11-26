@@ -1174,6 +1174,17 @@ type UndilutedVancomycin() =
 
     let solutionRule: SolutionRule =
         {
+            SourceText = ""
+            GPKs = [||]
+            HPKs = [||]
+            ShelfLife = None
+            MinPh = None
+            MaxPh = None
+            SameLine = [||]
+            NotSameLine = [||]
+            Notes = ""
+            PrepText = ""
+            AdminText = ""
             Generic = "vancomycine"
             Form = None
             Route = "INTRAVENEUS"
@@ -1273,6 +1284,17 @@ module Electrolytes =
         let limit u = ValueUnit.singleWithUnit u >> Limit.inclusive >> Some
 
         {
+            SourceText = ""
+            GPKs = [||]
+            HPKs = [||]
+            ShelfLife = None
+            MinPh = None
+            MaxPh = None
+            SameLine = [||]
+            NotSameLine = [||]
+            Notes = ""
+            PrepText = ""
+            AdminText = ""
             Generic = "electrolyt/glucose mengsel"
             Form = None
             Route = "INTRAVENEUS"
@@ -1917,6 +1939,17 @@ let selectsRulesTests =
 let scenarioAccessTests =
     let solutionRule access : SolutionRule =
         {
+            SourceText = ""
+            GPKs = [||]
+            HPKs = [||]
+            ShelfLife = None
+            MinPh = None
+            MaxPh = None
+            SameLine = [||]
+            NotSameLine = [||]
+            Notes = ""
+            PrepText = ""
+            AdminText = ""
             Generic = "paracetamol"
             Form = None
             Route = "iv"

@@ -249,6 +249,34 @@ module ProductFilterTests =
             ]
 
 
+module ProductIdTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+
+    let tests =
+        testList
+            "ProductId.parseCodes"
+            [
+                test "splits a cell on semicolons and trims the codes" {
+                    " 12345 ;67890 "
+                    |> ProductId.parseCodes
+                    |> Expect.equal "the two codes" [| "12345"; "67890" |]
+                }
+
+                test "leaves out empty codes and keeps each code once" {
+                    "12345;; 12345;67890;"
+                    |> ProductId.parseCodes
+                    |> Expect.equal "each code once" [| "12345"; "67890" |]
+                }
+
+                test "an empty cell gives no codes" { "" |> ProductId.parseCodes |> Expect.isEmpty "no codes" }
+            ]
+
+
 module DoseRuleProductTests =
 
 
@@ -1120,8 +1148,11 @@ module DoseRuleToDataTests =
                     "Form"
                     "Route"
                     "Indication"
+                    "GPKs"
+                    "HPKs"
                     "Loc"
                     "Dep"
+                    "SourceText"
                     "CVL"
                     "PVL"
                     "MinAge"
@@ -1156,6 +1187,14 @@ module DoseRuleToDataTests =
                     "MaxDrip"
                     "MinConc"
                     "MaxConc"
+                    "ShelfLife"
+                    "MinPh"
+                    "MaxPh"
+                    "CombY"
+                    "NonCombY"
+                    "PrepText"
+                    "AdminText"
+                    "Notes"
                 ],
                 [],
                 [],
@@ -4184,6 +4223,17 @@ module Tests =
                     test "a dilution limit is headed by the rule's access, the tube included" {
                         let rule access : SolutionRule =
                             {
+                                SourceText = ""
+                                GPKs = [||]
+                                HPKs = [||]
+                                ShelfLife = None
+                                MinPh = None
+                                MaxPh = None
+                                SameLine = [||]
+                                NotSameLine = [||]
+                                Notes = ""
+                                PrepText = ""
+                                AdminText = ""
                                 Generic = "paracetamol"
                                 Form = None
                                 Route = "iv"
@@ -7214,6 +7264,17 @@ module Tests =
 
         let solutionRowOf location dep : SolutionRuleData =
             {
+                GPKs = [||]
+                HPKs = [||]
+                SourceText = ""
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                CombY = []
+                NonCombY = []
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = "paracetamol"
                 Form = ""
                 Route = "iv"
@@ -7492,6 +7553,17 @@ module Tests =
         /// A paracetamol iv solution rule for a patient category, named by its indication.
         let rule name patCat : SolutionRule =
             {
+                SourceText = ""
+                GPKs = [||]
+                HPKs = [||]
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                SameLine = [||]
+                NotSameLine = [||]
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = "paracetamol"
                 Form = None
                 Route = "iv"
@@ -7654,6 +7726,17 @@ module Tests =
         /// A solution rule for any patient with a generic, a form and a route.
         let rule generic form route : SolutionRule =
             {
+                SourceText = ""
+                GPKs = [||]
+                HPKs = [||]
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                SameLine = [||]
+                NotSameLine = [||]
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = generic
                 Form = form
                 Route = route
@@ -8692,6 +8775,17 @@ module Tests =
 
         let private solutionRule volumeAdjust : SolutionRule =
             {
+                SourceText = ""
+                GPKs = [||]
+                HPKs = [||]
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                SameLine = [||]
+                NotSameLine = [||]
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = "paracetamol"
                 Form = None
                 Route = ""
@@ -9279,6 +9373,17 @@ module Tests =
 
         let solutionRule generic conc =
             {
+                SourceText = ""
+                GPKs = [||]
+                HPKs = [||]
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                SameLine = [||]
+                NotSameLine = [||]
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = generic
                 Form = None
                 Route = "INTRAVENEUS"
@@ -9438,6 +9543,17 @@ module Tests =
 
         let solutionRow generic diluents : SolutionRuleData =
             {
+                GPKs = [||]
+                HPKs = [||]
+                SourceText = ""
+                ShelfLife = None
+                MinPh = None
+                MaxPh = None
+                CombY = []
+                NonCombY = []
+                Notes = ""
+                PrepText = ""
+                AdminText = ""
                 Generic = generic
                 Form = ""
                 Route = "INTRAVENEUS"
@@ -13528,6 +13644,196 @@ module Tests =
                 ]
 
 
+    module SolutionRuleColumnTests =
+
+        open Informedica.GenCore.Lib.Measures
+
+        module ColumnContract = DoseRuleToDataTests.ColumnContract
+
+
+        /// Parses a SolutionRules sheet with one row that has the given cells.
+        let parse cells =
+            let _, columns, _, overrides, _ =
+                ColumnContract.sheets
+                |> List.find (fun (name, _, _, _, _) -> name = "SolutionRules")
+
+            columns
+            |> ColumnContract.mkSheet (cells @ overrides)
+            |> SolutionRule.parseSolutionRuleData
+
+
+        /// A solution rule row for morphine.
+        let row = RuleCheckTests.solutionRow "morfine" []
+
+
+        /// Maps the rows into solution rules; fails the test when the rows do not map.
+        let rules rows =
+            match rows |> SolutionRule.map [||] [||] [||] with
+            | Ok rules -> rules
+            | Error msgs -> failtest $"%A{msgs}"
+
+
+        /// Formulary products with the given generics.
+        let formulary generics =
+            generics
+            |> List.map (fun g -> FormularyProductTests.parseOne [ "GPKODE", g; "Type", "medication"; "Generic", g ])
+            |> List.toArray
+
+
+        let tests =
+            testList
+                "the columns of a solution rule as a whole"
+                [
+                    testList
+                        "parseSolutionRuleData"
+                        [
+                            test "reads the cells of a row" {
+                                parse
+                                    [
+                                        "HPKs", "111; 222"
+                                        "SourceText", "bron"
+                                        "ShelfLife", "1440"
+                                        "MinPh", "3.5"
+                                        "MaxPh", "7"
+                                        "CombY", "heparine| naloxon"
+                                        "NonCombY", "amiodaron"
+                                        "Notes", "tienvoudige verdunning"
+                                        "PrepText", "oplossen in 10 mL"
+                                        "AdminText", "over 30 min"
+                                    ]
+                                |> Result.map (
+                                    Array.map (fun r ->
+                                        (r.HPKs, r.SourceText, r.ShelfLife, r.MinPh, r.MaxPh),
+                                        (r.CombY, r.NonCombY, r.Notes, r.PrepText, r.AdminText)
+                                    )
+                                )
+                                |> Expect.equal
+                                    "the values of the row"
+                                    (Ok
+                                        [|
+                                            ([| "111"; "222" |], "bron", Some 1440N, Some 3.5m<pH>, Some 7m<pH>),
+                                            ([ "heparine"; "naloxon" ],
+                                             [ "amiodaron" ],
+                                             "tienvoudige verdunning",
+                                             "oplossen in 10 mL",
+                                             "over 30 min")
+                                        |])
+                            }
+
+                            test "empty cells give empty values" {
+                                parse []
+                                |> Result.map (
+                                    Array.map (fun r ->
+                                        (r.HPKs, r.SourceText, r.ShelfLife, r.MinPh, r.MaxPh),
+                                        (r.CombY, r.NonCombY, r.Notes, r.PrepText, r.AdminText)
+                                    )
+                                )
+                                |> Expect.equal
+                                    "no values"
+                                    (Ok [| ([||], "", None, None, None), ([], [], "", "", "") |])
+                            }
+
+                            test "reads the cell of the column GPKs" {
+                                parse [ "GPKs", "12345; 67890" ]
+                                |> Result.map (Array.map _.GPKs)
+                                |> Expect.equal "the GPKs of the row" (Ok [| [| "12345"; "67890" |] |])
+                            }
+                        ]
+
+                    testList
+                        "map"
+                        [
+                            test "a rule has the values of its rows" {
+                                let solRule =
+                                    [|
+                                        { row with
+                                            GPKs = [| "12345" |]
+                                            HPKs = [| "111" |]
+                                            SourceText = "bron"
+                                            ShelfLife = Some 1440N
+                                            MinPh = Some 3m<pH>
+                                            MaxPh = Some 7m<pH>
+                                            CombY = [ "heparine" ]
+                                            NonCombY = [ "amiodaron" ]
+                                            Notes = "let op"
+                                            PrepText = "oplossen in 10 mL"
+                                            AdminText = "over 30 min"
+                                        }
+                                    |]
+                                    |> rules
+                                    |> Array.exactlyOne
+
+                                solRule.GPKs |> Expect.equal "the GPKs" [| "12345" |]
+
+                                (solRule.HPKs, solRule.SourceText, solRule.SameLine, solRule.NotSameLine)
+                                |> Expect.equal
+                                    "the products, the source text and the generics for the same line"
+                                    ([| "111" |], "bron", [| "heparine" |], [| "amiodaron" |])
+
+                                (solRule.Notes, solRule.PrepText, solRule.AdminText)
+                                |> Expect.equal
+                                    "the note, the preparation and the administration"
+                                    ("let op", "oplossen in 10 mL", "over 30 min")
+
+                                solRule.ShelfLife
+                                |> Expect.equal
+                                    "the shelf life in minutes"
+                                    (Some(Units.Time.minute |> ValueUnit.singleWithValue 1440N))
+
+                                (solRule.MinPh, solRule.MaxPh)
+                                |> Expect.equal "the lowest and the highest pH" (Some 3m<pH>, Some 7m<pH>)
+                            }
+
+                            test "a rule without a shelf life and a pH has none" {
+                                let solRule = [| row |] |> rules |> Array.exactlyOne
+
+                                (solRule.ShelfLife, solRule.MinPh, solRule.MaxPh)
+                                |> Expect.equal "no shelf life and no pH" (None, None, None)
+                            }
+                        ]
+
+                    testList
+                        "unknownLineGenerics"
+                        [
+                            test "a name the Formulary has, in any case, gives no warning" {
+                                [|
+                                    { row with
+                                        CombY = [ "Heparine" ]
+                                        NonCombY = [ "amiodaron" ]
+                                    }
+                                |]
+                                |> SolutionRule.unknownLineGenerics (formulary [ "heparine"; "Amiodaron" ])
+                                |> Expect.isEmpty "no warning"
+                            }
+
+                            test "the unknown names of the rows of a generic give one warning" {
+                                [|
+                                    { row with
+                                        CombY = [ "heparine"; "onbekend" ]
+                                        NonCombY = [ "ook onbekend" ]
+                                    }
+                                    { row with CombY = [ "heparine"; "onbekend" ] }
+                                |]
+                                |> SolutionRule.unknownLineGenerics (formulary [ "heparine" ])
+                                |> Expect.equal
+                                    "one warning with each name once"
+                                    [
+                                        Warning(
+                                            "solution rule morfine: CombY or NonCombY names onbekend, ook onbekend, "
+                                            + "which the Formulary does not have"
+                                        )
+                                    ]
+                            }
+
+                            test "rows without CombY and NonCombY give no warning" {
+                                [| row |]
+                                |> SolutionRule.unknownLineGenerics [||]
+                                |> Expect.isEmpty "no warning"
+                            }
+                        ]
+                ]
+
+
     module SolutionRuleAdjustUnitPairTests =
 
 
@@ -13737,6 +14043,15 @@ module Tests =
                                         "solution rule gen, INTRAVENEUS: the rows give the adjust units kg, none, "
                                         + "so they form separate rules"
                                     ]
+                            }
+
+                            test "rows of one rule with other source texts and adjust units give one warning" {
+                                [|
+                                    { row "kg" (Some 5N) with SourceText = "a" }
+                                    { row "" None with SourceText = "b" }
+                                |]
+                                |> SolutionRule.mixedAdjustUnits [||]
+                                |> Expect.hasLength "one warning" 1
                             }
 
                             test "rules that differ by diluent may have different adjust units" {
@@ -14159,6 +14474,7 @@ module Tests =
                 LimitTargetTests.tests
                 GenericLabelTests.tests
                 ProductFilterTests.tests
+                ProductIdTests.tests
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
@@ -14187,6 +14503,7 @@ module Tests =
                 ConflictingLimitTests.tests
                 RepeatedTargetTests.tests
                 SolutionRuleAdjustUnitTests.tests
+                SolutionRuleColumnTests.tests
                 SolutionRuleAdjustUnitPairTests.tests
                 SolutionRuleAdjustUnitCheckTests.tests
             ]

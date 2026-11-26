@@ -11,6 +11,9 @@ module Types =
 
     type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
 
+    [<Measure>]
+    type pH = Informedica.GenCore.Lib.Measures.pH
+
 
     /// <summary>
     /// One row of the "FormRoute" sheet, parsed by <c>Mapping.getFormRoutes</c>: the default values for a
@@ -606,6 +609,8 @@ module Types =
     /// Dose range: the diluents and the limits for the solution.
     type SolutionRule =
         {
+            /// The original source text the SolutionRule is built on.
+            SourceText: string
             /// The Generic of the SolutionRule
             Generic: string
             /// The pharmaceutical form of the SolutionRule
@@ -614,6 +619,11 @@ module Types =
             Route: string
             /// The Indication of the SolutionRule
             Indication: string option
+            /// The GPKs of the generic products the SolutionRule applies to: products with the same substances
+            /// in different strengths. Empty for every generic product.
+            GPKs: string[]
+            /// The HPKs of the trade products the SolutionRule applies to; empty for every trade product.
+            HPKs: string[]
             /// The dose type of the SolutionRule
             DoseType: DoseType
             /// The PatientCategory of the SolutionRule
@@ -629,6 +639,22 @@ module Types =
             SolutionLimit: SolutionLimit
             /// The limits on the components and the substances in the solution
             DilutionLimits: DilutionLimit[]
+            /// The time the prepared solution can be kept
+            ShelfLife: ValueUnit option
+            /// The lowest pH of the prepared solution
+            MinPh: decimal<pH> option
+            /// The highest pH of the prepared solution
+            MaxPh: decimal<pH> option
+            /// The generics that can be given through the same line as the solution
+            SameLine: string[]
+            /// The generics that cannot be given through the same line as the solution
+            NotSameLine: string[]
+            /// Any additional notes on the SolutionRule
+            Notes: string
+            /// The instructions for the preparation of the solution
+            PrepText: string
+            /// The instructions for the administration of the solution
+            AdminText: string
         }
 
 
@@ -1180,10 +1206,17 @@ module Types =
                 Form: string
                 Route: string
                 Indication: string
+                /// sheet column "GPKs", ';'-separated: the generic products the rule applies to, with the same
+                /// substances in different strengths
+                GPKs: string array
+                /// sheet column "HPKs", ';'-separated: the trade products the rule applies to
+                HPKs: string array
                 /// sheet column "Loc": the location, hospital or institute
                 Location: string option
                 /// sheet column "Dep": the department or ward
                 Department: string option
+                /// the original source text the rule is built on
+                SourceText: string
                 /// the venous access, "x" when the rule applies to it
                 CVL: string
                 PVL: string
@@ -1249,6 +1282,25 @@ module Types =
                 /// diluent included, that the component may be: 1 part in 8 is the value 0.125.
                 MinConc: BigRational option
                 MaxConc: BigRational option
+                // The cells below belong to the rule as a whole. Rows belong to one rule only when these cells
+                // are the same, so every row of a rule repeats them.
+                /// the shelf life of the prepared solution in minutes
+                ShelfLife: BigRational option
+                /// the lowest pH of the prepared solution
+                MinPh: decimal<pH> option
+                /// the highest pH of the prepared solution
+                MaxPh: decimal<pH> option
+                /// sheet column "CombY", '|'-separated: the generics that can be given through the same line
+                CombY: string list
+                /// sheet column "NonCombY", '|'-separated: the generics that cannot be given through the
+                /// same line
+                NonCombY: string list
+                /// sheet column "Notes": any additional notes
+                Notes: string
+                /// sheet column "PrepText": the preparation instructions
+                PrepText: string
+                /// sheet column "AdminText": the administration instructions
+                AdminText: string
             }
 
 
