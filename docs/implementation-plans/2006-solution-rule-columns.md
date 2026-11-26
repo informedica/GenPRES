@@ -39,9 +39,9 @@ follows where they differ from the issue:
 - **RowId** is a hash of the fields of the RuleId with the dilution target of the row: the kind of the target
   with its name in lower case, the substance when the row names one, otherwise the component. That is the target
   an order looks up a dilution limit by. The kind is in the hash, so a component and a substance with the same
-  name are two targets. The diluent rows are expanded to their diluents first, so a diluent row and a row for one of its diluents
-  have the same target. The dilution limits of the row are left out, so two rows of a rule with the same target
-  have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a dilution limit, so a rule
+  name are two targets. The diluent rows are expanded to their diluents first, so a diluent row and a row for
+  one of its diluents have the same target. The dilution limits of the row are left out, so two rows of a rule
+  with the same target have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a dilution limit, so a rule
   has one dilution limit for each target, and the load gives a warning when their dilution limits differ.
 - **Id** is a hash of every field of the row except the ids and SourceText, the dilution limits included, in
   the order of the columns of the sheet. `SolutionRule.setDataId` calculates it before the diluent rows are
