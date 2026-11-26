@@ -3,9 +3,21 @@ namespace Informedica.GenForm.Lib
 
 module ProductId =
 
+    open Informedica.Utils.Lib.BCL
+
     let gpks sl = sl |> List.map Gpk
 
     let hpks sl = sl |> List.map Hpk
+
+
+    /// Returns the product codes of a sheet cell with codes separated by ';', trimmed, without empty codes and
+    /// each code once.
+    let parseCodes cell =
+        cell
+        |> String.splitAt ';'
+        |> Array.map String.trim
+        |> Array.filter String.notEmpty
+        |> Array.distinct
 
 
 module DoseRule =

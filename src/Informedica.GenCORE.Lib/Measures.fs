@@ -47,6 +47,10 @@ module Measures =
     [<Measure>]
     type L
 
+    /// The acidity of a solution.
+    [<Measure>]
+    type pH
+
     [<Measure>]
     type mmol
 
