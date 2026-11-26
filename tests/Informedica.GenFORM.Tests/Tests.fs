@@ -15539,13 +15539,63 @@ module Tests =
                 }
 
 
+            let product =
+                { Product.create "paracetamol" "" "iv" [||] with
+                    GPK = "1"
+                    Label = "PARACETAMOL 10MG/ML"
+                }
+
+
+            /// The paracetamol solution rule with the product.
+            let withProduct =
+                { rule with
+                    DilutionLimits =
+                        [|
+                            { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "paracetamol") with
+                                Products = [| product |]
+                            }
+                        |]
+                }
+
+
+            /// A predilution of 1 mL of the product with 9 mL NaCl 0,9% for every patient.
+            let predilution: Predilution =
+                {
+                    GPK = "1"
+                    Route = "iv"
+                    Indication = None
+                    Location = None
+                    Department = None
+                    MinAge = None
+                    MaxAge = None
+                    MinWeight = None
+                    MaxWeight = None
+                    MedVolume = 1N |> mL
+                    DiluentVolume = 9N |> mL
+                    Diluent = "NaCl 0,9%"
+                }
+
+
+            let pred r : ProductPredilution =
+                {
+                    Rule = r
+                    DiluentSubstances = [||]
+                }
+
+
+            let neo = { predilution with Department = Some "NEO" } |> pred
+
+
+            let ick = { predilution with Department = Some "ICK" } |> pred
+
+
         let tests =
             testList
                 "SolutionRule.Print"
                 [
                     test "a rule without diluents gives the title, the route and an undiluted administration" {
                         [| Fixtures.rule |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.equal
                             "title, route and undiluted"
                             "# paracetamol\n\n**Toedieningsweg:** iv\n\n## Bereiden en toedienen\n\n### Alle patiënten\n\n- **Verdunnen:** onverdund toedienen\n"
@@ -15565,7 +15615,7 @@ module Tests =
 
                     test "the route is in the condition only when the rules have more routes" {
                         [| Fixtures.rule; { Fixtures.rule with Route = "im" } |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains "a condition per route" "### im"
                     }
 
@@ -15574,7 +15624,7 @@ module Tests =
                             Fixtures.rule |> Fixtures.withVolume 50N
                             Fixtures.rule |> Fixtures.withVolume 100N
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains
                             "one heading, two alternatives"
                             "### Alle patiënten\n\n- **Verdunnen:** in een volume van max. 50 mL\n\n**of**\n\n- **Verdunnen:** in een volume van max. 100 mL"
@@ -15635,7 +15685,7 @@ module Tests =
                                 DilutionLimits = [| limit |]
                             }
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains
                             "the target by name"
                             "- **Hoeveelheid en concentratie:**\n    - amoxicilline: max. 500 mg"
@@ -15680,7 +15730,7 @@ module Tests =
                                 }
                                 |> Fixtures.withVolume 50N
                             |]
-                            |> SolutionRule.Print.toMarkdown ""
+                            |> SolutionRule.Print.toMarkdown "" [||]
 
                         [
                             "## Bereiden en toedienen"
@@ -15702,7 +15752,7 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Department = Some "NEO" }
                             }
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains "one line" "## Houdbaarheid na bereiding\n\n- 24 uur\n"
                     }
 
@@ -15717,7 +15767,7 @@ module Tests =
                                 PatientCategory = { PatientCategory.empty with Department = Some "NEO" }
                             }
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> fun md ->
                             md
                             |> Expect.stringContains
@@ -15772,7 +15822,7 @@ module Tests =
                                 AdminText = "over 30 min"
                             }
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains
                             "the preparation first, the administration last"
                             "- **Bereiden:** oplossen in 10 mL\n- **Verdunnen:** onverdund toedienen\n- **Toedienen:** over 30 min\n"
@@ -15789,7 +15839,7 @@ module Tests =
                             r
                             { r with PatientCategory = { PatientCategory.empty with Department = Some "NEO" } }
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> Expect.stringContains
                             "one section"
                             "## Via dezelfde lijn\n\n- **Wel:** morfine\n- **Niet:** amiodaron\n"
@@ -15800,7 +15850,7 @@ module Tests =
                             { Fixtures.rule with SameLine = [| "morfine" |] } |> Fixtures.withVolume 50N
                             { Fixtures.rule with NotSameLine = [| "morfine" |] } |> Fixtures.withVolume 100N
                         |]
-                        |> SolutionRule.Print.toMarkdown ""
+                        |> SolutionRule.Print.toMarkdown "" [||]
                         |> fun md ->
                             md
                             |> Expect.stringContains
@@ -15808,6 +15858,173 @@ module Tests =
                                 "- **Verdunnen:** in een volume van max. 50 mL\n- **Wel via dezelfde lijn:** morfine\n\n**of**\n\n- **Verdunnen:** in een volume van max. 100 mL\n- **Niet via dezelfde lijn:** morfine\n"
 
                             md.Contains "## Via dezelfde lijn" |> Expect.isFalse "no section"
+                    }
+
+                    test "a predilution rule gives a line with the volumes, the diluent and the route" {
+                        Fixtures.product
+                        |> SolutionRule.Print.predilutionLines [| Fixtures.predilution |> Fixtures.pred |]
+                        |> Expect.equal "one line" [ "- **PARACETAMOL 10MG/ML:** verdun 1 mL met 9 mL NaCl 0,9% (iv)" ]
+                    }
+
+                    test "a predilution rule that names an indication and a department shows both" {
+                        let pred =
+                            { Fixtures.predilution with
+                                Indication = Some "sepsis"
+                                Department = Some "NEO"
+                            }
+                            |> Fixtures.pred
+
+                        Fixtures.product
+                        |> SolutionRule.Print.predilutionLines [| pred |]
+                        |> Expect.equal
+                            "indication and department"
+                            [
+                                "- **PARACETAMOL 10MG/ML:** verdun 1 mL met 9 mL NaCl 0,9% (iv · sepsis · NEO)"
+                            ]
+                    }
+
+                    test "predilution rules that differ only in the department give one line" {
+                        Fixtures.product
+                        |> SolutionRule.Print.predilutionLines [| Fixtures.neo; Fixtures.ick |]
+                        |> Expect.equal
+                            "one line"
+                            [ "- **PARACETAMOL 10MG/ML:** verdun 1 mL met 9 mL NaCl 0,9% (iv · NEO, ICK)" ]
+                    }
+
+                    test "a predilution rule with a location writes it after the route" {
+                        Fixtures.product
+                        |> SolutionRule.Print.predilutionLines
+                            [| { Fixtures.predilution with Location = Some "IC" } |> Fixtures.pred |]
+                        |> Expect.equal
+                            "the location"
+                            [ "- **PARACETAMOL 10MG/ML:** verdun 1 mL met 9 mL NaCl 0,9% (iv · IC)" ]
+                    }
+
+                    test "predilution rules that differ only in the location give a line each" {
+                        Fixtures.product
+                        |> SolutionRule.Print.predilutionLines
+                            [|
+                                { Fixtures.predilution with Location = Some "IC" } |> Fixtures.pred
+                                { Fixtures.predilution with Location = Some "PICU" } |> Fixtures.pred
+                            |]
+                        |> Expect.hasLength "two lines" 2
+                    }
+
+                    test "a reconstitution rule with a location writes it after the route" {
+                        { Product.create "meropenem" "" "iv" [||] with
+                            Label = "MEROPENEM 500MG"
+                            RequiresReconstitution = true
+                            Reconstitution =
+                                [| { ReconstitutionPatientTests.reconstitution with Location = Some "IC" } |]
+                                |> Array.map (Product.ProductReconstitution.create [||])
+                        }
+                        |> SolutionRule.Print.reconstitutionLines
+                        |> Expect.equal "the location" [ "- **MEROPENEM 500MG:** los op in 10 mL water (iv · IC)" ]
+                    }
+
+                    test "a predilution rule of another product gives no line" {
+                        { Fixtures.product with GPK = "2" }
+                        |> SolutionRule.Print.predilutionLines [| Fixtures.neo |]
+                        |> Expect.isEmpty "no line"
+                    }
+
+                    test "a medication with a predilution rule shows the section Voorverdunnen" {
+                        [| Fixtures.withProduct |]
+                        |> SolutionRule.Print.toMarkdown "" [| Fixtures.predilution |> Fixtures.pred |]
+                        |> Expect.stringContains
+                            "the section"
+                            "## Voorverdunnen\n\n- **PARACETAMOL 10MG/ML:** verdun 1 mL met 9 mL NaCl 0,9% (iv)\n"
+                    }
+
+                    test "a medication without predilution rules shows no section Voorverdunnen" {
+                        [| Fixtures.withProduct |]
+                        |> SolutionRule.Print.toMarkdown "" [||]
+                        |> fun md -> md.Contains "Voorverdunnen"
+                        |> Expect.isFalse "no section"
+                    }
+                ]
+
+
+    module SolutionRulePredilutionFilterTests =
+
+        module Fixtures = SolutionRulePrintTests.Fixtures
+
+
+        /// A route mapping with the routes iv and im.
+        let routes: RouteMapping[] =
+            [|
+                {
+                    Long = "iv"
+                    Short = "iv"
+                }
+                {
+                    Long = "im"
+                    Short = "im"
+                }
+            |]
+
+
+        let filter pat preds =
+            preds |> SolutionRule.filterPredilutions routes pat [| Fixtures.withProduct |]
+
+
+        let neoPatient = TestPatient.unknown |> TestPatient.withDepartment (Some "NEO")
+
+
+        let tests =
+            testList
+                "SolutionRule.filterPredilutions"
+                [
+                    test "a lookup without patient data keeps every department" {
+                        [| Fixtures.neo; Fixtures.ick; Fixtures.predilution |> Fixtures.pred |]
+                        |> filter TestPatient.unknown
+                        |> Expect.hasLength "all three" 3
+                    }
+
+                    test "patient data with an age and without a department keep only the rules for every department" {
+                        [| Fixtures.neo; Fixtures.ick; Fixtures.predilution |> Fixtures.pred |]
+                        |> filter (TestPatient.unknown |> TestPatient.withAgeInDays 7)
+                        |> Array.map _.Rule.Department
+                        |> Expect.equal "the rule without a department" [| None |]
+                    }
+
+                    test "patient data with a department keep the rules for that department and for any" {
+                        [| Fixtures.neo; Fixtures.ick; Fixtures.predilution |> Fixtures.pred |]
+                        |> filter neoPatient
+                        |> Array.map _.Rule.Department
+                        |> Expect.equal "NEO and every department" [| Some "NEO"; None |]
+                    }
+
+                    test "a predilution rule for another route is left out" {
+                        [| { Fixtures.predilution with Route = "im" } |> Fixtures.pred |]
+                        |> filter TestPatient.unknown
+                        |> Expect.isEmpty "no im rule for an iv solution rule"
+                    }
+
+                    test "patient data with a department and an age keep the rules for both" {
+                        let young =
+                            { Fixtures.predilution with
+                                Department = Some "NEO"
+                                MaxAge = Some 28N
+                            }
+                            |> Fixtures.pred
+
+                        let old =
+                            { Fixtures.predilution with
+                                Department = Some "NEO"
+                                MinAge = Some 365N
+                            }
+                            |> Fixtures.pred
+
+                        [| young; old; Fixtures.ick |]
+                        |> filter (neoPatient |> TestPatient.withAgeInDays 7)
+                        |> Expect.equal "the NEO rule up to 28 days" [| young |]
+                    }
+
+                    test "the indication is not filtered" {
+                        [| { Fixtures.predilution with Indication = Some "sepsis" } |> Fixtures.pred |]
+                        |> filter neoPatient
+                        |> Expect.hasLength "kept" 1
                     }
                 ]
 
@@ -15872,4 +16089,5 @@ module Tests =
                 SolutionRuleAdjustUnitPairTests.tests
                 SolutionRuleAdjustUnitCheckTests.tests
                 SolutionRulePrintTests.tests
+                SolutionRulePredilutionFilterTests.tests
             ]

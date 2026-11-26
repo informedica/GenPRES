@@ -457,7 +457,7 @@ module PrescriptionRule =
                 |> Array.collect (fun x ->
                     [|
                         [| x.DoseRule |] |> DoseRule.Print.toMarkdown getLink
-                        x.SolutionRules |> SolutionRule.Print.toMarkdown "verdunnen"
+                        x.SolutionRules |> SolutionRule.Print.toMarkdown "verdunnen" [||]
                     |]
                 )
         ]

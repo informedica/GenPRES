@@ -9,6 +9,8 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Types
 open Informedica.GenCore.Lib.Ranges
+open Informedica.GenUnits.Lib
+open Informedica.Utils.Lib.BCL
 open ServerApi
 open Informedica.GenPRES.Server.Tests.TestDates
 
@@ -46,7 +48,7 @@ let morfine dep : SolutionRule =
 
 /// A provider with a morfine rule for NEO, one for ICK and one for every department.
 let provider =
-    TestProviders.SolutionRulesProvider [| morfine (Some "NEO"); morfine (Some "ICK"); morfine None |]
+    TestProviders.SolutionRulesProvider([| morfine (Some "NEO"); morfine (Some "ICK"); morfine None |], [||])
 
 
 /// A newborn of one week and 3 kg at the department dep.
@@ -72,6 +74,49 @@ let markdown patient =
         PatientData = patient
     }
     |> ParenteraliaService.get readAt Informedica.Logging.Lib.Logging.noOp provider
+    |> Result.map _.Markdown
+
+
+/// A morfine rule for every department, with one product of GPK 1.
+let morfineWithProduct =
+    { morfine None with
+        DilutionLimits =
+            [|
+                { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "morfine") with
+                    Products = [| { Product.create "morfine" "" "INTRAVENEUS" [||] with GPK = "1" } |]
+                }
+            |]
+    }
+
+
+/// A predilution of 1 mL of the morfine product with 9 mL NaCl 0,9% for every patient.
+let predilution: ProductPredilution =
+    let mL v = v |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+    {
+        Rule =
+            {
+                GPK = "1"
+                Route = "INTRAVENEUS"
+                Indication = None
+                Location = None
+                Department = None
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
+                MedVolume = 1N |> mL
+                DiluentVolume = 9N |> mL
+                Diluent = "NaCl 0,9%"
+            }
+        DiluentSubstances = [||]
+    }
+
+
+/// The markdown of the parenteralia for morfine without a patient, from the provider prov.
+let markdownFrom prov =
+    { SharedModels.Parenteralia.empty with Generic = Some "morfine" }
+    |> ParenteraliaService.get readAt Informedica.Logging.Lib.Logging.noOp prov
     |> Result.map _.Markdown
 
 
@@ -113,5 +158,19 @@ let tests =
                 |> Some
                 |> departments
                 |> Expect.isError "not enough patient data"
+            }
+
+            test "a product with a predilution rule shows the rule in the markdown" {
+                TestProviders.SolutionRulesProvider([| morfineWithProduct |], [| predilution |])
+                |> markdownFrom
+                |> Result.map (fun md -> md.Contains "## Voorverdunnen\n\n- **")
+                |> Expect.equal "the section" (Ok true)
+            }
+
+            test "a provider without predilution rules shows no section Voorverdunnen" {
+                TestProviders.SolutionRulesProvider([| morfineWithProduct |], [||])
+                |> markdownFrom
+                |> Result.map (fun md -> md.Contains "Voorverdunnen")
+                |> Expect.equal "no section" (Ok false)
             }
         ]

@@ -106,6 +106,13 @@ module Api =
     let getProductPredilutions (provider: IResourceProvider) = provider.Get Keys.productPredilutions
 
 
+    /// Returns the predilution rules of the provider for the solution rules and the patient, as
+    /// SolutionRule.filterPredilutions selects them.
+    let filterPredilutions provider pat solutionRules =
+        getProductPredilutions provider
+        |> SolutionRule.filterPredilutions (getRouteMapping provider) pat solutionRules
+
+
     /// Reads the rule sets from the rule set data of the provider on every call, so a reload of the resources is
     /// seen. Each rule set has only the rules that apply to the patient.
     let getRuleSets (provider: IResourceProvider) pat =

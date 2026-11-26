@@ -1391,6 +1391,25 @@ module SolutionRule =
         )
 
 
+    /// Returns the predilution rules for the route of one of the solution rules. A lookup without patient data
+    /// keeps every department; other patient data keep the rules for the department of the patient, and
+    /// patient data with more than a department also keep only the rules for the location, the age and the
+    /// weight of the patient.
+    let filterPredilutions mapping pat (rules: SolutionRule[]) (preds: ProductPredilution[]) =
+        preds
+        |> Array.filter (fun p ->
+            let r = p.Rule
+
+            rules
+            |> Array.exists (fun sr -> r.Route |> Mapping.eqsRoute mapping (Some sr.Route))
+            && (pat = PatientData.unknown
+                || pat |> PatientData.department |> PatientCategory.departmentMatches r.Department
+                   && (pat |> PatientData.hasDataBesidesDepartment |> not
+                       || PatientCategory.locationMatches r.Location pat.Location
+                          && r |> Product.Predilution.matchesPatient pat))
+        )
+
+
     /// Returns the sorted distinct values of a field of the solution rules.
     let private getMember getter (rules: SolutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
 
@@ -1647,8 +1666,36 @@ module SolutionRule =
             )
 
 
-        /// Returns the reconstitution lines of a product: per solvent and volume the routes, departments and
-        /// patients it applies to, the expansion volume and the notes. Reconstitution rules that differ only in
+        /// Returns the departments of rules as one text. The text is empty when one of the rules names no
+        /// department, because that rule applies to every department.
+        let departmentsText (deps: string option[]) =
+            if deps |> Array.exists Option.isNone then
+                ""
+            else
+                deps |> Array.map departmentToString |> Array.distinct |> String.concat ", "
+
+
+        /// Returns the route, the location, the indication, the departments, the age range in days and the
+        /// weight range in grams that a rule applies to, joined by " · ". An empty value is left out.
+        let appliesText route location indication deps (minAge, maxAge) (minWeight, maxWeight) =
+            [
+                route
+                location |> Option.defaultValue ""
+                indication |> Option.defaultValue ""
+                deps
+                (minAge, maxAge)
+                |> fromTupleInclIncl (Some Units.Time.day)
+                |> PatientCategory.printAgeMinMax
+                (minWeight, maxWeight)
+                |> fromTupleInclIncl (Some Units.Weight.gram)
+                |> PatientCategory.printWeightMinMax
+            ]
+            |> List.filter String.notEmpty
+            |> String.concat " · "
+
+
+        /// Returns the reconstitution lines of a product: per solvent and volume the routes, locations,
+        /// departments and patients it applies to, the expansion volume and the notes. Reconstitution rules that differ only in
         /// the department give one line. A product that requires reconstitution without a reconstitution rule
         /// says so; a product that needs none gives no line.
         let reconstitutionLines (p: ProductComponent) =
@@ -1672,31 +1719,10 @@ module SolutionRule =
                 )
                 |> Array.toList
                 |> List.map
-                    (fun ((route, _, minAge, maxAge, minWeight, maxWeight, vol, expansion, solvent, notes), rules) ->
-                        // A rule without a department applies to every department, so the line then names no
-                        // department.
-                        let deps =
-                            if rules |> Array.exists (_.Department >> Option.isNone) then
-                                ""
-                            else
-                                rules
-                                |> Array.map (_.Department >> departmentToString)
-                                |> Array.distinct
-                                |> String.concat ", "
-
-                        let applies =
-                            [
-                                route
-                                deps
-                                (minAge, maxAge)
-                                |> fromTupleInclIncl (Some Units.Time.day)
-                                |> PatientCategory.printAgeMinMax
-                                (minWeight, maxWeight)
-                                |> fromTupleInclIncl (Some Units.Weight.gram)
-                                |> PatientCategory.printWeightMinMax
-                            ]
-                            |> List.filter String.notEmpty
-                            |> String.concat " · "
+                    (fun
+                        ((route, location, minAge, maxAge, minWeight, maxWeight, vol, expansion, solvent, notes), rules) ->
+                        let deps = rules |> Array.map _.Department |> departmentsText
+                        let applies = appliesText route location None deps (minAge, maxAge) (minWeight, maxWeight)
 
                         let expansion =
                             expansion
@@ -1710,9 +1736,42 @@ module SolutionRule =
                     )
 
 
-        /// Returns the Markdown text of the solution rules of one generic, as a preparation instruction. The text
-        /// is the title; an empty text gives the generic.
-        let genericToMarkdown text generic (rules: SolutionRule[]) =
+        /// Returns the predilution lines of a product: per predilution rule of the product the product volume,
+        /// the diluent volume and the diluent, and the route, location, indication, departments and patients it
+        /// applies to. Predilution rules that differ only in the department give one line. A product without a
+        /// predilution rule gives no line.
+        let predilutionLines (preds: ProductPredilution[]) (p: ProductComponent) =
+            preds
+            |> Array.map _.Rule
+            |> Array.filter (fun r -> r.GPK = p.GPK)
+            |> Array.groupBy (fun r ->
+                r.Route,
+                r.Indication,
+                r.Location,
+                r.MinAge,
+                r.MaxAge,
+                r.MinWeight,
+                r.MaxWeight,
+                r.MedVolume,
+                r.DiluentVolume,
+                r.Diluent
+            )
+            |> Array.toList
+            |> List.map
+                (fun
+                    ((route, indication, location, minAge, maxAge, minWeight, maxWeight, medVol, dilVol, diluent), rules) ->
+                    let deps = rules |> Array.map _.Department |> departmentsText
+                    let applies = appliesText route location indication deps (minAge, maxAge) (minWeight, maxWeight)
+                    let medVol = medVol |> Utils.ValueUnit.toString -1
+                    let dilVol = dilVol |> Utils.ValueUnit.toString -1
+
+                    $"- **%s{p.Label}:** verdun %s{medVol} met %s{dilVol} %s{diluent} (%s{applies})"
+                )
+
+
+        /// Returns the Markdown text of the solution rules of one generic, as a preparation instruction, with
+        /// the predilution rules of its products. The text is the title; an empty text gives the generic.
+        let genericToMarkdown text preds generic (rules: SolutionRule[]) =
             let title = if text |> String.isNullOrWhiteSpace then generic else text
             let routes = rules |> Array.map _.Route |> Array.distinct
             let cond = condition (routes.Length > 1)
@@ -1812,6 +1871,11 @@ module SolutionRule =
                 |> List.collect reconstitutionLines
                 |> List.distinct
                 |> section "Oplossen"
+                prods
+                |> Array.toList
+                |> List.collect (predilutionLines preds)
+                |> List.distinct
+                |> section "Voorverdunnen"
                 if instructions |> List.isEmpty |> not then
                     "## Bereiden en toedienen\n\n" + (instructions |> String.concat "\n")
                 uniformSection "Houdbaarheid na bereiding" shelfLife
@@ -1827,10 +1891,10 @@ module SolutionRule =
             |> String.concat "\n"
 
 
-        /// Returns the Markdown text of the solution rules as a preparation instruction per generic. The text is
-        /// the title; an empty text gives the generic.
-        let toMarkdown text (rules: SolutionRule[]) =
+        /// Returns the Markdown text of the solution rules as a preparation instruction per generic, with the
+        /// predilution rules of their products. The text is the title; an empty text gives the generic.
+        let toMarkdown text preds (rules: SolutionRule[]) =
             rules
             |> Array.groupBy _.Generic
-            |> Array.map (fun (generic, rs) -> rs |> genericToMarkdown text generic)
+            |> Array.map (fun (generic, rs) -> rs |> genericToMarkdown text preds generic)
             |> String.concat "\n---\n\n"
