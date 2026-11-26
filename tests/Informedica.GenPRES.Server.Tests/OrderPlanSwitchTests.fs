@@ -367,7 +367,7 @@ let tests =
                     OrderPlanCommand.parsePlan readAt { plan with OrderContexts = [| picked |] }
                 with
                 | Ok pc, Ok p ->
-                    let sut = Adapters.makeAppEnv (SolutionRulesProvider [||])
+                    let sut = Adapters.makeAppEnv (SolutionRulesProvider([||], [||]))
                     let! answer = sut.orderPlan.evaluateContext p "c-1" OrderContext.UpdateOrderContext pc
 
                     match answer with

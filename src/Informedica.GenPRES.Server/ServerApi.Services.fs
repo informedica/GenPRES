@@ -267,7 +267,8 @@ module ParenteraliaService =
                     if par.Generic |> Option.isNone then
                         ""
                     else
-                        solRules |> SolutionRule.Print.toMarkdown ""
+                        solRules
+                        |> SolutionRule.Print.toMarkdown "" (solRules |> Api.filterPredilutions provider pat)
             }
         )
 
