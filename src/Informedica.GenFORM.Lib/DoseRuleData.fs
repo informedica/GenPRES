@@ -519,12 +519,25 @@ module DoseRuleData =
         $"the dose rule %s{d.Generic.Name} %s{d.Route} %s{d.Indication} (%s{d.Source}, %s{d.PatientText}, %s{d.ScheduleData.DoseType} %s{d.ScheduleData.DoseText})"
 
 
-    /// Returns a warning for each dose rule with a row that has IsAdult and an age; the rule gets the age range.
+    /// Returns a warning for each dose rule with a row that has IsAdult and an age, with the age in days; the rule
+    /// gets the age range.
     let adultRowsWithAge (data: DoseRuleData[]) =
+        let days = Option.map (fun d -> $"%s{d |> BigRational.toString} days")
+
         data
         |> Array.filter (fun d -> d.Patient.IsAdult && d.Patient |> DoseRule.marksAdults |> not)
-        |> Array.map (fun d -> $"%s{d |> describe} has IsAdult and an age; the age range is used")
-        |> Array.distinct
+        |> Array.distinctBy _.RuleId
+        |> Array.map (fun d ->
+            let age =
+                [
+                    d.Patient.MinAge |> days |> Option.map (fun a -> $"the minimum age %s{a}")
+                    d.Patient.MaxAge |> days |> Option.map (fun a -> $"the maximum age %s{a}")
+                ]
+                |> List.choose id
+                |> String.concat " and "
+
+            $"%s{d |> describe} has IsAdult and %s{age}; the age range is used"
+        )
 
 
     /// Returns the substance of a row, or the component when the row has no substance.

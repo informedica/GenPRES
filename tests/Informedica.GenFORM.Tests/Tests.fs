@@ -2474,9 +2474,10 @@ module AdultAgeTests =
         |> AbsoluteAge
 
 
-    /// A paracetamol row with the patient columns p.
+    /// A paracetamol row with the patient columns p, with its hash ids, as the load gives them.
     let row p =
         { Fixtures.mkData "paracetamol" "ORAAL" "" "" [||] [||] with Patient = p }
+        |> DoseRuleData.setDataHashIds
 
 
     let tests =
@@ -2507,6 +2508,20 @@ module AdultAgeTests =
                     |> DoseRuleData.adultRowsWithAge
                     |> Array.length
                     |> Expect.equal "one warning" 1
+                }
+
+                test "two rules that differ only in their minimum age give two warnings" {
+                    [| row adult65; row { adult with MinAge = Some 27375N } |]
+                    |> DoseRuleData.adultRowsWithAge
+                    |> Array.length
+                    |> Expect.equal "two warnings" 2
+                }
+
+                test "the warning names the age in days" {
+                    [| row adult65 |]
+                    |> DoseRuleData.adultRowsWithAge
+                    |> Array.exactlyOne
+                    |> Expect.stringContains "the age" "the minimum age 23725 days"
                 }
 
                 test "the export key of a row is the key of the row the rule maps back to" {
