@@ -116,7 +116,7 @@ module SolutionRule =
                         MaxDose = get "MaxDose" |> toBrOpt
                         DoseType = get "DoseType"
                         DoseText = get "DoseText"
-                        Diluents = get "Diluents" |> String.split "|" |> List.map String.trim
+                        Diluents = get "Diluents" |> names
                         Volumes = get "Volumes" |> BigRational.toBrs
                         Div = get "Div" |> toBrOpt
                         MinVol = get "MinVol" |> toBrOpt
@@ -363,6 +363,143 @@ module SolutionRule =
         |> expandDiluentRows parenteral
         |> setDataHashIds
         |> dedupRowsByRowId
+
+
+    /// The header line of the solution rules, with the columns in the order that dataToCsv writes them.
+    let headers =
+        [
+            "Id"
+            "RowId"
+            "RowNo"
+            "RuleId"
+            "Generic"
+            "Form"
+            "Route"
+            "Indication"
+            "GPKs"
+            "HPKs"
+            "DoseType"
+            "DoseText"
+            "Loc"
+            "Dep"
+            "SourceText"
+            "CVL"
+            "PVL"
+            "MinAge"
+            "MaxAge"
+            "MinWeight"
+            "MaxWeight"
+            "MinGestAge"
+            "MaxGestAge"
+            "MinDose"
+            "MaxDose"
+            "Diluents"
+            "Div"
+            "Volumes"
+            "MinVol"
+            "MaxVol"
+            "MinVolAdj"
+            "MaxVolAdj"
+            "MinDrip"
+            "MaxDrip"
+            "MinPerc"
+            "MaxPerc"
+            "AdjustUnit"
+            "Component"
+            "Substance"
+            "Unit"
+            "Quantities"
+            "MinQty"
+            "MaxQty"
+            "MinQtyAdj"
+            "MaxQtyAdj"
+            "MinConc"
+            "MaxConc"
+            "ShelfLife"
+            "MinPh"
+            "MaxPh"
+            "CombY"
+            "NonCombY"
+            "PrepText"
+            "AdminText"
+            "Notes"
+        ]
+        |> String.concat "\t"
+        |> List.singleton
+
+
+    /// Writes solution rule rows as tab-separated lines in the column order of headers, after the header line.
+    /// Numbers are written as doubles.
+    let dataToCsv (data: SolutionRuleData[]) =
+        let brToString = BigRational.toDouble >> string
+        let brOptToString = Option.map brToString >> Option.defaultValue ""
+        let brsToString = Array.map brToString >> String.concat ";"
+        let phToString = Option.map string >> Option.defaultValue ""
+
+        data
+        |> Array.toList
+        |> List.map (fun r ->
+            [
+                r.Id |> HashId.toString
+                r.RowId |> HashId.toString
+                string r.RowNo
+                r.RuleId |> HashId.toString
+                r.Generic
+                r.Form
+                r.Route
+                r.Indication
+                r.GPKs |> String.concat ";"
+                r.HPKs |> String.concat ";"
+                r.DoseType
+                r.DoseText
+                r.Location |> Option.defaultValue ""
+                r.Department |> Option.defaultValue ""
+                r.SourceText
+                r.CVL
+                r.PVL
+                r.MinAge |> brOptToString
+                r.MaxAge |> brOptToString
+                r.MinWeight |> brOptToString
+                r.MaxWeight |> brOptToString
+                r.MinGestAge |> brOptToString
+                r.MaxGestAge |> brOptToString
+                r.MinDose |> brOptToString
+                r.MaxDose |> brOptToString
+                r.Diluents |> String.concat "|"
+                r.Div |> brOptToString
+                r.Volumes |> brsToString
+                r.MinVol |> brOptToString
+                r.MaxVol |> brOptToString
+                r.MinVolAdj |> brOptToString
+                r.MaxVolAdj |> brOptToString
+                r.MinDrip |> brOptToString
+                r.MaxDrip |> brOptToString
+                r.MinPerc |> brOptToString
+                r.MaxPerc |> brOptToString
+                r.AdjustUnit
+                r.Component
+                r.Substance
+                r.Unit
+                r.Quantities |> brsToString
+                r.MinQty |> brOptToString
+                r.MaxQty |> brOptToString
+                r.MinQtyAdj |> brOptToString
+                r.MaxQtyAdj |> brOptToString
+                r.MinConc |> brOptToString
+                r.MaxConc |> brOptToString
+                r.ShelfLife |> brOptToString
+                r.MinPh |> phToString
+                r.MaxPh |> phToString
+                r.CombY |> String.concat "|"
+                r.NonCombY |> String.concat "|"
+                r.PrepText
+                r.AdminText
+                r.Notes
+            ]
+            |> List.map Tsv.cell
+            |> String.concat "\t"
+        )
+        |> List.append headers
 
 
     let map

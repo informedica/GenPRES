@@ -66,6 +66,20 @@ module Utils =
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
 
 
+    module Tsv =
+
+        /// Returns the text of a TSV cell on one line: null gives an empty text, and a tab, a carriage return or a
+        /// newline becomes a space.
+        let cell (s: string) =
+            if isNull s then
+                ""
+            else
+                s
+                |> String.replace "\t" " "
+                |> String.replace "\r" " "
+                |> String.replace "\n" " "
+
+
     module BigRational =
 
 

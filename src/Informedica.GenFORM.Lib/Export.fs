@@ -498,3 +498,13 @@ module Export =
             |> Option.defaultValue "."
 
         $"{dir}/{fileName}"
+
+
+    /// Sets the Id, the RuleId, the RowId and the RowNo of each solution rule row, and puts the rows of a rule
+    /// together in the order of the rows. Every row is kept, the diluent rows as they are.
+    let exportSolutionData (data: SolutionRuleData[]) =
+        data
+        |> Array.map SolutionRule.setDataId
+        |> SolutionRule.setDataHashIds
+        |> Array.groupBy _.RuleId
+        |> Array.collect snd
