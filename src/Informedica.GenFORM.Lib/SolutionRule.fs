@@ -404,10 +404,11 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// Maps one SolutionRules row on its own to its solution rule; None when the row does not map.
+    /// Maps one SolutionRules row on its own to its solution rule, without the source text; None when the row does not
+    /// map. The source text does not identify a rule, so rows of one rule with different source texts give one rule.
     let ruleOfRow parenteral r =
         match [| r |] |> map [||] parenteral [||] with
-        | Ok [| solRule |] -> Some solRule
+        | Ok [| solRule |] -> Some { solRule with SourceText = "" }
         | _ -> None
 
 

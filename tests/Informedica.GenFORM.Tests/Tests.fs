@@ -14045,6 +14045,15 @@ module Tests =
                                     ]
                             }
 
+                            test "rows of one rule with other source texts and adjust units give one warning" {
+                                [|
+                                    { row "kg" (Some 5N) with SourceText = "a" }
+                                    { row "" None with SourceText = "b" }
+                                |]
+                                |> SolutionRule.mixedAdjustUnits [||]
+                                |> Expect.hasLength "one warning" 1
+                            }
+
                             test "rules that differ by diluent may have different adjust units" {
                                 [| rowIn "NaCl 0,9%" "kg" (Some 5N); rowIn "glucose 5%" "m2" (Some 5N) |]
                                 |> SolutionRule.mixedAdjustUnits parenteral
