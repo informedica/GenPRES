@@ -289,7 +289,10 @@ Actions to create and approve pull requests"**.
 2. Runs `scripts/ReleaseNotes.fsx`, which reads `<Version>` from `Directory.Build.props` and extracts
    that version's `CHANGELOG.md` section.
 3. Creates an annotated tag `v<version>` on that commit.
-4. Creates a GitHub Release with the section as body, flagged pre-release when the version is one.
+4. Creates a draft GitHub Release with the section as body, flagged pre-release when the version is one.
+5. In the `publish-sbom` job, attaches the SBOM and its sha256 file to the draft and then publishes the
+   release. The repository has immutable releases, so the SBOM must be attached before publishing. When
+   this job fails, the release stays a draft.
 
 Both steps are idempotent, so re-running is safe. The trigger is the merged PR's head ref, which
 holds for every merge method.
