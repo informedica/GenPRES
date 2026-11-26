@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   tag-and-release:
-    name: Tag and publish GitHub Release
+    name: Tag and create the draft GitHub Release
     # head.ref is only a branch name, so it must be qualified by the head repository. A merged fork PR
     # with a release/master branch would otherwise trigger tag and release writes. ShipIt only pushes
     # release/master to this repo, so this is enough for a real release PR. The
@@ -137,12 +137,15 @@ jobs:
         fi
         # --verify-tag: fail rather than silently creating a lightweight tag if the tag push above
         # was skipped or failed. The tag must already exist and be the annotated one.
+        # --draft: the repository has immutable releases, and a published release takes no more assets.
+        # publish-sbom attaches the SBOM to the draft and then publishes the release.
         gh release create "$TAG" \
           --verify-tag \
+          --draft \
           --title "$TAG" \
           --notes-file "$RUNNER_TEMP/release-notes.md" \
           ${flags[@]+"${flags[@]}"}
-        echo "Published [$TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
+        echo "Created the draft release $TAG" >> "$GITHUB_STEP_SUMMARY"
 
   build-docker-image:
     name: Build and smoke test Docker image (${{ matrix.arch }})
@@ -400,7 +403,7 @@ jobs:
         done <<< "$TAGS"
 
   publish-sbom:
-    name: Generate and attach the SBOM
+    name: Generate and attach the SBOM, publish the GitHub Release
     # An SPDX 2.2 SBOM of the release bundle (the server publish output and the client bundle that the Docker image
     # copies to /app), attached to the GitHub Release as the list of the SOUP that ships. A job here and not in
     # build.yml: a release exists only once tag-and-release has run, and events from this workflow's GITHUB_TOKEN start
@@ -540,16 +543,20 @@ jobs:
         # step with a name conflict. The re-run's SBOM replaces the earlier attempt's.
         overwrite: true
 
-    - name: Attach the SBOM to the GitHub Release
+    - name: Attach the SBOM and publish the GitHub Release
       if: github.event_name != 'workflow_dispatch'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ needs.tag-and-release.outputs.tag }}
-      # --clobber so a re-run replaces the asset rather than failing on it.
+      # tag-and-release creates the release as a draft, because an immutable release takes no assets once it is
+      # published. When this job fails, the release stays a draft. --clobber so a re-run replaces the asset rather than
+      # failing on it.
       run: |
         set -euo pipefail
         out="$RUNNER_TEMP/genpres-$TAG.spdx.json"
         cp "$RUNNER_TEMP/sbom/_manifest/spdx_2.2/manifest.spdx.json" "$out"
         (cd "$RUNNER_TEMP" && sha256sum "genpres-$TAG.spdx.json" > "genpres-$TAG.spdx.json.sha256")
         gh release upload "$TAG" "$out" "$out.sha256" --clobber
+        gh release edit "$TAG" --draft=false
         echo "Attached \`genpres-$TAG.spdx.json\` to $TAG" >> "$GITHUB_STEP_SUMMARY"
+        echo "Published [$TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
