@@ -11,9 +11,7 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.TestDates
-
-module Resources = Informedica.GenForm.Lib.Resources
-module GenFormTypes = Informedica.GenForm.Lib.Types
+open Informedica.GenPRES.Server.Tests.TestProviders
 
 
 let patient = StubEhrPatient.contractPatient
@@ -28,39 +26,6 @@ let ctx: OrderContext =
 
 let plan: OrderPlan =
     { Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
-
-
-/// A provider holding no rules: what the rule lookup reads answers empty, every other resource
-/// raises.
-type NoRules() =
-    interface Resources.IResourceProvider with
-        // the rule lookup reads the additives; there are none
-        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
-            if key.Name = Resources.Keys.isAdditive.Name then
-                box (fun (_: string) -> false) :?> 'T
-            elif key.Name = Resources.Keys.productPredilutions.Name then
-                box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
-            else
-                raise (System.Collections.Generic.KeyNotFoundException key.Name)
-
-        member _.GetData() = raise (System.NotImplementedException())
-        member _.GetUnitMappings() = raise (System.NotImplementedException())
-        member _.GetRouteMappings() = [||]
-        member _.GetValidForms() = raise (System.NotImplementedException())
-        member _.GetFormRoutes() = [||]
-        member _.GetFormularyProducts() = raise (System.NotImplementedException())
-        member _.GetReconstitution() = raise (System.NotImplementedException())
-        member _.GetParenteralMeds() = raise (System.NotImplementedException())
-        member _.GetEnteralFeeding() = raise (System.NotImplementedException())
-        member _.GetProducts() = raise (System.NotImplementedException())
-        member _.GetDoseRules() = [||]
-        member _.GetSolutionRules() = [||]
-        member _.GetRenalRules() = [||]
-        member _.GetTotals() = [||]
-        member _.GetGStandProvider() = raise (System.NotImplementedException())
-        member _.GetDepartments() = Resources.distinctNames []
-        member _.GetLocations() = [||]
-        member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
 let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.OrderPlan) =
@@ -402,7 +367,7 @@ let tests =
                     OrderPlanCommand.parsePlan readAt { plan with OrderContexts = [| picked |] }
                 with
                 | Ok pc, Ok p ->
-                    let sut = Adapters.makeAppEnv (NoRules())
+                    let sut = Adapters.makeAppEnv (SolutionRulesProvider [||])
                     let! answer = sut.orderPlan.evaluateContext p "c-1" OrderContext.UpdateOrderContext pc
 
                     match answer with

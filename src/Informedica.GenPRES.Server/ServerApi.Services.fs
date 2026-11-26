@@ -17,8 +17,7 @@ module FormularyService =
     /// data gets the unknown patient. Returns the error when the patient data cannot be read.
     let mapFormularyToFilter today (form: Formulary) =
         form.PatientData
-        |> Option.map (ServerApi.Patient.toCore today)
-        |> Option.defaultValue (Ok PatientData.unknown)
+        |> ServerApi.Patient.toCoreOrUnknown today
         |> Result.map (fun pat ->
             { Informedica.GenForm.Lib.Filter.doseFilter with
                 Generic = form.Generic
@@ -227,43 +226,50 @@ module ParenteraliaService =
     type Parenteralia = Informedica.GenPRES.Shared.Types.Parenteralia
 
 
-    let get logger provider (par: Parenteralia) : Result<Parenteralia, string> =
+    /// Fills the parenteralia with the solution rules for the patient on date today and the choices. A request
+    /// without patient data gets the solution rules of every patient. Returns the error when the patient data
+    /// cannot be read.
+    let get today logger provider (par: Parenteralia) =
         Logging.ServerLogging.Info $"getting parenteralia for {par.Generic}"
         |> Informedica.Logging.Lib.Logging.logInfo logger
 
-        let solRules =
-            Api.getSolutionRules provider
-            |> Api.filterSolutionRules
-                provider
-                { Filter.solutionFilter with
-                    Generic = par.Generic
-                    Form = par.Form
-                    Route = par.Route
-                }
+        par.PatientData
+        |> ServerApi.Patient.toCoreOrUnknown today
+        |> Result.map (fun pat ->
+            let solRules =
+                Api.getSolutionRules provider
+                |> Api.filterSolutionRules
+                    provider
+                    { Filter.solutionFilter with
+                        Generic = par.Generic
+                        Form = par.Form
+                        Route = par.Route
+                        PatientData = pat
+                    }
 
-        let gens = solRules |> SolutionRule.generics
-        let shps = solRules |> SolutionRule.forms
-        let rtes = solRules |> SolutionRule.routes
+            let gens = solRules |> SolutionRule.generics
+            let shps = solRules |> SolutionRule.forms
+            let rtes = solRules |> SolutionRule.routes
 
-        { par with
-            Generics = gens
-            Forms = shps
-            Routes = rtes
-            Generic =
-                if gens |> Array.length = 1 then
-                    Some gens[0]
-                else
-                    par.Generic
-            Form = if shps |> Array.length = 1 then Some shps[0] else par.Form
-            Route = if rtes |> Array.length = 1 then Some rtes[0] else par.Route
+            { par with
+                Generics = gens
+                Forms = shps
+                Routes = rtes
+                Generic =
+                    if gens |> Array.length = 1 then
+                        Some gens[0]
+                    else
+                        par.Generic
+                Form = if shps |> Array.length = 1 then Some shps[0] else par.Form
+                Route = if rtes |> Array.length = 1 then Some rtes[0] else par.Route
 
-            Markdown =
-                if par.Generic |> Option.isNone then
-                    ""
-                else
-                    solRules |> SolutionRule.Print.toMarkdown ""
-        }
-        |> Ok
+                Markdown =
+                    if par.Generic |> Option.isNone then
+                        ""
+                    else
+                        solRules |> SolutionRule.Print.toMarkdown ""
+            }
+        )
 
 
 module OrderContextService =

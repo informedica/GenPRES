@@ -62,14 +62,7 @@ module Adapters =
         {
             getFormulary = fun form -> async { return form |> FormularyService.get (today ()) provider }
 
-            getParenteralia =
-                fun par ->
-                    async {
-                        return
-                            par
-                            |> ParenteraliaService.get logger provider
-                            |> Result.mapError Array.singleton
-                    }
+            getParenteralia = fun par -> async { return par |> ParenteraliaService.get (today ()) logger provider }
         }
 
 

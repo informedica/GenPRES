@@ -232,8 +232,18 @@ let tests =
                             |> play
                                 [
                                     ClientMsg.Loader(LoaderMsg.PatientSet(Some patient))
-                                    landed (Landing.Formulary(None, answered Formulary.empty))
-                                    landed (Landing.Parenteralia(None, answered Parenteralia.empty))
+                                    landed (
+                                        Landing.Formulary(
+                                            None,
+                                            answered { Formulary.empty with PatientData = Some patient }
+                                        )
+                                    )
+                                    landed (
+                                        Landing.Parenteralia(
+                                            None,
+                                            answered { Parenteralia.empty with PatientData = Some patient }
+                                        )
+                                    )
                                 ]
                             |> stateOf
 
@@ -268,7 +278,12 @@ let tests =
                             stateOf seeded
                             |> play
                                 [
-                                    landed (Landing.Formulary(None, answered Formulary.empty))
+                                    landed (
+                                        Landing.Formulary(
+                                            None,
+                                            answered { Formulary.empty with PatientData = Some patient }
+                                        )
+                                    )
                                     ClientMsg.Lanes(
                                         LanesMsg.Workbench(
                                             OrderContextMsg.Answered(

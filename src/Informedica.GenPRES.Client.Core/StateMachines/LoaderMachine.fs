@@ -278,9 +278,11 @@ module LoaderMachine =
         { state with Formulary = reading }, effects
 
 
-    /// Requests the parenteralia again with the current choices.
+    /// Requests the parenteralia again with the current choices, for the patient from the server.
     let startParenteralia (state: LoaderState) =
-        let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
+        let par =
+            { (state.Parenteralia |> Deferred.defaultValue Parenteralia.empty) with PatientData = state.Patient }
+
         let reading, effects = state.Parenteralia |> start (LoaderEffect.FetchParenteralia par)
         { state with Parenteralia = reading }, effects
 
@@ -400,7 +402,8 @@ module LoaderMachine =
 
 
     /// Returns the next state and the effects for a message. A start of a load in progress, or of a load
-    /// this machine does not handle, changes nothing.
+    /// this machine does not handle, changes nothing, and so does a formulary or parenteralia reply for another
+    /// patient than the current one.
     let transition msg (state: LoaderState) =
         match msg with
         | LoaderMsg.Start Load.Settings ->
@@ -451,6 +454,8 @@ module LoaderMachine =
                     LoaderEffect.AskAgainLater(Load.DrugNames, drugNamesWait)
             ]
 
+        // A reply for another patient than the current one is ignored.
+        | LoaderMsg.Landed(Landing.Formulary(_, Ok reply)) when reply.Response.PatientData <> state.Patient -> state, []
         // A filter stored during the load is applied after the answer is set.
         | LoaderMsg.Landed(Landing.Formulary(from, result)) ->
             let state, effects =
@@ -465,6 +470,9 @@ module LoaderMachine =
 
             (state, effects)
             |> askAgain state.FormularyAskAgain (fun state -> { state with FormularyAskAgain = None }) syncFormulary
+        // A reply for another patient than the current one is ignored.
+        | LoaderMsg.Landed(Landing.Parenteralia(_, Ok reply)) when reply.Response.PatientData <> state.Patient ->
+            state, []
         | LoaderMsg.Landed(Landing.Parenteralia(from, result)) ->
             let state, effects =
                 match result with

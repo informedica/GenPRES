@@ -659,6 +659,8 @@ module Types =
             Form: string option
             Route: string option
             PatientCategory: string option
+            /// The patient the solution rules are selected for; None selects the rules of every patient.
+            PatientData: PatientData option
             Markdown: string
         }
 
