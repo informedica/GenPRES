@@ -1391,22 +1391,22 @@ module SolutionRule =
         )
 
 
-    /// Returns the predilution rules for the route of one of the solution rules. Patient data with a department
-    /// keep the rules for that department; patient data with more than a department also keep only the rules
-    /// for the location, the age and the weight of the patient.
+    /// Returns the predilution rules for the route of one of the solution rules. A lookup without patient data
+    /// keeps every department; other patient data keep the rules for the department of the patient, and
+    /// patient data with more than a department also keep only the rules for the location, the age and the
+    /// weight of the patient.
     let filterPredilutions mapping pat (rules: SolutionRule[]) (preds: ProductPredilution[]) =
-        let dep = pat |> PatientData.department
-
         preds
         |> Array.filter (fun p ->
             let r = p.Rule
 
             rules
             |> Array.exists (fun sr -> r.Route |> Mapping.eqsRoute mapping (Some sr.Route))
-            && (dep |> Option.isNone || dep |> PatientCategory.departmentMatches r.Department)
-            && (pat |> PatientData.hasDataBesidesDepartment |> not
-                || PatientCategory.locationMatches r.Location pat.Location
-                   && r |> Product.Predilution.matchesPatient pat)
+            && (pat = PatientData.unknown
+                || pat |> PatientData.department |> PatientCategory.departmentMatches r.Department
+                   && (pat |> PatientData.hasDataBesidesDepartment |> not
+                       || PatientCategory.locationMatches r.Location pat.Location
+                          && r |> Product.Predilution.matchesPatient pat))
         )
 
 

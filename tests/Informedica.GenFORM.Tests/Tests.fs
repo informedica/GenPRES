@@ -15975,10 +15975,17 @@ module Tests =
             testList
                 "SolutionRule.filterPredilutions"
                 [
-                    test "patient data without a department keep every department" {
-                        [| Fixtures.neo; Fixtures.ick |]
+                    test "a lookup without patient data keeps every department" {
+                        [| Fixtures.neo; Fixtures.ick; Fixtures.predilution |> Fixtures.pred |]
                         |> filter TestPatient.unknown
-                        |> Expect.hasLength "both" 2
+                        |> Expect.hasLength "all three" 3
+                    }
+
+                    test "patient data with an age and without a department keep only the rules for every department" {
+                        [| Fixtures.neo; Fixtures.ick; Fixtures.predilution |> Fixtures.pred |]
+                        |> filter (TestPatient.unknown |> TestPatient.withAgeInDays 7)
+                        |> Array.map _.Rule.Department
+                        |> Expect.equal "the rule without a department" [| None |]
                     }
 
                     test "patient data with a department keep the rules for that department and for any" {
@@ -15994,13 +16001,24 @@ module Tests =
                         |> Expect.isEmpty "no im rule for an iv solution rule"
                     }
 
-                    test "patient data with an age keep the rules for that age" {
-                        let young = { Fixtures.predilution with MaxAge = Some 28N } |> Fixtures.pred
-                        let old = { Fixtures.predilution with MinAge = Some 365N } |> Fixtures.pred
+                    test "patient data with a department and an age keep the rules for both" {
+                        let young =
+                            { Fixtures.predilution with
+                                Department = Some "NEO"
+                                MaxAge = Some 28N
+                            }
+                            |> Fixtures.pred
 
-                        [| young; old |]
-                        |> filter (neoPatient |> TestPatient.withAgeInDays 10)
-                        |> Expect.equal "the rule up to 28 days" [| young |]
+                        let old =
+                            { Fixtures.predilution with
+                                Department = Some "NEO"
+                                MinAge = Some 365N
+                            }
+                            |> Fixtures.pred
+
+                        [| young; old; Fixtures.ick |]
+                        |> filter (neoPatient |> TestPatient.withAgeInDays 7)
+                        |> Expect.equal "the NEO rule up to 28 days" [| young |]
                     }
 
                     test "the indication is not filtered" {
