@@ -267,6 +267,10 @@ module Product =
                                 SolventVolume = vol |> toMl
                                 ExpansionVolume = get "ExpansionVol" |> toBrOpt |> Option.map toMl
                                 Solvent = solvent
+                                ShelfLife =
+                                    get "ShelfLife"
+                                    |> toBrOpt
+                                    |> Option.map (ValueUnit.singleWithUnit Units.Time.minute)
                                 Notes = getOpt "Notes"
                             }
                     | _ -> None
