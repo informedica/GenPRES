@@ -953,9 +953,9 @@ module RuleFixtures =
     /// The row: the department in its patient category.
     let row (department: string) : DoseRuleData =
         {
-            RowId = ""
-            RuleId = ""
-            GrpId = ""
+            RowId = HashId.empty
+            RuleId = HashId.empty
+            GrpId = HashId.empty
             SortNo = 1
             Source = "FTK"
             SourceText = ""

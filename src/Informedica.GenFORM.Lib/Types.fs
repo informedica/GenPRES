@@ -1004,7 +1004,49 @@ module Types =
             }
 
 
-        type HashId = string
+        /// A hash of the fields that identify a sheet row, a rule or a group of rules: 12 lowercase hexadecimal
+        /// characters, or empty when the hash is not calculated yet.
+        type HashId = private | HashId of string
+
+
+        /// Creates, cleans and reads a HashId.
+        [<RequireQualifiedAccess>]
+        module HashId =
+
+
+            /// A HashId that is not calculated yet.
+            let empty = HashId ""
+
+
+            /// Whether a text is a hash: 12 lowercase hexadecimal characters.
+            let isHash (s: string) =
+                s.Length = 12
+                && s |> Seq.forall (fun c -> (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))
+
+
+            /// Cleans a text from a sheet into a HashId: trims it, removes a leading apostrophe, with which a sheet
+            /// marks a value as text, and makes it lower case. A text that is then not a hash gives the empty HashId,
+            /// such as a hash that a sheet has turned into a number.
+            let create s =
+                let s = s |> String.trim
+
+                let s =
+                    if s |> String.startsWith "'" then
+                        s |> String.subString 1 (String.length s - 1)
+                    else
+                        s
+
+                let s = s |> String.trim |> String.toLower
+
+                if s |> isHash then HashId s else empty
+
+
+            /// Hashes the fields into a HashId.
+            let ofFields fields = fields |> String.sha1Short |> HashId
+
+
+            /// Returns the hash as text, or an empty text for the empty HashId.
+            let toString (HashId s) = s
 
 
         /// <summary>

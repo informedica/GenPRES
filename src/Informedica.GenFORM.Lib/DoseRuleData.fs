@@ -160,9 +160,9 @@ module DoseRuleData =
                             v = "true" || v = "x" || v = "1" || v = "yes"
 
                     {
-                        RowId = getIfNull "RowId"
-                        RuleId = getIfNull "RuleId"
-                        GrpId = getIfNull "GrpId"
+                        RowId = getIfNull "RowId" |> HashId.create
+                        RuleId = getIfNull "RuleId" |> HashId.create
+                        GrpId = getIfNull "GrpId" |> HashId.create
                         SortNo = getInt "SortNo" |> Option.defaultValue 1
                         Source = get "Source"
                         Generic =
@@ -274,9 +274,9 @@ module DoseRuleData =
             let dl = s.DoseLimitData
 
             [
-                d.RowId
-                d.RuleId
-                d.GrpId
+                d.RowId |> HashId.toString
+                d.RuleId |> HashId.toString
+                d.GrpId |> HashId.toString
                 string d.SortNo
                 d.Source
                 g.Name
@@ -389,9 +389,9 @@ module DoseRuleData =
         let rowFields = ruleFields @ [ dos.Component; dos.Substance ]
 
         { dd with
-            GrpId = groupFields |> String.sha1Short
-            RuleId = ruleFields |> String.sha1Short
-            RowId = rowFields |> String.sha1Short
+            GrpId = groupFields |> HashId.ofFields
+            RuleId = ruleFields |> HashId.ofFields
+            RowId = rowFields |> HashId.ofFields
         }
 
 
@@ -465,7 +465,7 @@ module DoseRuleData =
                     let d = r.ScheduleData.DoseLimitData
 
                     warns.Add
-                        $"duplicate dose rule row for rule %s{r.RuleId} component '%s{d.Component}' substance '%s{d.Substance}': %i{distinctLimits.Length} differing dose-limit value sets — keeping first, dropping %i{distinctLimits.Length - 1}"
+                        $"duplicate dose rule row for rule %s{r.RuleId |> HashId.toString} component '%s{d.Component}' substance '%s{d.Substance}': %i{distinctLimits.Length} differing dose-limit value sets — keeping first, dropping %i{distinctLimits.Length - 1}"
 
                 grp[0]
             )

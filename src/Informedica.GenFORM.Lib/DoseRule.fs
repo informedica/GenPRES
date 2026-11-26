@@ -627,8 +627,8 @@ module DoseRule =
                 unitGroup |> Group.toString,
                 {
                     Id = ""
-                    DataId = r.RuleId
-                    GroupId = r.GrpId
+                    DataId = r.RuleId |> HashId.toString
+                    GroupId = r.GrpId |> HashId.toString
                     SortNo = r.SortNo
                     Source = r.Source |> identifySource
                     SourceText = r.SourceText
@@ -974,9 +974,9 @@ module DoseRule =
             let dld = reverseDoseLimit cmpBased cmpName dl
 
             {
-                RowId = ""
-                RuleId = ""
-                GrpId = ""
+                RowId = HashId.empty
+                RuleId = HashId.empty
+                GrpId = HashId.empty
                 SortNo = 0
                 Source = dr.Source |> Source.toString
                 SourceText = dr.SourceText
