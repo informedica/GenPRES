@@ -28,10 +28,12 @@ Two callers use the text: the parenteralia view (`ParenteraliaService.get`,
 Approach 3, with the decisions made when the issue was picked up:
 
 - **The server keeps sending Markdown**, and the text stays Dutch.
-- **The prototype is the reviewed code.** The prototype worktree for #2006 holds the new `SolutionRule.Print`,
-  its tests (`SolutionRulePrintTests` in `tests/Informedica.GenFORM.Tests/Tests.fs`) and the restyled client view.
-  The prototype shows the right layout of the parenteralia view. Each step ports one part of it; nothing else in
-  that worktree belongs to this plan.
+- **The prototype is the reviewed code.** The branch
+  [`proto/1834-parenteralia`](https://github.com/halcwb/GenPRES/tree/proto/1834-parenteralia), which is not for
+  merging, holds the new `SolutionRule.Print`, its tests (`SolutionRulePrintTests` in
+  `tests/Informedica.GenFORM.Tests/Tests.fs`) and the restyled client view. The prototype shows the right layout
+  of the parenteralia view. Each step ports one part of it. The branch also holds the prototype of #2006 and
+  other work, which does not belong to this plan.
 - **#2006 is migrated first.** The text uses eight fields that #2006 adds to `SolutionRule`: ShelfLife, MinPh,
   MaxPh, SameLine, NotSameLine, Notes, PrepText and AdminText. They are read from the new columns of the
   SolutionRules sheet, so this plan starts after #2006 is on master and the server reads the spreadsheet
