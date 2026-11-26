@@ -44,9 +44,9 @@ follows where they differ from the issue:
   with the same target have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a
   dilution limit, so a rule has one dilution limit for each target, and the load gives a warning when their
   dilution limits differ.
-- **Id** is a hash of every field of the row except the ids and SourceText, the dilution limits included, in
-  the order of the columns of the sheet. `SolutionRule.setDataId` calculates it before the diluent rows are
-  expanded, so it identifies the row of the sheet.
+- **Id** is a hash of every field of the row except the ids and SourceText: the fields of the RuleId, with the
+  component, the substance and the dilution limits of the row. `SolutionRule.setDataId` calculates it before the
+  diluent rows are expanded, so it identifies the row of the sheet.
 - **Rows with one RuleId and different source texts are invalid.** They stay one rule, with the source text of
   its first row, and the load gives a warning.
 - **The ids are of the type `HashId`**, a single-case union with a private case, for the rows of both sheets.

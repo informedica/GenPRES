@@ -1196,6 +1196,10 @@ module DoseRuleToDataTests =
 
                 "SolutionRules",
                 [
+                    "Id"
+                    "RowId"
+                    "RowNo"
+                    "RuleId"
                     "Generic"
                     "Form"
                     "Route"
@@ -4279,6 +4283,7 @@ module Tests =
                     test "a dilution limit is headed by the rule's access, the tube included" {
                         let rule access : SolutionRule =
                             {
+                                Id = ""
                                 SourceText = ""
                                 GPKs = [||]
                                 HPKs = [||]
@@ -7320,6 +7325,10 @@ module Tests =
 
         let solutionRowOf location dep : SolutionRuleData =
             {
+                Id = HashId.empty
+                RowId = HashId.empty
+                RowNo = 0
+                RuleId = HashId.empty
                 GPKs = [||]
                 HPKs = [||]
                 SourceText = ""
@@ -7609,6 +7618,7 @@ module Tests =
         /// A paracetamol iv solution rule for a patient category, named by its indication.
         let rule name patCat : SolutionRule =
             {
+                Id = ""
                 SourceText = ""
                 GPKs = [||]
                 HPKs = [||]
@@ -7782,6 +7792,7 @@ module Tests =
         /// A solution rule for any patient with a generic, a form and a route.
         let rule generic form route : SolutionRule =
             {
+                Id = ""
                 SourceText = ""
                 GPKs = [||]
                 HPKs = [||]
@@ -8831,6 +8842,7 @@ module Tests =
 
         let private solutionRule volumeAdjust : SolutionRule =
             {
+                Id = ""
                 SourceText = ""
                 GPKs = [||]
                 HPKs = [||]
@@ -9429,6 +9441,7 @@ module Tests =
 
         let solutionRule generic conc =
             {
+                Id = ""
                 SourceText = ""
                 GPKs = [||]
                 HPKs = [||]
@@ -9599,6 +9612,10 @@ module Tests =
 
         let solutionRow generic diluents : SolutionRuleData =
             {
+                Id = HashId.empty
+                RowId = HashId.empty
+                RowNo = 0
+                RuleId = HashId.empty
                 GPKs = [||]
                 HPKs = [||]
                 SourceText = ""
@@ -13794,6 +13811,36 @@ module Tests =
                                 |> Result.map (Array.map _.GPKs)
                                 |> Expect.equal "the GPKs of the row" (Ok [| [| "12345"; "67890" |] |])
                             }
+
+                            test "reads the cell of the column Id as a cleaned hash" {
+                                parse [ "Id", " '0687555379E8 " ]
+                                |> Result.map (Array.map (_.Id >> HashId.toString))
+                                |> Expect.equal "the id of the row" (Ok [| "0687555379e8" |])
+                            }
+
+                            test "an empty cell of the column Id gives an empty id" {
+                                parse []
+                                |> Result.map (Array.map _.Id)
+                                |> Expect.equal "no id" (Ok [| HashId.empty |])
+                            }
+
+                            test "reads the cells of the columns RowId, RowNo and RuleId" {
+                                parse [ "RowId", "aaaaaaaaaaaa"; "RowNo", "7"; "RuleId", "bbbbbbbbbbbb" ]
+                                |> Result.map (
+                                    Array.map (fun r ->
+                                        r.RowId |> HashId.toString, r.RuleId |> HashId.toString, r.RowNo
+                                    )
+                                )
+                                |> Expect.equal
+                                    "the ids and the row number of the row"
+                                    (Ok [| "aaaaaaaaaaaa", "bbbbbbbbbbbb", 7 |])
+                            }
+
+                            test "empty cells of the columns RowId, RowNo and RuleId give empty ids and the number 0" {
+                                parse []
+                                |> Result.map (Array.map (fun r -> r.RowId, r.RuleId, r.RowNo))
+                                |> Expect.equal "no ids and the number 0" (Ok [| HashId.empty, HashId.empty, 0 |])
+                            }
                         ]
 
                     testList
@@ -13845,6 +13892,560 @@ module Tests =
 
                                 (solRule.ShelfLife, solRule.MinPh, solRule.MaxPh)
                                 |> Expect.equal "no shelf life and no pH" (None, None, None)
+                            }
+                        ]
+
+                    testList
+                        "the ids"
+                        [
+                            test "the rows of one rule give one rule with the RuleId of the rows" {
+                                let data =
+                                    [|
+                                        { row with
+                                            Component = "morfine"
+                                            Substance = "morfine"
+                                            MaxConc = Some 1N
+                                        }
+                                        { row with
+                                            Component = "diluent"
+                                            Unit = "mL"
+                                            MinConc = Some(1N / 2N)
+                                        }
+                                    |]
+
+                                data
+                                |> rules
+                                |> Array.map _.Id
+                                |> Expect.equal
+                                    "one rule with the RuleId"
+                                    (data
+                                     |> SolutionRule.setDataHashIds
+                                     |> Array.map (_.RuleId >> HashId.toString)
+                                     |> Array.distinct)
+                            }
+
+                            test "the ids are hashes of 12 characters" {
+                                [| row |]
+                                |> SolutionRule.setDataHashIds
+                                |> Array.map (fun r ->
+                                    r.RowId |> HashId.toString |> String.length,
+                                    r.RuleId |> HashId.toString |> String.length
+                                )
+                                |> Expect.equal "two hashes of 12 characters" [| 12, 12 |]
+                            }
+
+                            test "setDataHashIds numbers the rows of a rule from 0, in the order of the rows" {
+                                [|
+                                    row
+                                    { row with Generic = "fentanyl" }
+                                    { row with Component = "diluent" }
+                                    { row with Component = "water" }
+                                |]
+                                |> SolutionRule.setDataHashIds
+                                |> Array.map (fun r -> r.Generic, r.RowNo)
+                                |> Expect.equal
+                                    "the place in the rule"
+                                    [| "morfine", 0; "fentanyl", 0; "morfine", 1; "morfine", 2 |]
+                            }
+
+                            test "setDataHashIds replaces the ids and the row number of a row" {
+                                [|
+                                    { row with
+                                        RowId = HashId.ofFields [ "a" ]
+                                        RuleId = HashId.ofFields [ "b" ]
+                                        RowNo = 7
+                                    }
+                                |]
+                                |> SolutionRule.setDataHashIds
+                                |> Expect.equal "the calculated ids" ([| row |] |> SolutionRule.setDataHashIds)
+                            }
+
+                            testList
+                                "a field of the rule gives another RuleId and another RowId"
+                                [
+                                    for name, other in
+                                        [
+                                            "Generic", { row with Generic = "fentanyl" }
+                                            "Form", { row with Form = "injectievloeistof" }
+                                            "Route", { row with Route = "EPIDURAAL" }
+                                            "Indication", { row with Indication = "pijn" }
+                                            "GPKs", { row with GPKs = [| "12345" |] }
+                                            "HPKs", { row with HPKs = [| "111" |] }
+                                            "DoseType", { row with DoseType = "timed" }
+                                            "DoseText", { row with DoseText = "bolus" }
+                                            "Loc", { row with Location = Some "UMCU" }
+                                            "Dep", { row with Department = Some "NEO" }
+                                            "CVL", { row with CVL = "x" }
+                                            "PVL", { row with PVL = "x" }
+                                            "MinAge", { row with MinAge = Some 28N }
+                                            "MaxAge", { row with MaxAge = Some 365N }
+                                            "MinWeight", { row with MinWeight = Some 3000N }
+                                            "MaxWeight", { row with MaxWeight = Some 10000N }
+                                            "MinGestAge", { row with MinGestAge = Some 259N }
+                                            "MaxGestAge", { row with MaxGestAge = Some 259N }
+                                            "MinDose", { row with MinDose = Some 1N }
+                                            "MaxDose", { row with MaxDose = Some 10N }
+                                            "Diluents", { row with Diluents = [ "NaCl 0,9%" ] }
+                                            "AdjustUnit", { row with AdjustUnit = "kg" }
+                                            "Div", { row with Div = Some 10N }
+                                            "Volumes", { row with Volumes = [| 50N |] }
+                                            "MinVol", { row with MinVol = Some 10N }
+                                            "MaxVol", { row with MaxVol = Some 50N }
+                                            "MinVolAdj", { row with MinVolAdj = Some 1N }
+                                            "MaxVolAdj", { row with MaxVolAdj = Some 5N }
+                                            "MinDrip", { row with MinDrip = Some 1N }
+                                            "MaxDrip", { row with MaxDrip = Some 10N }
+                                            "MinPerc", { row with MinPerc = Some(1N / 2N) }
+                                            "MaxPerc", { row with MaxPerc = Some 1N }
+                                            "ShelfLife", { row with ShelfLife = Some 1440N }
+                                            "MinPh", { row with MinPh = Some 3m<pH> }
+                                            "MaxPh", { row with MaxPh = Some 7m<pH> }
+                                            "CombY", { row with CombY = [ "heparine" ] }
+                                            "NonCombY", { row with NonCombY = [ "amiodaron" ] }
+                                            "Notes", { row with Notes = "let op" }
+                                            "PrepText", { row with PrepText = "oplossen in 10 mL" }
+                                            "AdminText", { row with AdminText = "over 30 min" }
+                                        ] do
+                                        test $"another %s{name}" {
+                                            let ids =
+                                                [| row; other |]
+                                                |> SolutionRule.setDataHashIds
+                                                |> Array.map (fun r -> r.RuleId, r.RowId)
+
+                                            ids |> Array.distinctBy fst |> Expect.hasLength "two rules" 2
+                                            ids |> Array.distinctBy snd |> Expect.hasLength "two rows" 2
+                                        }
+                                ]
+
+                            testList
+                                "another dilution target gives another RowId with the same RuleId"
+                                [
+                                    for name, one, other in
+                                        [
+                                            "Component, without a substance",
+                                            { row with
+                                                Substance = ""
+                                                Component = "morfine"
+                                            },
+                                            { row with
+                                                Substance = ""
+                                                Component = "diluent"
+                                            }
+                                            "Substance", row, { row with Substance = "natrium" }
+                                        ] do
+                                        test $"another %s{name}" {
+                                            let ids =
+                                                [| one; other |]
+                                                |> SolutionRule.setDataHashIds
+                                                |> Array.map (fun r -> r.RuleId, r.RowId)
+
+                                            ids |> Array.distinctBy fst |> Expect.hasLength "one rule" 1
+                                            ids |> Array.distinctBy snd |> Expect.hasLength "two rows" 2
+                                        }
+                                ]
+
+                            test "a component and a substance with the same name have different RowIds" {
+                                let comp =
+                                    { row with
+                                        Component = "morfine"
+                                        Substance = ""
+                                    }
+
+                                [| row; comp |]
+                                |> SolutionRule.setDataHashIds
+                                |> SolutionRule.dedupRowsByRowId
+                                |> fst
+                                |> Array.map (fun r -> r.Component, r.Substance)
+                                |> Expect.equal "both rows" [| "", "morfine"; "morfine", "" |]
+                            }
+
+                            test "another Component with the same substance keeps the RuleId and the RowId" {
+                                [| row; { row with Component = "morfine" } |]
+                                |> SolutionRule.setDataHashIds
+                                |> Array.distinctBy (fun r -> r.RuleId, r.RowId)
+                                |> Expect.hasLength "one rule id and one row id" 1
+                            }
+
+                            testList
+                                "a dilution limit of the row keeps the RuleId and the RowId"
+                                [
+                                    for name, other in
+                                        [
+                                            "Unit", { row with Unit = "mmol" }
+                                            "Quantities", { row with Quantities = [| 5N |] }
+                                            "MinQty", { row with MinQty = Some 1N }
+                                            "MaxQty", { row with MaxQty = Some 10N }
+                                            "MinQtyAdj", { row with MinQtyAdj = Some 1N }
+                                            "MaxQtyAdj", { row with MaxQtyAdj = Some 10N }
+                                            "MinConc", { row with MinConc = Some 1N }
+                                            "MaxConc", { row with MaxConc = Some 10N }
+                                        ] do
+                                        test $"another %s{name}" {
+                                            [| row; other |]
+                                            |> SolutionRule.setDataHashIds
+                                            |> Array.distinctBy (fun r -> r.RuleId, r.RowId)
+                                            |> Expect.hasLength "one rule id and one row id" 1
+                                        }
+                                ]
+
+                            test "setDataId sets a hash of 12 characters" {
+                                row
+                                |> SolutionRule.setDataId
+                                |> _.Id
+                                |> HashId.toString
+                                |> String.length
+                                |> Expect.equal "12 characters" 12
+                            }
+
+                            testList
+                                "a field of the row gives another Id"
+                                [
+                                    for name, other in
+                                        [
+                                            "Generic", { row with Generic = "fentanyl" }
+                                            "Form", { row with Form = "injectievloeistof" }
+                                            "Route", { row with Route = "EPIDURAAL" }
+                                            "Indication", { row with Indication = "pijn" }
+                                            "GPKs", { row with GPKs = [| "12345" |] }
+                                            "HPKs", { row with HPKs = [| "111" |] }
+                                            "DoseType", { row with DoseType = "timed" }
+                                            "DoseText", { row with DoseText = "bolus" }
+                                            "Loc", { row with Location = Some "UMCU" }
+                                            "Dep", { row with Department = Some "NEO" }
+                                            "CVL", { row with CVL = "x" }
+                                            "PVL", { row with PVL = "x" }
+                                            "MinAge", { row with MinAge = Some 28N }
+                                            "MaxAge", { row with MaxAge = Some 365N }
+                                            "MinWeight", { row with MinWeight = Some 3000N }
+                                            "MaxWeight", { row with MaxWeight = Some 10000N }
+                                            "MinGestAge", { row with MinGestAge = Some 259N }
+                                            "MaxGestAge", { row with MaxGestAge = Some 259N }
+                                            "MinDose", { row with MinDose = Some 1N }
+                                            "MaxDose", { row with MaxDose = Some 10N }
+                                            "Diluents", { row with Diluents = [ "NaCl 0,9%" ] }
+                                            "Div", { row with Div = Some 10N }
+                                            "Volumes", { row with Volumes = [| 50N |] }
+                                            "MinVol", { row with MinVol = Some 10N }
+                                            "MaxVol", { row with MaxVol = Some 50N }
+                                            "MinVolAdj", { row with MinVolAdj = Some 1N }
+                                            "MaxVolAdj", { row with MaxVolAdj = Some 5N }
+                                            "MinDrip", { row with MinDrip = Some 1N }
+                                            "MaxDrip", { row with MaxDrip = Some 10N }
+                                            "MinPerc", { row with MinPerc = Some(1N / 2N) }
+                                            "MaxPerc", { row with MaxPerc = Some 1N }
+                                            "AdjustUnit", { row with AdjustUnit = "kg" }
+                                            "Component", { row with Component = "morfine" }
+                                            "Substance", { row with Substance = "natrium" }
+                                            "Unit", { row with Unit = "mmol" }
+                                            "Quantities", { row with Quantities = [| 5N |] }
+                                            "MinQty", { row with MinQty = Some 1N }
+                                            "MaxQty", { row with MaxQty = Some 10N }
+                                            "MinQtyAdj", { row with MinQtyAdj = Some 1N }
+                                            "MaxQtyAdj", { row with MaxQtyAdj = Some 10N }
+                                            "MinConc", { row with MinConc = Some 1N }
+                                            "MaxConc", { row with MaxConc = Some 10N }
+                                            "ShelfLife", { row with ShelfLife = Some 1440N }
+                                            "MinPh", { row with MinPh = Some 3m<pH> }
+                                            "MaxPh", { row with MaxPh = Some 7m<pH> }
+                                            "CombY", { row with CombY = [ "heparine" ] }
+                                            "NonCombY", { row with NonCombY = [ "amiodaron" ] }
+                                            "PrepText", { row with PrepText = "oplossen in 10 mL" }
+                                            "AdminText", { row with AdminText = "over 30 min" }
+                                            "Notes", { row with Notes = "let op" }
+                                        ] do
+                                        test $"another %s{name}" {
+                                            [| row; other |]
+                                            |> Array.map (SolutionRule.setDataId >> _.Id)
+                                            |> Array.distinct
+                                            |> Expect.hasLength "two ids" 2
+                                        }
+                                ]
+
+                            test "the ids and the source text keep the Id" {
+                                [|
+                                    row
+                                    { row with
+                                        Id = HashId.ofFields [ "a" ]
+                                        RowId = HashId.ofFields [ "b" ]
+                                        RowNo = 7
+                                        RuleId = HashId.ofFields [ "c" ]
+                                        SourceText = "bron"
+                                    }
+                                |]
+                                |> Array.map (SolutionRule.setDataId >> _.Id)
+                                |> Array.distinct
+                                |> Expect.hasLength "one id" 1
+                            }
+
+                            test "the rows of an expanded diluent row keep the Id of the diluent row" {
+                                let diluentRow =
+                                    { row with
+                                        Diluents = [ "NaCl 0,9%"; "glucose 5%" ]
+                                        Component = "diluent"
+                                        Substance = ""
+                                    }
+
+                                let id = (diluentRow |> SolutionRule.setDataId).Id
+
+                                [| diluentRow |]
+                                |> SolutionRule.dedupedRows
+                                    [|
+                                        RuleCheckTests.parenteral "NaCl 0,9%"
+                                        RuleCheckTests.parenteral "glucose 5%"
+                                    |]
+                                |> fst
+                                |> Array.map (fun r -> r.Component, r.Id)
+                                |> Expect.equal
+                                    "two rows with the Id of the diluent row"
+                                    [| "NaCl 0,9%", id; "glucose 5%", id |]
+                            }
+
+                            testList
+                                "dedupRowsByRowId"
+                                [
+                                    let dedup rows =
+                                        rows |> SolutionRule.setDataHashIds |> SolutionRule.dedupRowsByRowId
+
+                                    test "keeps the first of the rows with the same component and substance" {
+                                        [| row; { row with MaxConc = Some 1N } |]
+                                        |> dedup
+                                        |> fst
+                                        |> Array.map _.MaxConc
+                                        |> Expect.equal "the limit of the first row" [| Some(1N / 2N) |]
+                                    }
+
+                                    test "warns when the rows have different dilution limits" {
+                                        [| row; { row with MaxConc = Some 1N } |]
+                                        |> dedup
+                                        |> snd
+                                        |> Expect.hasLength "one warning" 1
+                                    }
+
+                                    test "does not warn when the rows differ in source text only" {
+                                        [| row; { row with SourceText = "bron" } |]
+                                        |> dedup
+                                        |> fun (rows, warns) -> rows |> Array.length, warns
+                                        |> Expect.equal "one row and no warning" (1, [])
+                                    }
+
+                                    test "keeps rows for another component or substance in their order" {
+                                        [|
+                                            row
+                                            { row with
+                                                Component = "diluent"
+                                                Substance = ""
+                                            }
+                                            { row with MaxConc = Some 1N }
+                                            { row with Substance = "natrium" }
+                                        |]
+                                        |> dedup
+                                        |> fst
+                                        |> Array.map (fun r -> r.Component, r.Substance)
+                                        |> Expect.equal "three rows" [| "", "morfine"; "diluent", ""; "", "natrium" |]
+                                    }
+
+                                    test "keeps one row for a substance under two components" {
+                                        [|
+                                            row
+                                            { row with
+                                                Component = "morfine"
+                                                MaxConc = Some 1N
+                                            }
+                                        |]
+                                        |> dedup
+                                        |> fun (rows, warns) -> rows |> Array.map _.MaxConc, warns |> List.length
+                                        |> Expect.equal "the first row and one warning" ([| Some(1N / 2N) |], 1)
+                                    }
+
+                                    test "compares the component and the substance case-insensitively" {
+                                        [|
+                                            row
+                                            { row with Substance = "Morfine" }
+                                            { row with
+                                                Component = "NaCl 0,9%"
+                                                Substance = ""
+                                            }
+                                            { row with
+                                                Component = "nacl 0,9%"
+                                                Substance = ""
+                                            }
+                                        |]
+                                        |> dedup
+                                        |> fst
+                                        |> Array.map (fun r -> r.Component, r.Substance)
+                                        |> Expect.equal "one row for each target" [| "", "morfine"; "NaCl 0,9%", "" |]
+                                    }
+
+                                    test "keeps the first row with a dilution limit" {
+                                        [|
+                                            { row with
+                                                MinConc = None
+                                                MaxConc = None
+                                            }
+                                            { row with MaxConc = Some 1N }
+                                        |]
+                                        |> dedup
+                                        |> fun (rows, warns) -> rows |> Array.map _.MaxConc, warns
+                                        |> Expect.equal "the row with the limit and no warning" ([| Some 1N |], [])
+                                    }
+
+                                    test "gives the row it keeps the source text of the first row" {
+                                        [|
+                                            { row with
+                                                MinConc = None
+                                                MaxConc = None
+                                                SourceText = "bron"
+                                            }
+                                            { row with
+                                                MaxConc = Some 1N
+                                                SourceText = "andere bron"
+                                            }
+                                        |]
+                                        |> dedup
+                                        |> fst
+                                        |> Array.map (fun r -> r.MaxConc, r.SourceText)
+                                        |> Expect.equal
+                                            "the limit of the second row, the text of the first"
+                                            [| Some 1N, "bron" |]
+                                    }
+
+                                    test "keeps rows of another rule" {
+                                        [|
+                                            row
+                                            { row with
+                                                Generic = "fentanyl"
+                                                Substance = "morfine"
+                                            }
+                                        |]
+                                        |> dedup
+                                        |> fst
+                                        |> Expect.hasLength "two rows" 2
+                                    }
+                                ]
+
+                            test "map gives one dilution limit for rows with the same component and substance" {
+                                [| row; { row with MaxConc = Some 1N } |]
+                                |> rules
+                                |> Array.exactlyOne
+                                |> _.DilutionLimits
+                                |> Expect.hasLength "one dilution limit" 1
+                            }
+
+                            testList
+                                "a diluent row"
+                                [
+                                    let nacl = RuleCheckTests.parenteral "NaCl 0,9%"
+
+                                    let diluentRow =
+                                        { row with
+                                            Diluents = [ "NaCl 0,9%" ]
+                                            Component = "diluent"
+                                            Substance = ""
+                                            Unit = "mL"
+                                            MinConc = None
+                                            MaxConc = None
+                                            MaxQty = Some 50N
+                                        }
+
+                                    let naclRow =
+                                        { diluentRow with
+                                            Component = "NaCl 0,9%"
+                                            MaxQty = Some 100N
+                                        }
+
+                                    let limitsOf rows =
+                                        match rows |> SolutionRule.map [||] [| nacl |] [||] with
+                                        | Ok rules ->
+                                            rules
+                                            |> Array.collect _.DilutionLimits
+                                            |> Array.map (fun dl ->
+                                                dl.DilutionLimitTarget |> SolutionRule.DilutionTarget.toString,
+                                                dl.Quantity.Max |> Option.isSome
+                                            )
+                                        | Error msgs -> failtest $"%A{msgs}"
+
+                                    test "and a row for its diluent give one dilution limit for the diluent" {
+                                        [| diluentRow; naclRow |]
+                                        |> limitsOf
+                                        |> Expect.equal "one limit for NaCl 0,9%" [| "NaCl 0,9%", true |]
+                                    }
+
+                                    test "and a row for its diluent with another limit give a warning" {
+                                        [| diluentRow; naclRow |]
+                                        |> SolutionRule.duplicateRows [| nacl |]
+                                        |> Expect.hasLength "one warning" 1
+                                    }
+
+                                    test "without a diluent gives a rule without dilution limits" {
+                                        match
+                                            [| { diluentRow with Diluents = [] } |]
+                                            |> SolutionRule.map [||] [| nacl |] [||]
+                                        with
+                                        | Ok rules ->
+                                            rules
+                                            |> Array.map (_.DilutionLimits >> Array.length)
+                                            |> Expect.equal "one rule without limits" [| 0 |]
+                                        | Error msgs -> failtest $"%A{msgs}"
+                                    }
+                                ]
+
+                            test "duplicateRows warns once for rows with different dilution limits" {
+                                [| row; { row with MaxConc = Some 1N } |]
+                                |> SolutionRule.duplicateRows [||]
+                                |> Expect.hasLength "one warning" 1
+                            }
+
+                            test "another SourceText keeps the RuleId and the RowId" {
+                                [| row; { row with SourceText = "bron" } |]
+                                |> SolutionRule.setDataHashIds
+                                |> Array.distinctBy (fun r -> r.RuleId, r.RowId)
+                                |> Expect.hasLength "one rule id and one row id" 1
+                            }
+
+                            test "rows that differ in SourceText only give one rule with the first source text" {
+                                [| { row with SourceText = "bron" }; { row with SourceText = "andere bron" } |]
+                                |> rules
+                                |> Array.map _.SourceText
+                                |> Expect.equal "one rule with the source text of the first row" [| "bron" |]
+                            }
+
+                            test "no rows give no rules" { [||] |> rules |> Expect.isEmpty "no rules" }
+                        ]
+
+                    testList
+                        "mixedSourceTexts"
+                        [
+                            test "rows of one rule with different source texts give one warning" {
+                                [|
+                                    { row with SourceText = "bron" }
+                                    { row with SourceText = "andere bron" }
+                                    { row with SourceText = "derde bron" }
+                                |]
+                                |> SolutionRule.mixedSourceTexts
+                                |> Expect.equal
+                                    "one warning that names the rule"
+                                    [
+                                        Warning
+                                            $"solution rule %s{row.Generic}, %s{row.Route}: the rows of the rule give different source texts"
+                                    ]
+                            }
+
+                            test "rows of one rule with the same source text give no warning" {
+                                [| { row with SourceText = "bron" }; { row with SourceText = "bron" } |]
+                                |> SolutionRule.mixedSourceTexts
+                                |> Expect.isEmpty "no warning"
+                            }
+
+                            test "two rules with different source texts give no warning" {
+                                [|
+                                    { row with SourceText = "bron" }
+                                    { row with
+                                        DoseType = "timed"
+                                        SourceText = "andere bron"
+                                    }
+                                |]
+                                |> SolutionRule.mixedSourceTexts
+                                |> Expect.isEmpty "no warning"
                             }
                         ]
 

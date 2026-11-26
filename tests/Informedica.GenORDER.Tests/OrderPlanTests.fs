@@ -1174,6 +1174,7 @@ type UndilutedVancomycin() =
 
     let solutionRule: SolutionRule =
         {
+            Id = ""
             SourceText = ""
             GPKs = [||]
             HPKs = [||]
@@ -1284,6 +1285,7 @@ module Electrolytes =
         let limit u = ValueUnit.singleWithUnit u >> Limit.inclusive >> Some
 
         {
+            Id = ""
             SourceText = ""
             GPKs = [||]
             HPKs = [||]
@@ -1939,6 +1941,7 @@ let selectsRulesTests =
 let scenarioAccessTests =
     let solutionRule access : SolutionRule =
         {
+            Id = ""
             SourceText = ""
             GPKs = [||]
             HPKs = [||]

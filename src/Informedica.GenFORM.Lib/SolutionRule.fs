@@ -21,6 +21,14 @@ module SolutionRule =
             | DilutionTarget.Substance s -> s
 
 
+        /// Returns the kind of the target, "component" or "substance", with its name in lower case, so that names
+        /// that differ only in case give the same key.
+        let key =
+            function
+            | DilutionTarget.Component s -> "component", s |> String.toLower
+            | DilutionTarget.Substance s -> "substance", s |> String.toLower
+
+
     module DilutionLimit =
 
 
@@ -80,6 +88,10 @@ module SolutionRule =
                     let names = String.split "|" >> List.map String.trim >> List.filter String.notEmpty
 
                     {
+                        Id = get "Id" |> HashId.create
+                        RowId = get "RowId" |> HashId.create
+                        RuleId = get "RuleId" |> HashId.create
+                        RowNo = get "RowNo" |> Int32.tryParse |> Option.defaultValue 0
                         // solution rule section
                         Generic = get "Generic"
                         Form = get "Form"
@@ -155,25 +167,213 @@ module SolutionRule =
         && r.Component |> String.equalsCapInsens diluentComponent
 
 
-    /// Replaces each diluent row with one row per diluent, with the diluent name as the Component.
-    /// Returns the other rows unchanged.
-    let expandDiluentRows diluents rows =
+    /// Returns the parenteral products that the Diluents cell of a row names, in the order of the cell, each
+    /// product once.
+    let diluentProducts (parenteral: ProductComponent[]) (r: SolutionRuleData) =
+        r.Diluents
+        |> List.toArray
+        |> Array.choose (fun s -> parenteral |> Array.tryFind (_.Generic >> String.equalsCapInsens s))
+        |> Array.distinctBy _.Generic
+
+
+    /// Replaces each diluent row with one row per diluent of the row, with the generic of the diluent as the
+    /// Component. A diluent row without diluents and the other rows are returned unchanged.
+    let expandDiluentRows parenteral rows =
         rows
         |> Array.collect (fun r ->
-            if r |> isDiluentRow then
-                diluents |> Array.map (fun dil -> { r with Component = dil })
-            else
-                [| r |]
+            match r |> isDiluentRow, r |> diluentProducts parenteral with
+            | true, dils when dils |> Array.isEmpty |> not ->
+                dils |> Array.map (fun p -> { r with Component = p.Generic })
+            | _ -> [| r |]
         )
+
+
+    /// Returns the fields that identify a solution rule: every field that is the same for all rows of the
+    /// rule, except the source text.
+    let ruleKeyFields (r: SolutionRuleData) =
+        let optToStr toStr = Option.map toStr >> Option.defaultValue ""
+        let optBrToStr = optToStr BigRational.toString
+
+        [
+            r.Generic
+            r.Form
+            r.Route
+            r.Indication
+            r.GPKs |> String.concat ";"
+            r.HPKs |> String.concat ";"
+            r.DoseType
+            r.DoseText
+            r.Location |> Option.defaultValue ""
+            r.Department |> Option.defaultValue ""
+            r.CVL
+            r.PVL
+            r.MinAge |> optBrToStr
+            r.MaxAge |> optBrToStr
+            r.MinWeight |> optBrToStr
+            r.MaxWeight |> optBrToStr
+            r.MinGestAge |> optBrToStr
+            r.MaxGestAge |> optBrToStr
+            r.MinDose |> optBrToStr
+            r.MaxDose |> optBrToStr
+            r.Diluents |> String.concat "|"
+            r.AdjustUnit
+            r.Div |> optBrToStr
+            r.Volumes |> Array.map BigRational.toString |> String.concat ";"
+            r.MinVol |> optBrToStr
+            r.MaxVol |> optBrToStr
+            r.MinVolAdj |> optBrToStr
+            r.MaxVolAdj |> optBrToStr
+            r.MinDrip |> optBrToStr
+            r.MaxDrip |> optBrToStr
+            r.MinPerc |> optBrToStr
+            r.MaxPerc |> optBrToStr
+            r.ShelfLife |> optBrToStr
+            r.MinPh |> optToStr string
+            r.MaxPh |> optToStr string
+            r.CombY |> String.concat "|"
+            r.NonCombY |> String.concat "|"
+            r.Notes
+            r.PrepText
+            r.AdminText
+        ]
+
+
+    /// Returns the dilution target of a row: the substance when the row names a substance, otherwise the component.
+    /// An order looks up a dilution limit by this target. Raises an InvalidOperationException for a row without a
+    /// substance and a component.
+    let dilutionTarget (r: SolutionRuleData) =
+        match r.Substance, r.Component with
+        | s, _ when s |> String.notEmpty -> s |> DilutionTarget.Substance
+        | _, c when c |> String.notEmpty -> c |> DilutionTarget.Component
+        | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
+
+
+    /// Returns the key of the dilution target of a row: the kind and the name in lower case, so that a component and
+    /// a substance with the same name are two targets.
+    let dilutionTargetKey (r: SolutionRuleData) =
+        let kind, name = r |> dilutionTarget |> DilutionTarget.key
+        [ kind; name ]
+
+
+    /// Returns the fields that identify a row of a solution rule: the fields of the rule, with the dilution target
+    /// of the row. The dilution limits of the row are left out, so two rows of a rule with the same dilution
+    /// target have the same RowId.
+    let rowKeyFields (r: SolutionRuleData) = ruleKeyFields r @ dilutionTargetKey r
+
+
+    /// Returns every field of a SolutionRules row except the ids and the source text: the fields of the rule, with
+    /// the component, the substance and the dilution limits of the row.
+    let dataIdFields (r: SolutionRuleData) =
+        let optBrToStr = Option.map BigRational.toString >> Option.defaultValue ""
+
+        ruleKeyFields r
+        @ [
+            r.Component
+            r.Substance
+            r.Unit
+            r.Quantities |> Array.map BigRational.toString |> String.concat ";"
+            r.MinQty |> optBrToStr
+            r.MaxQty |> optBrToStr
+            r.MinQtyAdj |> optBrToStr
+            r.MaxQtyAdj |> optBrToStr
+            r.MinConc |> optBrToStr
+            r.MaxConc |> optBrToStr
+        ]
+
+
+    /// Sets the Id of a row to the hash of every field of the row except the ids and the source text.
+    let setDataId (r: SolutionRuleData) = { r with Id = r |> dataIdFields |> HashId.ofFields }
+
+
+    /// Sets the RuleId and the RowId of each row to the hash of its fields, and numbers the rows of each rule
+    /// from 0. The rows keep their order.
+    let setDataHashIds (data: SolutionRuleData[]) =
+        data
+        |> Array.mapFold
+            (fun counts r ->
+                let ruleId = r |> ruleKeyFields |> HashId.ofFields
+                let n = counts |> Map.tryFind ruleId |> Option.defaultValue 0
+
+                { r with
+                    RowId = r |> rowKeyFields |> HashId.ofFields
+                    RuleId = ruleId
+                    RowNo = n
+                },
+                counts |> Map.add ruleId (n + 1)
+            )
+            Map.empty
+        |> fst
+
+
+    /// Whether a SolutionRules row has a dilution limit: a list of quantities, or a minimum or a maximum of the
+    /// quantity, the quantity per adjust unit or the concentration.
+    let hasDilutionLimit (r: SolutionRuleData) =
+        r.Quantities |> Array.isEmpty |> not
+        || [ r.MinQty; r.MaxQty; r.MinQtyAdj; r.MaxQtyAdj; r.MinConc; r.MaxConc ]
+           |> List.exists Option.isSome
+
+
+    /// Removes rows with the same RowId, that is the same rule and dilution target, and keeps the first row with a
+    /// dilution limit, or the first row when no row has one. The row that is kept gets the source text of the first
+    /// row, so a rule keeps the source text of its first row. Returns a warning for each RowId whose rows have
+    /// different dilution limits. The rows keep their order.
+    let dedupRowsByRowId (rows: SolutionRuleData[]) =
+        let limits (r: SolutionRuleData) =
+            r.Unit, r.Quantities, r.MinQty, r.MaxQty, r.MinQtyAdj, r.MaxQtyAdj, r.MinConc, r.MaxConc
+
+        let groups = rows |> Array.groupBy _.RowId
+
+        let warns =
+            groups
+            |> Array.choose (fun (_, grp) ->
+                let n = grp |> Array.filter hasDilutionLimit |> Array.distinctBy limits |> Array.length
+
+                grp
+                |> Array.tryHead
+                |> Option.filter (fun _ -> n > 1)
+                |> Option.map (fun r ->
+                    $"solution rule %s{r.Generic}, %s{r.Route}: %i{n} rows with different dilution limits for "
+                    + $"component '%s{r.Component}' substance '%s{r.Substance}', the first row is used"
+                )
+            )
+            |> Array.toList
+
+        let kept =
+            groups
+            |> Array.choose (fun (_, grp) ->
+                grp
+                |> Array.tryHead
+                |> Option.map (fun first ->
+                    let r = grp |> Array.tryFind hasDilutionLimit |> Option.defaultValue first
+                    { r with SourceText = first.SourceText }
+                )
+            )
+
+        kept, warns
+
+
+    /// Sets the Id of each row, expands the diluent rows, sets the other ids and keeps one row for each RowId.
+    /// The rows of an expanded diluent row keep the Id of the diluent row. Returns the rows with the warnings of
+    /// dedupRowsByRowId.
+    let dedupedRows parenteral data =
+        data
+        |> Array.map setDataId
+        |> expandDiluentRows parenteral
+        |> setDataHashIds
+        |> dedupRowsByRowId
 
 
     let map routeMapping (parenteral: ProductComponent[]) products data : Result<_, Message list> =
         data
+        // One row for each dilution target of a rule, the diluent rows expanded to their diluents.
+        |> dedupedRows parenteral
+        |> fst
         |> Array.groupBy (fun r ->
             let du = r.Unit |> UnitsParse.fromString
             let au = r.AdjustUnit |> Units.adjustUnit
 
             {
+                Id = r.RuleId |> HashId.toString
                 // set below from the first row of the rule: the source text does not identify the rule
                 SourceText = ""
                 GPKs = r.GPKs
@@ -204,11 +404,7 @@ module SolutionRule =
                 AdjustUnit = au
                 DoseType = DoseType.fromString r.DoseType r.DoseText
                 // Keep the order of the cell: an order takes the first diluent when no diluent is chosen.
-                Diluents =
-                    r.Diluents
-                    |> List.toArray
-                    |> Array.choose (fun s -> parenteral |> Array.tryFind (_.Generic >> String.equalsCapInsens s))
-                    |> Array.distinctBy _.Generic
+                Diluents = r |> diluentProducts parenteral
                 SolutionLimit =
                     {
                         Div = r.Div
@@ -242,18 +438,15 @@ module SolutionRule =
                 SourceText = rs |> Array.head |> _.SourceText
                 DilutionLimits =
                     rs
-                    |> expandDiluentRows (solRule.Diluents |> Array.map _.Generic)
+                    // a diluent row is left only when the rule has no diluent, and then limits nothing
+                    |> Array.filter (isDiluentRow >> not)
                     |> Array.map (fun l ->
                         let u = l.Unit |> UnitsParse.fromString
                         // a quantity per adjust needs the adjust unit of the rule
                         let uAdj = Option.map2 (fun u adj -> u |> ValueUnit.per adj) u solRule.AdjustUnit
 
                         {
-                            DilutionLimitTarget =
-                                match l.Substance, l.Component with
-                                | s, _ when s |> String.notEmpty -> s |> DilutionTarget.Substance
-                                | _, c when c |> String.notEmpty -> c |> DilutionTarget.Component
-                                | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
+                            DilutionLimitTarget = l |> dilutionTarget
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
                             QuantityAdjust = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl uAdj
                             Quantities =
@@ -349,11 +542,7 @@ module SolutionRule =
         |> List.collect (fun solRule ->
             solRule.DilutionLimits
             |> Array.toList
-            |> List.groupBy (fun dl ->
-                match dl.DilutionLimitTarget with
-                | DilutionTarget.Component s -> "component", s |> String.toLower
-                | DilutionTarget.Substance s -> "substance", s |> String.toLower
-            )
+            |> List.groupBy (_.DilutionLimitTarget >> DilutionTarget.key)
             |> List.filter (fun (_, dls) -> dls |> List.length > 1)
             |> List.map (fun ((kind, _), dls) ->
                 let name = dls |> List.head |> _.DilutionLimitTarget |> DilutionTarget.toString
@@ -488,6 +677,8 @@ module SolutionRule =
             ruleOfRow parenteral
             >> Option.map (fun solRule ->
                 { solRule with
+                    // the id is a hash of the adjust unit and the limits per adjust too
+                    Id = ""
                     AdjustUnit = None
                     SolutionLimit = { solRule.SolutionLimit with VolumeAdjust = MinMax.empty }
                     DilutionLimits = [||]
@@ -515,6 +706,24 @@ module SolutionRule =
                 None
         )
         |> Array.toList
+
+
+    /// Returns one warning for each solution rule whose rows give different source texts. A source text is the
+    /// text one rule is a translation of, so rows with different source texts cannot be one rule.
+    let mixedSourceTexts (data: SolutionRuleData[]) =
+        data
+        |> setDataHashIds
+        |> Array.groupBy _.RuleId
+        |> Array.filter (snd >> Array.distinctBy _.SourceText >> Array.length >> (<) 1)
+        |> Array.map (fun (_, rs) ->
+            Warning
+                $"solution rule %s{rs[0].Generic}, %s{rs[0].Route}: the rows of the rule give different source texts"
+        )
+        |> Array.toList
+
+
+    /// Returns one warning for each rule and dilution target whose rows give different dilution limits.
+    let duplicateRows parenteral (data: SolutionRuleData[]) = data |> dedupedRows parenteral |> snd |> List.map Warning
 
 
     /// Whether a solution rule applies to a dose rule: the same generic and route, and the same form,
