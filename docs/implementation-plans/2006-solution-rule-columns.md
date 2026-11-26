@@ -36,9 +36,10 @@ follows where they differ from the issue:
   limits, MinDose, MaxDose, Diluents, AdjustUnit, Div, Volumes, the limits of the solution, ShelfLife, MinPh,
   MaxPh, CombY, NonCombY, Notes, PrepText and AdminText. SourceText is the text the rule is a translation of, so it
   does not identify the rule.
-- **RowId** is a hash of the fields of the RuleId with the dilution target of the row: the substance when the
-  row names one, otherwise the component, in lower case. That is the target an order looks up a dilution limit
-  by. The diluent rows are expanded to their diluents first, so a diluent row and a row for one of its diluents
+- **RowId** is a hash of the fields of the RuleId with the dilution target of the row: the kind of the target
+  with its name in lower case, the substance when the row names one, otherwise the component. That is the target
+  an order looks up a dilution limit by. The kind is in the hash, so a component and a substance with the same
+  name are two targets. The diluent rows are expanded to their diluents first, so a diluent row and a row for one of its diluents
   have the same target. The dilution limits of the row are left out, so two rows of a rule with the same target
   have the same RowId. `SolutionRule.dedupRowsByRowId` keeps the first of them with a dilution limit, so a rule
   has one dilution limit for each target, and the load gives a warning when their dilution limits differ.
@@ -128,7 +129,9 @@ work does not belong to this plan. The estimates count the shipped lines of the 
   `SolutionRule.map` starts with them and gives a rule the RuleId of its rows as its `Id`.
 - `SolutionRule.mixedAdjustUnits` groups the rows without the id. `SolutionRule.mixedSourceTexts` and
   `SolutionRule.duplicateRows` give their warnings through `Keys.ruleChecks`.
-- Tests: a test for each field of the rule and of the row that changes an id; the row numbers; the warnings.
+- Tests: a test for each field of the rule and of the row that changes an id; the row numbers; the warnings; two
+  rows of a rule for a component and a substance with the same name have different RowIds, and the dedup keeps
+  both.
 - Estimate: 190 to 230 lines. The hashes need every field of the row by name, so the step may go over 200 lines;
   the pull request says so.
 
