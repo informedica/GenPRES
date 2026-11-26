@@ -26,6 +26,27 @@ let drugNames names notice =
 let patient = PatientData.empty
 
 
+/// Two patients at different departments, for a reply that lands after the patient changed.
+let patientA = { PatientData.empty with Department = Some "ICK" }
+let patientB = { PatientData.empty with Department = Some "NEO" }
+
+
+/// The parenteralia the server answers for the patient, with markdown that names the department.
+let parenteraliaFor (patient: PatientData) =
+    { Parenteralia.empty with
+        PatientData = Some patient
+        Markdown = patient.Department |> Option.defaultValue ""
+    }
+
+
+/// The formulary the server answers for the patient, with markdown that names the department.
+let formularyFor (patient: PatientData) =
+    { Formulary.empty with
+        PatientData = Some patient
+        Markdown = patient.Department |> Option.defaultValue ""
+    }
+
+
 let filter generic = { OrderContext.empty.Filter with Generic = Some generic }
 
 
@@ -293,9 +314,23 @@ let tests =
 
                         let state =
                             state
-                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+                            |> transition (
+                                LoaderMsg.Landed(
+                                    Landing.Formulary(
+                                        None,
+                                        answered { Formulary.empty with PatientData = Some patient }
+                                    )
+                                )
+                            )
                             |> fst
-                            |> transition (LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty)))
+                            |> transition (
+                                LoaderMsg.Landed(
+                                    Landing.Parenteralia(
+                                        None,
+                                        answered { Parenteralia.empty with PatientData = Some patient }
+                                    )
+                                )
+                            )
                             |> fst
 
                         let _, effects = state |> transition (LoaderMsg.FormularyChanged form)
@@ -379,8 +414,18 @@ let tests =
                             run
                                 [
                                     LoaderMsg.PatientSet(Some patient)
-                                    LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty))
-                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty))
+                                    LoaderMsg.Landed(
+                                        Landing.Formulary(
+                                            None,
+                                            answered { Formulary.empty with PatientData = Some patient }
+                                        )
+                                    )
+                                    LoaderMsg.Landed(
+                                        Landing.Parenteralia(
+                                            None,
+                                            answered { Parenteralia.empty with PatientData = Some patient }
+                                        )
+                                    )
                                 ]
 
                         state
@@ -418,6 +463,75 @@ let tests =
                         |> Expect.equal
                             "the drug names and the formulary"
                             [ LoaderEffect.FetchDrugNames; LoaderEffect.FetchFormulary Formulary.empty ]
+                    }
+
+                    test "a parenteralia reply for the previous patient that lands last is ignored" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientB)))
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientA)))
+                                ]
+
+                        state.Parenteralia
+                        |> Expect.equal "the rules of patient B" (Resolved(parenteraliaFor patientB))
+                    }
+
+                    test "a parenteralia reply for the previous patient that lands first leaves the page loading" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientA)))
+                                ]
+
+                        effects |> Expect.isEmpty "no effect"
+
+                        state.Parenteralia
+                        |> isOut
+                        |> Expect.isTrue "the request for patient B is still out"
+                    }
+
+                    test "a formulary reply for the previous patient that lands last is ignored" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered (formularyFor patientB)))
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered (formularyFor patientA)))
+                                ]
+
+                        state.Formulary
+                        |> Expect.equal "the rules of patient B" (Resolved(formularyFor patientB))
+                    }
+
+                    test "a parenteralia reply for the current patient is set" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientB)))
+                                ]
+
+                        state.Parenteralia
+                        |> Expect.equal "the rules of patient B" (Resolved(parenteraliaFor patientB))
+                    }
+
+                    test "a parenteralia reply without a patient is set when there is no patient" {
+                        let par = { Parenteralia.empty with Markdown = "every patient" }
+
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Parenteralia
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered par))
+                                ]
+
+                        state.Parenteralia |> Expect.equal "the rules of every patient" (Resolved par)
                     }
                 ]
 
