@@ -1004,6 +1004,7 @@ module DoseRuleToDataTests =
                 "SolventVol"
                 "ExpansionVol"
                 "Solvent"
+                "ShelfLife"
                 "Notes"
             ]
 
@@ -1569,6 +1570,7 @@ module ReconstitutionTests =
             "SolventVol", "5"
             "ExpansionVol", "1"
             "Solvent", "NaCl 0,9%"
+            "ShelfLife", "1440"
             "Notes", "langzaam oplossen"
         ]
 
@@ -1580,6 +1582,9 @@ module ReconstitutionTests =
 
 
     let mL = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    let minutes = ValueUnit.singleWithUnit Units.Time.minute
 
 
     let tests =
@@ -1598,16 +1603,18 @@ module ReconstitutionTests =
                         r.SolventVolume |> Expect.equal "solvent volume" (5N |> mL)
                         r.ExpansionVolume |> Expect.equal "expansion volume" (1N |> mL |> Some)
                         r.Solvent |> Expect.equal "solvent" "NaCl 0,9%"
+                        r.ShelfLife |> Expect.equal "shelf life in minutes" (1440N |> minutes |> Some)
                         r.Notes |> Expect.equal "notes" (Some "langzaam oplossen")
                     | other -> failtest $"expected one row, got %A{other}"
                 }
 
-                test "empty age, weight, expansion volume and notes cells give None" {
+                test "empty age, weight, expansion volume, shelf life and notes cells give None" {
                     match [ "SolventVol", "5"; "Solvent", "NaCl 0,9%" ] |> parse with
                     | Ok [| r |] ->
                         [ r.MinAge; r.MaxAge; r.MinWeight; r.MaxWeight ]
                         |> Expect.allEqual "no limits" None
                         r.ExpansionVolume |> Expect.isNone "no expansion volume"
+                        r.ShelfLife |> Expect.isNone "no shelf life"
                         r.Notes |> Expect.isNone "no notes"
                     | other -> failtest $"expected one row, got %A{other}"
                 }
@@ -1624,6 +1631,12 @@ module ReconstitutionTests =
                     [ "0"; "-2" ]
                     |> List.map (fun vol -> ("SolventVol", vol) :: row |> parse)
                     |> Expect.equal "no rows" [ Ok [||]; Ok [||] ]
+                }
+
+                test "a shelf life of 0 stays 0 minutes" {
+                    match ("ShelfLife", "0") :: row |> parse with
+                    | Ok [| r |] -> r.ShelfLife |> Expect.equal "0 minutes" (0N |> minutes |> Some)
+                    | other -> failtest $"expected one row, got %A{other}"
                 }
             ]
 
@@ -4381,6 +4394,7 @@ module Tests =
                 SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
+                ShelfLife = None
                 Notes = None
             }
 
@@ -4583,6 +4597,7 @@ module Tests =
                 SolventVolume = 10N |> ValueUnit.singleWithUnit mL
                 ExpansionVolume = None
                 Solvent = "water"
+                ShelfLife = None
                 Notes = None
             }
 
@@ -7316,6 +7331,7 @@ module Tests =
                 SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
                 Solvent = "NaCl 0,9%"
+                ShelfLife = None
                 Notes = None
             }
 
@@ -9556,6 +9572,7 @@ module Tests =
                             SolventVolume = vol |> ValueUnit.singleWithUnit mL
                             ExpansionVolume = None
                             Solvent = "water"
+                            ShelfLife = None
                             Notes = None
                         }
                     |]

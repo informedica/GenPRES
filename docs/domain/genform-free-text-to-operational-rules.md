@@ -331,17 +331,18 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 
 ### Appendix D.2. Reconstitution Rule Model Table
 
-| Object   | Property     | Type      | Unit | Key | Description                                       |
-|----------|--------------|-----------|------|-----|---------------------------------------------------|
-| Generic  | GPK          | text      |      | yes | The unique Generic Product Identifier             |
-| Generic  | Generic      | text      |      |     | The generic medication name                       |
-| Generic  | Form         | text      |      |     | The pharmaceutical form of the generic medication |
-| Route    | Route        | text      |      | yes | The route                                         |
-| Setting  | Location     | text      |      | yes | Hospital / institute / organization               |
-| Setting  | Department   | text      |      | yes | The department                                    |
-| Solution | SolventVol   | float     | mL   |     | The volume of the solvent                         |
-| Solution | ExpansionVol | float     | mL   |     | The expansion volume                              |
-| Solution | Solvents     | text list |      |     | The possible solvents that can be used            |
+| Object   | Property     | Type      | Unit   | Key | Description                                       |
+|----------|--------------|-----------|--------|-----|---------------------------------------------------|
+| Generic  | GPK          | text      |        | yes | The unique Generic Product Identifier             |
+| Generic  | Generic      | text      |        |     | The generic medication name                       |
+| Generic  | Form         | text      |        |     | The pharmaceutical form of the generic medication |
+| Route    | Route        | text      |        | yes | The route                                         |
+| Setting  | Location     | text      |        | yes | Hospital / institute / organization               |
+| Setting  | Department   | text      |        | yes | The department                                    |
+| Solution | SolventVol   | float     | mL     |     | The volume of the solvent                         |
+| Solution | ExpansionVol | float     | mL     |     | The expansion volume                              |
+| Solution | Solvents     | text list |        |     | The possible solvents that can be used            |
+| Solution | ShelfLife    | float     | minute |     | The shelf life of the reconstituted product       |
 
 ### Appendix D.3. Solution Rule Model Table
 

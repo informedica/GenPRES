@@ -111,6 +111,7 @@ module Fixture =
                         SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                         ExpansionVolume = None
                         Solvent = solvent
+                        ShelfLife = None
                         Notes = None
                     }
                     |> Product.ProductReconstitution.create [||]

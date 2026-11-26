@@ -134,6 +134,8 @@ module Types =
             ExpansionVolume: ValueUnit option
             /// The solvent, the name of a product in the Formulary sheet.
             Solvent: string
+            /// The time the reconstituted product can be kept, in minutes; None when the cell is empty.
+            ShelfLife: ValueUnit option
             /// Free text about the reconstitution; None when the cell is empty.
             Notes: string option
         }
