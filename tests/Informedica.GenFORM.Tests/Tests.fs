@@ -15408,6 +15408,8 @@ module Tests =
 
     module SolutionRulePrintTests =
 
+        open Informedica.GenCore.Lib.Measures
+
         module Fixtures =
 
             let rule: SolutionRule =
@@ -15439,6 +15441,9 @@ module Tests =
 
 
             let mL v = v |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+            let minute v = v |> ValueUnit.singleWithUnit Units.Time.minute
 
 
             let withVolume v (r: SolutionRule) =
@@ -15575,6 +15580,148 @@ module Tests =
                             [
                                 "- **MEROPENEM 500MG:** los op in 10 mL water (iv · ICK, NEO · leeftijd 4 weken tot 1 jaar · gewicht 3 kg tot 10 kg)\n    - volumetoename: 0,5 mL\n    - voorzichtig zwenken"
                             ]
+                    }
+
+                    test "the sections come in the order of the work" {
+                        let md =
+                            [|
+                                { Fixtures.rule with
+                                    ShelfLife = Some(Fixtures.minute 1440N)
+                                    MinPh = Some 4.5m<pH>
+                                    MaxPh = Some 7m<pH>
+                                    SameLine = [| "morfine" |]
+                                    Notes = "tienvoudige verdunning"
+                                }
+                                |> Fixtures.withVolume 50N
+                            |]
+                            |> SolutionRule.Print.toMarkdown ""
+
+                        [
+                            "## Bereiden en toedienen"
+                            "## Houdbaarheid"
+                            "## pH"
+                            "## Via dezelfde lijn"
+                            "## Bijzonderheden"
+                        ]
+                        |> List.map md.IndexOf
+                        |> fun ixs -> ixs |> List.forall ((<=) 0) && ixs = List.sort ixs
+                        |> Expect.isTrue $"the sections in order in:\n%s{md}"
+                    }
+
+                    test "a value that is the same for every rule is given once" {
+                        [|
+                            { Fixtures.rule with ShelfLife = Some(Fixtures.minute 1440N) }
+                            { Fixtures.rule with
+                                ShelfLife = Some(Fixtures.minute 1440N)
+                                PatientCategory = { PatientCategory.empty with Department = Some "NEO" }
+                            }
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains "one line" "## Houdbaarheid na bereiding\n\n- 24 uur\n"
+                    }
+
+                    test "a value that differs between rules is given in the instruction of each rule" {
+                        [|
+                            { Fixtures.rule with
+                                ShelfLife = Some(Fixtures.minute 1440N)
+                                PatientCategory = { PatientCategory.empty with Department = Some "ICK" }
+                            }
+                            { Fixtures.rule with
+                                ShelfLife = Some(Fixtures.minute 90N)
+                                PatientCategory = { PatientCategory.empty with Department = Some "NEO" }
+                            }
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> fun md ->
+                            md
+                            |> Expect.stringContains
+                                "ICK"
+                                "### ICK\n\n- **Verdunnen:** onverdund toedienen\n- **Houdbaar na bereiding:** 24 uur"
+                            md
+                            |> Expect.stringContains
+                                "NEO"
+                                "### NEO\n\n- **Verdunnen:** onverdund toedienen\n- **Houdbaar na bereiding:** 90 minuten"
+                            md.Contains "## Houdbaarheid" |> Expect.isFalse "no section"
+                    }
+
+                    test "a shelf life of 0 minutes is given as it is" {
+                        Fixtures.minute 0N
+                        |> SolutionRule.Print.shelfLifeToString
+                        |> Expect.equal "0 minuten" "0 minuten"
+                    }
+
+
+                    test "the pH has a decimal comma" {
+                        { Fixtures.rule with
+                            MinPh = Some 4.5m<pH>
+                            MaxPh = Some 4.5m<pH>
+                        }
+                        |> SolutionRule.Print.phRange
+                        |> Expect.equal "one value" "4,5"
+                    }
+
+                    testList
+                        "the pH range"
+                        [
+                            for minPh, maxPh, expected in
+                                [
+                                    Some 4.5m<pH>, Some 7m<pH>, "4,5 - 7"
+                                    Some 4.5m<pH>, None, "vanaf 4,5"
+                                    None, Some 7m<pH>, "tot 7"
+                                ] do
+                                test $"is %s{expected}" {
+                                    { Fixtures.rule with
+                                        MinPh = minPh
+                                        MaxPh = maxPh
+                                    }
+                                    |> SolutionRule.Print.phRange
+                                    |> Expect.equal "the range" expected
+                                }
+                        ]
+
+                    test "the instruction gives the preparation text and the administration text" {
+                        [|
+                            { Fixtures.rule with
+                                PrepText = "oplossen in 10 mL"
+                                AdminText = "over 30 min"
+                            }
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains
+                            "the preparation first, the administration last"
+                            "- **Bereiden:** oplossen in 10 mL\n- **Verdunnen:** onverdund toedienen\n- **Toedienen:** over 30 min\n"
+                    }
+
+                    test "same line values that every rule gives are a section" {
+                        let r =
+                            { Fixtures.rule with
+                                SameLine = [| "morfine" |]
+                                NotSameLine = [| "amiodaron" |]
+                            }
+
+                        [|
+                            r
+                            { r with PatientCategory = { PatientCategory.empty with Department = Some "NEO" } }
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> Expect.stringContains
+                            "one section"
+                            "## Via dezelfde lijn\n\n- **Wel:** morfine\n- **Niet:** amiodaron\n"
+                    }
+
+                    test "same line values that differ between alternatives are given in each alternative" {
+                        [|
+                            { Fixtures.rule with SameLine = [| "morfine" |] } |> Fixtures.withVolume 50N
+                            { Fixtures.rule with NotSameLine = [| "morfine" |] } |> Fixtures.withVolume 100N
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> fun md ->
+                            md
+                            |> Expect.stringContains
+                                "the alternatives with their own line values"
+                                "- **Verdunnen:** in een volume van max. 50 mL\n- **Wel via dezelfde lijn:** morfine\n\n**of**\n\n- **Verdunnen:** in een volume van max. 100 mL\n- **Niet via dezelfde lijn:** morfine\n"
+
+                            md.Contains "## Via dezelfde lijn" |> Expect.isFalse "no section"
                     }
                 ]
 
