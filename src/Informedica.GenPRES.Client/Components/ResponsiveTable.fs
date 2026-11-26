@@ -671,10 +671,7 @@ module ResponsiveTable =
                         onRowClick={onRowClick}
                         hideFooter={not props.showFooter}
                         initialState =
-                            { {|
-                                  columns = {| columnVisibilityModel = {| id = false |} |}
-                                  density = "comfortable"
-                              |} }
+                            { {| columns = {| columnVisibilityModel = {| id = false |} |} |} }
                         columns=
                             {props.columns
                              |> Array.map (fun c ->
