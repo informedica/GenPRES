@@ -519,6 +519,14 @@ module DoseRuleData =
         $"the dose rule %s{d.Generic.Name} %s{d.Route} %s{d.Indication} (%s{d.Source}, %s{d.PatientText}, %s{d.ScheduleData.DoseType} %s{d.ScheduleData.DoseText})"
 
 
+    /// Returns a warning for each dose rule with a row that has IsAdult and an age; the rule gets the age range.
+    let adultRowsWithAge (data: DoseRuleData[]) =
+        data
+        |> Array.filter (fun d -> d.Patient.IsAdult && d.Patient |> DoseRule.marksAdults |> not)
+        |> Array.map (fun d -> $"%s{d |> describe} has IsAdult and an age; the age range is used")
+        |> Array.distinct
+
+
     /// Returns the substance of a row, or the component when the row has no substance.
     let rowName (l: DoseLimitData) =
         if l.Substance |> String.isNullOrWhiteSpace then

@@ -2298,27 +2298,6 @@ module DoseRuleRoundtripTests =
         ]
         |> String.concat "~"
 
-    let private patKey (p: PatientCategoryData) =
-        let minAge, maxAge = if p.IsAdult then "", "" else brStr p.MinAge, brStr p.MaxAge
-
-        [
-            p.Location
-            p.Dep
-            string p.IsAdult
-            $"%A{p.Gender}"
-            minAge
-            maxAge
-            brStr p.MinWeight
-            brStr p.MaxWeight
-            brStr p.MinBSA
-            brStr p.MaxBSA
-            brStr p.MinGestAge
-            brStr p.MaxGestAge
-            brStr p.MinPMAge
-            brStr p.MaxPMAge
-        ]
-        |> String.concat "~"
-
     let private limTok (lim: Limit option) = lim |> Option.map Limit.toToken
 
     let private doseLeaves (d: DoseRuleData) : Map<string, string> =
@@ -2384,7 +2363,7 @@ module DoseRuleRoundtripTests =
             d.PatientText
             d.ScheduleText
             genKey d.Generic
-            patKey d.Patient
+            Analyze.patKey d.Patient
             d.ScheduleData.DoseType |> String.toLower
             d.ScheduleData.DoseText
             d.ScheduleData.DoseLimitData.Component
@@ -2468,6 +2447,81 @@ module DoseRuleRoundtripTests =
                 test "PASS 2 is a 100% containment fixpoint" {
                     (missing g1.Value g2.Value).Length
                     |> Expect.equal "PASS 2 missing (every input contained)" 0
+                }
+            ]
+
+
+/// A dose rule row with IsAdult and an age gets the age range, with a warning.
+module AdultAgeTests =
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenForm.Lib
+
+    module Fixtures = DoseRuleProductTests
+
+
+    let adult = { Fixtures.emptyPat with IsAdult = true }
+
+    /// 65 years in days.
+    let adult65 = { adult with MinAge = Some 23725N }
+
+
+    let ageRange minAge =
+        (Some minAge, None)
+        |> DoseRule.fromTupleInclExcl (Some Utils.Units.day)
+        |> AbsoluteAge
+
+
+    /// A paracetamol row with the patient columns p.
+    let row p =
+        { Fixtures.mkData "paracetamol" "ORAAL" "" "" [||] [||] with Patient = p }
+
+
+    let tests =
+        testList
+            "a dose rule for adults with an age"
+            [
+                test "a row with IsAdult and no age is a rule for adults" {
+                    (adult |> DoseRule.patientCategory).Age |> Expect.equal "adults" IsAdult
+                }
+
+                test "a row with IsAdult and a minimum age of 65 years gets the age range" {
+                    (adult65 |> DoseRule.patientCategory).Age
+                    |> Expect.equal "from 65 years" (ageRange 23725N)
+                }
+
+                test "a row with IsAdult and a maximum age gets the age range" {
+                    ({ adult with MaxAge = Some 23725N } |> DoseRule.patientCategory).Age
+                    |> Expect.notEqual "not adults" IsAdult
+                }
+
+                test "a row without IsAdult keeps its age range" {
+                    ({ Fixtures.emptyPat with MinAge = Some 23725N } |> DoseRule.patientCategory).Age
+                    |> Expect.equal "from 65 years" (ageRange 23725N)
+                }
+
+                test "a row with IsAdult and an age gives one warning" {
+                    [| row adult65; row adult65; row adult; row Fixtures.emptyPat |]
+                    |> DoseRuleData.adultRowsWithAge
+                    |> Array.length
+                    |> Expect.equal "one warning" 1
+                }
+
+                test "the export key of a row is the key of the row the rule maps back to" {
+                    for p in
+                        [
+                            adult
+                            adult65
+                            Fixtures.emptyPat
+                            { Fixtures.emptyPat with MinAge = Some 23725N }
+                        ] do
+                        p
+                        |> DoseRule.patientCategory
+                        |> DoseRule.reversePatient
+                        |> Analyze.patKey
+                        |> Expect.equal $"%A{p.IsAdult}, %A{p.MinAge}" (Analyze.patKey p)
                 }
             ]
 
@@ -15778,6 +15832,7 @@ module Tests =
                 ProductNameTests.tests
                 VirtualProductTests.tests
                 DoseRuleRoundtripTests.tests
+                AdultAgeTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
                 DoseRulePrintTests.tests

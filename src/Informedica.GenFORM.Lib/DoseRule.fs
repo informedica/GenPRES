@@ -590,6 +590,36 @@ module DoseRule =
         )
 
 
+    /// Whether the patient data mark a dose rule for adults: IsAdult is set and there is no minimum and no
+    /// maximum age. Patient data with IsAdult and an age give the age range instead.
+    let marksAdults (p: PatientCategoryData) =
+        p.IsAdult && p.MinAge |> Option.isNone && p.MaxAge |> Option.isNone
+
+
+    /// Maps the patient data of a dose rule to its patient category.
+    let patientCategory (p: PatientCategoryData) =
+        let cat = PatientCategory.ofAgeAndWeight p.MinAge p.MaxAge p.MinWeight p.MaxWeight
+
+        { cat with
+            Location =
+                if p.Location |> String.isNullOrWhiteSpace then
+                    None
+                else
+                    p.Location |> Some
+
+            Department =
+                if p.Dep |> String.isNullOrWhiteSpace then
+                    None
+                else
+                    p.Dep |> Some
+            Gender = p.Gender
+            Age = if p |> marksAdults then IsAdult else cat.Age
+            BSA = (p.MinBSA, p.MaxBSA) |> fromTupleInclExcl (Some Utils.Units.bsaM2)
+            GestAge = (p.MinGestAge, p.MaxGestAge) |> fromTupleInclExcl (Some Utils.Units.day)
+            PMAge = (p.MinPMAge, p.MaxPMAge) |> fromTupleInclExcl (Some Utils.Units.day)
+        }
+
+
     let mapToDoseRule (grp: GroupedRuleData) =
         let identifySource s =
             match s with
@@ -649,28 +679,7 @@ module DoseRule =
                     Route = r.Route
                     ScheduleText = r.ScheduleText
                     PatientText = r.PatientText
-                    PatientCategory =
-                        let p = r.Patient
-                        let cat = PatientCategory.ofAgeAndWeight p.MinAge p.MaxAge p.MinWeight p.MaxWeight
-
-                        { cat with
-                            Location =
-                                if p.Location |> String.isNullOrWhiteSpace then
-                                    None
-                                else
-                                    p.Location |> Some
-
-                            Department =
-                                if p.Dep |> String.isNullOrWhiteSpace then
-                                    None
-                                else
-                                    p.Dep |> Some
-                            Gender = p.Gender
-                            Age = if p.IsAdult then IsAdult else cat.Age
-                            BSA = (p.MinBSA, p.MaxBSA) |> fromTupleInclExcl (Some Utils.Units.bsaM2)
-                            GestAge = (p.MinGestAge, p.MaxGestAge) |> fromTupleInclExcl (Some Utils.Units.day)
-                            PMAge = (p.MinPMAge, p.MaxPMAge) |> fromTupleInclExcl (Some Utils.Units.day)
-                        }
+                    PatientCategory = r.Patient |> patientCategory
                     DoseType = r.ScheduleData.DoseText |> DoseType.fromString r.ScheduleData.DoseType
                     AdjustUnit = r.ScheduleData.AdjustUnit |> Units.adjustUnit
                     Frequencies =
