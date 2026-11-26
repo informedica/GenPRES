@@ -15692,19 +15692,36 @@ module Tests =
                             "- **Bereiden:** oplossen in 10 mL\n- **Verdunnen:** onverdund toedienen\n- **Toedienen:** over 30 min\n"
                     }
 
-                    test "the same line values that differ between rules are given with their conditions" {
-                        [|
-                            { Fixtures.rule with SameLine = [| "morfine" |] }
+                    test "same line values that every rule gives are a section" {
+                        let r =
                             { Fixtures.rule with
-                                PatientCategory = { PatientCategory.empty with Department = Some "NEO" }
-                                SameLine = [| "heparine" |]
+                                SameLine = [| "morfine" |]
                                 NotSameLine = [| "amiodaron" |]
                             }
+
+                        [|
+                            r
+                            { r with PatientCategory = { PatientCategory.empty with Department = Some "NEO" } }
                         |]
                         |> SolutionRule.Print.toMarkdown ""
                         |> Expect.stringContains
-                            "a line per value with its conditions"
-                            "## Via dezelfde lijn\n\n- **Wel** (alle patiënten): morfine\n- **Wel** (NEO): heparine\n- **Niet** (NEO): amiodaron\n"
+                            "one section"
+                            "## Via dezelfde lijn\n\n- **Wel:** morfine\n- **Niet:** amiodaron\n"
+                    }
+
+                    test "same line values that differ between alternatives are given in each alternative" {
+                        [|
+                            { Fixtures.rule with SameLine = [| "morfine" |] } |> Fixtures.withVolume 50N
+                            { Fixtures.rule with NotSameLine = [| "morfine" |] } |> Fixtures.withVolume 100N
+                        |]
+                        |> SolutionRule.Print.toMarkdown ""
+                        |> fun md ->
+                            md
+                            |> Expect.stringContains
+                                "the alternatives with their own line values"
+                                "- **Verdunnen:** in een volume van max. 50 mL\n- **Wel via dezelfde lijn:** morfine\n\n**of**\n\n- **Verdunnen:** in een volume van max. 100 mL\n- **Niet via dezelfde lijn:** morfine\n"
+
+                            md.Contains "## Via dezelfde lijn" |> Expect.isFalse "no section"
                     }
                 ]
 

@@ -92,7 +92,7 @@ new columns. The numbers in the text are the numbers of the rules; only the layo
 - `instruction` gives the preparation text and the administration text of a rule, and the extra lines for a
   value that differs between rules.
 - `genericToMarkdown` gets the sections Houdbaarheid na bereiding, pH, Via dezelfde lijn and Bijzonderheden,
-  with `shelfLifeToString`, `phToString`, `phRange`, `valueLines` and `valueItem`.
+  with `shelfLifeToString`, `phToString` and `phRange`.
 - Tests: the sections in the order of the work; a value the same for every rule given once; a value that
   differs given in the instruction of each rule; a shelf life of 0 minutes; the pH with a decimal comma.
 - Estimate: about 130 lines.

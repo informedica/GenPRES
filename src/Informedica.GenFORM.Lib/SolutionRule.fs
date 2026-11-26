@@ -1603,47 +1603,6 @@ module SolutionRule =
             | _ -> $"## %s{heading}\n\n" + (lines |> String.concat "\n") + "\n"
 
 
-        /// Returns the lines of a section for a value of the rules. When every rule gives the same value, toLine
-        /// gets an empty condition and the value. Otherwise toLine gets, for each distinct value, the conditions
-        /// of the rules with that value, separated by semicolons. Rules without the value are left out, and no
-        /// rule with the value gives no lines.
-        let valueLines toLine (cond: SolutionRule -> string) value (rules: SolutionRule[]) =
-            let withValue =
-                rules
-                |> Array.map (fun r -> r, r |> value)
-                |> Array.filter (snd >> String.notEmpty)
-
-            match withValue |> Array.map snd |> Array.distinct with
-            | [||] -> []
-            | [| v |] when withValue.Length = rules.Length -> [ v |> toLine "" ]
-            | values ->
-                values
-                |> Array.toList
-                |> List.map (fun v ->
-                    let conds =
-                        withValue
-                        |> Array.filter (snd >> (=) v)
-                        |> Array.map (fst >> cond)
-                        |> Array.map (fun c ->
-                            if c |> String.isNullOrWhiteSpace then
-                                "alle patiënten"
-                            else
-                                c
-                        )
-                        |> Array.distinct
-                        |> String.concat "; "
-
-                    v |> toLine conds
-                )
-
-
-        /// Returns a list item with a label and a value, with the conditions after the label when they are given.
-        let valueItem label conds value =
-            match conds with
-            | "" -> $"- **%s{label}:** %s{value}"
-            | c -> $"- **%s{label}** (%s{c}): %s{value}"
-
-
         /// Formats a shelf life in minutes as Dutch text: whole hours as hours, otherwise minutes.
         let shelfLifeToString vu =
             match vu |> ValueUnit.getValue |> Array.tryHead with
@@ -1804,8 +1763,17 @@ module SolutionRule =
                 |> Option.defaultValue []
                 |> section heading
 
+            let sameLine (r: SolutionRule) = r.SameLine |> String.concat ", "
+            let notSameLine (r: SolutionRule) = r.NotSameLine |> String.concat ", "
+
             let perRule =
-                [ "Houdbaar na bereiding", shelfLife; "pH", phRange; "Let op", _.Notes ]
+                [
+                    "Houdbaar na bereiding", shelfLife
+                    "pH", phRange
+                    "Wel via dezelfde lijn", sameLine
+                    "Niet via dezelfde lijn", notSameLine
+                    "Let op", _.Notes
+                ]
                 |> List.filter (snd >> uniformValue >> Option.isNone)
 
             // Rules with the same condition are alternatives, for example for another quantity, and share one
@@ -1848,12 +1816,10 @@ module SolutionRule =
                     "## Bereiden en toedienen\n\n" + (instructions |> String.concat "\n")
                 uniformSection "Houdbaarheid na bereiding" shelfLife
                 uniformSection "pH" phRange
-                [
-                    yield! rules |> valueLines (valueItem "Wel") cond (_.SameLine >> String.concat ", ")
-                    yield!
-                        rules
-                        |> valueLines (valueItem "Niet") cond (_.NotSameLine >> String.concat ", ")
-                ]
+                [ "Wel", sameLine; "Niet", notSameLine ]
+                |> List.choose (fun (label, value) ->
+                    value |> uniformValue |> Option.map (fun v -> $"- **%s{label}:** %s{v}")
+                )
                 |> section "Via dezelfde lijn"
                 uniformSection "Bijzonderheden" _.Notes
             ]
