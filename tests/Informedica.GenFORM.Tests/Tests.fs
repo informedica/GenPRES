@@ -14289,6 +14289,26 @@ module Tests =
                                         |> Expect.equal "the row with the limit and no warning" ([| Some 1N |], [])
                                     }
 
+                                    test "gives the row it keeps the source text of the first row" {
+                                        [|
+                                            { row with
+                                                MinConc = None
+                                                MaxConc = None
+                                                SourceText = "bron"
+                                            }
+                                            { row with
+                                                MaxConc = Some 1N
+                                                SourceText = "andere bron"
+                                            }
+                                        |]
+                                        |> dedup
+                                        |> fst
+                                        |> Array.map (fun r -> r.MaxConc, r.SourceText)
+                                        |> Expect.equal
+                                            "the limit of the second row, the text of the first"
+                                            [| Some 1N, "bron" |]
+                                    }
+
                                     test "keeps rows of another rule" {
                                         [|
                                             row

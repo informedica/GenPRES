@@ -314,7 +314,8 @@ module SolutionRule =
 
 
     /// Removes rows with the same RowId, that is the same rule and dilution target, and keeps the first row with a
-    /// dilution limit, or the first row when no row has one. Returns a warning for each RowId whose rows have
+    /// dilution limit, or the first row when no row has one. The row that is kept gets the source text of the first
+    /// row, so a rule keeps the source text of its first row. Returns a warning for each RowId whose rows have
     /// different dilution limits. The rows keep their order.
     let dedupRowsByRowId (rows: SolutionRuleData[]) =
         let limits (r: SolutionRuleData) =
@@ -326,20 +327,27 @@ module SolutionRule =
             groups
             |> Array.choose (fun (_, grp) ->
                 let n = grp |> Array.filter hasDilutionLimit |> Array.distinctBy limits |> Array.length
-                let r = grp[0]
 
-                if n > 1 then
+                grp
+                |> Array.tryHead
+                |> Option.filter (fun _ -> n > 1)
+                |> Option.map (fun r ->
                     $"solution rule %s{r.Generic}, %s{r.Route}: %i{n} rows with different dilution limits for "
                     + $"component '%s{r.Component}' substance '%s{r.Substance}', the first row is used"
-                    |> Some
-                else
-                    None
+                )
             )
             |> Array.toList
 
         let kept =
             groups
-            |> Array.map (fun (_, grp) -> grp |> Array.tryFind hasDilutionLimit |> Option.defaultValue grp[0])
+            |> Array.choose (fun (_, grp) ->
+                grp
+                |> Array.tryHead
+                |> Option.map (fun first ->
+                    let r = grp |> Array.tryFind hasDilutionLimit |> Option.defaultValue first
+                    { r with SourceText = first.SourceText }
+                )
+            )
 
         kept, warns
 
