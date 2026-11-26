@@ -1,5 +1,5 @@
 ---
-last_commit_released: a3b03aea9bdc702d25c15a9c8f77147d96f4c842
+last_commit_released: 17fb10a481758cb0e3346ccf101e5e71ee622b20
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,36 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.61 - 2026-11-26
+
+### 🚀 Features
+
+* *(genform)* Read the solution rule value columns ([ea09788b](https://github.com/informedica/GenPRES/commit/ea09788b0d4b29df7de974e1c8d67c11ed478f55))
+* *(genform)* Give a solution rule its ids ([3bfd6aeb](https://github.com/informedica/GenPRES/commit/3bfd6aeb618822e8120c6fed1ff15a2865a8832e))
+* *(genform)* Narrow solution rule products by GPKs and HPKs ([e76bd473](https://github.com/informedica/GenPRES/commit/e76bd47380c7a8256885ea4c55b492c88749063e))
+* *(genform)* Export the solution rules as TSV ([6fe82e5c](https://github.com/informedica/GenPRES/commit/6fe82e5cc9a7208923813e1018b0cf4231b91250))
+* *(genform)* Lay out solution rules as preparation steps ([d9cee130](https://github.com/informedica/GenPRES/commit/d9cee130c4a62b1554b1150a93af2c541d622743))
+* *(genform)* Show shelf life, pH and line notes ([b9093cb6](https://github.com/informedica/GenPRES/commit/b9093cb6322f66a70c77d16a5a6d34606455df95))
+* *(genform)* Read the reconstitution shelf life ([b8d379e6](https://github.com/informedica/GenPRES/commit/b8d379e6f1797df40575a908cc1c3bcbc50a70cc))
+* *(genform)* Show the predilution rules in the parenteralia ([8894226f](https://github.com/informedica/GenPRES/commit/8894226f850fc3f4b0c303b7a152c59674879bb0))
+* *(ui)* Style the parenteralia headings and lists ([6daf7298](https://github.com/informedica/GenPRES/commit/6daf7298ec3b67caeb9af78682381bb7712dc697))
+* *(ui)* Filter the parenteralia by the patient ([c5a72564](https://github.com/informedica/GenPRES/commit/c5a725646f7d02b402361359c4f5fad08f904119))
+* *(ui)* Open every table in the default density ([4c929abb](https://github.com/informedica/GenPRES/commit/4c929abbaa6aefbe68a7ccd4472c1265f6cb6932))
+
+### 🐞 Bug Fixes
+
+* *(client)* Ignore a page reply for another patient ([fa5e1b63](https://github.com/informedica/GenPRES/commit/fa5e1b6323a9ad23e29be5f3a4b3e70c8da7b67d))
+* *(genform)* Ignore the source text in the row checks ([1b55ff1c](https://github.com/informedica/GenPRES/commit/1b55ff1c616354976d9a197907f4dcd4fc1778ec))
+* *(genform)* Keep the first source text of a solution rule ([ca2f6a85](https://github.com/informedica/GenPRES/commit/ca2f6a851cf2c6cc2a9c69b037b02348c1f40050))
+* *(genform)* Check solution rule HPKs on the G-Standaard ([8d133688](https://github.com/informedica/GenPRES/commit/8d13368890460a077d7496358a571db513b28e37))
+* *(genform)* Name the dilution target of a combination ([eb156923](https://github.com/informedica/GenPRES/commit/eb1569235a3a41cdd61d5064a1f16cac7472bf3e))
+* *(genform)* Give line advice per preparation ([6ed66628](https://github.com/informedica/GenPRES/commit/6ed66628d71ebd1d1d2dbcafa4502a282d88ff82))
+* *(genform)* Keep the age of a dose rule for adults ([adb90679](https://github.com/informedica/GenPRES/commit/adb90679ce2acc983234452e391706ac52999930))
+* *(genform)* Warn once per adult dose rule with an age ([b2e52213](https://github.com/informedica/GenPRES/commit/b2e5221353309a060da9088a4e1109e0b7520e3b))
+* *(genform)* Select predilution rules by department ([350deab8](https://github.com/informedica/GenPRES/commit/350deab8c5881eee77b7ad199f191071996a9665))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/a3b03aea9bdc702d25c15a9c8f77147d96f4c842..17fb10a481758cb0e3346ccf101e5e71ee622b20)</small></strong>
 
 ## 0.1.2-alpha.60 - 2026-11-24
 
