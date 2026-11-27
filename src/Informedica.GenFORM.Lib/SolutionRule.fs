@@ -922,6 +922,14 @@ module SolutionRule =
     let forDoseRule dr solRules = solRules |> Array.filter (adjustUnitsMatch dr)
 
 
+    /// Whether the solution rule applies to one of the products. A rule without GPKs and HPKs applies to all
+    /// products. A rule with GPKs needs a product with one of the GPKs, and a rule with HPKs needs a product with a
+    /// trade product with one of the HPKs; a rule with both needs a product that meets both.
+    let appliesToProducts products (solRule: SolutionRule) =
+        (solRule.GPKs |> Array.isEmpty && solRule.HPKs |> Array.isEmpty)
+        || products |> Product.narrow "" solRule.GPKs solRule.HPKs |> Array.isEmpty |> not
+
+
     /// One warning per dose rule and solution rule that apply to each other and can meet the same patient, but
     /// whose adjust units differ, so the solution rule does not apply to the dose rule.
     let adjustUnitMismatches routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =

@@ -16087,6 +16087,93 @@ module Tests =
                 ]
 
 
+    module SolutionRuleProductTests =
+
+        /// A morfine injection of GPK 148881 with the trade product 1001.
+        let injection =
+            { ProductFilterTests.baseProd with
+                GPK = "148881"
+                Generic = "morfine"
+                Form = "injectievloeistof"
+                TradeProducts = [ ProductFilterTests.trade "1001" "" [] ]
+            }
+
+
+        /// A morfine infusion of GPK 134538 with the trade product 2001.
+        let infusion =
+            { injection with
+                GPK = "134538"
+                Form = "infusievloeistof"
+                TradeProducts = [ ProductFilterTests.trade "2001" "" [] ]
+            }
+
+
+        /// A solution rule with the GPKs and the HPKs.
+        let rule gpks hpks =
+            { SolutionRuleFilterTests.rule "any" PatientCategory.empty with
+                GPKs = gpks
+                HPKs = hpks
+            }
+
+
+        let tests =
+            testList
+                "SolutionRule.appliesToProducts"
+                [
+                    test "a rule without GPKs and HPKs applies to every product" {
+                        rule [||] [||]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule without GPKs and HPKs applies to a dose rule without products" {
+                        rule [||] [||] |> SolutionRule.appliesToProducts [||] |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs applies to a product with one of the GPKs" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs does not apply to a product with another GPK" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with GPKs applies when one of several products has one of the GPKs" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| infusion; injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs does not apply to a dose rule without products" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [||]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with HPKs applies to a product with a trade product with one of the HPKs" {
+                        rule [||] [| "1001" |]
+                        |> SolutionRule.appliesToProducts [| injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with HPKs does not apply to a product without a trade product with one of the HPKs" {
+                        rule [||] [| "1001" |]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with GPKs and HPKs needs a product with one of the GPKs and one of the HPKs" {
+                        rule [| "148881" |] [| "2001" |]
+                        |> SolutionRule.appliesToProducts [| injection; infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -16149,4 +16236,5 @@ module Tests =
                 SolutionRuleAdjustUnitCheckTests.tests
                 SolutionRulePrintTests.tests
                 SolutionRulePredilutionFilterTests.tests
+                SolutionRuleProductTests.tests
             ]
