@@ -28,6 +28,7 @@
     <Compile Include="Models/OrderDisplayTests.fs" />
     <Compile Include="Models/OrderContextTextTests.fs" />
     <Compile Include="Models/TextBlockParserTests.fs" />
+    <Compile Include="Models/TotalsDisplayTests.fs" />
 
     <!-- policies over the contract -->
     <Compile Include="Policies/LanguagePolicyTests.fs" />

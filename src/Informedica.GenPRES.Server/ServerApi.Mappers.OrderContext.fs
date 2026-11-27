@@ -248,60 +248,54 @@ module OrderContextMapper =
             }
 
 
-    /// Maps the totals to the Dto, each line as a valid text block. An empty line gives None.
+    /// Maps the totals to the Dto, each total as its text block.
     let totals (t: Totals) : TotalsDto.Dto =
-        let line (items: TextItem[]) =
-            if items |> Array.isEmpty then
-                None
-            else
-                Some(Valid items |> textBlock)
+        let block = Option.map textBlock
 
         {
-            Volume = t.Volume |> line
-            Energy = t.Energy |> line
-            Protein = t.Protein |> line
-            Carbohydrate = t.Carbohydrate |> line
-            Fat = t.Fat |> line
-            Sodium = t.Sodium |> line
-            Potassium = t.Potassium |> line
-            Chloride = t.Chloride |> line
-            Calcium = t.Calcium |> line
-            Phosphate = t.Phosphate |> line
-            Magnesium = t.Magnesium |> line
-            Iron = t.Iron |> line
-            VitaminD = t.VitaminD |> line
-            Ethanol = t.Ethanol |> line
-            Propyleenglycol = t.Propyleenglycol |> line
-            BenzylAlcohol = t.BenzylAlcohol |> line
-            BoricAcid = t.BoricAcid |> line
+            Volume = t.Volume |> block
+            Energy = t.Energy |> block
+            Protein = t.Protein |> block
+            Carbohydrate = t.Carbohydrate |> block
+            Fat = t.Fat |> block
+            Sodium = t.Sodium |> block
+            Potassium = t.Potassium |> block
+            Chloride = t.Chloride |> block
+            Calcium = t.Calcium |> block
+            Phosphate = t.Phosphate |> block
+            Magnesium = t.Magnesium |> block
+            Iron = t.Iron |> block
+            VitaminD = t.VitaminD |> block
+            Ethanol = t.Ethanol |> block
+            Propyleenglycol = t.Propyleenglycol |> block
+            BenzylAlcohol = t.BenzylAlcohol |> block
+            BoricAcid = t.BoricAcid |> block
         }
 
 
-    /// Maps the totals Dto to the totals, each line as the text items of its block. The kind of the block is
-    /// dropped until the client shows it (#2050).
+    /// Maps the totals Dto to the totals, each total as its text block. Throws InvalidOperationException for a
+    /// block of an unknown kind, as textBlockBack does.
     let totalsBack (dto: TotalsDto.Dto) : Totals =
-        let line =
-            Option.map (fun (b: TextBlockDto.Dto) -> b.Text |> Mappers.parseTextItem)
-            >> Option.defaultValue [||]
+        let block = Option.map textBlockBack
 
         {
-            Volume = dto.Volume |> line
-            Energy = dto.Energy |> line
-            Protein = dto.Protein |> line
-            Carbohydrate = dto.Carbohydrate |> line
-            Fat = dto.Fat |> line
-            Sodium = dto.Sodium |> line
-            Potassium = dto.Potassium |> line
-            Chloride = dto.Chloride |> line
-            Calcium = dto.Calcium |> line
-            Phosphate = dto.Phosphate |> line
-            Magnesium = dto.Magnesium |> line
-            Iron = dto.Iron |> line
-            VitaminD = dto.VitaminD |> line
-            Ethanol = dto.Ethanol |> line
-            Propyleenglycol = dto.Propyleenglycol |> line
-            BenzylAlcohol = dto.BenzylAlcohol |> line
-            BoricAcid = dto.BoricAcid |> line
+            Volume = dto.Volume |> block
+            Energy = dto.Energy |> block
+            Protein = dto.Protein |> block
+            Carbohydrate = dto.Carbohydrate |> block
+            Fat = dto.Fat |> block
+            Sodium = dto.Sodium |> block
+            Potassium = dto.Potassium |> block
+            Chloride = dto.Chloride |> block
+            Calcium = dto.Calcium |> block
+            Phosphate = dto.Phosphate |> block
+            Magnesium = dto.Magnesium |> block
+            Iron = dto.Iron |> block
+            VitaminD = dto.VitaminD |> block
+            Ethanol = dto.Ethanol |> block
+            Propyleenglycol = dto.Propyleenglycol |> block
+            BenzylAlcohol = dto.BenzylAlcohol |> block
+            BoricAcid = dto.BoricAcid |> block
         }
 
 

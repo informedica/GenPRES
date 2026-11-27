@@ -56,19 +56,20 @@ module Totals =
     let private noFlashSx = {| |}
 
 
-    let private typoGraphy (items: TextItem[]) =
+    // the text in the colour of a severity, or in the colours of the table when there is none
+    let private typoGraphy color (items: TextItem[]) =
         let variant = "body2"
 
         let normalSx =
             {|
                 display = "inline"
-                color = Mui.Colors.Grey.``700``
+                color = color |> Option.defaultValue Mui.Colors.Grey.``700``
             |}
 
         let boldSx =
             {|
                 display = "inline"
-                color = Mui.Colors.BlueGrey.``700``
+                color = color |> Option.defaultValue Mui.Colors.BlueGrey.``700``
             |}
 
         let boxSx = {| display = "inline" |}
@@ -172,6 +173,8 @@ module Totals =
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
                 let items = TotalsDisplay.substanceToField totals name
+                // a total outside its target range shows its value in the colour of its severity
+                let color = TotalsDisplay.substanceSeverity totals name |> Mui.Styles.severityColor
                 let isChanged = flash.names |> Set.contains name
 
                 {|
@@ -180,11 +183,11 @@ module Totals =
                     key = if isChanged then $"%s{name}-%i{flash.revision}" else name
                     cells =
                         [|
-                            [| Normal name |] |> typoGraphy |> cell noFlashSx
+                            [| Normal name |] |> typoGraphy None |> cell noFlashSx
                             items[0 .. (items.Length - 2)]
-                            |> typoGraphy
+                            |> typoGraphy color
                             |> cell (if isChanged then flashSx else box noFlashSx)
-                            [| items |> Array.last |] |> typoGraphy |> cell noFlashSx
+                            [| items |> Array.last |] |> typoGraphy None |> cell noFlashSx
                         |]
                 |}
             )

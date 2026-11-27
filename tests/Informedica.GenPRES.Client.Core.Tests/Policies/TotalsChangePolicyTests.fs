@@ -13,7 +13,7 @@ module TotalsChangePolicyTests =
     open Informedica.GenPRES.Shared.Models
 
 
-    let value s unit = [| Bold s; Normal unit |]
+    let value s unit = Some(Valid [| Bold s; Normal unit |])
 
 
     let totals =
@@ -49,13 +49,19 @@ module TotalsChangePolicyTests =
                         }
 
                         test "an item that disappears is not listed" {
-                            { totals with Sodium = [||] }
+                            { totals with Sodium = None }
                             |> TotalsChangePolicy.changedItems totals
                             |> Expect.isEmpty "should be empty"
                         }
 
                         test "an item that is not shown is not listed" {
-                            { totals with Volume = [| Normal "ml/kg/dag" |] }
+                            { totals with Volume = Some(Valid [| Normal "ml/kg/dag" |]) }
+                            |> TotalsChangePolicy.changedItems totals
+                            |> Expect.isEmpty "should be empty"
+                        }
+
+                        test "a change of the severity alone is not listed" {
+                            { totals with Sodium = Some(Warning [| Bold "3"; Normal "mmol/kg/dag" |]) }
                             |> TotalsChangePolicy.changedItems totals
                             |> Expect.isEmpty "should be empty"
                         }

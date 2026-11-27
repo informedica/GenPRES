@@ -73,8 +73,8 @@ let context: OrderContext =
         Scenarios = [| scenario |]
         Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
-                Volume = [| Normal "100 ml" |]
-                Energy = [| Bold "50 kcal"; Normal "/dag" |]
+                Volume = Some(Valid [| Normal "100 ml" |])
+                Energy = Some(Valid [| Bold "50 kcal"; Normal "/dag" |])
             }
     }
 
@@ -788,4 +788,41 @@ let textBlockTests =
                     fun () -> dto |> OrderContextMapper.textBlockBack |> ignore
                     |> Expect.throwsT<System.InvalidOperationException> "an unknown kind"
                 }
+        ]
+
+
+[<Tests>]
+let totalsTests =
+    let empty = Informedica.GenPRES.Shared.Models.Totals.empty
+
+    testList
+        "the totals mapper"
+        [
+            test "a Warning block of GenORDER reaches the contract as a Warning block" {
+                { Totals.empty with Volume = Some(Types.Warning "#142# ml/kg/dag (120 - 150)") }
+                |> Totals.Dto.toDto
+                |> OrderContextMapper.totalsBack
+                |> _.Volume
+                |> Expect.equal "a warning" (Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]))
+            }
+
+            test "the totals round trip through the Dto with their kind" {
+                let t =
+                    { empty with
+                        Volume = Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |])
+                        Energy = Some(Valid [| Bold "80"; Normal " kCal/kg/dag" |])
+                    }
+
+                t
+                |> OrderContextMapper.totals
+                |> OrderContextMapper.totalsBack
+                |> Expect.equal "the same" t
+            }
+
+            test "a total that is not there stays None both ways" {
+                empty
+                |> OrderContextMapper.totals
+                |> OrderContextMapper.totalsBack
+                |> Expect.equal "empty" empty
+            }
         ]
