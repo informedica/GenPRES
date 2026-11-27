@@ -1,6 +1,6 @@
-/// The patient command: a patient change answered with the patient made complete, through
-/// Compute.bound as the composition root wires it. An identified patient gets the Session's age,
-/// an anonymous one keeps the client's; both get the weight and height they lack estimated.
+/// The patient command: a patient data update answered with the patient made complete, through
+/// Compute.bound as the composition root wires it. The patient gets the weight and height it
+/// lacks estimated.
 module Informedica.GenPRES.Server.Tests.PatientCommandTests
 
 open Expecto
@@ -11,42 +11,35 @@ open ServerApi
 open Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 
-/// The answer to a patient change in the Session named, with the normal values given, and the
-/// patients the Session was told.
-let changed normalValues (sid: string option) (pat: Patient) =
-    let told = ResizeArray()
-    let port = portOver (fun () -> today) (ResizeArray())
+/// The answer to a patient data update in the Session named, with the resources given.
+let changed resources (sid: string option) (pat: PatientData) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
-    let port =
-        { port with
-            seen =
-                fun sid opened draft ->
-                    told.Add draft
-                    port.seen sid opened draft
+    Compute.bound
+        env
+        (cookieOf sid)
+        PatientDataCommand.toString
+        PatientDataCommand.gate
+        (PatientDataCommand.processCmd env)
+        {
+            Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
+            Command = PatientDataCommand.ChangePatientData pat
         }
-
-    let env = { envOver port with normalValues = normalValues }
-
-    let answer =
-        Compute.bound
-            env
-            (cookieOf sid)
-            PatientCommand.toString
-            PatientCommand.gate
-            PatientCommand.patientOf
-            (PatientCommand.processCmd env (cookieOf sid))
-            {
-                Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
-                Command = PatientCommand.ChangePatient pat
-            }
-        |> Async.RunSynchronously
-        |> Result.map _.Response
-        |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
-
-    answer, told |> List.ofSeq
+    |> Async.RunSynchronously
+    |> Result.map _.Response
+    |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
-let withWeight grams (pat: Patient) = { pat with Weight = { pat.Weight with Measured = Some grams } }
+/// The location of the patient answered to the command, with the default location given.
+let locationOf defaultLocation cmd =
+    let env = { envOver (portOver (ResizeArray())) with defaultLocation = defaultLocation }
+
+    PatientDataCommand.processCmd env cmd
+    |> Async.RunSynchronously
+    |> Result.map _.Location
+
+
+let withWeight grams (pat: PatientData) = { pat with Weight = { pat.Weight with Measured = Some grams } }
 
 
 [<Tests>]
@@ -54,52 +47,102 @@ let tests =
     testList
         "the patient command"
         [
-            test "an identified patient gets the Session's age, its measured weight kept" {
-                let pat, _ = changed loaded (Some identified) sent
-
-                (pat.Age, pat.Weight.Measured)
-                |> Expect.equal "the Session's age, the weight as measured" (Some sessionAge, Some 12000<gram>)
+            test "an identified patient's measured weight is kept" {
+                (changed loaded (Some identified) sent).Weight.Measured
+                |> Expect.equal "as sent" sent.Weight.Measured
             }
 
-            test "an identified patient is estimated at the Session's age, not the client's" {
-                let pat, _ = changed loaded (Some identified) (ageOnly 5)
-
-                (pat.Age, pat |> weightAndHeight)
-                |> Expect.equal
-                    "the Session's age, the ten-year estimate"
-                    (Some sessionAge, (Some 32000<gram>, Some 140<cm>))
+            test "the age answered is the same whatever Session the cookie names" {
+                [ None; Some identified; Some anonymous; Some entered; Some "nobody" ]
+                |> List.map (fun sid -> (changed loaded sid sent).Age)
+                |> Expect.allEqual "the age sent" sent.Age
             }
 
-            test "an anonymous patient keeps the client's age and gets the estimates" {
-                for sid in [ None; Some anonymous; Some entered ] do
-                    let pat, _ = changed loaded sid (ageOnly 10)
-
-                    (pat.Age, pat |> weightAndHeight)
-                    |> Expect.equal
-                        $"the client's age, 32 kg and 140 cm, %A{sid}"
-                        ((ageOnly 10).Age, (Some 32000<gram>, Some 140<cm>))
+            test "the estimates follow the age the patient comes with" {
+                for sid in [ None; Some identified; Some anonymous; Some entered ] do
+                    changed loaded sid (ageOnly 5)
+                    |> weightAndHeight
+                    |> Expect.equal $"18 kg and 110 cm, %A{sid}" (Some 18000<gram>, Some 110<cm>)
             }
 
-            test "a measured weight is kept, the missing height estimated" {
-                let pat, _ = changed loaded None (ageOnly 10 |> withWeight 28000<gram>)
+            test "a measured weight is kept, with the weight estimate next to it, and the height estimated" {
+                let pat = changed loaded None (ageOnly 10 |> withWeight 28000<gram>)
 
                 (pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated)
                 |> Expect.equal
-                    "the measured weight, no weight estimate, the height estimated"
-                    (Some 28000<gram>, None, Some 140<cm>)
+                    "the measured weight, the weight estimate, the height estimate"
+                    (Some 28000<gram>, Some 32000<gram>, Some 140<cm>)
             }
 
-            test "a patient that lacks a weight or a height waits for the normal values" {
-                [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
-                |> List.map (PatientCommand.ChangePatient >> PatientCommand.gate)
+            test "the answer has the body surface area of the weight and height in use" {
+                (changed loaded None (ageOnly 10 |> withWeight 28000<gram>)).BodySurfaceArea
+                |> Expect.equal "28 kg measured and 140 cm estimated" (Some 1.1m)
+            }
+
+            test "the gestational age with the need the age gives, and the post-menstrual age of it" {
+                let ga30: AgeWeeksDays =
+                    {
+                        Weeks = 30<week>
+                        Days = 0<day>
+                    }
+
+                let answer days =
+                    let pat =
+                        { Informedica.GenPRES.Shared.Models.PatientData.empty with
+                            Age = days |> Option.map ServerApi.Age.ofDays
+                            GestationalAge = GestationalAge.OptionalGestationalAge(Some ga30)
+                        }
+
+                    let answered = changed loaded None pat
+                    answered.GestationalAge, answered.PostMenstrualAge
+
+                [ Some 21; Some 365; None ]
+                |> List.map answer
                 |> Expect.equal
-                    "loaded for the two that lack a measure, open for the measured one"
-                    [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.Open ]
+                    "needed at 3 weeks with 33 weeks, none from 1 year and none without an age"
+                    [
+                        GestationalAge.RequiredGestationalAge(Some ga30),
+                        Some
+                            {
+                                Weeks = 33<week>
+                                Days = 0<day>
+                            }
+                        GestationalAge.NoGestationalAge, None
+                        GestationalAge.NoGestationalAge, None
+                    ]
             }
 
-            test "the Session is told the patient as sent" {
-                let _, told = changed loaded (Some identified) sent
+            test "a patient without a Location gets the default location" {
+                Informedica.GenPRES.Shared.Models.PatientData.empty
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "UMCU" (Ok(Some "UMCU"))
+            }
 
-                told |> Expect.equal "the patient the client sent, once" [ Some sent ]
+            test "a patient with a Location keeps it" {
+                { Informedica.GenPRES.Shared.Models.PatientData.empty with Location = Some "AMC" }
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "AMC" (Ok(Some "AMC"))
+            }
+
+            test "without a default location, a patient without a Location keeps none" {
+                Informedica.GenPRES.Shared.Models.PatientData.empty
+                |> PatientDataCommand.ChangePatientData
+                |> locationOf None
+                |> Expect.equal "none" (Ok None)
+            }
+
+            test "an edit of a patient without a Location answers the default location" {
+                (PatientDataEdit.SetGender Male, Informedica.GenPRES.Shared.Models.PatientData.empty)
+                |> PatientDataCommand.EditPatientData
+                |> locationOf (Some "UMCU")
+                |> Expect.equal "UMCU" (Ok(Some "UMCU"))
+            }
+
+            test "every patient change waits for the normal values, a measured one too" {
+                [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
+                |> List.map (PatientDataCommand.ChangePatientData >> PatientDataCommand.gate)
+                |> Expect.equal "loaded for all three" [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.RequiresLoaded ]
             }
         ]

@@ -1,9 +1,8 @@
 namespace Components
 
 
-/// The one way a view is shown over the page: a modal, centred, as wide as the page allows
-/// up to a bound, scrolling inside itself when its content is taller than the page. What is
-/// shown inside is the caller's; the shell only frames it, so every dialog frames alike.
+/// The modal frame for every dialog: centred, 90 percent of the page wide up to a maximum width,
+/// and scrolling inside when the content is taller than 90 percent of the page height.
 module DialogShell =
 
 
@@ -28,7 +27,7 @@ module DialogShell =
         |}
 
 
-    /// The frame: open or not, what closing it does, how wide it may grow, and its content.
+    /// Shows the content in the frame while it is open; closing the frame calls onClose.
     [<JSX.Component>]
     let View
         (props:

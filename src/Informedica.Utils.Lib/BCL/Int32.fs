@@ -18,6 +18,7 @@ module Int32 =
         if b then n |> Some else None
 
 
-    /// Returns the string representation of the Int32 as a Dutch number.
+    /// Returns the Int32 as a Dutch number, with a dot between each group of three digits. The number
+    /// format is its own, so it also works where the invariant culture is the only culture.
     /// Example: 1234567 becomes 1.234.567
-    let toStringNumberNL (n: int) = n.ToString("N0", CultureInfo.GetCultureInfo("nl"))
+    let toStringNumberNL (n: int) = n.ToString("N0", NumberFormatInfo(NumberGroupSeparator = "."))

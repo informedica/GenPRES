@@ -29,6 +29,9 @@ Fill in information according to the appropriate template:
 
 - [Bug reports](./.github/ISSUE_TEMPLATE/bug_report.md)
 - [Feature requests](./.github/ISSUE_TEMPLATE/feature_request.md)
+- [UX / Design issues](./.github/ISSUE_TEMPLATE/ux_report.md)
+
+Write the title of an issue as the heading of a commit, `type(scope): description`, for example `fix(genorder): the dose quantity of an enteral feeding cannot be set`. The types and scopes are listed in the [commit message instructions](./.github/instructions/commit-message.instructions.md#issue-titles). A check labels an issue whose title is not in that form with `needs title`; an issue filed with the UX / Design template may keep a plain title.
 
 ## Pull Request Process
 
@@ -59,6 +62,7 @@ source lines.
 4. **Update Documentation**: Update relevant documentation and comments
 5. **Test Locally**: Run all tests and ensure the application builds successfully
 6. **Markdown Lint**: Address any Markdown warnings flagged by the pre-commit hook (see [Markdown Linting](#markdown-linting) below)
+7. **Code Style**: Fix any finding of the code style check (see [Code Style Check](#code-style-check) below)
 
 ### Submission
 
@@ -137,6 +141,9 @@ A new package is noted here with the library that takes it and what for.
   YAML document, through the medication's Dto.
 - **FsToolkit.ErrorHandling**, already in the Main group, now also referenced by GenORDER: it
   collects every error of a medication text that does not read.
+- **The system time zone database** (tzdata), in the server: `GENPRES_TIME_ZONE`, default
+  `Europe/Amsterdam`, is looked up in it at the start, and a host without the zone refuses to
+  start. The Debian-based `aspnet` runtime image ships it; an Alpine or chiseled image may not.
 
 ## Code Formatting (Pre-Commit Hook)
 
@@ -163,6 +170,20 @@ dotnet run Format
 ```
 
 For the full list of helper scripts (run modes, Docker, tests, hooks) and what each one does, see [Helper Shell Scripts](DEVELOPMENT.md#helper-shell-scripts) in DEVELOPMENT.md.
+
+## Code Style Check
+
+`scripts/CheckCodeStyle.fsx` checks the comment and layout rules that Fantomas does not check. For now it covers GenUNITS and GenSOLVER. The pre-commit hook runs it when you commit a file of these libraries, and CI runs it on every build. Unlike the Markdown lint, it blocks the commit.
+
+Old findings are listed in `scripts/CheckCodeStyle.baseline.tsv`. The check fails on a new finding, and on a listed finding that is gone. So:
+
+- Fix a new finding in the code. Do not add it to the baseline.
+- When you fix or delete code with a listed finding, run the command below and commit the changed baseline too.
+
+```bash
+dotnet fsi scripts/CheckCodeStyle.fsx                    # check
+dotnet fsi scripts/CheckCodeStyle.fsx --prune-baseline   # remove the findings that are gone
+```
 
 ## Markdown Linting
 

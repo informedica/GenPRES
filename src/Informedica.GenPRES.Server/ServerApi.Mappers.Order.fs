@@ -1,10 +1,7 @@
 namespace ServerApi
 
 
-/// The order mapper, and what the services still map by hand: the patient, the order context
-/// and the totals, each now with a mapper of its own next to this file. Those parts go once
-/// the services take the domain-typed ports; the order mapping, the dose type both ways and
-/// the text markup parser stay.
+/// Maps orders and dose types between the contract and GenORDER, and parses marked-up text.
 module Mappers =
 
     open Informedica.Utils.Lib.BCL
@@ -15,7 +12,6 @@ module Mappers =
 
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared
-
 
     module Order =
 
@@ -54,64 +50,22 @@ module Mappers =
             let dto = Informedica.GenSolver.Lib.Variable.Dto.dto ()
 
             dto.Name <- var.Name
-
-            // a variable the client cleared goes as the mark alone, the bounds it kept left out, so
-            // that it reaches the domain unrestricted also when it has an increment; the solver
-            // marks only a variable without bounds, so a mark beside bounds is a clear
-            if var.IsNonZeroPositive then
-                dto.IsNonZeroPositive <- true
-
-            else
-                dto.IsNonZeroPositive <- var.IsNonZeroPositive
-                dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
-                dto.MinIncl <- var.MinIncl
-                dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
-                dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
-                dto.MaxIncl <- var.MaxIncl
-                dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
+            dto.IsNonZeroPositive <- var.IsNonZeroPositive
+            dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
+            dto.MinIncl <- var.MinIncl
+            dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
+            dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
+            dto.MaxIncl <- var.MaxIncl
+            dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
 
             dto
 
 
-        /// The per-click increment used by the outer (first/last) navigation buttons: the
-        /// calculated increment (OrderVariable.step uses CalculatedConstraints.Incr for the
-        /// useCalc path). When coarse is given and the calculated increment equals it, the
-        /// count is multiplied by 10 — mirroring the server's role-specific special cases.
-        /// Generic order variables pass None so NO multiple is applied (the ×10 must only
-        /// happen for the rate / quantity that the server actually multiplies). Optional —
-        /// many order variables have no calculated increment.
-        let mapLargeIncr
-            (coarse: Informedica.GenUnits.Lib.ValueUnit option)
-            (dto: OrderVariable.Dto.Dto)
-            : Types.ValueUnit option
-            =
-            dto.Calculated.IncrOpt
-            |> Option.bind ValueUnit.Dto.fromDto
-            |> Option.map (fun calcVu ->
-                // Compare by dimension + base value rather than structural (=) equality:
-                // calcVu is round-tripped through the DTO, so its unit representation may
-                // differ from the locally-constructed constant even when it is the same
-                // physical increment.
-                let sameIncr (target: Informedica.GenUnits.Lib.ValueUnit) =
-                    ValueUnit.eqsGroup calcVu target
-                    && ValueUnit.getBaseValue calcVu = ValueUnit.getBaseValue target
-
-                let mult =
-                    match coarse with
-                    | Some u when sameIncr u -> BigRational.fromInt 10
-                    | _ -> BigRational.fromInt 1
-
-                (mult |> ValueUnit.singleWithUnit Units.Count.times) * calcVu
-                |> ValueUnit.Dto.toDtoDutchShort
-                |> mapToValueUnit
-            )
+        /// Maps the large increment of an order variable Dto.
+        let mapLargeIncr (dto: OrderVariable.Dto.Dto) = dto.LargeIncrOpt |> Option.map mapToValueUnit
 
 
-        let mapToOrderVariableWith
-            (coarse: Informedica.GenUnits.Lib.ValueUnit option)
-            (dto: OrderVariable.Dto.Dto)
-            : Types.OrderVariable
-            =
+        let mapToOrderVariable (dto: OrderVariable.Dto.Dto) : Types.OrderVariable =
             let level =
                 match dto.Level with
                 | OrderVariable.Dto.IsNormal -> IsNormal
@@ -124,28 +78,8 @@ module Mappers =
                 (dto.Constraints |> mapToVariable)
                 (dto.Calculated |> mapToVariable)
                 (dto.Variable |> mapToVariable)
-                (dto |> mapLargeIncr coarse)
+                (dto |> mapLargeIncr)
                 level
-
-
-        /// Generic mapping: no outer ×10 multiple (used for every order variable that is
-        /// not navigated as a rate or quantity).
-        let mapToOrderVariable = mapToOrderVariableWith None
-
-        let tenthOf u =
-            u |> ValueUnit.singleWithValue (BigRational.fromInt 1 / BigRational.fromInt 10)
-
-        // The server's special "×10" outer-step cases key on these increments: a quantity
-        // increment of 1/10 mL (OrderVariable.stepQuantity) and a rate increment of
-        // 1/10 mL/hour (Dose.stepRate).
-        let mlTenth = Units.Volume.milliLiter |> tenthOf
-
-        let mlPerHourTenth = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
-
-        // The rate / quantity an order navigates DO get the server's ×10 outer step when
-        // their calculated increment is the 1/10 mL[/hour] coarse increment.
-        let mapToRateOrderVariable = mapToOrderVariableWith (Some mlPerHourTenth)
-        let mapToQuantityOrderVariable = mapToOrderVariableWith (Some mlTenth)
 
 
         let mapFromOrderVariable (ov: Types.OrderVariable) : OrderVariable.Dto.Dto =
@@ -167,9 +101,9 @@ module Mappers =
 
         let mapToDose (dto: Order.Orderable.Dose.Dto.Dto) : Dose =
             Models.Order.Dose.create
-                (dto.Quantity |> mapToQuantityOrderVariable)
+                (dto.Quantity |> mapToOrderVariable)
                 (dto.PerTime |> mapToOrderVariable)
-                (dto.Rate |> mapToRateOrderVariable)
+                (dto.Rate |> mapToOrderVariable)
                 (dto.Total |> mapToOrderVariable)
                 (dto.QuantityAdjust |> mapToOrderVariable)
                 (dto.PerTimeAdjust |> mapToOrderVariable)
@@ -196,6 +130,7 @@ module Mappers =
                 dto.Name
                 (dto.ComponentQuantity |> mapToOrderVariable)
                 (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.ComponentConcentration |> mapToOrderVariable)
                 (dto.OrderableConcentration |> mapToOrderVariable)
                 (dto.Dose |> mapToDose)
@@ -208,6 +143,7 @@ module Mappers =
             dto.Name <- item.Name
             dto.ComponentQuantity <- item.ComponentQuantity |> mapFromOrderVariable
             dto.OrderableQuantity <- item.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- item.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.ComponentConcentration <- item.ComponentConcentration |> mapFromOrderVariable
             dto.OrderableConcentration <- item.OrderableConcentration |> mapFromOrderVariable
             dto.Dose <- item.Dose |> mapFromDose
@@ -231,6 +167,32 @@ module Mappers =
                             }
                         )
                     )
+                Reconstitution =
+                    dto.Reconstitution
+                    |> Option.bind (fun r ->
+                        r.SolventVolume
+                        |> Option.map (fun vol ->
+                            {
+                                Solvent = r.Solvent
+                                SolventVolume = vol |> mapToValueUnit
+                                ExpansionVolume = r.ExpansionVolume |> Option.map mapToValueUnit
+                            }
+                        )
+                    )
+                Predilution =
+                    dto.Predilution
+                    |> Option.bind (fun pd ->
+                        Option.map2
+                            (fun med dil ->
+                                {
+                                    MedVolume = med |> mapToValueUnit
+                                    DiluentVolume = dil |> mapToValueUnit
+                                    Diluent = pd.Diluent
+                                }
+                            )
+                            pd.MedVolume
+                            pd.DiluentVolume
+                    )
             }
 
 
@@ -249,6 +211,26 @@ module Mappers =
                     s
                 )
 
+            dto.Reconstitution <-
+                p.Reconstitution
+                |> Option.map (fun r ->
+                    let d = Order.Orderable.Component.Dto.ReconstitutionDto()
+                    d.Solvent <- r.Solvent
+                    d.SolventVolume <- r.SolventVolume |> mapFromValueUnit |> Some
+                    d.ExpansionVolume <- r.ExpansionVolume |> Option.map mapFromValueUnit
+                    d
+                )
+
+            dto.Predilution <-
+                p.Predilution
+                |> Option.map (fun pd ->
+                    let d = Order.Orderable.Component.Dto.PredilutionDto()
+                    d.MedVolume <- pd.MedVolume |> mapFromValueUnit |> Some
+                    d.DiluentVolume <- pd.DiluentVolume |> mapFromValueUnit |> Some
+                    d.Diluent <- pd.Diluent
+                    d
+                )
+
             dto
 
 
@@ -258,8 +240,8 @@ module Mappers =
                 dto.Name
                 dto.Form
                 (dto.ComponentQuantity |> mapToOrderVariable)
-                // the component's orderable quantity is navigated as a quantity (×10 outer)
-                (dto.OrderableQuantity |> mapToQuantityOrderVariable)
+                (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.OrderableCount |> mapToOrderVariable)
                 (dto.OrderQuantity |> mapToOrderVariable)
                 (dto.OrderCount |> mapToOrderVariable)
@@ -276,6 +258,7 @@ module Mappers =
             dto.Form <- comp.Form
             dto.ComponentQuantity <- comp.ComponentQuantity |> mapFromOrderVariable
             dto.OrderableQuantity <- comp.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- comp.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.OrderableCount <- comp.OrderableCount |> mapFromOrderVariable
             dto.OrderQuantity <- comp.OrderQuantity |> mapFromOrderVariable
             dto.OrderCount <- comp.OrderCount |> mapFromOrderVariable
@@ -291,6 +274,7 @@ module Mappers =
             Models.Order.Orderable.create
                 dto.Name
                 (dto.OrderableQuantity |> mapToOrderVariable)
+                (dto.OrderableQuantityAdjust |> mapToOrderVariable)
                 (dto.OrderQuantity |> mapToOrderVariable)
                 (dto.OrderCount |> mapToOrderVariable)
                 (dto.DoseCount |> mapToOrderVariable)
@@ -298,16 +282,10 @@ module Mappers =
                 (dto.Components |> List.toArray |> Array.map (mapToComponent sns))
 
 
-        // member val Name = "" with get, set
-        // member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
-        // member val OrderQuantity = OrderVariable.Dto.dto () with get, set
-        // member val OrderCount = OrderVariable.Dto.dto () with get, set
-        // member val DoseCount = OrderVariable.Dto.dto () with get, set
-        // member val Dose = Dose.Dto.dto () with get, set
-        // member val Components : Component.Dto.Dto list = [] with get, set
         let mapFromOrderable id n (orderable: Orderable) : Order.Orderable.Dto.Dto =
             let dto = Order.Orderable.Dto.dto id n
             dto.OrderableQuantity <- orderable.OrderableQuantity |> mapFromOrderVariable
+            dto.OrderableQuantityAdjust <- orderable.OrderableQuantityAdjust |> mapFromOrderVariable
             dto.OrderQuantity <- orderable.OrderQuantity |> mapFromOrderVariable
             dto.OrderCount <- orderable.OrderCount |> mapFromOrderVariable
             dto.DoseCount <- orderable.DoseCount |> mapFromOrderVariable
@@ -387,59 +365,7 @@ module Mappers =
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-    let mapFromSharedPatient (pat: Patient) =
-        { Patient.patient with
-            Department = pat.Department
-            Age =
-                pat
-                |> Models.Patient.getAgeInDays
-                |> Option.bind BigRational.fromFloat
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-            GestAge =
-                pat
-                |> Models.Patient.getGestAgeInDays
-                |> Option.map BigRational.fromInt
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-            Weight =
-                pat
-                |> Models.Patient.getWeight
-                |> Option.map (int >> BigRational.fromInt)
-                |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
-                |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-            Height =
-                pat
-                |> Models.Patient.getHeight
-                |> Option.map (int >> BigRational.fromInt)
-                |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            Gender =
-                match pat.Gender with
-                | Male -> Informedica.GenForm.Lib.Types.Male
-                | Female -> Informedica.GenForm.Lib.Types.Female
-                | UnknownGender -> AnyGender
-            Access =
-                pat.Access
-                // TODO make proper mapping
-                |> List.choose (fun a ->
-                    match a with
-                    | CVL -> Informedica.GenForm.Lib.Types.CVL |> Some
-                    | PVL -> Informedica.GenForm.Lib.Types.PVL |> Some
-                    | _ -> None
-                )
-            RenalFunction =
-                pat.RenalFunction
-                |> Option.map (fun rf ->
-                    match rf with
-                    | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
-                    | IntermittentHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
-                    | ContinuousHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
-                    | PeritonealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
-                )
-        }
-        |> Patient.calcPMAge
-
-
-    /// Configuration for text item delimiters
-    /// Each delimiter maps to a constructor function and its delimiter character
+    /// A text item delimiter with the constructor of its item.
     type private DelimiterConfig =
         {
             Delimiter: string
@@ -448,11 +374,12 @@ module Mappers =
         }
 
 
+    /// Parses marked-up text into text items: bold between # and italic between |. An item of only spaces is
+    /// kept, because it can be the space between a value and its unit. An empty or blank text gives no items.
     let parseTextItem (s: string) =
         if s |> String.isNullOrWhiteSpace then
             [||]
         else
-            // Define delimiter configurations - easy to extend with new cases
             let delimiters =
                 [
                     {
@@ -516,5 +443,5 @@ module Mappers =
             |> Seq.fold processChar (Normal "", [])
             |> fun (lastItem, items) -> lastItem :: items
             |> List.rev
-            |> List.filter (fun item -> item |> getText |> String.notEmpty)
+            |> List.filter (fun item -> item |> getText |> String.isNullOrEmpty |> not)
             |> List.toArray

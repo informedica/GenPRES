@@ -12,8 +12,6 @@ open QuestPDF.Fluent
 
 QuestPDF.Settings.License <- QuestPDF.Infrastructure.LicenseType.Evaluation
 
-let patient = StubPatientData.patient
-
 let outputDir = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "orderPlanPdfs"))
 
 let write dir fileName (pdf: byte[]) =
@@ -35,115 +33,8 @@ let dataUrlId =
 let indication = "Continue infusie neonatologie"
 
 
-/// The NEO test patients of the stub launch page, copied from StubPatientData in
-/// src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs, as the server project cannot be loaded here.
-module StubPatients =
-
-    open Informedica.GenCore.Lib
-    open Informedica.GenCore.Lib.Patients
-
-
-    /// A patient of the stub EHR that the stub launch page offers by its PatientId.
-    type TestPatient =
-        {
-            /// The PatientId the launch page posts.
-            Id: string
-            /// The name the patient panel shows.
-            Name: string
-            /// The ward the patient is admitted to.
-            Department: Department
-            /// The gender.
-            Gender: Gender
-            /// The age at the moment the EHR data is read.
-            Age: AgeValue
-            /// The weight, measured on the day the EHR data is read.
-            Weight: WeightValue
-            /// The height, measured on the day the EHR data is read.
-            Height: HeightValue
-            /// The gestational age at birth; absent when the EHR has none.
-            GestationalAge: AgeWeeksDays option
-        }
-
-
-    /// A NEO patient of a gender, 2 days old, with a gestational age in weeks, a weight in gram and a
-    /// height in cm.
-    let neoPatient gender weeks gram cm =
-        {
-            Id = $"neo-%i{weeks}wk"
-            Name = $"NEO %i{weeks} weeks"
-            Department = Department.neonatalICU "NEO"
-            Gender = gender
-            Age = AgeValue.create None None None (Some(Conversions.dayFromInt 2))
-            Weight = WeightValue.weightInGram gram
-            Height = HeightValue.heightInCm cm
-            GestationalAge = weeks |> Conversions.weekFromInt |> AgeWeeksDays.fromWeeks |> Some
-        }
-
-
-    /// The NEO patients of the stub launch page, male and female in turn.
-    let neoPatients =
-        [
-            neoPatient Male 26 600m 35m
-            neoPatient Female 28 800m 36m
-            neoPatient Male 31 1100m 40m
-            neoPatient Female 34 1800m 42m
-            neoPatient Male 37 2400m 50m
-            neoPatient Female 40 4000m 55m
-        ]
-
-
-    /// The birth date that gives an age on a day: the date the age before that day, moved by up to three
-    /// days when GenPRES would count the age in days otherwise; on a day that no birth date fits, the
-    /// calendar date.
-    let birthDateAt (day: DateTime) age =
-        let inDays birth =
-            birth
-            |> BirthDate.fromDate
-            |> PatientAge.birthDate
-            |> PatientAge.getAgeValue day
-            |> Option.map (AgeValue.getAgeInDays >> int)
-
-        let target = age |> AgeValue.getAgeInDays |> int |> Some
-
-        age
-        |> PatientAge.ageValue
-        |> PatientAge.getBirthDate day
-        |> Option.map (fun bd ->
-            let calendar = bd |> BirthDate.toDate
-
-            [ 0; 1; -1; 2; -2; 3; -3 ]
-            |> List.map (float >> calendar.AddDays)
-            |> List.tryFind (fun birth -> inDays birth = target)
-            |> Option.defaultValue calendar
-            |> BirthDate.fromDate
-        )
-
-
-    /// The EHR data of a test patient read at a moment: born the age before that day, measured that day.
-    let testPatientData (now: DateTime) tp =
-        let measuredOn = now.Date
-        let weight = WeightAtDate.create measuredOn tp.Weight
-        let height = HeightAtDate.create measuredOn tp.Height
-
-        let age =
-            tp.Age
-            |> birthDateAt measuredOn
-            |> Option.map PatientAge.birthDate
-            |> Option.defaultValue PatientAge.unknown
-
-        Patient.create
-            tp.Id
-            tp.Name
-            tp.Department
-            [||]
-            tp.Gender
-            age
-            (Weight.create [ weight ] None [] (Some weight))
-            (Height.create [ height ] None (Some height))
-            tp.GestationalAge
-            UnknownEnteral
-            UnknownVenous
-        |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+/// The NEO test patients of the stub launch page.
+let neoPatients = StubEhrPatient.testPatients |> List.filter (fun tp -> tp.Id.StartsWith "neo-")
 
 
 module Cases =
@@ -174,7 +65,7 @@ module Cases =
 
 
     /// A test patient as the rules take it: the patient GenPRES reads from the stub EHR at the moment.
-    let patientOf tp = tp |> StubPatients.testPatientData now |> Patient.ofEhr now
+    let patientOf tp = tp |> StubEhrPatient.testPatient now |> _.Data
 
 
     /// Step 2: the full order context of a patient, its pick lists filled by the rules for the patient.
@@ -230,7 +121,7 @@ module Cases =
     type PharmacyCase =
         {
             /// The test patient the case is made for.
-            TestPatient: StubPatients.TestPatient
+            TestPatient: StubEhrPatient.TestPatient
             /// The medication of the indication.
             Generic: string
             /// The context with one scenario, its order with the dose rate set, or why it could not be made.
@@ -274,7 +165,7 @@ module Cases =
     /// Step 6: the test cases of every NEO test patient; none without the sheet ID of GENPRES_URL_ID.
     let cases () =
         if dataUrlId.IsSome then
-            StubPatients.neoPatients |> List.collect casesOf
+            neoPatients |> List.collect casesOf
         else
             []
 
@@ -295,7 +186,7 @@ module Tests =
         testList
             "neo continuous medication"
             [
-                for tp in StubPatients.neoPatients do
+                for tp in neoPatients do
                     test $"%s{tp.Id} has a case for at least one medication" {
                         solvedCases ()
                         |> List.filter (fun c -> c.TestPatient.Id = tp.Id && c.Generic <> "")
@@ -329,7 +220,7 @@ let tests =
                         | Error e -> failtest (sprintf "Failed to get context: %A" e)
 
                     let patient = Cases.patientOf case.TestPatient
-                    let category = OrderCategory.Drug
+                    let category = OrderCategory.Medication
                     let planContext = PlanContext.create "id" category ctx
                     let plan = OrderPlan.create patient [| planContext |]
                     let timestamp = DateTime(2026, 09, 01, 15, 40, 15)

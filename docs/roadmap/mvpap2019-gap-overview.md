@@ -108,7 +108,7 @@ Each is a set of rows in a rule sheet. The mechanism column is what was verified
 | **5.13** | Set `MaxVol`/`MaxVolAdj` on the TPN solution rule | Total volume is a solver bound; when the other lines exceed it there is no valid scenario, so a negative base volume cannot be produced. The only gap is the "no scenario" feedback, which is [#478](https://github.com/informedica/GenPRES/issues/478) — existing issue, now MVP-relevant |
 | **5.15** | On TPN rules set the `Solutions` column to glucose only | `Solutions` lists the acceptable diluents per rule (`Types.fs:1013`); a diluent not listed is never offered, so a non-glucose base with protein cannot be composed *(mechanism verified; that this is the intended clinical rule is for the rule author)* |
 | **5.16** | Author lipid solution rules per weight band with `MinWeight`/`MaxWeight` | Patient-category weight bounds are built with `fromTupleInclExcl` (`SolutionRule.fs:118`): `[min, max)`, so a weight exactly on a boundary falls into the *higher* band by construction. Nothing to code |
-| **5.17 guard** | `MinQty > 0` on the principal substance and on any solvent a `MaxConc` depends on | `SolutionLimit.Quantity` is a `MinMax` per substance; a positive minimum makes the solver refuse zero, which is the same safety intent as AP2019's un-removable check box |
+| **5.17 guard** | `MinQty > 0` on the principal substance and on any solvent a `MaxConc` depends on | `DilutionLimit.Quantity` is a `MinMax` per substance; a positive minimum makes the solver refuse zero, which is the same safety intent as AP2019's un-removable check box |
 | **7.3 row** | A second `koolhydraat` row with `Unit = mg`, `TimeUnit = min`, `Adj = kg` | After software 7.3 |
 | **7.8 rows** | `Totals` rows banded by gestational and post-menstrual age for neonates | After software 7.8 |
 | **2.7** | Dose and solution rules for glucose, NaCl, sodium bicarbonate and albumin side-lines under indication "Parenterale suppletie" | Glucose/NaCl: today, as ElectrolyteGlucose lines; `Totals.calc` counts every order with a volume, so they feed the fluid total. Bicarbonate/albumin: after software 2.7 |
@@ -192,8 +192,8 @@ Ten new issues: 2.1.3, 2.1.4, 2.1.5, 2.1.6, 2.1.7, 2.1.10, 2.2.4, 2.2.5, 2.2.6, 
 - [#409](https://github.com/informedica/GenPRES/issues/409) is closed. Its remaining code
   half is #516.
 - [#408](https://github.com/informedica/GenPRES/issues/408) is closed. The sealed launch is
-  what is built, so the URL-parameter model of
-  [feature-ehr-url-parameters.md](feature-ehr-url-parameters.md) is superseded.
+  what is built, so the URL-parameter model for an EHR launch is superseded and no longer on
+  the roadmap.
 - [#481](https://github.com/informedica/GenPRES/issues/481) is closed: the persistence
   prototype of #480 was moved to source by #409, #605, #615, #622, #635 and #640, and what
   remains of it is #516.
@@ -490,8 +490,6 @@ gh issue list --state open --limit 200 --json number,title,milestone \
   use cases behind pillar 2
 - [Feature: patient persistence](feature-patient-persistence.md) — persistence API and
   constraints (D2)
-- [Feature: EHR URL parameters](feature-ehr-url-parameters.md) — the launch model the sealed
-  launch superseded (D1)
 - [Backlog](backlog.md) — items 3-5 (rule-set versioning), 8 (AuthN/AuthZ)
 - [GenSOLVER: from Order Scenarios to Computed Quantitative Solutions](../domain/gensolver-from-orders-to-quantitative-solutions.md),
   [GenSOLVER Stability Analysis](../domain/gensolver-stability-analysis.md) and

@@ -30,8 +30,9 @@ module TotalsDisplay =
         |]
 
 
-    /// The totals of the substance a row names.
-    let substanceToField (intake: Totals) =
+    /// Returns the text block of the total for the substance name of a row, or None for an unknown name or a
+    /// total that is not calculated.
+    let substanceToBlock (intake: Totals) =
         function
         | "volume" -> intake.Volume
         | "energie" -> intake.Energy
@@ -52,4 +53,22 @@ module TotalsDisplay =
         | "propyleenglycol" -> intake.Propyleenglycol
         | "boorzuur" -> intake.BoricAcid
         | "benzylalcohol" -> intake.BenzylAlcohol
-        | _ -> [||]
+        | _ -> None
+
+
+    /// Returns the text items of the total for the substance name of a row, or an empty array for an unknown
+    /// name or a total that is not calculated.
+    let substanceToField intake name =
+        name
+        |> substanceToBlock intake
+        |> Option.map Severity.items
+        |> Option.defaultValue [||]
+
+
+    /// Returns the severity of the total for the substance name of a row, or Normal for an unknown name or a
+    /// total that is not calculated.
+    let substanceSeverity intake name =
+        name
+        |> substanceToBlock intake
+        |> Option.map Severity.ofTextBlock
+        |> Option.defaultValue Severity.Normal

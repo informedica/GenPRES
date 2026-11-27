@@ -12,26 +12,6 @@ open Loads
 open LoaderMachine
 
 
-let bolus hospital : BolusMedication =
-    {
-        Hospital = hospital
-        Category = "cat"
-        Generic = "adrenaline"
-        MinWeight = 0.
-        MaxWeight = 0.
-        NormDose = 0.
-        MinDose = 0.
-        MaxDose = 0.
-        Concentration = 0.
-        Unit = "mg"
-        Remark = ""
-        TemplateGeneric = ""
-        TemplateRoute = ""
-        TemplateDoseType = ""
-        TemplateIndication = ""
-    }
-
-
 let drugNames names notice =
     Landing.DrugNames(
         Some(OpenedToken "t"),
@@ -43,7 +23,28 @@ let drugNames names notice =
     )
 
 
-let patient = Patient.empty
+let patient = PatientData.empty
+
+
+/// Two patients at different departments, for a reply that lands after the patient changed.
+let patientA = { PatientData.empty with Department = Some "ICK" }
+let patientB = { PatientData.empty with Department = Some "NEO" }
+
+
+/// The parenteralia the server answers for the patient, with markdown that names the department.
+let parenteraliaFor (patient: PatientData) =
+    { Parenteralia.empty with
+        PatientData = Some patient
+        Markdown = patient.Department |> Option.defaultValue ""
+    }
+
+
+/// The formulary the server answers for the patient, with markdown that names the department.
+let formularyFor (patient: PatientData) =
+    { Formulary.empty with
+        PatientData = Some patient
+        Markdown = patient.Department |> Option.defaultValue ""
+    }
 
 
 let filter generic = { OrderContext.empty.Filter with Generic = Some generic }
@@ -89,10 +90,6 @@ let tests =
                         [
                             Load.Settings, LoaderEffect.FetchSettings
                             Load.Localization, LoaderEffect.FetchLocalization
-                            Load.NormalValues, LoaderEffect.FetchNormalValues
-                            Load.BolusMedication, LoaderEffect.FetchBolusMedication
-                            Load.ContinuousMedication, LoaderEffect.FetchContinuousMedication
-                            Load.Products, LoaderEffect.FetchProducts
                             Load.DrugNames, LoaderEffect.FetchDrugNames
                         ] do
                         test $"%A{load}" {
@@ -104,10 +101,10 @@ let tests =
                 ]
 
             test "a start while the same load runs changes nothing" {
-                let state, _ = run [ LoaderMsg.Start Load.Products ]
+                let state, _ = run [ LoaderMsg.Start Load.Localization ]
 
                 state
-                |> transition (LoaderMsg.Start Load.Products)
+                |> transition (LoaderMsg.Start Load.Localization)
                 |> Expect.equal "unchanged" (state, [])
             }
 
@@ -132,24 +129,29 @@ let tests =
             }
 
             test "an answer resolves the reading, and the load is loaded" {
-                let state, effects = run [ LoaderMsg.Start Load.Products; LoaderMsg.Landed(Landing.Products(Ok [])) ]
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.Start Load.Localization
+                            LoaderMsg.Landed(Landing.Localization(Ok [||]))
+                        ]
 
                 effects |> Expect.isEmpty "no call"
-                state.Products |> Expect.equal "resolved" (Resolved [])
+                state.Localization |> Expect.equal "resolved" (Resolved [||])
                 state |> out |> Expect.isEmpty "nothing out"
-                state |> loaded |> Expect.equal "loaded" [ Load.Products ]
+                state |> loaded |> Expect.equal "loaded" [ Load.Localization ]
             }
 
             test "a failed required load goes back to not started and is named" {
                 let state, _ =
                     run
                         [
-                            LoaderMsg.Start Load.Products
-                            LoaderMsg.Landed(Landing.Products(Error "down"))
+                            LoaderMsg.Start Load.Localization
+                            LoaderMsg.Landed(Landing.Localization(Error "down"))
                         ]
 
-                state.Products |> Expect.equal "not started" HasNotStartedYet
-                state.Failed |> Expect.equal "named" [ Load.Products ]
+                state.Localization |> Expect.equal "not started" HasNotStartedYet
+                state.Failed |> Expect.equal "named" [ Load.Localization ]
             }
 
             test "the settings failing are not named, since the application runs without them" {
@@ -164,47 +166,18 @@ let tests =
                 state.Failed |> Expect.isEmpty "not named"
             }
 
-            test "the emergency medication gives the hospitals, each once, a blank one left out" {
-                let state, _ =
-                    run
-                        [
-                            LoaderMsg.Start Load.BolusMedication
-                            LoaderMsg.Landed(
-                                Landing.BolusMedication(Ok [ bolus "UMCU"; bolus "AMC"; bolus "UMCU"; bolus " " ])
-                            )
-                        ]
-
-                state.Hospitals |> Expect.equal "the hospitals" (Resolved [| "UMCU"; "AMC" |])
-
-                state
-                |> loaded
-                |> Expect.equal "both loaded" [ Load.Hospitals; Load.BolusMedication ]
-            }
-
-            test "the emergency medication failing leaves the hospitals as they were" {
-                let state, _ =
-                    run
-                        [
-                            LoaderMsg.Start Load.BolusMedication
-                            LoaderMsg.Landed(Landing.BolusMedication(Error "down"))
-                        ]
-
-                state.Hospitals |> Expect.equal "not started" HasNotStartedYet
-                state.Failed |> Expect.equal "named" [ Load.BolusMedication ]
-            }
-
             testList
                 "the formulary and parenteralia pages"
                 [
-                    test "the patient set asks both pages again, the formulary for that patient" {
+                    test "the patient set asks both pages again for that patient" {
                         let state, effects = run [ LoaderMsg.PatientSet(Some patient) ]
 
                         effects
                         |> Expect.equal
                             "both asked"
                             [
-                                LoaderEffect.FetchFormulary { Formulary.empty with Patient = Some patient }
-                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                                LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
+                                LoaderEffect.FetchParenteralia { Parenteralia.empty with PatientData = Some patient }
                             ]
 
                         state |> out |> Expect.equal "both out" [ Load.Formulary; Load.Parenteralia ]
@@ -255,6 +228,32 @@ let tests =
                         |> Expect.equal
                             "not again"
                             [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary ]
+                    }
+
+                    test "with a new patient on its way the clear asks no page, and the patient does" {
+                        let state, effects = run [ LoaderMsg.PatientExpected; LoaderMsg.PatientSet None ]
+
+                        effects |> Expect.isEmpty "a request for no patient would be out of date"
+                        state |> out |> Expect.isEmpty "nothing out"
+
+                        state
+                        |> transition (LoaderMsg.PatientSet(Some patient))
+                        |> snd
+                        |> Expect.equal
+                            "one request for each page"
+                            [
+                                LoaderEffect.FetchFormulary { Formulary.empty with PatientData = Some patient }
+                                LoaderEffect.FetchParenteralia { Parenteralia.empty with PatientData = Some patient }
+                            ]
+                    }
+
+                    test "a clear after a new patient that never landed asks the pages as usual" {
+                        let state, _ = run [ LoaderMsg.PatientExpected; LoaderMsg.PatientSet None ]
+
+                        state
+                        |> transition (LoaderMsg.PatientSet None)
+                        |> snd
+                        |> Expect.isNonEmpty "only the one clear is skipped"
                     }
 
                     test "the patient set drops a filter held for the earlier patient" {
@@ -315,9 +314,23 @@ let tests =
 
                         let state =
                             state
-                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+                            |> transition (
+                                LoaderMsg.Landed(
+                                    Landing.Formulary(
+                                        None,
+                                        answered { Formulary.empty with PatientData = Some patient }
+                                    )
+                                )
+                            )
                             |> fst
-                            |> transition (LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty)))
+                            |> transition (
+                                LoaderMsg.Landed(
+                                    Landing.Parenteralia(
+                                        None,
+                                        answered { Parenteralia.empty with PatientData = Some patient }
+                                    )
+                                )
+                            )
                             |> fst
 
                         let _, effects = state |> transition (LoaderMsg.FormularyChanged form)
@@ -326,7 +339,7 @@ let tests =
                         |> Expect.equal
                             "asked and seeded"
                             [
-                                LoaderEffect.FetchFormulary { form with Patient = Some patient }
+                                LoaderEffect.FetchFormulary { form with PatientData = Some patient }
                                 LoaderEffect.SeedWorkbench
                                     {
                                         Source = SeedSource.Formulary
@@ -340,6 +353,7 @@ let tests =
                                     { Parenteralia.empty with
                                         Generic = Some "paracetamol"
                                         Route = Some "oraal"
+                                        PatientData = Some patient
                                     }
                             ]
                     }
@@ -400,8 +414,18 @@ let tests =
                             run
                                 [
                                     LoaderMsg.PatientSet(Some patient)
-                                    LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty))
-                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty))
+                                    LoaderMsg.Landed(
+                                        Landing.Formulary(
+                                            None,
+                                            answered { Formulary.empty with PatientData = Some patient }
+                                        )
+                                    )
+                                    LoaderMsg.Landed(
+                                        Landing.Parenteralia(
+                                            None,
+                                            answered { Parenteralia.empty with PatientData = Some patient }
+                                        )
+                                    )
                                 ]
 
                         state
@@ -439,6 +463,75 @@ let tests =
                         |> Expect.equal
                             "the drug names and the formulary"
                             [ LoaderEffect.FetchDrugNames; LoaderEffect.FetchFormulary Formulary.empty ]
+                    }
+
+                    test "a parenteralia reply for the previous patient that lands last is ignored" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientB)))
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientA)))
+                                ]
+
+                        state.Parenteralia
+                        |> Expect.equal "the rules of patient B" (Resolved(parenteraliaFor patientB))
+                    }
+
+                    test "a parenteralia reply for the previous patient that lands first leaves the page loading" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientA)))
+                                ]
+
+                        effects |> Expect.isEmpty "no effect"
+
+                        state.Parenteralia
+                        |> isOut
+                        |> Expect.isTrue "the request for patient B is still out"
+                    }
+
+                    test "a formulary reply for the previous patient that lands last is ignored" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientA)
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered (formularyFor patientB)))
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered (formularyFor patientA)))
+                                ]
+
+                        state.Formulary
+                        |> Expect.equal "the rules of patient B" (Resolved(formularyFor patientB))
+                    }
+
+                    test "a parenteralia reply for the current patient is set" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patientB)
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered (parenteraliaFor patientB)))
+                                ]
+
+                        state.Parenteralia
+                        |> Expect.equal "the rules of patient B" (Resolved(parenteraliaFor patientB))
+                    }
+
+                    test "a parenteralia reply without a patient is set when there is no patient" {
+                        let par = { Parenteralia.empty with Markdown = "every patient" }
+
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Parenteralia
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered par))
+                                ]
+
+                        state.Parenteralia |> Expect.equal "the rules of every patient" (Resolved par)
                     }
                 ]
 
@@ -666,4 +759,508 @@ let tests =
                         state.Interactions |> Expect.equal "not started" HasNotStartedYet
                     }
                 ]
+        ]
+
+
+/// A totals query over a feeding, as the client sends one while a feeding slot is narrowed.
+module TotalsFixtures =
+
+    let feeding =
+        { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.context "" "Nutrilon Nenatal 1" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+        }
+
+    let query: TotalsQuery =
+        {
+            PatientData = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
+            OrderContexts = [| feeding |]
+        }
+
+    let landedTotals n result =
+        LoaderMsg.Landed(
+            Landing.Totals(
+                n,
+                None,
+                result
+                |> Result.map (fun t ->
+                    {
+                        Response = t
+                        Notice = None
+                    }
+                )
+            )
+        )
+
+    let someTotals = Informedica.GenPRES.Shared.Models.Totals.empty
+
+
+open TotalsFixtures
+
+
+[<Tests>]
+let totalsTests =
+    testList
+        "the totals query"
+        [
+            test "a query asks for the totals under its number, the totals shown staying" {
+                LoaderState.initial
+                |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                |> fun (state, effects) ->
+                    effects
+                    |> Expect.equal "fetched as query 1" [ LoaderEffect.FetchTotals(1, query) ]
+                    state.Totals |> Expect.equal "refreshing" InProgress
+            }
+
+            test "the answer to the query lands, and an answer to an earlier one is dropped" {
+                let twice =
+                    LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+
+                twice
+                |> LoaderMachine.transition (landedTotals 1 (Ok someTotals))
+                |> Expect.equal "query 1 dropped" (twice, [])
+
+                twice
+                |> LoaderMachine.transition (landedTotals 2 (Ok someTotals))
+                |> fun (state, effects) ->
+                    state.Totals |> Expect.equal "query 2 landed" (Resolved someTotals)
+
+                    effects
+                    |> Expect.equal
+                        "the banner cleared"
+                        [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Totals ]
+            }
+
+            test "a failed query clears the totals and names them on the banner" {
+                LoaderState.initial
+                |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                |> fst
+                |> LoaderMachine.transition (landedTotals 1 (Error [| "down" |]))
+                |> fun (state, effects) ->
+                    state.Totals |> Expect.equal "cleared" HasNotStartedYet
+
+                    effects
+                    |> Expect.equal
+                        "the banner"
+                        [
+                            LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Totals, [| "down" |])
+                        ]
+            }
+
+            test "the empty query clears the totals, asks nothing and drops an answer still out" {
+                let cleared =
+                    LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals None)
+
+                cleared |> snd |> Expect.isEmpty "nothing asked"
+                (fst cleared).Totals |> Expect.equal "cleared" HasNotStartedYet
+
+                fst cleared
+                |> LoaderMachine.transition (landedTotals 1 (Ok someTotals))
+                |> Expect.equal "the answer still out dropped" (fst cleared, [])
+            }
+        ]
+
+
+/// Patient data for the emergency list: with an age, with a weight, and the rows of an answer.
+module EmergencyListFixtures =
+
+    /// Patient data with an age of 2 years and nothing else.
+    let withAge = { PatientData.empty with Age = Some { PatientData.Age.ageZero with Age.Years = 2<year> } }
+
+
+    /// Patient data with a measured weight of 10 kg and nothing else.
+    let withWeight =
+        { PatientData.empty with Weight = { PatientData.empty.Weight with Measured = Some 10000<gram> } }
+
+
+    let row name = { Intervention.emptyIntervention with Name = name }
+
+
+    let landedList number result =
+        LoaderMsg.Landed(Landing.EmergencyList(number, Some(OpenedToken "t"), result))
+
+
+    let fetches effects =
+        effects
+        |> List.filter (
+            function
+            | LoaderEffect.FetchEmergencyList _ -> true
+            | _ -> false
+        )
+
+
+open EmergencyListFixtures
+
+
+[<Tests>]
+let emergencyListTests =
+    testList
+        "the emergency list query"
+        [
+            test "a query requests the list as query 1" {
+                let state, effects = run [ LoaderMsg.QueryEmergencyList(Some withAge) ]
+
+                effects
+                |> Expect.equal "fetched" [ LoaderEffect.FetchEmergencyList(1, withAge) ]
+                state.EmergencyList |> Expect.equal "loading" InProgress
+            }
+
+            test "no query clears the rows and requests nothing" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                effects |> Expect.isEmpty "no request"
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "the rows shown stay while the list is queried again" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                        ]
+
+                state.EmergencyList
+                |> Expect.equal "refreshing" (Refreshing [| row "adrenaline" |])
+            }
+
+            test "the answer sets the rows and reports the success" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "the rows" (Resolved [| row "adrenaline" |])
+
+                effects
+                |> Expect.equal
+                    "succeeded"
+                    [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.EmergencyList ]
+            }
+
+            test "an answer to an earlier query is ignored" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                            landedList 1 (answered [| row "old" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "still loading" InProgress
+                effects |> Expect.isEmpty "nothing"
+            }
+
+            test "an answer after the query was cleared is ignored" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            LoaderMsg.QueryEmergencyList None
+                            landedList 1 (answered [| row "old" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "a failed request clears the rows and reports the errors" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (Error [| "down" |])
+                        ]
+
+                state.EmergencyList |> Expect.equal "cleared" HasNotStartedYet
+
+                effects
+                |> Expect.equal
+                    "failed"
+                    [
+                        LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.EmergencyList, [| "down" |])
+                    ]
+            }
+
+            test "a resource reload queries the list again for the current query" {
+                let _, effects =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.ResourcesReloaded
+                        ]
+
+                effects
+                |> fetches
+                |> Expect.equal "fetched again" [ LoaderEffect.FetchEmergencyList(2, withAge) ]
+            }
+
+            test "a resource reload without a query does not query the list" {
+                let _, effects = run [ LoaderMsg.ResourcesReloaded ]
+
+                effects |> fetches |> Expect.isEmpty "no request"
+            }
+
+            test "checked rows are stored by their numbers" {
+                let state, effects = run [ LoaderMsg.CheckEmergencyListRows [| 2; 3 |] ]
+
+                state.EmergencyListChecked |> Expect.equal "the numbers" [| 2; 3 |]
+                effects |> Expect.isEmpty "no effects"
+            }
+
+            test "a query for the patient clears the checked rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.CheckEmergencyListRows [| 1 |]
+                            LoaderMsg.QueryEmergencyList(Some withWeight)
+                        ]
+
+                state.EmergencyListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "no query clears the checked rows with the rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryEmergencyList(Some withAge)
+                            landedList 1 (answered [| row "adrenaline" |])
+                            LoaderMsg.CheckEmergencyListRows [| 1 |]
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                state.EmergencyListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "the emergency list load is not required to start" {
+                Loads.required
+                |> List.contains Load.EmergencyList
+                |> Expect.isFalse "not required"
+            }
+        ]
+
+
+/// Patient data for the continuous medication list: with an age and a Location, older, and the rows of an answer.
+module ContinuousListFixtures =
+
+    /// Patient data with an age of 2 years and the Location UMCU.
+    let located = { withAge with Location = Some "UMCU" }
+
+
+    /// Patient data with an age of 3 years and the Location UMCU.
+    let older = { located with Age = Some { PatientData.Age.ageZero with Age.Years = 3<year> } }
+
+
+    let landedContinuous number result =
+        LoaderMsg.Landed(Landing.ContinuousList(number, Some(OpenedToken "t"), result))
+
+
+    let continuousFetches effects =
+        effects
+        |> List.filter (
+            function
+            | LoaderEffect.FetchContinuousList _ -> true
+            | _ -> false
+        )
+
+
+open ContinuousListFixtures
+
+
+[<Tests>]
+let continuousListTests =
+    testList
+        "the continuous list query"
+        [
+            test "a query requests the list as query 1" {
+                let state, effects = run [ LoaderMsg.QueryContinuousList(Some located) ]
+
+                effects
+                |> Expect.equal "fetched" [ LoaderEffect.FetchContinuousList(1, located) ]
+                state.ContinuousList |> Expect.equal "loading" InProgress
+            }
+
+            test "no query clears the rows and requests nothing" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryContinuousList None
+                        ]
+
+                effects |> Expect.isEmpty "no request"
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "the rows shown stay while the list is queried again" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryContinuousList(Some older)
+                        ]
+
+                state.ContinuousList
+                |> Expect.equal "refreshing" (Refreshing [| row "morfine" |])
+            }
+
+            test "the answer sets the rows and reports the success" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "the rows" (Resolved [| row "morfine" |])
+
+                effects
+                |> Expect.equal
+                    "succeeded"
+                    [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.ContinuousList ]
+            }
+
+            test "an answer to an earlier query is ignored" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            LoaderMsg.QueryContinuousList(Some older)
+                            landedContinuous 1 (answered [| row "old" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "still loading" InProgress
+                effects |> Expect.isEmpty "nothing"
+            }
+
+            test "an answer after the query was cleared is ignored" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            LoaderMsg.QueryContinuousList None
+                            landedContinuous 1 (answered [| row "old" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+            }
+
+            test "a failed request clears the rows and reports the errors" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (Error [| "down" |])
+                        ]
+
+                state.ContinuousList |> Expect.equal "cleared" HasNotStartedYet
+
+                effects
+                |> Expect.equal
+                    "failed"
+                    [
+                        LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.ContinuousList, [| "down" |])
+                    ]
+            }
+
+            test "an emergency list query leaves the continuous list alone" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.QueryEmergencyList None
+                        ]
+
+                state.ContinuousList |> Expect.equal "the rows" (Resolved [| row "morfine" |])
+            }
+
+            test "a resource reload queries the list again for the current query" {
+                let _, effects =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.ResourcesReloaded
+                        ]
+
+                effects
+                |> continuousFetches
+                |> Expect.equal "fetched again" [ LoaderEffect.FetchContinuousList(2, located) ]
+            }
+
+            test "a resource reload without a query does not query the list" {
+                let _, effects = run [ LoaderMsg.ResourcesReloaded ]
+
+                effects |> continuousFetches |> Expect.isEmpty "no request"
+            }
+
+            test "checked rows are stored by their numbers" {
+                let state, effects = run [ LoaderMsg.CheckContinuousListRows [| 2; 3 |] ]
+
+                state.ContinuousListChecked |> Expect.equal "the numbers" [| 2; 3 |]
+                effects |> Expect.isEmpty "no effects"
+            }
+
+            test "a query for the patient clears the checked rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.QueryContinuousList(Some older)
+                        ]
+
+                state.ContinuousListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "no query clears the checked rows with the rows" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.QueryContinuousList(Some located)
+                            landedContinuous 1 (answered [| row "morfine" |])
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.QueryContinuousList None
+                        ]
+
+                state.ContinuousListChecked |> Expect.isEmpty "cleared"
+            }
+
+            test "checked emergency list rows leave the checked continuous list rows alone" {
+                let state, _ =
+                    run
+                        [
+                            LoaderMsg.CheckContinuousListRows [| 1 |]
+                            LoaderMsg.CheckEmergencyListRows [| 2 |]
+                        ]
+
+                state.ContinuousListChecked |> Expect.equal "the numbers" [| 1 |]
+            }
+
+            test "the continuous list load is not required to start" {
+                Loads.required
+                |> List.contains Load.ContinuousList
+                |> Expect.isFalse "not required"
+            }
         ]

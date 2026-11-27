@@ -57,17 +57,18 @@ module PlanCellPolicyTests =
     let onceTimed = discontinuous |> scheduled (fun s -> { s with IsOnceTimed = true })
     let continuous = discontinuous |> scheduled (fun s -> { s with IsContinuous = true })
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
-    let patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
+    let patient = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
     /// A context in the plan contributing the order.
     let contextOf (ord: Order) =
         { Informedica.GenPRES.Shared.Models.OrderContext.empty with
             Id = "c-1"
-            Patient = patient
+            PatientData = patient
             Scenarios = [| { OrderFixtures.scenario "o-1" "test" with Order = ord } |]
         }
 
+    /// The plan of the context alone.
     let planOf ctx =
         Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |]
 
@@ -150,6 +151,33 @@ module PlanCellPolicyTests =
                             |> Expect.isNone "the dose quantity waits for the components"
                         }
 
+                        test "a cell of an order locked, by itself or by its group, steps nothing" {
+                            let notCalculated (ctx: OrderContext) =
+                                { ctx with
+                                    Scenarios =
+                                        ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
+                                }
+
+                            let main = contextOf discontinuous
+                            let linked =
+                                { contextOf discontinuous with
+                                    Id = "c-2"
+                                    LinkedTo = Some "c-1"
+                                }
+
+                            let planOf contexts =
+                                Informedica.GenPRES.Shared.Models.OrderPlan.create patient contexts
+
+                            stepable (planOf [| main; linked |]) main Column.Frequency
+                            |> Expect.equal "steps on a calculated plan" steppingFrequency
+
+                            stepable (planOf [| notCalculated main; linked |]) (notCalculated main) Column.Frequency
+                            |> Expect.isNone "locked by itself"
+
+                            stepable (planOf [| main; notCalculated linked |]) main Column.Frequency
+                            |> Expect.isNone "locked by its group"
+                        }
+
                         test "a nutrition order steps as a drug order does" {
                             let ctx =
                                 { contextOf discontinuous with
@@ -160,14 +188,12 @@ module PlanCellPolicyTests =
                             |> Expect.equal "the rule applies to every row" steppingFrequency
                         }
 
-                        test "a locked context steps nothing" {
-                            let ctx = contextOf discontinuous
+                        test "a context on other patient data than the plan steps as any other" {
+                            let ctx =
+                                { contextOf discontinuous with PatientData = { patient with Department = Some "ICK" } }
 
-                            let moved = { planOf ctx with Patient = { patient with Department = Some "ICK" } }
-
-                            [ Column.Frequency; Column.Solution ]
-                            |> List.choose (stepable moved ctx)
-                            |> Expect.isEmpty "its patient data differ from the plan's"
+                            stepable (planOf ctx) ctx Column.Frequency
+                            |> Expect.equal "steps as any other" steppingFrequency
                         }
 
                         test "a context without an order steps nothing" {

@@ -56,19 +56,20 @@ module Totals =
     let private noFlashSx = {| |}
 
 
-    let private typoGraphy (items: TextItem[]) =
+    // the text in the colour of a severity, or in the colours of the table when there is none
+    let private typoGraphy color (items: TextItem[]) =
         let variant = "body2"
 
         let normalSx =
             {|
                 display = "inline"
-                color = Mui.Colors.Grey.``700``
+                color = color |> Option.defaultValue Mui.Colors.Grey.``700``
             |}
 
         let boldSx =
             {|
                 display = "inline"
-                color = Mui.Colors.BlueGrey.``700``
+                color = color |> Option.defaultValue Mui.Colors.BlueGrey.``700``
             |}
 
         let boxSx = {| display = "inline" |}
@@ -117,10 +118,10 @@ module Totals =
         (props:
             {|
                 source: string
-                intake: Totals
+                totals: Totals
             |})
         =
-        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.intake)
+        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.totals)
         let timerRef = React.useRef (None: int option)
 
         let flash, setFlash =
@@ -131,7 +132,7 @@ module Totals =
                 |}
 
         let observeTotals () =
-            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.intake
+            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.totals
 
             seenRef.current <- seen
 
@@ -157,11 +158,11 @@ module Totals =
                         flashMs
                     |> Some
 
-        React.useEffect (observeTotals, [| box props.source; box props.intake |])
+        React.useEffect (observeTotals, [| box props.source; box props.totals |])
 
         React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
 
-        let mapRow (intake: Totals) row =
+        let mapRow (totals: Totals) row =
             let cell sx content =
                 {|
                     sx = box sx
@@ -171,7 +172,9 @@ module Totals =
             row
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
-                let items = TotalsDisplay.substanceToField intake name
+                let items = TotalsDisplay.substanceToField totals name
+                // a total outside its target range shows its value in the colour of its severity
+                let color = TotalsDisplay.substanceSeverity totals name |> Mui.Styles.severityColor
                 let isChanged = flash.names |> Set.contains name
 
                 {|
@@ -180,11 +183,11 @@ module Totals =
                     key = if isChanged then $"%s{name}-%i{flash.revision}" else name
                     cells =
                         [|
-                            [| Normal name |] |> typoGraphy |> cell noFlashSx
+                            [| Normal name |] |> typoGraphy None |> cell noFlashSx
                             items[0 .. (items.Length - 2)]
-                            |> typoGraphy
+                            |> typoGraphy color
                             |> cell (if isChanged then flashSx else box noFlashSx)
-                            [| items |> Array.last |] |> typoGraphy |> cell noFlashSx
+                            [| items |> Array.last |] |> typoGraphy None |> cell noFlashSx
                         |]
                 |}
             )
@@ -193,7 +196,7 @@ module Totals =
             rows
             |> Array.filter (fun cells ->
                 let name = cells |> Array.head
-                let items = TotalsDisplay.substanceToField props.intake name
+                let items = TotalsDisplay.substanceToField props.totals name
                 items |> Array.length >= 2
             )
 
@@ -202,7 +205,7 @@ module Totals =
         let content =
             columns
             |> Array.mapi (fun i col ->
-                $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.intake col |} |> toReact
+                $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.totals col |} |> toReact
             )
 
         let isMobile = Mui.Hooks.useIsMobile ()

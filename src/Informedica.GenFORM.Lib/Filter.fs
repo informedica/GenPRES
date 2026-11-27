@@ -4,7 +4,7 @@ namespace Informedica.GenForm.Lib
 module Filter =
 
 
-    /// An empty Filter.
+    /// A dose filter with no criteria, all components and unknown patient data.
     let doseFilter =
         {
             Indication = None
@@ -13,34 +13,24 @@ module Filter =
             Route = None
             DoseType = None
             Diluent = None
-            Components = []
-            Patient = Patient.patient
+            Components = ComponentSelection.AllComponents
+            PatientData = PatientData.unknown
         }
 
 
-    let solutionFilter gen =
+    /// A solution filter with no criteria and unknown patient data.
+    let solutionFilter =
         {
-            Generic = gen
+            Generic = None
             Form = None
             Route = None
             Indication = None
             DoseType = None
             Diluent = None
-            Patient = Patient.patient
+            PatientData = PatientData.unknown
             Dose = None
         }
 
 
-    /// <summary>
-    /// Apply a Patient to a Filter.
-    /// </summary>
-    /// <param name="pat">The Patient</param>
-    /// <param name="filter">The Filter</param>
-    /// <returns>The Filter with the Patient applied</returns>
-    let setPatient (pat: Patient) (filter: DoseFilter) =
-        let pat = pat |> Patient.correctAdjustUnit |> Patient.calcPMAge
-
-        { filter with Patient = pat }
-
-
-    let calcPMAge (filter: DoseFilter) = { filter with Patient = filter.Patient |> Patient.calcPMAge }
+    /// Sets the patient data of a dose filter.
+    let setPatientData patientData (filter: DoseFilter) = { filter with PatientData = patientData }

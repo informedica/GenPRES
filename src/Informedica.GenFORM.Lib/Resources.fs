@@ -6,6 +6,21 @@ module Resources =
     open System
     open Informedica.Logging.Lib
 
+    module CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+    module CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
+    module CoreEGFRBandOptions = Informedica.GenCore.Lib.Patients.EGFRBandOptions
+    module CoreEGFRBand = Informedica.GenCore.Lib.Patients.EGFRBand
+    module Memoization = Informedica.Utils.Lib.Memoization
+    module GoogleSheets = Informedica.Utils.Lib.Web.GoogleSheets
+
+    type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
+    type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+    type CoreCalculationWeightsAndHeights = Informedica.GenCore.Lib.Patients.CalculationWeightsAndHeights
+    type CoreNormalValueSheetError = Informedica.GenCore.Lib.Patients.NormalValueSheetError
+    type CoreNormalValueSheetWarning = Informedica.GenCore.Lib.Patients.NormalValueSheetWarning
+    type CoreEGFRBandOption = Informedica.GenCore.Lib.Patients.EGFRBandOption
+    type CoreEGFRBandSheetWarning = Informedica.GenCore.Lib.Patients.EGFRBandSheetWarning
+
     type Data =
         {
             UnitMappings: UnitMapping[]
@@ -21,32 +36,32 @@ module Resources =
         }
 
 
-    /// Phantom-typed handle: names a resource and carries its value type 'T.
+    /// The name of a resource, typed with the value type 'T of the resource.
     type ResourceKey<'T> = { Name: string }
 
     module ResourceKey =
         let create<'T> name : ResourceKey<'T> = { Name = name }
 
 
-    /// Available to a loader while loading: resolve other resources (its deps).
+    /// Resolves the other resources a loader depends on while the loader runs.
     [<Interface>]
     type IResourceResolver =
         abstract member Get: ResourceKey<'T> -> 'T
 
 
-    /// A loader: given the resolver (for deps), yield the boxed value + non-fatal
-    /// warnings, or fail with fatal errors. Boxing is the price of a heterogeneous
-    /// registry; it is hidden behind typed keys so call sites stay type-safe.
+    /// Takes the resolver for the dependencies and returns the boxed value with the non-fatal warnings,
+    /// or the fatal errors. The value is boxed so one registry holds every resource type; the typed
+    /// keys unbox it at the right type.
     type ResourceLoader = IResourceResolver -> Result<obj * Message list, Message list>
 
-    /// The registry. Adding a resource = add ONE entry; the engine never changes.
+    /// The loader of every resource by name. A new resource needs only a new entry.
     type ResourceRegistry = Map<string, ResourceLoader>
 
 
-    /// Resource provider abstraction. Returns the fully built, in-memory
-    /// resource collections. Product collections are v2 ProductComponents.
+    /// Gives the loaded resources, built and in memory.
     type IResourceProvider =
-        /// Generic seam: resolve any registered resource by its typed key.
+        /// Resolves any registered resource by its typed key. Raises KeyNotFoundException for a key the provider
+        /// does not hold.
         abstract member Get: ResourceKey<'T> -> 'T
         abstract member GetData: unit -> Data
         abstract member GetUnitMappings: unit -> UnitMapping[]
@@ -63,9 +78,10 @@ module Resources =
         abstract member GetRenalRules: unit -> RenalRule[]
         abstract member GetTotals: unit -> TotalsData[]
         abstract member GetGStandProvider: unit -> Check.GStandProvider
-        /// The departments the loaded rules name and the default; only the default when the
-        /// rules did not load, since no rule is matched then.
-        abstract member GetDepartments: unit -> Departments
+        /// The departments the loaded rules name, distinct and sorted; none when the rules did not load.
+        abstract member GetDepartments: unit -> string[]
+        /// The locations the loaded rules name, distinct and sorted; none when the rules did not load.
+        abstract member GetLocations: unit -> string[]
         abstract member GetResourceInfo: unit -> ResourceInfo
 
     and ResourceInfo =
@@ -76,8 +92,8 @@ module Resources =
         }
 
 
-    /// Standalone v2 resource state. The raw, source-loaded data lives in the
-    /// nested Data record; the built domain collections live at the top level.
+    /// The loaded resources: the data read from the sources in Data, and the products and rules built
+    /// from it at the top level.
     type ResourceState =
         {
             Data: Data
@@ -120,9 +136,9 @@ module Resources =
     exception ResourceLoadError of Message list
 
 
-    /// Lazy, memoised, dependency-ordered resolution with cycle detection and
-    /// warning accumulation. The one place an unsafe downcast occurs, guarded by
-    /// the typed key.
+    /// Resolves a resource on its first request, after the resources it depends on, and caches the value.
+    /// Collects the warnings of every loader. Raises ResourceLoadError for a loader error, a cyclic
+    /// dependency or a resource that is not registered.
     type LoadEngine(registry: ResourceRegistry) =
         let cache = System.Collections.Generic.Dictionary<string, obj>()
         let inProgress = System.Collections.Generic.HashSet<string>()
@@ -146,10 +162,10 @@ module Resources =
                         v
                     | Error es -> raise (ResourceLoadError es)
 
-        /// Resolve a single resource at its static type (memoised).
+        /// Resolves one resource at the type of its key, from the cache after the first time.
         member this.Resolve(key: ResourceKey<'T>) : 'T = this.ResolveObj key.Name :?> 'T
 
-        /// Resolve every registered resource (used to build the full snapshot).
+        /// Resolves every registered resource.
         member this.ForceAll() =
             registry |> Map.iter (fun name _ -> this.ResolveObj name |> ignore)
 
@@ -160,14 +176,18 @@ module Resources =
             member this.Get key = this.Resolve key
 
 
-    /// IO leaf resource: a thunk returning Result (no dependencies).
+    /// Makes a loader without dependencies from a read that returns a Result. An error fails the whole load.
     let ofResult (f: unit -> Result<'T, Message list>) : ResourceLoader =
         fun _ -> f () |> Result.map (fun v -> box v, [])
 
-    /// Derived resource that uses dependencies, no warnings.
+    /// Makes a loader without dependencies that passes the warnings of its result on.
+    let ofResultWith (f: unit -> Result<'T * Message list, Message list>) : ResourceLoader =
+        fun _ -> f () |> Result.map (fun (v, warnings) -> box v, warnings)
+
+    /// Makes a loader that builds a value from other resources, without warnings.
     let derive (f: IResourceResolver -> 'T) : ResourceLoader = fun r -> Ok(box (f r), [])
 
-    /// Derived resource that uses dependencies and also emits warnings.
+    /// Makes a loader that builds a value from other resources, with warnings.
     let deriveWith (f: IResourceResolver -> 'T * Message list) : ResourceLoader =
         fun r ->
             let v, ws = f r
@@ -181,19 +201,96 @@ module Resources =
         | ErrorMsg(s, _) -> s
 
 
-    /// <summary>
-    /// An <b>optional</b> IO leaf resource: one whose failure must not fail the whole
-    /// load, and so empty every other resource with it.
-    /// </summary>
+    /// Returns the message text for an error in the normal-value rows.
+    let normalValueErrorText err =
+        match err with
+        | CoreNormalValueError.MissingSheet sheet -> $"normal values, sheet %s{sheet}: missing"
+        | CoreNormalValueError.MissingColumns(sheet, columns) ->
+            let names = columns |> String.concat ", "
+            $"normal values, sheet %s{sheet}: columns missing: %s{names}"
+        | CoreNormalValueError.NotANumber(sheet, row, column) ->
+            $"normal values, sheet %s{sheet}, row %i{row}: no number in %s{column}"
+        | CoreNormalValueError.UnknownSex(sheet, row, sex) ->
+            $"normal values, sheet %s{sheet}, row %i{row}: the sex '%s{sex}' is not M or F"
+
+
+    /// Parses the normal-value tables from the rows with GenCORE. Returns None with a warning per error
+    /// when the rows do not parse. Empty rows return None without a warning, because the failed sheet
+    /// read has already warned.
+    let normalValueTablesOf (rows: Map<string, string[][]>) =
+        if rows.IsEmpty then
+            None, []
+        else
+            match rows |> CoreNormalValueTables.ofRows with
+            | Ok tables -> Some tables, []
+            | Error errs -> None, errs |> List.map (normalValueErrorText >> Warning)
+
+
+    /// Returns the message text for an error in the rows of the sheet of the calculation weights or heights.
+    let normalValueSheetErrorText err =
+        match err with
+        | CoreNormalValueSheetError.MissingSheet sheet -> $"calculation weights and heights, sheet %s{sheet}: missing"
+        | CoreNormalValueSheetError.MissingColumn(sheet, column) ->
+            $"calculation weights and heights, sheet %s{sheet}: column missing: %s{column}"
+        | CoreNormalValueSheetError.NotAPositiveNumber(sheet, row, value) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' is not a positive number"
+        | CoreNormalValueSheetError.RoundsToZero(sheet, row, value) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: '%s{value}' rounds to 0"
+        | CoreNormalValueSheetError.NoValues sheet -> $"calculation weights and heights, sheet %s{sheet}: no values"
+
+
+    /// Returns the message text for a problem in the sheet of the calculation weights or heights that the parse
+    /// corrects.
+    let normalValueSheetWarningText warning =
+        match warning with
+        | CoreNormalValueSheetWarning.NotAscending(sheet, row) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: lower than a row above it, the values are sorted"
+        | CoreNormalValueSheetWarning.Duplicate(sheet, row) ->
+            $"calculation weights and heights, sheet %s{sheet}, row %i{row}: a value a row above it holds, the value is used once"
+
+
+    /// Returns the message text for a problem in the eGFR band sheet.
+    let egfrBandSheetWarningText warning =
+        let sheet = CoreEGFRBandOptions.sheet
+
+        match warning with
+        | CoreEGFRBandSheetWarning.MissingColumns columns ->
+            let names = columns |> String.concat ", "
+            $"eGFR bands, sheet %s{sheet}: columns missing: %s{names}"
+        | CoreEGFRBandSheetWarning.NoBand(row, minimum, maximum) ->
+            $"eGFR bands, sheet %s{sheet}, row %i{row}: the limits '%s{minimum}' to '%s{maximum}' are no band"
+        | CoreEGFRBandSheetWarning.DuplicateBand row ->
+            $"eGFR bands, sheet %s{sheet}, row %i{row}: a second row for a band, the first row is used"
+        | CoreEGFRBandSheetWarning.MissingBand band ->
+            let minimum, maximum = band |> CoreEGFRBand.limits
+            $"eGFR bands, sheet %s{sheet}: no row with MinEGFR '%s{minimum}' and MaxEGFR '%s{maximum}'"
+
+
+    /// Parses the eGFR band options from the rows with GenCORE, with a warning for every problem. Empty rows give
+    /// no options and no warning, because the failed sheet read has already warned.
+    let egfrBandOptionsOf rows =
+        let options, warnings = rows |> CoreEGFRBandOptions.ofRows
+        options, warnings |> List.map (egfrBandSheetWarningText >> Warning)
+
+
+    /// Parses the calculation weights and heights from the rows with GenCORE. Returns them with a warning for
+    /// each correction, or an error for each problem.
+    let calculationWeightsAndHeightsOf rows =
+        rows
+        |> CoreCalculationWeightsAndHeights.ofRows
+        |> Result.map (fun (calc, warnings) -> calc, warnings |> List.map (normalValueSheetWarningText >> Warning))
+        |> Result.mapError (List.map (fun err -> ErrorMsg(normalValueSheetErrorText err, None)))
+
+
+    /// <summary>Makes a loader without dependencies whose failure does not fail the whole load.</summary>
     /// <remarks>
-    /// On error the load succeeds with <paramref name="fallback"/>, and each error
-    /// becomes a <c>Warning</c> prefixed with <paramref name="note"/> — so the failure
-    /// still surfaces in <c>ResourceInfo.Messages</c> where an admin can see it, and an
-    /// admin ReloadResources retries the fetch.
+    /// On an error the loader returns <paramref name="fallback"/> and turns each error into a warning
+    /// that starts with <paramref name="note"/>. The warning shows in ResourceInfo.Messages, and a
+    /// reload of the resources retries the read.
     /// </remarks>
-    /// <param name="note">Prefix explaining what was not loaded and what the effect is.</param>
-    /// <param name="fallback">The degraded value to serve instead.</param>
-    /// <param name="f">The fetch.</param>
+    /// <param name="note">Says what was not loaded and what that means.</param>
+    /// <param name="fallback">The value returned on an error.</param>
+    /// <param name="f">The read.</param>
     let ofResultOrDefault (note: string) (fallback: 'T) (f: unit -> Result<'T, Message list>) : ResourceLoader =
         fun _ ->
             match f () with
@@ -201,37 +298,22 @@ module Resources =
             | Error msgs -> Ok(box fallback, msgs |> List.map (fun m -> Warning $"%s{note}: %s{messageText m}"))
 
 
-    /// The departments the loaded rules name, and the default a patient without one is
-    /// prescribed for. The default is applied where rules are matched and never written on
-    /// the patient: the patient the server answers with must equal the one it was sent.
+    /// Returns the names the rules give, such as the departments or the locations: trimmed, blanks ignored,
+    /// distinct and sorted.
+    let distinctNames (named: string option seq) =
+        named
+        |> Seq.choose id
+        |> Seq.map _.Trim()
+        |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.toArray
+
+
+    /// The departments the loaded rules name.
     module Departments =
 
-        /// One hospital's ward written in code, and the only thing that keeps a patient without
-        /// a department from losing every ward's solution rules and reconstitutions. It stays
-        /// until the department is the user's to choose; then it becomes configuration, and
-        /// this is the one place that changes.
-        let defaultDepartment = "ICK"
-
-
-        /// The departments named, blanks ignored, the default among them whether or not a rule
-        /// names it.
-        let ofNamed (named: string option seq) : Departments =
-            {
-                Names =
-                    named
-                    |> Seq.choose id
-                    |> Seq.map _.Trim()
-                    |> Seq.filter (String.IsNullOrWhiteSpace >> not)
-                    |> Seq.append [ defaultDepartment ]
-                    |> Seq.distinct
-                    |> Seq.sort
-                    |> Seq.toArray
-                Default = defaultDepartment
-            }
-
-
-        /// From the loaded rows: the dose-rule rows, the solution-rule rows and the
-        /// reconstitutions, the three sheets that name departments.
+        /// Makes the departments from the dose rules, the solution rules and the reconstitutions.
         let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
             [
                 doseRows |> Seq.map (fun d -> Some d.Patient.Dep)
@@ -239,19 +321,48 @@ module Resources =
                 reconstitutions |> Seq.map _.Department
             ]
             |> Seq.concat
-            |> ofNamed
+            |> distinctNames
 
 
-        /// The department a patient is prescribed for: the one given, or the default.
-        let forPatient (departments: Departments) (department: string option) =
-            department |> Option.orElse (Some departments.Default)
+        /// Returns whether the department is one of the departments.
+        let isKnown departments (department: string) = departments |> Array.contains department
 
 
-        /// Whether a department is one the rules know, for an input to be checked against.
-        let isKnown (departments: Departments) (department: string) = departments.Names |> Array.contains department
+    /// The locations the loaded rules name.
+    module Locations =
+
+        /// Makes the locations from the dose rules, the solution rules and the reconstitutions.
+        let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
+            [
+                doseRows |> Seq.map (fun d -> Some d.Patient.Location)
+                solutionRows |> Seq.map _.Location
+                reconstitutions |> Seq.map _.Location
+            ]
+            |> Seq.concat
+            |> distinctNames
 
 
-    /// Typed keys — one per resource. Adding a resource adds a key here.
+    /// A cache of the prescription rules per patient for the dose rules and the stand-alone dose rules of a load,
+    /// with the other rules of the load it is built from.
+    type PrescriptionRuleCache =
+        {
+            /// The solution rules the prescription rules are built from.
+            SolutionRules: SolutionRule[]
+            /// The renal rules the prescription rules are built from.
+            RenalRules: RenalRule[]
+            /// The route mappings the prescription rules are built from.
+            RouteMappings: RouteMapping[]
+            /// The additive lookup the prescription rules are built from.
+            IsAdditive: string -> bool
+            /// The predilution rules the prescription rules are built from.
+            Predilutions: ProductPredilution[]
+            /// Returns the cached prescription rules of a patient for the dose rules when the dose rules are the
+            /// dose rules or the stand-alone dose rules of the load, the same arrays; None for any other array.
+            TryRulesOf: DoseRule[] -> (PatientData -> Result<PrescriptionRule[], Message list>) option
+        }
+
+
+    /// The typed key of every resource.
     module Keys =
         let unitMappings = ResourceKey.create<UnitMapping[]> "unitMappings"
         let routeMappings = ResourceKey.create<RouteMapping[]> "routeMappings"
@@ -263,31 +374,108 @@ module Resources =
             ResourceKey.create<Informedica.ZIndex.Lib.Types.GenPresProduct[]> "genPresProducts"
 
         let reconstitution = ResourceKey.create<Reconstitution[]> "reconstitution"
+        let predilution = ResourceKey.create<Predilution[]> "predilution"
+        let productPredilutions = ResourceKey.create<ProductPredilution[]> "productPredilutions"
         let parenteralMeds = ResourceKey.create<ProductComponent[]> "parenteralMeds"
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
-        let departments = ResourceKey.create<Departments> "departments"
+        let departments = ResourceKey.create<string[]> "departments"
+        let locations = ResourceKey.create<string[]> "locations"
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
+        // The normal-value tables GenCORE parses from the rows; None when the rows do not parse.
+        let normalValueTables = ResourceKey.create<CoreNormalValueTables option> "normalValueTables"
+        // The weights and heights an estimate is rounded to and the user picks from.
+        let calculationWeightsAndHeights =
+            ResourceKey.create<CoreCalculationWeightsAndHeights> "calculationWeightsAndHeights"
+        // The rows of the eGFR band sheet; empty when the sheet fails to load.
+        let egfrBandRows = ResourceKey.create<string[][]> "egfrBandRows"
+        // The eGFR bands the user picks from, each with the text of its row.
+        let egfrBandOptions = ResourceKey.create<CoreEGFRBandOption list> "egfrBandOptions"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
+        // The rows of the RuleSets sheet as written.
+        let ruleSetRows = ResourceKey.create<RuleSetData[]> "ruleSetRows"
+        // The rule set rows with every empty generic filled in from the dose rules.
+        let ruleSetData = ResourceKey.create<RuleSetData[]> "ruleSetData"
+        // Checks the rule set rows against the dose rules and the formulary; gives only warnings.
+        let ruleSetChecks = ResourceKey.create<unit> "ruleSetChecks"
+        // The rows of the LinkRules sheet as written, blank rows included.
+        let linkRuleRows = ResourceKey.create<LinkRuleData[]> "linkRuleRows"
+        // The link rules parsed from the rows; an invalid row fails the whole load.
+        let linkRules = ResourceKey.create<LinkRule[]> "linkRules"
+        // Checks the link rules against the dose rules; gives only warnings.
+        let linkRuleChecks = ResourceKey.create<unit> "linkRuleChecks"
         let products = ResourceKey.create<ProductComponent[]> "products"
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
+        // The dose rules whose orders can be prescribed on their own, without a main order.
+        let standAloneDoseRules = ResourceKey.create<DoseRule[]> "standAloneDoseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
-        // G-Standaard dose-rule capability, served as a function-valued resource.
+        // The renal rules refused by the unit checks, each with the reasons.
+        let refusedRenalRules = ResourceKey.create<(RenalRule * string list)[]> "refusedRenalRules"
+        // Checks the renal rules against the dose rules; gives only warnings.
+        let renalRuleChecks = ResourceKey.create<unit> "renalRuleChecks"
+        // Checks the dose rules and the solution rules for errors in the sheets; gives only warnings.
+        let ruleChecks = ResourceKey.create<unit> "ruleChecks"
+        // The G-Standaard dose rules, as a function.
         let gStandProvider = ResourceKey.create<Check.GStandProvider> "gStandProvider"
+        // Returns whether the Formulary marks the product with a GPK as IsAdditive.
+        let isAdditive = ResourceKey.create<string -> bool> "isAdditive"
 
-        // Nederlands Kinder Formularium link lookup, likewise function-valued.
+        // The Nederlands Kinder Formularium link lookup, as a function.
         let nkfLinkProvider = ResourceKey.create<Source.LinkProvider> "nkfLinkProvider"
 
+        // The prescription rules of a patient for the dose rules and the stand-alone dose rules, cached for at most
+        // maxCachedPatients patients.
+        let prescriptionRuleCache = ResourceKey.create<PrescriptionRuleCache> "prescriptionRuleCache"
 
-    /// Default resource registry using the standard v2 get functions.
-    ///
-    /// Every entry is a loader; dependencies are declared by calling r.Get and
-    /// resolved lazily and once by the engine (replacing the old hand-ordered CE).
-    /// FormularyProducts is one resource that ParenteralMeds / EnteralFeeding /
-    /// Products depend on, so it is fetched exactly once (no explicit `lazy`).
+
+    /// The number of distinct patients the prescription rules are cached for.
+    let maxCachedPatients = 64
+
+
+    /// Builds the prescription rule cache over the solution and renal rules, the route mappings, the additive
+    /// lookup and the predilution rules of one load. The dose rules and the stand-alone dose rules of the load each get a memo of at most
+    /// maxCachedPatients patients. A reload builds a new, empty cache.
+    let prescriptionRuleCacheLoader: ResourceLoader =
+        derive (fun r ->
+            let solutionRules = r.Get Keys.solutionRules
+            let renalRules = r.Get Keys.renalRules
+            let routeMappings = r.Get Keys.routeMappings
+            let isAdditive = r.Get Keys.isAdditive
+            let predilutions = r.Get Keys.productPredilutions
+
+            let memoOf doseRules =
+                doseRules,
+                PrescriptionRule.getForPatient isAdditive doseRules solutionRules renalRules predilutions routeMappings
+                |> Memoization.memoizeBounded maxCachedPatients
+
+            let memos = [ r.Get Keys.doseRules |> memoOf; r.Get Keys.standAloneDoseRules |> memoOf ]
+
+            {
+                SolutionRules = solutionRules
+                RenalRules = renalRules
+                RouteMappings = routeMappings
+                IsAdditive = isAdditive
+                Predilutions = predilutions
+                TryRulesOf =
+                    fun doseRules ->
+                        memos
+                        |> List.tryFind (fun (drs, _) -> obj.ReferenceEquals(drs, doseRules))
+                        |> Option.map snd
+            }
+        )
+
+
+    /// The loader of the renal rule data. A renal sheet that fails to load fails the whole load,
+    /// because empty renal rules would give every patient with a reduced kidney function the full dose.
+    let renalRuleDataLoader fetch = ofResult fetch
+
+
+    /// The default registry, which reads the sheets of dataUrlId. A loader names its dependencies with
+    /// r.Get, and the engine loads each resource once. The parenteral, enteral and other products all
+    /// read the formularyProducts resource, so the Formulary sheet is read once.
     let defaultRegistry logger dataUrlId : ResourceRegistry =
         Map
             [
@@ -303,24 +491,30 @@ module Resources =
 
                 Keys.formularyProducts.Name, ofResult (fun () -> Product.getFormularyProducts dataUrlId)
                 Keys.reconstitution.Name, ofResult (fun () -> Product.Reconstitution.get dataUrlId)
+                Keys.predilution.Name, ofResult (fun () -> Product.Predilution.get dataUrlId)
 
-                // Parenteral and enteral products are NOT loaded from sheets of
-                // their own: they are the Formulary rows whose Type says so, turned
-                // into ProductComponents with the Formulary nutrition columns as
-                // their substances.
+                // The parenteral and enteral products have no sheet of their own: they are the Formulary
+                // rows of that Type, with the Formulary nutrition columns as their substances.
                 Keys.parenteralMeds.Name,
                 derive (fun r ->
                     r.Get Keys.formularyProducts
-                    |> Product.Parenteral.get logger (r.Get Keys.unitMappings)
+                    |> Product.Parenteral.get logger (r.Get Keys.unitMappings) (r.Get Keys.routeMappings)
+                )
+
+                // The predilution rules, each with the substances of its diluent from the parenteral products.
+                Keys.productPredilutions.Name,
+                derive (fun r ->
+                    r.Get Keys.predilution
+                    |> Array.map (Product.ProductPredilution.create (r.Get Keys.parenteralMeds))
                 )
 
                 Keys.enteralFeeding.Name,
                 derive (fun r ->
                     r.Get Keys.formularyProducts
-                    |> Product.Enteral.get logger (r.Get Keys.unitMappings)
+                    |> Product.Enteral.get logger (r.Get Keys.unitMappings) (r.Get Keys.routeMappings)
                 )
 
-                // IO edge: read raw source data once.
+                // Reads the G-Standaard products from ZIndex.
                 Keys.genPresProducts.Name,
                 ofResult (fun () ->
                     try
@@ -331,10 +525,9 @@ module Resources =
 
                 Keys.doseRuleData.Name, ofResult (fun () -> DoseRuleLoader.getData dataUrlId)
                 Keys.solutionRuleData.Name, ofResult (fun () -> SolutionRule.getData dataUrlId)
-                Keys.renalRuleData.Name, ofResult (fun () -> RenalRule.getData dataUrlId)
+                Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> RenalRule.getData dataUrlId)
 
-                // the departments the rules name, and the default: derived, so it loads once
-                // and after the three rows it reads
+                // The departments the rules name.
                 Keys.departments.Name,
                 derive (fun r ->
                     Departments.ofRules
@@ -343,24 +536,89 @@ module Resources =
                         (r.Get Keys.reconstitution)
                 )
 
-                // the normal-value rows: a load failure leaves the estimate blank, with a
-                // warning, and must not empty the rules
+                // The locations the rules name.
+                Keys.locations.Name,
+                derive (fun r ->
+                    Locations.ofRules
+                        (r.Get Keys.doseRuleData)
+                        (r.Get Keys.solutionRuleData)
+                        (r.Get Keys.reconstitution)
+                )
+
+                // A normal-value sheet that fails to load gives no normal-value estimates and a warning,
+                // and does not empty the rules.
                 Keys.normalValueRows.Name,
                 ofResultOrDefault
                     "Normal values not loaded"
                     Map.empty
-                    (fun () -> Mapping.getNormalValueRows Mapping.normalValuesUrlId)
+                    (fun () -> Mapping.getSheetRows dataUrlId CoreNormalValueTables.sheets)
 
-                // Totals is an optional intake-reference resource: a load failure must
-                // not empty the others, so swallow to [||] and surface a Warning.
+                // Rows that do not parse give no normal-value tables and a warning per error, and do not
+                // empty the rules.
+                Keys.normalValueTables.Name, deriveWith (fun r -> r.Get Keys.normalValueRows |> normalValueTablesOf)
+
+                // A calculation weight or height sheet that fails to load or holds an error fails the whole
+                // load, because the estimates and the options need it.
+                Keys.calculationWeightsAndHeights.Name,
+                ofResultWith (fun () ->
+                    Mapping.getSheetRows dataUrlId CoreCalculationWeightsAndHeights.sheets
+                    |> Result.bind calculationWeightsAndHeightsOf
+                )
+
+                // An eGFR band sheet that fails to load gives no eGFR band options and a warning, and does not
+                // empty the rules.
+                Keys.egfrBandRows.Name,
+                ofResultOrDefault
+                    "eGFR bands not loaded"
+                    ([||]: string[][])
+                    (fun () ->
+                        Mapping.getSheetRows dataUrlId [ CoreEGFRBandOptions.sheet ]
+                        |> Result.map (Map.find CoreEGFRBandOptions.sheet)
+                    )
+
+                Keys.egfrBandOptions.Name, deriveWith (fun r -> r.Get Keys.egfrBandRows |> egfrBandOptionsOf)
+
+                // A Totals sheet that fails to load gives no totals and a warning, and does not empty
+                // the other resources.
                 Keys.totalsData.Name,
                 ofResultOrDefault
                     "Totals resource not loaded"
                     ([||]: TotalsData[])
                     (fun () -> Mapping.getTotals dataUrlId)
 
-                // Narrow the raw ZIndex products to those referenced by dose rules
-                // BEFORE building, so discarded products are never constructed.
+                // A RuleSets sheet that fails to load fails the whole load, because a category without
+                // a rule set is refused.
+                Keys.ruleSetRows.Name, ofResult (fun () -> Mapping.getRuleSets dataUrlId)
+
+                Keys.ruleSetData.Name,
+                derive (fun r ->
+                    r.Get Keys.ruleSetRows
+                    |> RuleSet.expand (r.Get Keys.doseRuleData |> RuleSet.DoseRuleNames.ofData)
+                )
+
+                Keys.ruleSetChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.ruleSetRows
+                    |> RuleSet.checkData (r.Get Keys.doseRuleData) (r.Get Keys.formularyProducts)
+                )
+
+                Keys.linkRuleRows.Name, ofResult (fun () -> Mapping.getLinkRules dataUrlId)
+
+                // An invalid link rule row fails the whole load, because a Required link that is left
+                // out would let the linked order be prescribed alone.
+                Keys.linkRules.Name,
+                (fun r -> r.Get Keys.linkRuleRows |> LinkRule.ofRows |> Result.map (fun v -> box v, []))
+
+                Keys.linkRuleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.linkRuleRows
+                    |> LinkRule.checkData (r.Get Keys.routeMappings) (r.Get Keys.doseRuleData)
+                )
+
+                // Filters the ZIndex products to those the dose rules can use before building them,
+                // so the other products are never built.
                 Keys.products.Name,
                 derive (fun r ->
                     let filtered =
@@ -383,14 +641,31 @@ module Resources =
                         filtered
                 )
 
-                // Built rules carry product-matching warnings -> ResourceState.Messages.
+                // Builds the dose rules and leaves out those a refused renal rule applies to. The warnings
+                // of both steps go to ResourceState.Messages.
                 Keys.doseRules.Name,
                 deriveWith (fun r ->
-                    DoseRuleLoader.fromData
-                        (r.Get Keys.routeMappings)
-                        (r.Get Keys.formRoutes)
-                        (r.Get Keys.products)
-                        (r.Get Keys.doseRuleData)
+                    let drs, msgs =
+                        DoseRuleLoader.fromData
+                            (r.Get Keys.routeMappings)
+                            (r.Get Keys.formRoutes)
+                            (r.Get Keys.products)
+                            (r.Get Keys.solutionRules)
+                            (r.Get Keys.doseRuleData)
+
+                    let drs, renalMsgs =
+                        drs
+                        |> RenalRule.withoutRefused (r.Get Keys.routeMappings) (r.Get Keys.refusedRenalRules)
+
+                    drs, msgs @ renalMsgs
+                )
+
+                // Leaves out the dose rules a Required link rule matches as the linked order; those orders
+                // come only with their main order.
+                Keys.standAloneDoseRules.Name,
+                derive (fun r ->
+                    r.Get Keys.doseRules
+                    |> LinkRule.standAlone (r.Get Keys.routeMappings) (r.Get Keys.linkRules)
                 )
 
                 Keys.solutionRules.Name,
@@ -403,27 +678,105 @@ module Resources =
                     |> Result.map (fun v -> box v, [])
                 )
 
+                Keys.refusedRenalRules.Name, derive (fun r -> r.Get Keys.renalRuleData |> RenalRule.refused logger)
+
                 Keys.renalRules.Name,
                 (fun r ->
                     RenalRule.map logger (r.Get Keys.renalRuleData)
                     |> Result.map (fun v -> box v, [])
                 )
 
-                // G-Standaard dose rules served as a function-valued resource: the
-                // closure depends only on routeMappings; ZIndex caches stay memoised
-                // in ZIndex.Lib and patient filtering (RuleFinder) is untouched.
+                // A renal rule for a reduced kidney function with a higher maximum than a dose rule
+                // it applies to is reported -> ResourceState.Messages.
+                Keys.renalRuleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.renalRules
+                    |> RenalRule.doseRuleWarnings (r.Get Keys.routeMappings) (r.Get Keys.doseRules)
+                )
+
+                // Reported -> ResourceState.Messages:
+                // - a rule with a minimum above its maximum
+                // - a solution rule whose diluents match no parenteral product
+                // - a solution rule without diluents whose concentration limit allows no strength of its products
+                // - a solution rule whose dose count has no maximum and no maximum on the preparation
+                // - two solution rules that apply to one dose rule and one patient
+                // - a diluent that is also a component of a dose rule the solution rule applies to
+                // - a diluent whose Formulary product is not marked IsDiluent
+                // - a generic for the same line that the Formulary does not have
+                // - a solution rule with a diluent row but no diluent
+                // - a solution rule with more than one dilution limit for the same component or substance
+                // - rows of a solution rule for the same dilution target with different dilution limits
+                // - a solution rule whose rows give different source texts
+                // - a solution rule with HPKs that are not trade products of its GPKs
+                // - a solution rule with a volume or a quantity per adjust but no adjust unit
+                // - the rows of a solution rule that give different adjust units
+                // - a dose rule and a solution rule with different adjust units
+                // - a dose rule and a solution rule whose ranges for a component no order can meet
+                // - a product of a dose rule without a Divisible, or products whose Divisible disagree
+                Keys.ruleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    (r.Get Keys.solutionRuleData
+                     |> SolutionRule.missingDiluents (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.unknownLineGenerics (r.Get Keys.formularyProducts))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.missingAdjustUnits (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.mixedAdjustUnits (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRuleData |> SolutionRule.mixedSourceTexts)
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.hpksOutsideGpks (r.Get Keys.genPresProducts))
+                    @ (r.Get Keys.solutionRuleData
+                       |> SolutionRule.duplicateRows (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
+                    @ (r.Get Keys.doseRules |> DoseRule.divisibleWarnings)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.invertedRanges)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.openDoseCounts)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.repeatedTargets)
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.undilutedRulesWithoutAllowedStrength
+                           (r.Get Keys.routeMappings)
+                           (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.conflictingLimits (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.adjustUnitMismatches (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
+                )
+
+                // The G-Standaard dose rules as a function that depends only on the route mappings;
+                // ZIndex.Lib caches the G-Standaard data itself.
                 Keys.gStandProvider.Name, derive (fun r -> Check.gStandProvider (r.Get Keys.routeMappings))
 
-                // The NKF link lookup is decoration on a rendered dose rule, and it is the
-                // only resource fetched from a third party rather than a sheet, so it is
-                // optional in exactly the sense totalsData is. Registering it here rather
-                // than caching inside DoseRule.Print keeps that module pure, puts the
-                // failure in ResourceInfo where an admin can see it, and lets
-                // ReloadResources retry.
-                //
-                // Degrade to `getLink []`, not `Source.noLinks`: an empty index costs the
-                // NKF links, which is the outage, but FTK links are built from the generic
-                // name alone and must survive it.
+                // The lookup by GPK of the products marked IsAdditive, built once per load.
+                Keys.isAdditive.Name,
+                derive (fun r ->
+                    let gpks =
+                        r.Get Keys.formularyProducts
+                        |> Array.filter _.CanBeUsedAsAdditive
+                        |> Array.map _.GPKODE
+                        |> Set.ofArray
+
+                    fun gpk -> gpks |> Set.contains gpk
+                )
+
+                // The prescription rules of a patient, cached per load.
+                Keys.prescriptionRuleCache.Name, prescriptionRuleCacheLoader
+
+                // The NKF link lookup is optional like totalsData: the links only annotate a printed
+                // dose rule, and the index is fetched from a third party. A failed fetch gives a warning
+                // in ResourceInfo, and a reload retries it. The fallback is Source.getLink [] and not
+                // Source.noLinks: it loses the NKF links but keeps the Farmacotherapeutisch Kompas
+                // links, which are built from the generic name alone.
                 Keys.nkfLinkProvider.Name,
                 ofResultOrDefault
                     "NKF links not loaded, falling back to \"*Lokaal*\""
@@ -435,9 +788,8 @@ module Resources =
             ]
 
 
-    /// The resolved resource set: the typed ResourceState snapshot (the stable
-    /// facade for existing consumers) plus the boxed map of every resolved
-    /// resource (serves the generic Get seam and function-valued resources).
+    /// The loaded resources as a typed ResourceState, and as a map of every resolved resource by name
+    /// for IResourceProvider.Get and the resources that are functions.
     type LoadedResources =
         {
             State: ResourceState
@@ -445,11 +797,11 @@ module Resources =
         }
 
 
-    /// Load all resources at once using the provided registry.
+    /// Loads every resource of the registry. Returns the errors of the first resource that fails.
     let loadAllResourcesWithRegistry (registry: ResourceRegistry) : Result<LoadedResources, Message list> =
         try
             let eng = LoadEngine registry
-            // Resolve everything (incl. gStandProvider); fail-fast on a fatal Error.
+            // The first fatal error stops the load.
             eng.ForceAll()
 
             let state =
@@ -489,15 +841,22 @@ module Resources =
         | exn -> [ ("Failed to load resources", Some exn) |> ErrorMsg ] |> Error
 
 
-    /// Load all resources at once using the default registry.
+    /// Loads every resource of the default registry.
     let loadAllResources logger dataUrlId = loadAllResourcesWithRegistry (defaultRegistry logger dataUrlId)
 
 
-    /// The departments of a resolved resource set; only the default when the rules did not load.
+    /// The departments of a resolved resource set; none when the rules did not load.
     let departmentsOf (loaded: LoadedResources) =
         match loaded.Resolved |> Map.tryFind Keys.departments.Name with
-        | Some d -> d :?> Departments
-        | None -> Departments.ofNamed []
+        | Some d -> d :?> string[]
+        | None -> [||]
+
+
+    /// The locations of a resolved resource set; none when the rules did not load.
+    let locationsOf (loaded: LoadedResources) =
+        match loaded.Resolved |> Map.tryFind Keys.locations.Name with
+        | Some l -> l :?> string[]
+        | None -> [||]
 
 
     /// A plain provider over an already-loaded resource set.
@@ -525,11 +884,14 @@ module Resources =
                 loaded.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider
 
             member _.GetDepartments() = departmentsOf loaded
+            member _.GetLocations() = locationsOf loaded
 
             member _.GetResourceInfo() = resourceInfo state
 
 
-    /// Create a cached resource provider with an optional TTL (in minutes).
+    /// A resource provider that loads the resources on first use and caches them. With a TTL in minutes
+    /// it loads them again after the TTL; without one the cache never expires. A failed load is cached as
+    /// empty resources.
     type CachedResourceProvider
         (logger: Logger, loadAllResources: unit -> Result<LoadedResources, Message list>, ttlMinutes: int option)
         =
@@ -542,6 +904,9 @@ module Resources =
             | Some ttlMinutes -> DateTime.UtcNow.Subtract(timestamp).TotalMinutes > float ttlMinutes
 
         let loadFresh () =
+            // Every load downloads the workbook again, so a reload sees the edits in the spreadsheet.
+            GoogleSheets.clearWorkbookCache ()
+
             match loadAllResources () with
             | Ok loaded ->
                 cached <- Some(loaded, DateTime.UtcNow)
@@ -569,7 +934,15 @@ module Resources =
                                 LastReloaded = DateTime.MinValue
                                 IsLoaded = false
                             }
-                        Resolved = Map.empty
+                        // The rule lookup reads isAdditive and the product predilutions, so the empty
+                        // resources need a lookup that always returns false and no predilutions instead of
+                        // missing keys.
+                        Resolved =
+                            Map
+                                [
+                                    Keys.isAdditive.Name, box (fun (_: string) -> false)
+                                    Keys.productPredilutions.Name, box Array.empty<ProductPredilution>
+                                ]
                     }
 
                 cached <- Some(emptyLoaded, DateTime.UtcNow)
@@ -624,5 +997,6 @@ module Resources =
                 this.getFromCache (fun l -> l.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider)
 
             member this.GetDepartments() = this.getFromCache departmentsOf
+            member this.GetLocations() = this.getFromCache locationsOf
 
             member this.GetResourceInfo() = this.getFromCache (fun l -> resourceInfo l.State)

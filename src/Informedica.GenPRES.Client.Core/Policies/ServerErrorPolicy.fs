@@ -1,10 +1,12 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides how long a server error stays on the banner. An error is the answer to one kind of
-/// request, so the next successful answer of that kind replaces it; an answer of another kind
-/// says nothing about it and leaves it. An unreachable server is cleared only by a server
-/// check that succeeds, and that check clears every error, since the server answers again.
+/// Decides how long a server error stays on the banner. The next successful answer to the same kind of
+/// request clears the error; answers to other kinds leave it. A successful server check clears every
+/// error, and is the only answer that clears an unreachable server error.
 module ServerErrorPolicy =
+
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
 
 
     /// The kind of request an error answered.
@@ -18,6 +20,12 @@ module ServerErrorPolicy =
         | Parenteralia
         /// Checking the interactions.
         | Interactions
+        /// Counting the combined totals of the nutrition page.
+        | Totals
+        /// Loading the rows of the emergency list.
+        | EmergencyList
+        /// Loading the rows of the continuous medication list.
+        | ContinuousList
         /// Logging in to the admin pages.
         | Login
         /// Listing the log files.
@@ -35,30 +43,45 @@ module ServerErrorPolicy =
         {
             /// The kind of request the error answered.
             Source: ErrorSource
-            /// The text the banner shows.
-            Message: string
+            /// The first three errors the server gave, each cut at 200 characters.
+            Errors: string[]
         }
 
 
-    /// The error a failed request of source raises: for the server check, the sentence that it does
-    /// not answer; for any other source the first three errors, each cut at 200 characters.
+    /// Creates the error for a failed request of this source, with the first three errors, each cut at 200
+    /// characters.
     let raised source (errs: string[]) =
         let cut (s: string) = if s.Length > 200 then s[..199] + "..." else s
 
         {
             Source = source
-            Message =
-                match source with
-                | ErrorSource.Server -> "De server is niet bereikbaar. Controleer of de server is gestart."
-                | _ ->
-                    let errs = errs |> Array.truncate 3 |> Array.map cut |> String.concat "; "
-                    $"Server fout: %s{errs}"
+            Errors = errs |> Array.truncate 3 |> Array.map cut
         }
 
 
-    /// The banner after a successful answer of source: gone when that source raised it, or when
-    /// the server check succeeded; kept otherwise.
+    /// Returns the banner error after a successful answer of this source: None when this source raised it
+    /// or when the server check succeeded; unchanged otherwise.
     let clearedBy source (error: ServerError option) =
         match error with
         | Some e when e.Source = source || source = ErrorSource.Server -> None
         | _ -> error
+
+
+    /// The English of the banner terms, used when the sheet has no row for a term or has not
+    /// loaded. Any other term shows its name.
+    let english term =
+        match term with
+        | Terms.``Server Error Title`` -> "Server problem"
+        | Terms.``Server Error Unreachable`` -> "The server cannot be reached. Check that the server has been started."
+        | Terms.``Server Error Text`` -> "Server error: {0}"
+        | _ -> $"{term}"
+
+
+    /// The sentence of the banner: for the server check, that the server does not answer; for any
+    /// other source, the errors the server gave.
+    let message tr error =
+        match error.Source with
+        | ErrorSource.Server -> tr Terms.``Server Error Unreachable``
+        | _ ->
+            tr Terms.``Server Error Text``
+            |> TermText.fill [ error.Errors |> String.concat "; " ]

@@ -66,6 +66,7 @@ let scenario no (med: Medication) =
         false
         false
         None
+        false
         [||]
 
 
@@ -80,7 +81,7 @@ let scenarios =
 let context filter : OrderContext =
     {
         Filter = filter
-        Patient = Patient.patient
+        PatientData = PatientData.unknown
         Scenarios = scenarios
         Argumentation = Some "afwijking"
     }
@@ -88,7 +89,7 @@ let context filter : OrderContext =
 
 let categories =
     [
-        "drug", OrderCategory.Drug
+        "medication", OrderCategory.Medication
         "nutrition", OrderCategory.Nutrition NutritionCategory.TPN
     ]
 

@@ -34,12 +34,8 @@ module Validus =
             Validator.create msg rule
 
 
-        let onlyOneOfTwoOpt field value =
-            let msg = sprintf "can only be one of two %s"
+        /// Validates that a date is not after today. Only the dates are compared, not the time of day.
+        let notAfterValidator (today: DateTime) =
+            let rule (dt: DateTime) = dt.Date <= today.Date
 
-            let rule (opt1, opt2) =
-                match opt1, opt2 with
-                | Some _, Some _ -> false
-                | _ -> true
-
-            Validator.create msg rule field value
+            Validator.create (fun field -> $"%s{field} is after the date it is read on") rule

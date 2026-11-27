@@ -3,6 +3,7 @@
 // load demo or product cache
 
 #load "load.fsx"
+#load "../../../tests/Informedica.GenORDER.Tests/SamplePatients.fs"
 #r "../../Informedica.ZForm.Lib/bin/Debug/net10.0/Informedica.ZForm.Lib.dll"
 
 
@@ -123,7 +124,7 @@ let printScenarios path pat (scs: Result<OrderContext, string * OrderContext> li
         |> String.replace "#" "**"
         |> String.replace "|" "*"
 
-    $"# %s{pat |> Patient.toString}\n" |> append
+    $"# %s{pat |> PatientData.toString}\n" |> append
 
     scs
     |> List.filter _.IsOk
@@ -261,17 +262,17 @@ let printScenarios path pat (scs: Result<OrderContext, string * OrderContext> li
 
 let scenarios =
     [
-        "Newborn", Patient.newBorn |> Patient.setWeight (3m |> Kilogram |> Some)
+        "Newborn", SamplePatients.newBorn |> SamplePatients.withWeightInKg 3m
 
-        "Infant", Patient.infant |> Patient.setWeight (10m |> Kilogram |> Some)
+        "Infant", SamplePatients.infant |> SamplePatients.withWeightInKg 10m
 
-        "Toddler", Patient.toddler
+        "Toddler", SamplePatients.toddler
 
-        "Child", Patient.child |> Patient.setWeight (20m |> Kilogram |> Some)
+        "Child", SamplePatients.child |> SamplePatients.withWeightInKg 20m
 
-        "Teenager", Patient.teenager
+        "Teenager", SamplePatients.teenager
 
-        "Adult", Patient.adult
+        "Adult", SamplePatients.adult
     ]
     |> List.map (fun (s, p) ->
         async {
@@ -287,12 +288,12 @@ scenarios
 |> Array.iter (fun (n, ctxs) ->
     let pat =
         match n with
-        | _ when n = "Newborn" -> Patient.newBorn |> Patient.setWeight (3m |> Kilogram |> Some)
-        | _ when n = "Infant" -> Patient.infant |> Patient.setWeight (10m |> Kilogram |> Some)
-        | _ when n = "Toddler" -> Patient.toddler
-        | _ when n = "Child" -> Patient.child |> Patient.setWeight (20m |> Kilogram |> Some)
-        | _ when n = "Teenager" -> Patient.teenager
-        | _ when n = "Adult" -> Patient.adult
+        | _ when n = "Newborn" -> SamplePatients.newBorn |> SamplePatients.withWeightInKg 3m
+        | _ when n = "Infant" -> SamplePatients.infant |> SamplePatients.withWeightInKg 10m
+        | _ when n = "Toddler" -> SamplePatients.toddler
+        | _ when n = "Child" -> SamplePatients.child |> SamplePatients.withWeightInKg 20m
+        | _ when n = "Teenager" -> SamplePatients.teenager
+        | _ when n = "Adult" -> SamplePatients.adult
         | _ -> failwith $"not recognized: {n}"
 
     ctxs |> printScenarios (IO.Path.Combine(scenarioOutputDir, $"{n}.md")) pat
@@ -327,7 +328,7 @@ module Order =
 
 
 let dro =
-    Patient.newBorn
+    SamplePatients.newBorn
     |> Api.getPrescriptionRules provider
     |> Result.get
     |> Array.filter (fun pr -> pr.DoseRule.Generic |> Generic.genericName |> String.equalsCapInsens "MM met BMF")
@@ -340,7 +341,7 @@ dro.Dose
 
 
 let ord =
-    Patient.newBorn
+    SamplePatients.newBorn
     |> Api.getPrescriptionRules provider
     |> Result.get
     |> Array.filter (fun pr -> pr.DoseRule.Generic |> Generic.genericName |> String.equalsCapInsens "MM met BMF")
@@ -354,8 +355,8 @@ let ord =
 ord |> Order.printTable ConsoleTables.Format.Minimal
 
 
-Patient.teenager
-|> Patient.setWeight (33m |> Kilogram |> Some)
+SamplePatients.teenager
+|> SamplePatients.withWeightInKg 33m
 |> Api.getPrescriptionRules provider
 |> Result.get
 |> Array.filter (fun pr -> pr.DoseRule.Generic |> Generic.genericName |> String.equalsCapInsens "piperacilline/tazobactam")
@@ -368,8 +369,8 @@ Patient.teenager
 |> ignore
 
 
-Patient.teenager
-|> Patient.setWeight (33m |> Kilogram |> Some)
+SamplePatients.teenager
+|> SamplePatients.withWeightInKg 33m
 |> Api.getPrescriptionRules provider
 |> Result.get
 |> Array.filter (fun pr -> pr.DoseRule.Generic |> Generic.genericName |> String.equalsCapInsens "noradrenaline")
@@ -382,8 +383,8 @@ Patient.teenager
 |> ignore
 
 
-Patient.infant
-|> Patient.setWeight (6m |> Kilogram |> Some)
+SamplePatients.infant
+|> SamplePatients.withWeightInKg 6m
 |> OrderContext.create OrderLogging.noOp provider
 |> fun ctx -> { ctx with OrderContext.Filter.Generic = Some "Samenstelling B" }
 |> OrderContext.UpdateOrderContext

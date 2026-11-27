@@ -36,11 +36,17 @@ module ResponsiveTable =
                         |}[]
                     filter: ReactElement option
                     onRowClick: string -> unit
+                    // the row shown as marked; none when no row is marked
+                    markedRow: string option
+                    // each card has a checkbox before its title when true
+                    checkboxSelection: bool
+                    selectedRows: string[]
+                    onSelectChange: string[] -> unit
                 |})
             =
 
-            // a column may carry a renderer for the cards, called as the grid calls renderCell,
-            // with the row id and the value; the cell then shows what it renders
+            // A column may carry a renderCard function for the cards. It is called like renderCell
+            // of the grid, with the row id and the value, and the card cell shows its result.
             let renderCardOf (field: string) : (obj -> obj) option =
                 props.columns
                 |> Array.tryFind (fun c -> c.field = field)
@@ -59,6 +65,61 @@ module ResponsiveTable =
                         |> Option.defaultValue ""
 
                     let handleClick = fun _ -> props.onRowClick rowId
+
+                    let checkbox =
+                        if props.checkboxSelection then
+                            let isChecked = props.selectedRows |> Array.contains rowId
+
+                            // a tap on the checkbox checks or unchecks the card and does not open it
+                            let handleCheckClick (e: Browser.Types.Event) = e.stopPropagation ()
+
+                            let handleCheckChange _ =
+                                if isChecked then
+                                    props.selectedRows |> Array.filter ((<>) rowId)
+                                else
+                                    Array.append props.selectedRows [| rowId |]
+                                |> props.onSelectChange
+
+                            let checkboxSx =
+                                {|
+                                    padding = 0
+                                    marginRight = 1
+                                |}
+
+                            // the shown values of the card name the checkbox for a screen reader, because the
+                            // title alone can be the same on several cards
+                            let checkboxSlotProps =
+                                let label =
+                                    row.cells
+                                    |> Array.filter (fun c ->
+                                        c.field <> "id" && c.value |> String.isNullOrWhiteSpace |> not
+                                    )
+                                    |> Array.map _.value.Replace("*", "")
+                                    |> String.concat " "
+
+                                {| input = {| ``aria-label`` = label |} |}
+
+                            JSX.jsx
+                                $"""
+                            import Checkbox from '@mui/material/Checkbox';
+
+                            <Checkbox size="small" checked={isChecked} onClick={handleCheckClick} onChange={handleCheckChange} sx={checkboxSx} slotProps={checkboxSlotProps} />
+                            """
+                            |> toReact
+                        else
+                            null
+
+                    // the marked card shows the light blue and the bar of a marked row in the grid
+                    let cardSx =
+                        if props.markedRow = Some rowId then
+                            {|
+                                cursor = "pointer"
+                                backgroundColor = Mui.Colors.Blue.``50``
+                                borderLeft = $"4px solid {Mui.Colors.Blue.``700``}"
+                            |}
+                            |> box
+                        else
+                            {| cursor = "pointer" |} |> box
 
                     let content =
                         row.cells
@@ -102,11 +163,15 @@ module ResponsiveTable =
                                     $"""
                                 import Typography from '@mui/material/Typography';
                                 import Box from '@mui/material/Box';
+                                import Stack from '@mui/material/Stack';
 
                                 <Box sx={headerBoxSx} >
-                                    <Typography variant="subtitle2" component="div" sx={headerTypoSx} >
-                                        {shown}
-                                    </Typography>
+                                    <Stack direction="row" alignItems="center" >
+                                        {checkbox}
+                                        <Typography variant="subtitle2" component="div" sx={headerTypoSx} >
+                                            {shown}
+                                        </Typography>
+                                    </Stack>
                                 </Box>
                                 """
                                 |> toReact
@@ -206,7 +271,7 @@ module ResponsiveTable =
                     import Stack from '@mui/material/Stack';
 
                     <Grid item sx={gridItemSx} >
-                        <Card raised={true} onClick={handleClick} sx={ {| cursor = "pointer" |} } >
+                        <Card raised={true} onClick={handleClick} sx={cardSx} >
                             <CardContent sx={contentSx} >
                                 <Stack spacing={0} divider={divider} >
                                     {content}
@@ -260,6 +325,8 @@ module ResponsiveTable =
                 rowCreate: string[] -> obj
                 height: string
                 onRowClick: string -> unit
+                // the row shown as marked; none when no row is marked
+                markedRow: string option
                 checkboxSelection: bool
                 selectedRows: string[]
                 onSelectChange: string[] -> unit
@@ -358,15 +425,24 @@ module ResponsiveTable =
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
 
-        // Return an alternating class name based on the row index within the current page
+        // Returns an alternating class name from the row index within the current page, with the
+        // class marked added for the marked row.
         let getRowClassName =
             fun (pars: obj) ->
                 let idx: int = pars?indexRelativeToCurrentPage
-                if idx % 2 = 0 then "even" else "odd"
+                let stripe = if idx % 2 = 0 then "even" else "odd"
 
-        // Style for striped rows: apply background to even rows. The row under the pointer shows a
-        // blue bar on its left, drawn as an inset shadow: a border would take room and shift the
-        // row's cells each time the hover comes or goes, as it does when the rows are rendered anew
+                if props.markedRow = Some(pars?id |> string) then
+                    $"%s{stripe} marked"
+                else
+                    stripe
+
+        // Even rows get a grey background. The row under the pointer and the marked row show a blue
+        // bar on the left, drawn as an inset shadow, because a border takes room and shifts the cells.
+        // A click acts on the whole row, so the focus outline of the clicked cell is hidden; focus
+        // from the keyboard keeps an outline.
+        let rowBar = $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
+
         let stripedSx: obj =
             createObj
                 [
@@ -377,17 +453,23 @@ module ResponsiveTable =
                     ==> createObj [ "cursor" ==> "pointer"; "transition" ==> "box-shadow 0.1s ease" ]
 
                     "& .MuiDataGrid-row.even:hover"
-                    ==> createObj
-                            [
-                                "backgroundColor" ==> Mui.Colors.Grey.``100``
-                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
-                            ]
+                    ==> createObj [ "backgroundColor" ==> Mui.Colors.Grey.``100``; "boxShadow" ==> rowBar ]
 
                     "& .MuiDataGrid-row.odd:hover"
+                    ==> createObj [ "backgroundColor" ==> "white"; "boxShadow" ==> rowBar ]
+
+                    "& .MuiDataGrid-row.marked, & .MuiDataGrid-row.marked:hover"
+                    ==> createObj [ "backgroundColor" ==> Mui.Colors.Blue.``50``; "boxShadow" ==> rowBar ]
+
+                    "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within"
+                    ==> createObj [ "outline" ==> "none" ]
+
+                    // a keyboard user still sees which cell has the focus, also when it is the checkbox inside it
+                    "& .MuiDataGrid-cell:focus-visible, & .MuiDataGrid-cell:has(:focus-visible)"
                     ==> createObj
                             [
-                                "backgroundColor" ==> "white"
-                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
+                                "outline" ==> $"2px solid {Mui.Colors.Blue.``700``}"
+                                "outlineOffset" ==> "-2px"
                             ]
 
                     "& .MuiDataGrid-cell"
@@ -416,7 +498,7 @@ module ResponsiveTable =
                     actions: ReactElement option
                 |})
             =
-            // the cells the user sees: the id is a hidden column, by the same name the grid hides it
+            // only the cells the user sees: the grid hides the id column
             needle |> String.length = 0
             || r.cells
                |> Array.exists (fun cell -> cell.field <> "id" && cell.value.ToLowerInvariant().Contains needle)
@@ -437,8 +519,8 @@ module ResponsiveTable =
 
         let filteredRows = rows
 
-        // the row of the user's controls above the list, the same on the cards and on the grid;
-        // not named toolbar, which the grid's own toolbar below is
+        // the controls above the list, the same for the cards and the grid; the grid has its own
+        // toolbar below them
         let controls =
             ListToolbar.View
                 {|
@@ -484,6 +566,10 @@ module ResponsiveTable =
                 rows = rows
                 filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
+                markedRow = props.markedRow
+                checkboxSelection = props.checkboxSelection
+                selectedRows = props.selectedRows
+                onSelectChange = props.onSelectChange
             |}
             |> CardTable
         else
@@ -585,10 +671,7 @@ module ResponsiveTable =
                         onRowClick={onRowClick}
                         hideFooter={not props.showFooter}
                         initialState =
-                            { {|
-                                  columns = {| columnVisibilityModel = {| id = false |} |}
-                                  density = "comfortable"
-                              |} }
+                            { {| columns = {| columnVisibilityModel = {| id = false |} |} |} }
                         columns=
                             {props.columns
                              |> Array.map (fun c ->

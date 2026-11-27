@@ -38,11 +38,12 @@ type private Msg = Client.ClientMsg
 module private Messages =
 
 
-    /// A message to one of the lanes' machines.
+    /// Wraps a message for the machine of one lane.
     let session m = Msg.Lanes(LanesMsg.Session m)
     let signing m = Msg.Lanes(LanesMsg.Signing m)
     let workbench m = Msg.Lanes(LanesMsg.Workbench m)
     let plan m = Msg.Lanes(LanesMsg.Plan m)
+    let slot id m = Msg.Lanes(LanesMsg.Slot(id, m))
 
 
 module private Effects =
@@ -55,8 +56,7 @@ module private Effects =
 
 
     /// Turns a server reply into the message for the lane that sent the request. The response goes
-    /// to that lane, the notice goes to the Session, and the Session's token sent with the request
-    /// comes along.
+    /// to that lane, and the notice goes to the Session with the Session token sent with the request.
     let answered lane opened (reply: Api.Reply<_>) =
         Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
 
@@ -82,17 +82,15 @@ module private Effects =
         |> Cmd.fromAsync
 
 
-    /// Erase the Launch: replace the launch url with "#/session" in the
-    /// address bar and the history entry, so the launch's token survives neither a
-    /// reload, the back button nor a copied url. Goes through the History API
-    /// directly: Router.navigate would dispatch the navigation event and
-    /// re-enter UrlChanged.
+    /// Replaces the launch url with "#/session" in the address bar and the history entry, so the launch
+    /// token survives no reload, back button or copied url. Uses the History API directly, because
+    /// Router.navigate would dispatch a navigation event and trigger UrlChanged again.
     let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
 
 
-    /// Make the key pair, then present the Launch with its public key.
-    /// A browser that cannot make a key cannot launch; that is reported as a missing browser
-    /// identity, the refusal whose text asks for a retry and then a relaunch.
+    /// Makes the browser key pair, then presents the launch with its public key. When the browser cannot
+    /// make a key, the launch is refused with NoBrowserIdentity, whose text asks for a retry and then a
+    /// relaunch.
     let presentLaunch (launch: Launch) : Cmd<Msg> =
         async {
             match! Keys.generate () |> Async.Catch with
@@ -104,12 +102,12 @@ module private Effects =
         |> Cmd.fromAsync
 
 
-    /// What a shell effect sends out of the client: the url put back or erased, a launch presented.
+    /// Carries out a shell effect: navigates back to a url, erases the launch url or presents a launch.
     let shell effect =
         match effect with
         | ShellMachine.ShellEffect.PutBackUrl sl -> Cmd.ofEffect (fun _ -> Router.navigate (Array.ofList sl))
-        // erased at once, not as a command: the router's first report then reads the erased url,
-        // the one the app shows, and changes nothing
+        // Erased at once, not as a command, so the first router report reads the erased url, the url
+        // the app shows, and changes nothing.
         | ShellMachine.ShellEffect.EraseLaunch ->
             eraseLaunch ()
             Cmd.none
@@ -117,10 +115,20 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What a loader effect sends out of the client: a call, whose answer comes back as the loader
-    /// machine's message, or a wait; a failure is logged.
+    /// Carries out a loader effect: a call whose answer returns as a loader message, also when the call
+    /// fails on a dropped connection or an HTTP error; a delayed message; or a log of a reported failure.
     let loader effect opened =
         let landed landing result = Msg.Loader(LoaderMachine.LoaderMsg.Landed(landing result))
+
+        let call api command landing =
+            Cmd.OfAsync.either
+                api
+                {
+                    Api.Request.Opened = opened
+                    Api.Request.Command = command
+                }
+                (landed landing)
+                (fun ex -> Error [| ex.Message |] |> landed landing)
 
         let later seconds msg =
             async {
@@ -138,49 +146,32 @@ module private Effects =
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
             Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchNormalValues ->
-            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
-        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
-            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
-        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
-            Cmd.OfAsync.perform
-                GoogleDocs.loadContinuousMedication
-                ()
-                (landed LoaderMachine.Landing.ContinuousMedication)
-        | LoaderMachine.LoaderEffect.FetchProducts ->
-            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
         | LoaderMachine.LoaderEffect.FetchFormulary form ->
-            Cmd.OfAsync.perform
-                serverApi.processFormulary
-                {
-                    Opened = opened
-                    Command = form
-                }
-                (landed (fun result -> LoaderMachine.Landing.Formulary(opened, result)))
+            call serverApi.processFormulary form (fun result -> LoaderMachine.Landing.Formulary(opened, result))
         | LoaderMachine.LoaderEffect.FetchParenteralia par ->
-            Cmd.OfAsync.perform
-                serverApi.processParenteralia
-                {
-                    Opened = opened
-                    Command = par
-                }
-                (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
+            call serverApi.processParenteralia par (fun result -> LoaderMachine.Landing.Parenteralia(opened, result))
         | LoaderMachine.LoaderEffect.FetchInteractions(check, drugs) ->
-            Cmd.OfAsync.perform
+            call
                 serverApi.processInteraction
-                {
-                    Opened = opened
-                    Command = Api.InteractionCommand.CheckInteractions drugs
-                }
-                (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
+                (Api.InteractionCommand.CheckInteractions drugs)
+                (fun result -> LoaderMachine.Landing.Interactions(check, opened, result))
+        | LoaderMachine.LoaderEffect.FetchTotals(number, query) ->
+            call serverApi.processTotals query (fun result -> LoaderMachine.Landing.Totals(number, opened, result))
+        | LoaderMachine.LoaderEffect.FetchEmergencyList(number, pat) ->
+            call
+                serverApi.getEmergencyList
+                pat
+                (fun result -> LoaderMachine.Landing.EmergencyList(number, opened, result))
+        | LoaderMachine.LoaderEffect.FetchContinuousList(number, pat) ->
+            call
+                serverApi.getContinuousList
+                pat
+                (fun result -> LoaderMachine.Landing.ContinuousList(number, opened, result))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
-            Cmd.OfAsync.perform
+            call
                 serverApi.processInteraction
-                {
-                    Opened = opened
-                    Command = Api.InteractionCommand.GetDrugNames
-                }
-                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
+                Api.InteractionCommand.GetDrugNames
+                (fun result -> LoaderMachine.Landing.DrugNames(opened, result))
         | LoaderMachine.LoaderEffect.CheckServer ->
             Cmd.OfAsync.either
                 serverApi.testApi
@@ -198,11 +189,13 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an admin effect sends out of the client: a call under the admin token, whose answer comes back
-    /// as the admin machine's message; a failure is logged.
+    /// Carries out an admin effect: a call with the admin token whose answer returns as an admin message,
+    /// also when the call fails on a dropped connection or an HTTP error; or a log of a reported failure.
     let admin effect =
         let call cmd landing =
-            Cmd.OfAsync.perform serverApi.processAdmin cmd (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
+            let landed = landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin
+
+            Cmd.OfAsync.either serverApi.processAdmin cmd landed (fun ex -> Error [| ex.Message |] |> landed)
 
         match effect with
         | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
@@ -221,9 +214,8 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What a session effect sends out of the client. A transport failure
-    /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
-    /// a close that did not reach the server.
+    /// Carries out a session effect. A transport failure returns a message, never an exception: an Error
+    /// outcome for a presentation, CloseFailed for a close that did not reach the server.
     let session (effect: SessionEffect) : Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
@@ -249,19 +241,21 @@ module private Effects =
                     | Api.SessionResponse.EnrolmentPending pending ->
                         return Messages.session (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
                     // never an answer to GetSession
+                    | Api.SessionResponse.InactiveTab
                     | Api.SessionResponse.PinRefused _ ->
                         return Messages.session (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
                     return Messages.session (SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
-        // the version is open, or the record moved on: each said once, the machine decides
+        // Opens a signed plan version; the session machine handles the answer.
         | SessionEffect.CallOpenSignedPlan(id, from) ->
             async {
                 try
-                    match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
+                    match! serverApi.processSession (Api.SessionCommand.OpenVersion(id, from)) with
                     | Api.SessionResponse.SessionResp session ->
                         return Messages.session (SessionMsg.SignedPlanOpened(from, Ok session))
+                    | Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab from)
                     // never an answer to OpenVersion
                     | _ -> return Messages.session (SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
@@ -271,20 +265,22 @@ module private Effects =
         | SessionEffect.CallRefreshPatient from ->
             async {
                 try
-                    match! serverApi.processSession Api.SessionCommand.Refresh with
+                    match! serverApi.processSession (Api.SessionCommand.Refresh from) with
                     | Api.SessionResponse.SessionResp session ->
                         return Messages.session (SessionMsg.PatientRefreshed(from, Ok session))
+                    | Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab from)
                     // never an answer to Refresh
                     | _ -> return Messages.session (SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
                     return Messages.session (SessionMsg.PatientRefreshed(from, Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.CallCloseSession ->
+        | SessionEffect.CallCloseSession token ->
             async {
-                // the server deletes the cookie whatever its close returns (finally), so an
-                // answer of any kind means SessionClosed; only a request that never got there fails
-                match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
+                // The server deletes the cookie whatever the close returns, unless another tab has the
+                // session. Only a request that does not reach the server fails.
+                match! serverApi.processSession (Api.SessionCommand.CloseSession token) |> Async.Catch with
+                | Choice1Of2 Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab token)
                 | Choice1Of2 _ -> return Messages.session SessionMsg.SessionClosed
                 | Choice2Of2 ex ->
                     Logging.error "could not close the session on the server" ex.Message
@@ -299,11 +295,12 @@ module private Effects =
                         return Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
                     | Api.SessionResponse.PinRefused refusal ->
                         return Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
-                    // never an answer to SupplyPin: the attempt is gone, whatever happened
+                    // The server never answers SupplyPin with these; they count as an expired attempt.
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed
                     | Api.SessionResponse.SessionEnded _
-                    | Api.SessionResponse.EnrolmentPending _ ->
+                    | Api.SessionResponse.EnrolmentPending _
+                    | Api.SessionResponse.InactiveTab ->
                         return
                             Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
                 with ex ->
@@ -324,11 +321,9 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What a signing effect sends out of the client. The machine names the plan,
-    /// the challenge, the PIN, the request id and the key; the OpenedToken is the one the open
-    /// Session holds, and every answer carries the request id or the key it answers, so the
-    /// machine can drop one that belongs to an earlier Session. Without an open Session nothing
-    /// is sent: the answer is a refusal.
+    /// Carries out a signing effect with the OpenedToken of the open Session. Every answer carries the
+    /// request id or the key it answers, so the machine can drop an answer for an earlier Session.
+    /// Without an open Session nothing is sent, and the answer is a NoSession refusal.
     let signing (effect: SigningEffect) opened : Cmd<Msg> =
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
@@ -384,10 +379,9 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an order-plan effect sends out of the client. A plan call answers under
-    /// the request it was sent for, so the machine can drop an answer to an earlier request;
-    /// the notice rides on the reply to the Session; a transport failure is an Error answer, never
-    /// an exception.
+    /// Carries out an order plan effect. An answer carries the request id it answers, so the machine can
+    /// drop an answer to an earlier request; the notice in the reply goes to the Session. A transport
+    /// failure is an Error answer, never an exception.
     let plan (effect: OrderPlanEffect) opened : Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
@@ -399,33 +393,35 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an order-context effect sends out of the client. A workbench call
-    /// answers under the request it was sent for; the notice rides on the reply to the Session; a
+    /// Carries out an order context effect of the workbench or a nutrition slot. The answer goes to the
+    /// lane that sent the call, with the request id; the notice in the reply goes to the Session. A
     /// transport failure is an Error answer.
-    let workbench (effect: OrderContextEffect) opened : Cmd<Msg> =
+    let orderContext toLane name (effect: OrderContextEffect) opened : Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, request) ->
             opened
-            |> underSession
-                serverApi.processOrderContext
-                cmd
-                (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r)))
+            |> underSession serverApi.processOrderContext cmd (fun r -> toLane (OrderContextMsg.Answered(request, r)))
         | OrderContextEffect.TellError errs ->
-            Logging.warning "order context error" errs
+            Logging.warning $"%s{name} error" errs
             Cmd.none
         | _ -> Cmd.none
 
 
-    /// What a patient effect sends out of the client. A patient change answers under
-    /// the request it was sent for; the notice rides on the reply to the Session; a transport
-    /// failure is an Error answer.
+    /// Carries out a patient effect. The answer to a patient data update carries the request id; the
+    /// notice in the reply goes to the Session. A transport failure is an Error answer.
     let patient (effect: PatientEffect) opened : Cmd<Msg> =
         match effect with
         | PatientEffect.CallPatient(pat, request) ->
             opened
             |> underSession
-                serverApi.processPatient
-                (Api.PatientCommand.ChangePatient pat)
+                serverApi.processPatientData
+                (Api.PatientDataCommand.ChangePatientData pat)
+                (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
+        | PatientEffect.CallEdit(edit, pat, request) ->
+            opened
+            |> underSession
+                serverApi.processPatientData
+                (Api.PatientDataCommand.EditPatientData(edit, pat))
                 (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
@@ -433,13 +429,16 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an effect of the client sends out of it, each by its part's apply; the routed ones send
-    /// nothing, since the client passed them on itself.
+    /// Carries out a client effect with the function for its part. The other effects send nothing,
+    /// because the client routed them itself.
     let apply opened effect =
         match effect with
         | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> opened |> signing e
         | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> opened |> patient e
-        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> opened |> workbench e
+        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) ->
+            opened |> orderContext LanesMsg.Workbench "order context" e
+        | Client.ClientEffect.Lanes(LanesEffect.Slot(id, e)) ->
+            opened |> orderContext (fun m -> LanesMsg.Slot(id, m)) "nutrition slot" e
         | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> opened |> plan e
         | Client.ClientEffect.Lanes(LanesEffect.Session e) -> session e
         | Client.ClientEffect.Loader e -> opened |> loader e
@@ -451,14 +450,14 @@ module private Effects =
 module private Elmish =
 
 
-    /// A request id, minted at dispatch, so that an answer can name the request it answers.
+    /// Makes a request id at dispatch, so an answer can name the request it answers.
     let newRequest () = Guid.NewGuid().ToString()
 
 
-    /// What the url of these segments carries, at this moment; the parts that did not parse are
-    /// logged by name, never by value, since the values are patient data.
+    /// Parses the url segments. The parts that do not parse are logged by name, never by value,
+    /// because the values are patient data.
     let parseUrl sl =
-        let url = sl |> Url.parse DateTime.Now
+        let url = sl |> Url.parse
 
         for part in url.NotParsed do
             match part with
@@ -468,9 +467,9 @@ module private Elmish =
         url
 
 
-    /// A landing noted before the client takes it: the settings open the trail when the server serves
-    /// the demo data, and a failed start-up load is logged, never in the trail. No settings: the client
-    /// keeps its own defaults, and the trail records nothing.
+    /// Notes a landing before the client takes it. The settings start the trail when the server serves
+    /// the demo data; a failed start-up load is logged, not recorded in the trail. Without settings the
+    /// client uses its own defaults and the trail records nothing.
     let noteLanding landing =
         match landing with
         | LoaderMachine.Landing.Settings(Ok settings) -> StepTrail.confirmDemo settings.IsDemo
@@ -478,15 +477,11 @@ module private Elmish =
             StepTrail.confirmDemo false
             Logging.error "cannot load the server settings" err
         | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
-        | LoaderMachine.Landing.NormalValues(Error err) -> Logging.error "cannot load normal values" err
-        | LoaderMachine.Landing.BolusMedication(Error err) -> Logging.error "cannot load emergency treatment" err
-        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
-        | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
         | _ -> ()
 
 
-    /// The client's steps recorded in the trail, each landing noted first, and its effects carried
-    /// out in the order they came, each with the Session's token in the state the transition left.
+    /// Records the client steps in the trail, noting each landing first, and carries out the effects in
+    /// order, each with the Session token of the new state.
     let carryOut (state: State, effects, steps) =
         for step in steps do
             match step with
@@ -500,9 +495,9 @@ module private Elmish =
         state, effects |> List.map (Effects.apply opened) |> Cmd.batch
 
 
-    /// The page load: the url applied at once, so the router's first report, of the same url,
-    /// changes nothing; then the Session resumed, or left for a url with a patient or a
-    /// medication, and the loads started.
+    /// Runs the page load. The url is applied at once, so the first router report of the same url
+    /// changes nothing. The session is resumed, or left when the url names a patient or a
+    /// medication. Then the server is checked and the start-up loads start.
     let init () : State * Cmd<Msg> =
         let sl = Router.currentUrl ()
         let url = sl |> parseUrl
@@ -510,15 +505,14 @@ module private Elmish =
         Client.initial url |> Client.pageLoad newRequest sl url |> carryOut
 
 
-    /// A message through the client, and its effects carried out.
+    /// Passes a message through the client and carries out its effects.
     let update (msg: Msg) (state: State) = state |> Client.transition newRequest msg |> carryOut
 
 
-/// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
-/// and the new state to the console, hands the history to the Redux DevTools browser extension, and keeps the
-/// readable trail of the machine steps, which window.genpresTrail() returns as text; for development testing
-/// only. It records nothing until the server settings confirm the demo data, so it never runs against
-/// production; a release build records nothing at all.
+/// Builds the app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every
+/// message and state to the console, connects the Redux DevTools browser extension, and records a trail of the
+/// machine steps that window.genpresTrail() returns as text. The trail records nothing until the server settings
+/// confirm the demo data, so it never runs against production; a release build records nothing.
 let private program () =
     let program = Program.mkProgram Elmish.init Elmish.update (fun _ _ -> ())
 #if DEBUG
@@ -532,22 +526,8 @@ let private program () =
 #endif
 
 
-/// The lists calculated for the draft; empty without one, since no patient is not a fetch
-/// under way: the page says what is missing, and the spinner is for a fetch only.
-let private calculateInterventions calc meds pat =
-    meds
-    |> Deferred.bind (fun xs ->
-        match pat with
-        | None -> Resolved []
-        | Some p ->
-            let a = p |> PatientRead.getAgeInYears
-            let w = p |> PatientRead.getWeightInKg
-            xs |> calc a w |> Resolved
-    )
-
-
-/// What the views read from the client state, and the messages they send, through the AppEnv
-/// interfaces.
+/// Implements the AppEnv interfaces: the views read the client state and dispatch their messages
+/// through them.
 type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.ILocalization with
@@ -577,16 +557,29 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.SelectScenario id =
             Messages.workbench (OrderContextMsg.SelectScenario id) |> dispatch
 
+        member _.Offers = Client.workbenchOffers state
+
+        member _.Prescribable = Client.workbenchPrescribable state
+
+        member _.TurnOffer(index, switch) =
+            match switch with
+            | OrderContextMachine.OfferSwitch.On -> Messages.workbench (OrderContextMsg.TurnOfferOn index) |> dispatch
+            | OrderContextMachine.OfferSwitch.Off -> Messages.workbench (OrderContextMsg.TurnOfferOff index) |> dispatch
+
+        member _.OfferCommand(index, cmd) =
+            Messages.workbench (OrderContextMsg.OfferCommand(index, cmd, Elmish.newRequest ()))
+            |> dispatch
+
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = Client.orderPlan state
 
-        member _.Add orderId =
-            Msg.Lanes(LanesMsg.Prescribe(orderId, Elmish.newRequest (), Elmish.newRequest ()))
-            |> dispatch
+        member _.PlanBehind = Client.planBehind state
 
-        member _.NewNutrition category =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, Elmish.newRequest ()))
-            |> dispatch
+        member _.PlanDifferences plan = Client.planDifferences state plan
+
+
+        member _.Add orderId =
+            Msg.Lanes(LanesMsg.Prescribe(None, orderId, Elmish.newRequest ())) |> dispatch
 
         member _.Remove ids =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.Remove ids, Elmish.newRequest ()))
@@ -604,22 +597,50 @@ type private Projection(state: State, dispatch: Msg -> unit) =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, Elmish.newRequest ()))
             |> dispatch
 
-        member _.Changed = Client.changedOrders state
+    interface AppEnv.INutrition with
+        member _.Slots = Client.slots state
+
+        member _.Totals = Client.nutritionTotals state
+
+        member _.StartSlot category =
+            Msg.Lanes(LanesMsg.StartSlot(Elmish.newRequest (), category, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.RemoveSlot id = Msg.Lanes(LanesMsg.RemoveSlot id) |> dispatch
+
+        member _.SlotCommand(id, cmd) =
+            Messages.slot id (OrderContextMsg.Command(cmd, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.SlotRestore id = Messages.slot id OrderContextMsg.RestoreField |> dispatch
+
+        member _.Prescribe(id, orderId) =
+            Msg.Lanes(LanesMsg.Prescribe(Some id, orderId, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.TurnOffer(id, index, switch) =
+            match switch with
+            | OrderContextMachine.OfferSwitch.On -> Messages.slot id (OrderContextMsg.TurnOfferOn index) |> dispatch
+            | OrderContextMachine.OfferSwitch.Off -> Messages.slot id (OrderContextMsg.TurnOfferOff index) |> dispatch
+
+        member _.OfferCommand(id, index, cmd) =
+            Messages.slot id (OrderContextMsg.OfferCommand(index, cmd, Elmish.newRequest ()))
+            |> dispatch
 
     interface AppEnv.IPatient with
         member _.Draft = Client.draft state
 
         member _.Changing = Client.changing state
 
-        member _.Estimated = Client.estimated state
+        member _.Current = Client.currentPatient state
 
-        member _.UpdatePatient pat =
-            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
-            |> dispatch
+        member _.ClearPatient() = Msg.PanelCleared(Elmish.newRequest ()) |> dispatch
 
-        member _.EditPatient pat =
-            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
-            |> dispatch
+        member _.EditPatient edit = Msg.PanelEdited(edit, Elmish.newRequest ()) |> dispatch
+
+        member _.AsksNewPatient = Client.asksNewPatient state
+
+        member _.NewPatient edit = Msg.NewPatient(edit, Elmish.newRequest ()) |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = Client.formulary state
@@ -661,14 +682,18 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Differences = Client.differences state
 
-        // one request id per Sign, so the answer lands on this request and no other
+        member _.EhrMovedOn = Client.ehrMovedOn state
+
+        member _.SignedFor = Client.signedFor state
+
+        // A new request id per Sign, so only the answer to this request is taken.
         member _.Sign plan = Msg.Sign(plan, Elmish.newRequest ()) |> dispatch
 
-        member _.Held = Client.held state
+        member _.TakeEhrData() = Msg.TakeEhrData |> dispatch
 
-        member _.Accept() = Msg.AcceptDataChange |> dispatch
+        member _.KeepPlanData() = Messages.signing SigningMsg.KeepPlanData |> dispatch
 
-        // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
+        // A new key per confirmation, so the signature is committed once; the machine reuses it on a retry.
         member _.Confirm pin =
             Messages.signing (SigningMsg.ConfirmPin(pin, Elmish.newRequest ())) |> dispatch
 
@@ -688,30 +713,44 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.AnalyzeLogFile fileName =
             Msg.Admin(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
-    interface AppEnv.IBolusMedication with
-        member _.BolusMedication =
-            calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
+    interface AppEnv.IEmergencyList with
+        member _.EmergencyList = Client.emergencyList state
+        member _.OnEmergencyListRowChosen number =
+            Client.emergencyListRowContext state number
+            |> Option.iter (Msg.EmergencyListRowChosen >> dispatch)
 
-        member _.OnSelectBolusMedicationItem itm = Msg.EmergencyListItemChosen itm |> dispatch
-        member _.BolusMedicationFilter = Client.emergencyListFilter state
-        member _.OnBolusMedicationFilterChange filter =
+        member _.EmergencyListChecked = Client.emergencyListChecked state
+        member _.EmergencyListCheckedContexts = Client.emergencyListCheckedContexts state
+
+        member _.OnEmergencyListRowsChecked numbers =
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckEmergencyListRows numbers) |> dispatch
+
+        member _.OnEmergencyListPrescribe() =
+            let contexts = Client.emergencyListCheckedContexts state
+            Msg.Lanes(LanesMsg.PrescribeContexts(contexts, Elmish.newRequest ()))
+            |> dispatch
+        member _.EmergencyListFilter = Client.emergencyListFilter state
+        member _.OnEmergencyListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch
 
-    interface AppEnv.IContinuousMedication with
-        member _.ContinuousMedication =
-            let calc =
-                fun _ w meds ->
-                    match w with
-                    | Some w' -> ContinuousMedicationList.calculate w' meds
-                    | None -> []
+    interface AppEnv.IContinuousList with
+        member _.ContinuousList = Client.continuousList state
+        member _.OnContinuousListRowChosen number =
+            Client.continuousListRowContext state number
+            |> Option.iter (Msg.ContinuousListRowChosen >> dispatch)
 
-            calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
+        member _.ContinuousListChecked = Client.continuousListChecked state
+        member _.ContinuousListCheckedContexts = Client.continuousListCheckedContexts state
 
-        member _.OnSelectContinuousMedicationItem itm = Msg.ContinuousMedicationChosen itm |> dispatch
+        member _.OnContinuousListRowsChecked numbers =
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckContinuousListRows numbers) |> dispatch
 
-        member _.ContinuousMedicationFilter = Client.continuousMedsFilter state
-
-        member _.OnContinuousMedicationFilterChange filter =
+        member _.OnContinuousListPrescribe() =
+            let contexts = Client.continuousListCheckedContexts state
+            Msg.Lanes(LanesMsg.PrescribeContexts(contexts, Elmish.newRequest ()))
+            |> dispatch
+        member _.ContinuousListFilter = Client.continuousMedsFilter state
+        member _.OnContinuousListFilterChange filter =
             Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered filter) |> dispatch
 
 
@@ -751,15 +790,44 @@ let View () =
     let serverErrorBanner =
         match Client.serverError state with
         | Some error ->
+            let tr term = getTerm (ServerErrorPolicy.english term) term
+
             Components.Notice.View
                 {|
                     kind = Components.Notice.Kind.Error
-                    title = Some "Server probleem"
-                    message = error.Message
+                    title = Some(tr Terms.``Server Error Title``)
+                    message = error |> ServerErrorPolicy.message tr
                     action = None
                     onClose = Some(fun () -> dispatch (Msg.Shell ShellMachine.ShellMsg.ServerErrorDismissed))
                 |}
         | None -> null
+
+    // Shown above every page, because the menu and the pages wait for this retry.
+    let planBehindBanner =
+        if Client.planBehind state then
+            let tr term =
+                getTerm (Informedica.GenPRES.Client.Core.MachinePolicies.SigningPolicy.english term) term
+
+            Components.Notice.View
+                {|
+                    kind = Components.Notice.Kind.Warning
+                    title = None
+                    message = tr Terms.``Signing Plan Behind``
+                    action =
+                        Some
+                            {|
+                                label = tr Terms.``Signing Plan Behind Retry``
+                                onClick =
+                                    fun () ->
+                                        Msg.Lanes(LanesMsg.Patient(PatientMsg.GiveAgain(Elmish.newRequest ())))
+                                        |> dispatch
+                                // Never disabled: the notice disappears while its request is pending.
+                                disabled = false
+                            |}
+                    onClose = None
+                |}
+        else
+            null
 
     let leaveDialog =
         Views.LeaveDialog.View
@@ -782,7 +850,7 @@ let View () =
 
     let onUrlChanged sl = Msg.UrlChanged(sl, Elmish.parseUrl sl) |> dispatch
 
-    // the quantity fields read whether one of them counts, and report their own count
+    // The quantity fields read whether one of them is counting, and report their own counting.
     let counting: Global.Counting =
         {
             Counting = Client.counting state
@@ -815,6 +883,7 @@ let View () =
             <Box sx={pageSx}>
                 <CssBaseline />
                 {serverErrorBanner}
+                {planBehindBanner}
                 {Components.Router.View {| onUrlChanged = onUrlChanged |}}
                 {leaveDialog}
                 {Pages.GenPres.View genPresProps

@@ -24,7 +24,7 @@ module SessionGatePolicy =
         | ContinueWithoutLaunch
 
 
-    /// The enrolment form's labels, and the server's error on the last submission.
+    /// The labels of the enrolment form, and the server error on the last submission.
     type EnrolmentForm =
         {
             /// The label of the mailed code field.
@@ -57,7 +57,7 @@ module SessionGatePolicy =
 
 
     /// The English of the session terms, used when the sheet has no row for a term or has not
-    /// loaded. Any other term shows its name.
+    /// loaded. Any other term shows the English of the patient terms, or its name.
     let english (term: Terms) =
         match term with
         | Terms.``Session Gate Opening`` -> "Opening your session"
@@ -86,6 +86,8 @@ module SessionGatePolicy =
         | Terms.``Session Role Prescriber`` -> "Prescriber"
         | Terms.``Session Role Reader`` -> "Reader"
         | Terms.``Session Gate Ended`` -> "Your session was ended"
+        | Terms.``Session Gate Inactive Tab`` -> "This tab is no longer active"
+        | Terms.``Session Ending Inactive Tab`` -> "Another tab took this session over. Continue in that tab."
         | Terms.``Session Ending Superseded`` ->
             "Another launch of yours opened a newer session, and this one was closed."
         | Terms.``Session Ending Pin Limit`` ->
@@ -111,8 +113,8 @@ module SessionGatePolicy =
         | Terms.``Session Open Last Signed`` -> "Open the last signed order plan"
         | Terms.``Session Version Opened`` -> "Version {0} by {1} is now open."
         | Terms.``Session Refresh Failed`` ->
-            "The patient data could not be read from the EHR again. Nothing changed; the orders are as they were."
-        | _ -> $"{term}"
+            "The patient data could not be read from the EHR again. The patient data are as they were."
+        | _ -> PatientText.english term
 
 
     /// The sentences of a refusal: what happened, then what the user can do. Each sentence is its
@@ -141,7 +143,7 @@ module SessionGatePolicy =
             None
 
 
-    /// The server's error on a submission that left the form open.
+    /// Returns the sentence for a PIN refusal from the server.
     let refusalSentence (tr: Terms -> string) (refusal: PinRefusal) =
         match refusal with
         | PinRefusal.WrongCode left -> tr Terms.``Session Enrolment Wrong Code`` |> fill [ $"%i{left}" ]
@@ -168,9 +170,9 @@ module SessionGatePolicy =
         | SessionView.EnrolmentFailed _ -> true
 
 
-    /// The gate for a refused launch: what happened, what the user can do, and Retry when the same
-    /// launch can be presented again. A missing role always offers to continue anonymously; only a
-    /// missing browser identity is retried.
+    /// Returns the gate for a refused launch: what happened, what the user can do, and the retry action when
+    /// given. A missing role offers to continue anonymously instead. For a missing browser identity the text
+    /// says to try again when a retry is offered, else to open GenPRES again from the EHR.
     let refused (tr: Terms -> string) (refusal: LaunchRefusal) (retry: Action option) =
         {
             Title = tr Terms.``Session Gate Refused``
@@ -218,7 +220,7 @@ module SessionGatePolicy =
                     Actions = []
                     Form = None
                 }
-        // the server is given up on after the last attempt, so the count named is the maximum
+        // The client gives up after the last attempt, so the text names the maximum number of attempts.
         | SessionView.ServerUnreachable ->
             Some
                 {
@@ -239,7 +241,10 @@ module SessionGatePolicy =
         | SessionView.Ended ending ->
             Some
                 {
-                    Title = tr Terms.``Session Gate Ended``
+                    Title =
+                        match ending with
+                        | SessionEnding.InactiveTab -> tr Terms.``Session Gate Inactive Tab``
+                        | _ -> tr Terms.``Session Gate Ended``
                     Body =
                         sentences
                             [
@@ -248,13 +253,16 @@ module SessionGatePolicy =
                                 | SessionEnding.WrongPinLimit -> tr Terms.``Session Ending Pin Limit``
                                 | SessionEnding.Unreadable -> tr Terms.``Session Ending Unreadable``
                                 | SessionEnding.Idle -> tr Terms.``Session Ending Idle``
-                                tr Terms.``Session Relaunch``
+                                | SessionEnding.InactiveTab -> tr Terms.``Session Ending Inactive Tab``
+                                // The session continues in the other tab, so there is nothing to relaunch.
+                                if ending <> SessionEnding.InactiveTab then
+                                    tr Terms.``Session Relaunch``
                             ]
                     Busy = false
                     Actions = [ Action.ContinueWithoutLaunch ]
                     Form = None
                 }
-        // the launch waits on a PIN; the form asks for the mailed code and the PIN twice
+        // The launch waits for a PIN; the form asks for the mailed code and the PIN twice.
         | SessionView.Enrolling(pending, refusal) ->
             Some
                 {
@@ -285,7 +293,7 @@ module SessionGatePolicy =
                     Actions = []
                     Form = None
                 }
-        // the enrolment ended without a session: the code void or expired, or the patient moved
+        // The enrolment ended without a session: the code is void or expired, or the active patient changed.
         | SessionView.EnrolmentFailed refusal ->
             Some
                 {

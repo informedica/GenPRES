@@ -13,15 +13,15 @@ module PlanWorkPolicyTests =
     open PlanWorkPolicy
 
 
-    let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+    let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
     let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
     let context = Informedica.GenPRES.Shared.Models.OrderContext.empty
 
     let prescribing = { context with OrderContext.Filter.Generic = Some "paracetamol" }
 
-    let add = OrderPlanCommand.AddOrderContext(plan, context)
+    let add = OrderPlanCommand.AddOrderContext(plan, context, [||])
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
-    let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
+    let updatePatient = OrderPlanCommand.UpdatePatientData(patient, plan)
     let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)
 
 
@@ -30,8 +30,8 @@ module PlanWorkPolicyTests =
             "UpdatePatient", updatePatient, false
             "FilterRows", filterRows, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
-            "Navigate",
-            OrderPlanCommand.Navigate(
+            "EvaluateContext",
+            OrderPlanCommand.EvaluateContext(
                 plan,
                 "c-1",
                 OrderViewCommand.SetNthFilterProperty(Informedica.GenPRES.Shared.Models.OrderContext.Route, 0),
@@ -39,7 +39,7 @@ module PlanWorkPolicyTests =
             ),
             true
             "AddOrderContext", add, true
-            "NewOrderContext", OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN), true
+            "AddOrderContexts", OrderPlanCommand.AddOrderContexts(plan, [| context |]), true
             "RemoveOrderContexts", remove, true
         ]
 

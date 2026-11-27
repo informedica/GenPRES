@@ -136,7 +136,7 @@ means the assertion reads the trail.
 | 2a | A second filter pick while the first page load runs: the first lands, then one load of each page, never two at once | Pages follow | Hold the formulary load; pick again; count concurrent loads |
 | 2b | A filter whose answer narrows route and form to one option each shows both picked, no further command | Pages follow | Trail: one command |
 | 2b | A department list of one shows that department picked | Pages follow | Patient with one department |
-| 3 | A prescription, a new nutrition context, a removal and a row filter each send one plan call over the plan held | Plan | Trail: one `CallPlan` each |
+| 3 | A prescription, a removal and a row filter each send one plan call over the plan held | Plan | Trail: one `CallPlan` each |
 | 3 | A dialog command into a removed context sends nothing | Plan | Trail |
 | 4a | A filter pick, then the menu at once: the menu waits for the filter and its two page loads | Busy | Hold the second page load |
 | 4a | The held dialog's refresh, the sign click, the challenge and the submission disable every page | Busy, Signing | Hold each request |
@@ -152,8 +152,8 @@ means the assertion reads the trail.
 | 5 | The plan refresh shows the last signed orders; new and changed ones gone | Refresh | Sign, change, refresh |
 | 5 | Without a signed plan: no plan refresh, the held dialog offers remove alone | Refresh | Fresh launch |
 | 5 | The patient refresh with a new order opens the held dialog | Refresh | Add, then refresh |
-| 6 | A prescription empties the workbench and shows the plan page at once, greyed until the order lands | Plan | Hold `processOrderPlan` |
-| 6 | A failed prescription leaves an empty workbench and tells the error | Plan | Fail `processOrderPlan` |
+| 6 | A prescription shows the plan page at once, greyed until the order lands, and empties the workbench once the order has landed | Plan | Hold `processOrderPlan` |
+| 6 | A failed prescription leaves the workbench narrowed to the order and tells the error | Plan | Fail `processOrderPlan` |
 | 7 | Anonymous: a url with another medication during a filter request starts over; the first answer lands nowhere | Url | Hold the filter request; change the url; release; trail |
 | 7 | Launched: the same url asks; yes shows the url's patient with no Session | Url | Launch; change the url; answer the question |
 | 7 | A url with the page alone during a request is put back; after the answer Back changes the page alone | Url | Hold; change the url; `GoBack` |
@@ -196,7 +196,7 @@ messages as they are after its step 7a: `SetPatientData` and `PatientDataChanged
 | Every step, 8a | A language change shows the disclaimer again | Language | Open with `dsc=n`; pick another language; assert the disclaimer shows; accept it |
 | Every step, 8a | The pick holds: a url change without `lan=` keeps it, and the server default never replaces it; a later url with `lan=` sets that language, the last choice winning | Language | Pick a language; change the url without `lan=`; assert the pick; change the url with another `lan=`; assert that one |
 | 1a | A patient url with every parameter gives the patient, page, language and medication it names; a launch url and a refused url give the launch and the refusal | Url | Open each; read the panel, the page, the language and the Prescribe filter; trail |
-| 1b | A url with the three-letter keys opens the patient, page, language and medication it names | Url | Open `#/patient?byr=...&wgt=...&pag=pr&lan=en&med=...`; read the panel, the page, the language and the Prescribe filter |
+| 1b | A url with the three-letter keys opens the patient, page, language and medication it names | Url | Open `#/patient?yrs=...&wgt=...&pag=pr&lan=en&med=...`; read the panel, the page, the language and the Prescribe filter |
 | 1b | Each page code opens its page: `el`, `cm`, `pr`, `fm`, `pe`, and the new `nu`, `op` and `ia`; there is no code for Settings | Url | One test per code; assert the page shown |
 | 1b | A url with the two-letter keys opens no patient, no page and no medication; the log names the parameters, not their values | Url | Open `#/patient?ad=10&wt=3500&pg=pr`; assert the panel is empty and the default page shows |
 | 1b | Each ISO language code sets its language; `du`, `gr`, `sp` and a display name set none | Url | One test per code with `lan=`; assert the language the title bar shows |
@@ -235,7 +235,7 @@ messages as they are after its step 7a: `SetPatientData` and `PatientDataChanged
 | 8b | A page-only url while a request is out is put back; once nothing is out it is applied | Url | Hold `processFormulary`; change `pag=`; assert the address bar put back; release; change it again; assert the page |
 | 8b | A launch url during a signature is erased and put back, and the snackbar says to open the patient again from the EHR | Url | Sign; hold `processSigning`; open a launch url; assert the address, the snackbar and the session kept |
 | 8b | A refused launch from the identity provider shows the refusal on the gate | Url | Open `#/session?refused=no-role`; assert the gate's text and the address `#/session` |
-| 8b | A url with a medication and no patient: the medication is dropped and the snackbar says so; with a patient the Prescribe filter is seeded | Url | Open `#/patient?med=paracetamol` and `#/patient?agd=10&med=paracetamol`; read the snackbar and the Prescribe filter |
+| 8b | A url with a medication and no patient: the medication is dropped and the snackbar says so; with a patient the Prescribe filter is seeded | Url | Open `#/patient?med=paracetamol` and `#/patient?dys=10&med=paracetamol`; read the snackbar and the Prescribe filter |
 | 8b | A start-over on a patient url shows no frame with the old patient: the new patient, an empty workbench and plan come in one render | Url | With a patient and an order, change to another patient url; record the frames; assert none shows the old patient beside the new url |
 | 8b | A page load's trail: the shell's `PageLoaded` with `ResumeSession` or `LeaveSession`, then `PatientFromUrl` | Trail | Open `#/` and a patient url; read the trail from the first line |
 | 9b | A page load's trail shows every step in one sequence, the loads included | Trail | Open the client; read the trail from the first line |
@@ -244,6 +244,26 @@ messages as they are after its step 7a: `SetPatientData` and `PatientDataChanged
 | 9b | An emergency list item the list does not hold shows in the trail as dropped, and the console logs no warning | Lists | Choose an item after a hospital change removed it; trail; console |
 | 10 | The disclaimer shows for anonymous use, and once accepted not again on a page change; a launched, resuming or refused Session never shows it | Shell | Open `#/` with `dsc=y`; accept; change the page; launch; reload with the Session; open `#/session?refused=no-role` |
 | 10 | The patient panel shows the estimated weight and height from the normal values once they have loaded; before that it shows the draft as entered | Patient | Hold the normal values load; enter an age; assert no estimate; release; assert the estimates |
+
+### Nutrition slots and linked orders
+
+Every check from the Verification of [plan 1612](1612-nutrition-slots-outside-the-plan.md), with the
+suite that covers it. The checks run on the demo data, which holds the LinkRules and RuleSets sheets.
+
+| Plan 1612 step | Check | Suite | How |
+| -------------- | ----- | ----- | --- |
+| 9d | A feeding slot for an infant offers breast milk and the hypoallergenic feedings; an electrolyte and glucose slot offers its mixture | Nutrition | Patient of 3 months; start each slot |
+| 9d | A TPN and an electrolyte line prescribed: both slots empty, the orders are on the order plan page, the combined totals stay | Nutrition | Compose both; prescribe each |
+| 9d | While a prescribe is out, the prescribed slot takes no pick and no other slot can be prescribed | Nutrition | Hold `processOrderPlan`; pick and press another prescribe |
+| 9d | The fortifier is offered only under breast milk; breast milk with the fortifier and a formula feeding prescribed; removing breast milk removes the fortifier | Nutrition, Plan | Compose both feedings; remove breast milk on the order plan page |
+| 9d | A fortifier turned off and on: the combined totals follow each time, and no request carries the offers | Nutrition | Count `processTotals`; inspect its body |
+| 9d | A weight change with a slot open starts the slot again from its rule set | Nutrition | Panel edit |
+| 9d | A new patient while a totals query is out shows no totals of the previous patient | Nutrition | Hold `processTotals`; start a new patient |
+| 9e | Ataluren narrowed to its morning and midday dose offers the evening dose; with two sachets turned on the prescribe waits until the form is picked | Plan | Prescribe page; turn the evening dose on |
+| 9e | The evening dose stands under its main order with an arrow; checking the main order checks both, and the evening dose stays checked while the main order is; removing the main order removes both | Plan | Order plan page |
+| 9e | An order locked by its main order shows the group lock text | Plan | Change the weight so that the main order cannot be calculated |
+| 9e | The intake slider of a TPN in the plan sets its dose, and is disabled while the TPN or its group is locked | Dialog | Open the TPN in its order dialog |
+| 2 | A signed version with a link the LinkRules sheet no longer has still opens | Refresh | Sign; edit the sheet; reload resources; open the version |
 
 ## Steps
 

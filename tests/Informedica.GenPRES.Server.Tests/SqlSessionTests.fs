@@ -13,6 +13,7 @@ open ServerApi
 open Informedica.GenOrder.Lib
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 
 
@@ -20,7 +21,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 let withSessions f =
     withDb (fun cs ->
         SqlSchema.apply cs
-        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 8; 9 ]
+        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 9; 10 ]
         f cs
     )
 
@@ -36,7 +37,8 @@ let t0 = DateTime(2026, 9, 17, 8, 0, 0, DateTimeKind.Utc)
 
 /// The writes of a request, run on the fixture's clock: the audit of a write with no time of
 /// its own is timed by the request.
-let runWrites (cs: string) (writes: Session.Persist list) = SqlSessions.runWrites cs (fun () -> t0) writes
+let runWrites (cs: string) (writes: Session.Persist list) =
+    SqlSessions.runWrites cs TimeZoneInfo.Utc (fun () -> t0) writes
 
 
 /// The rows a presented Launch and its callback leave behind; the writer that returns them
@@ -78,9 +80,9 @@ let insertOutcome (cs: string) (nonce: string) (outcome: string) (attempt: strin
 
 /// The patient a Session shows, as the store holds it and as the domain holds it.
 let patient =
-    Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubPatientData.patient
+    Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubEhrPatient.contractPatient
 
-let patientJson = patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+let patientDataJson = patient |> CorePatientData.Dto.toDto |> Canonical.serialize
 
 
 /// The rows an open leaves behind; the writer that returns them from the machine's writes is
@@ -107,7 +109,7 @@ let insertSession (cs: string) (sid: string) (login: string option) (role: strin
     cmd.ExecuteNonQuery() |> ignore
 
 
-let insertOpenedWith (cs: string) (sid: string) (versionId: string option) (jsonVersion: int) (json: string option) =
+let insertOpenedWith (cs: string) (sid: string) (versionId: string option) =
     use conn = connect cs
 
     use cmd =
@@ -116,18 +118,37 @@ let insertOpenedWith (cs: string) (sid: string) (versionId: string option) (json
             null
             """
             insert into session_opened_with
-                (session_id, version_id, head_id, opened_token, json_version, patient, at)
-            values ($sid, $v, $v, $token, $jv, $patient, $at)
+                (session_id, act, version_id, head_id, opened_token, at)
+            values ($sid, 'opened', $v, $v, $token, $at)
             """
             [
                 "$sid", box sid
                 "$v", versionId |> Option.map box |> Option.defaultValue (box DBNull.Value)
                 "$token", box $"opened-%s{sid}"
-                "$jv",
-                json
-                |> Option.map (fun _ -> box jsonVersion)
-                |> Option.defaultValue (box DBNull.Value)
-                "$patient", json |> Option.map box |> Option.defaultValue (box DBNull.Value)
+                "$at", box (SqlSessions.ms t0)
+            ]
+
+    cmd.ExecuteNonQuery() |> ignore
+
+
+/// A row of what a Session opened with whose EHR data is as given, under the structure version given.
+let insertOpenedWithEhr (cs: string) (sid: string) (jsonVersion: int) (json: string) =
+    use conn = connect cs
+
+    use cmd =
+        SqlSessions.command
+            conn
+            null
+            """
+            insert into session_opened_with
+                (session_id, act, opened_token, ehr_json_version, ehr_data, at)
+            values ($sid, 'opened', $token, $jv, $ehr, $at)
+            """
+            [
+                "$sid", box sid
+                "$token", box $"opened-%s{sid}"
+                "$jv", box jsonVersion
+                "$ehr", box json
                 "$at", box (SqlSessions.ms t0)
             ]
 
@@ -142,7 +163,7 @@ let insertRow (cs: string) (sql: string) (parameters: (string * obj) list) =
 
 let loadedSession (cs: string) (sid: string) =
     use conn = connect cs
-    SqlSessions.loadSession conn (fun _ -> None) sid
+    SqlSessions.loadSession conn t0 (fun _ -> None) sid
 
 
 [<Tests>]
@@ -258,10 +279,10 @@ let sessionTests =
     testList
         "the session rows"
         [
-            test "a Session loads back as the state holds it, with its patient and its token" {
+            test "a Session loads back as the state holds it, with its act and its token" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" (Some "plan-1")
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Ok session)) ->
@@ -272,7 +293,7 @@ let sessionTests =
                         session.Opened.PatientId
                         |> Expect.equal "the patient it was launched on" (Some "stub-patient")
 
-                        session.Opened.Patient |> Expect.equal "the data it shows" (Some patient)
+                        session.Opened.Act |> Expect.equal "the act that wrote it" SessionAct.Opened
 
                         session.Opened.OpenedToken
                         |> Expect.equal "its token" (Some(OpenedToken "opened-s-1"))
@@ -292,8 +313,8 @@ let sessionTests =
             test "the newest heartbeat and the newest opened-with count" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
-                    insertOpenedWith cs "s-1" (Some "plan-2") 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" (Some "plan-1")
+                    insertOpenedWith cs "s-1" (Some "plan-2")
 
                     let later = t0.AddMinutes 5.0
 
@@ -319,9 +340,9 @@ let sessionTests =
             test "a newer Session of the login supersedes the older, whatever became of it" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" None
                     insertSession cs "s-2" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-2" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-2" None
 
                     match loadedSession cs "s-1" with
                     | Some(Choice2Of2(Some(SessionEnding.SupersededByLaunch, at))) ->
@@ -340,7 +361,7 @@ let sessionTests =
 
                     // and a Session of another login is untouched by either
                     insertSession cs "s-3" (Some "prescriber-b") "prescriber"
-                    insertOpenedWith cs "s-3" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-3" None
 
                     match loadedSession cs "s-3" with
                     | Some(Choice1Of2(Ok _)) -> ()
@@ -358,7 +379,7 @@ let sessionTests =
                             "s-4", "idle"
                         ] do
                         insertSession cs sid (Some $"user-%s{sid}") "prescriber"
-                        insertOpenedWith cs sid None 1 (Some patientJson)
+                        insertOpenedWith cs sid None
 
                         insertRow
                             cs
@@ -397,7 +418,7 @@ let sessionTests =
             test "an ending the User acknowledged leaves no Session, whatever it ended of" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" None
 
                     insertRow
                         cs
@@ -423,7 +444,7 @@ let sessionTests =
             test "an ending word this release does not know ends the Session all the same" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" None
 
                     insertRow
                         cs
@@ -436,10 +457,10 @@ let sessionTests =
                 )
             }
 
-            test "a patient this release cannot read makes the Session unreadable" {
+            test "EHR data this release cannot read makes the Session unreadable" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" None 9 (Some patientJson)
+                    insertOpenedWithEhr cs "s-1" 9 "written by a newer release"
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Error reason)) ->
@@ -448,7 +469,7 @@ let sessionTests =
                     | other -> failtest $"expected unreadable, got %A{other}"
 
                     insertSession cs "s-2" (Some "reader") "prescriber"
-                    insertOpenedWith cs "s-2" None 1 (Some "{ not json")
+                    insertOpenedWithEhr cs "s-2" 1 "{ not json"
 
                     match loadedSession cs "s-2" with
                     | Some(Choice1Of2(Error _)) -> ()
@@ -459,7 +480,7 @@ let sessionTests =
             test "a Role this release cannot read makes the Session unreadable, never a signer" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "administrator"
-                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" None
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Error reason)) ->
@@ -471,11 +492,11 @@ let sessionTests =
             test "a Session that opened on no patient data, and on nothing at all" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "reader"
-                    insertOpenedWith cs "s-1" None 1 None
+                    insertOpenedWith cs "s-1" None
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Ok session)) ->
-                        session.Opened.Patient |> Expect.isNone "no patient data"
+                        session.Opened.EhrPatient |> Expect.isNone "no patient data"
                         session.Opened.Head |> Expect.isNone "no head either"
 
                         session.Opened.User
@@ -498,7 +519,7 @@ let sessionTests =
             test "the head it opened on is the record's, through the headOf it is loaded with" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" (Some "plan-1")
 
                     let head =
                         Store.domainPlan.Value
@@ -507,7 +528,9 @@ let sessionTests =
 
                     use conn = connect cs
 
-                    match SqlSessions.loadSession conn (fun id -> if id = "plan-1" then Some head else None) "s-1" with
+                    match
+                        SqlSessions.loadSession conn t0 (fun id -> if id = "plan-1" then Some head else None) "s-1"
+                    with
                     | Some(Choice1Of2(Ok session)) ->
                         session.Opened.Head |> Expect.equal "the head of its own id" (Some head)
                     | other -> failtest $"expected the Session, got %A{other}"
@@ -529,12 +552,11 @@ let sessionOf sid login openedWith head : Session.SessionRecord =
                             Role = UserRole.Prescriber
                         }
                 PatientId = Some "stub-patient"
-                EhrData = None
-                Patient = Some patient
-                Measured = Measurements.none
+                EhrPatient = None
                 OpenedToken = Some(OpenedToken $"opened-%s{sid}")
                 KeyThumbprint = Some "thumb"
                 Head = head
+                Act = SessionAct.Opened
             }
         Login = Some login
         OpenedWith = openedWith
@@ -734,11 +756,11 @@ let writerTests =
 
             test "the EHR data a Session opened on is written under its version and loads back as read" {
                 withSessions (fun cs ->
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
                     let session =
                         { sessionOf "s-1" "prescriber" None None with
-                            Opened = { (sessionOf "s-1" "prescriber" None None).Opened with EhrData = Some ehr }
+                            Opened = { (sessionOf "s-1" "prescriber" None None).Opened with EhrPatient = Some ehr }
                         }
 
                     runWrites
@@ -751,7 +773,7 @@ let writerTests =
 
                     match loadedSession cs "s-1" with
                     | Some(Choice1Of2(Ok loaded)) ->
-                        loaded.Opened.EhrData |> Expect.equal "the EHR data as read" (Some ehr)
+                        loaded.Opened.EhrPatient |> Expect.equal "the EHR data as read" (Some ehr)
                         loaded |> Expect.equal "the Session as it was" session
                     | other -> failtest $"expected the Session, got %A{other}"
 
@@ -763,85 +785,100 @@ let writerTests =
                     use r = cmd.ExecuteReader()
                     r.Read() |> Expect.isTrue "the row is there"
                     r.GetInt32 0
-                    |> Expect.equal "under the version it was written with" SqlSessions.ehrJsonWritten
+                    |> Expect.equal "under the version it was written with" SqlEhrPatient.ehrPatientJsonVersion
                     r.GetString 1
-                    |> Expect.equal "the canonical form of its Dto" (SqlSessions.ehrJson ehr)
+                    |> Expect.equal "the canonical form of its Dto" (SqlEhrPatient.ehrPatientJson ehr)
                 )
             }
 
-            test "the measurements of a Session are written one row each and load back, the latest per kind" {
-                withSessions (fun cs ->
-                    insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    let gestAge: GestAge =
-                        {
-                            Weeks = 36<week>
-                            Days = 3<day>
-                        }
-
-                    runWrites
-                        cs
-                        [
-                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 33000<gram>), t0)
-                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 34000<gram>), t0.AddMinutes 1.0)
-                            Session.WriteMeasurement("s-1", Measurement.Height None, t0.AddMinutes 2.0)
-                            Session.WriteMeasurement("s-1", Measurement.GestAge(Some gestAge), t0.AddMinutes 3.0)
-                        ]
-                    |> Expect.equal "written" Session.StoreOutcome.Written
-
-                    match loadedSession cs "s-1" with
-                    | Some(Choice1Of2(Ok loaded)) ->
-                        loaded.Opened.Measured
-                        |> Expect.equal
-                            "the latest weight, the height cleared, the gestational age"
-                            {
-                                Weight =
-                                    Some
-                                        {
-                                            Value = Some 34000<gram>
-                                            At = t0.AddMinutes 1.0
-                                        }
-                                Height =
-                                    Some
-                                        {
-                                            Value = None
-                                            At = t0.AddMinutes 2.0
-                                        }
-                                GestAge =
-                                    Some
-                                        {
-                                            Value = Some gestAge
-                                            At = t0.AddMinutes 3.0
-                                        }
-                            }
-                    | other -> failtest $"expected the Session, got %A{other}"
-
-                    // a gestational age with its weeks and not its days is no row the store takes
-                    use conn = connect cs
-
-                    (fun () ->
-                        use cmd =
-                            SqlSessions.command
-                                conn
-                                null
-                                "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'gestage', 36, null, 0)"
-                                []
-
-                        cmd.ExecuteNonQuery() |> ignore
+            test "EHR data of structure version 1 is older than this release reads" {
+                let json =
+                    System.IO.File.ReadAllText(
+                        System.IO.Path.Combine(System.AppContext.BaseDirectory, "fixtures", "ehr_data_v1.json")
                     )
-                    |> Expect.throws "the schema refuses it"
-                )
+
+                SqlEhrPatient.readEhrPatient t0 1 json
+                |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
+            }
+
+            test "EHR data of a structure version after the one written is newer than this release knows" {
+                let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+
+                SqlEhrPatient.readEhrPatient
+                    t0
+                    (SqlEhrPatient.ehrPatientJsonVersion + 1)
+                    (SqlEhrPatient.ehrPatientJson ehr)
+                |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "patient data of structure version 1 is refused" {
+                SqlSessions.readPatientData t0 1 patientDataJson
+                |> Expect.equal "not converted" (Error "JSON structure version 1 is older than this release reads")
+            }
+
+            test "patient data of a newer structure version is refused" {
+                SqlSessions.readPatientData t0 (SqlSessions.patientDataJsonVersion + 1) patientDataJson
+                |> Expect.equal "not read" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "patient data reads back from its JSON" {
+                SqlSessions.readPatientData t0 SqlSessions.patientDataJsonVersion (SqlSessions.patientDataJson patient)
+                |> Expect.equal "the same patient data" (Ok patient)
+            }
+
+            test "EHR data reads back from its JSON, with an access and a renal function" {
+                let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+
+                let full =
+                    { ehr with
+                        Data.Access =
+                            [
+                                Informedica.GenCore.Lib.Patients.CVL
+                                Informedica.GenCore.Lib.Patients.EnteralTube
+                            ]
+                        Data.RenalFunction =
+                            Some(Informedica.GenCore.Lib.Patients.EGFR Informedica.GenCore.Lib.Patients.From30To50)
+                    }
+
+                SqlEhrPatient.ehrPatientJson full
+                |> SqlEhrPatient.readEhrPatient t0 SqlEhrPatient.ehrPatientJsonVersion
+                |> Expect.equal "the same patient" (Ok full)
+            }
+
+            test "EHR data read just after local midnight reads back on the local date, not on the UTC date" {
+                // 23:30 UTC on 17 November is 00:30 on 18 November in Amsterdam
+                let utc = DateTime(2026, 11, 17, 23, 30, 0, DateTimeKind.Utc)
+                let today = utc |> LocalDate.ofUtc (LocalDate.defaultZone ())
+
+                // the stub dates the weight and the height of a test patient on the local date
+                let ehr = StubEhrPatient.testPatients |> List.head |> StubEhrPatient.testPatient today
+                let json = SqlEhrPatient.ehrPatientJson ehr
+
+                today |> Expect.equal "the local date" (DateTime(2026, 11, 18))
+
+                SqlEhrPatient.readEhrPatient today SqlEhrPatient.ehrPatientJsonVersion json
+                |> Expect.equal "read on the local date" (Ok ehr)
+
+                SqlEhrPatient.readEhrPatient utc SqlEhrPatient.ehrPatientJsonVersion json
+                |> Expect.isError "on the UTC date the weight is dated a day ahead"
+            }
+
+            test "the EHR JSON holds the patient data in a field Data, after the identity" {
+                let json =
+                    StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+                    |> SqlEhrPatient.ehrPatientJson
+
+                json |> Expect.stringContains "the nested data" "\"Data\":{"
+                json |> Expect.stringStarts "the identity first" "{\"Id\":\"stub-patient\""
             }
 
             test "a row from before the EHR data column, or a Session opened on none, loads with no EHR data" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" (Some "plan-1")
 
                     match loadedSession cs "s-1" with
-                    | Some(Choice1Of2(Ok session)) ->
-                        session.Opened.EhrData |> Expect.isNone "no EHR data"
-                        session.Opened.Patient
-                        |> Expect.equal "the data it shows, as before" (Some patient)
+                    | Some(Choice1Of2(Ok session)) -> session.Opened.EhrPatient |> Expect.isNone "no EHR data"
                     | other -> failtest $"expected the Session, got %A{other}"
                 )
             }
@@ -849,7 +886,7 @@ let writerTests =
             test "a row with the EHR data but not its version, or the other way round, makes the Session unreadable" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+                    insertOpenedWith cs "s-1" (Some "plan-1")
 
                     use conn = connect cs
 
@@ -859,7 +896,12 @@ let writerTests =
                             null
                             "update session_opened_with set ehr_data = $ehr where session_id = $sid"
                             [
-                                "$ehr", box (SqlSessions.ehrJson (StubPatientData.data "stub-patient"))
+                                "$ehr",
+                                box (
+                                    SqlEhrPatient.ehrPatientJson (
+                                        StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
+                                    )
+                                )
                                 "$sid", box "s-1"
                             ]
 
@@ -873,30 +915,33 @@ let writerTests =
                 )
             }
 
-            test "the patient a Session shows is written as its Dto under the version it is written with" {
-                withSessions (fun cs ->
-                    let session = sessionOf "s-1" "prescriber" None None
+            test "every act survives its column, and is what the newest row says" {
+                for act in
+                    [
+                        SessionAct.Opened
+                        SessionAct.VersionOpened
+                        SessionAct.Refreshed
+                        SessionAct.Signed
+                    ] do
+                    withSessions (fun cs ->
+                        let session = sessionOf "s-1" "prescriber" None None
+                        let later = { session with Opened = { session.Opened with Act = act } }
 
-                    runWrites
-                        cs
-                        [
-                            Session.OpenSession("s-1", session)
-                            Session.RecordOpenedWith("s-1", session, t0)
-                        ]
-                    |> ignore
+                        runWrites
+                            cs
+                            [
+                                Session.OpenSession("s-1", session)
+                                Session.RecordOpenedWith("s-1", session, t0)
+                                Session.RecordOpenedWith("s-1", later, t0)
+                            ]
+                        |> ignore
 
-                    use conn = connect cs
+                        match loadedSession cs "s-1" with
+                        | Some(Choice1Of2(Ok loaded)) -> loaded.Opened.Act |> Expect.equal "the act" act
+                        | other -> failtest $"expected the Session, got %A{other}"
+                    )
 
-                    use cmd = SqlSessions.command conn null "select json_version, patient from session_opened_with" []
-
-                    use r = cmd.ExecuteReader()
-                    r.Read() |> Expect.isTrue "the row is there"
-
-                    r.GetInt32 0
-                    |> Expect.equal "the version it was written under" SqlSessions.patientJsonWritten
-
-                    r.GetString 1 |> Expect.equal "the canonical form of its Dto" patientJson
-                )
+                SqlSessions.actOf "something else" |> Expect.isError "not an act"
             }
         ]
 
@@ -934,7 +979,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let loaded = SqlSessions.withSession warn cs TimeZoneInfo.Utc conn t0 "s-1" emptyState
 
                     loaded.Sessions
                     |> Map.containsKey "s-1"
@@ -974,7 +1019,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" held
+                    let loaded = SqlSessions.withLogin warn cs TimeZoneInfo.Utc conn t0 "prescriber" held
 
                     loaded.Sessions |> Map.containsKey "s-2" |> Expect.isTrue "the newest stands"
 
@@ -997,14 +1042,14 @@ let sliceTests =
 
                     // past its lifetime the loader calls it absent, and so must the state, or
                     // a callback would still find the patient it was launched on
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "state" "state-n-1" held
+                    SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn (t0.AddMinutes 3.0) "state" "state-n-1" held
                     |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
 
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" held
+                    SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn (t0.AddMinutes 3.0) "nonce" "n-1" held
                     |> fun s -> s.Launches |> Expect.isEmpty "found by its nonce either way"
 
                     // within it, the row is what the state holds
-                    SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" held
+                    SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn t0 "nonce" "n-1" held
                     |> fun s -> s.Launches |> Map.containsKey "n-1" |> Expect.isTrue "the Launch stands"
                 )
             }
@@ -1034,7 +1079,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" held
+                    let loaded = SqlSessions.withSession warn cs TimeZoneInfo.Utc conn t0 "s-1" held
 
                     loaded.Sessions
                     |> Map.containsKey "s-1"
@@ -1050,11 +1095,11 @@ let sliceTests =
             test "a Session this release cannot read ends as unreadable, and says why" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    insertOpenedWith cs "s-1" None 9 (Some patientJson)
+                    insertOpenedWithEhr cs "s-1" 9 "written by a newer release"
 
                     use conn = connect cs
                     let said, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let loaded = SqlSessions.withSession warn cs TimeZoneInfo.Utc conn t0 "s-1" emptyState
 
                     loaded.Endings
                     |> Map.tryFind "s-1"
@@ -1089,7 +1134,7 @@ let sliceTests =
                     |> Expect.isNone "a login with no Session"
 
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+                    let loaded = SqlSessions.withLogin warn cs TimeZoneInfo.Utc conn t0 "prescriber" emptyState
 
                     loaded.Sessions
                     |> Map.containsKey "s-2"
@@ -1117,7 +1162,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLaunch warn cs conn t0 "state" "state-n-1" emptyState
+                    let loaded = SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn t0 "state" "state-n-1" emptyState
 
                     match loaded.Launches |> Map.tryFind "n-1" with
                     | Some record ->
@@ -1155,7 +1200,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" emptyState
+                    let loaded = SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn t0 "nonce" "n-1" emptyState
 
                     // the browser presenting it again goes to the app, not through the hop
                     match loaded.Launches |> Map.tryFind "n-1" |> Option.bind _.Outcome with
@@ -1185,7 +1230,7 @@ let sliceTests =
                     let _, warn = warnings ()
 
                     let outcomeOf nonce state =
-                        SqlSessions.withLaunch warn cs conn t0 "nonce" nonce state
+                        SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn t0 "nonce" nonce state
                         |> fun s -> s.Launches |> Map.tryFind nonce |> Option.bind _.Outcome
 
                     outcomeOf "n-1" emptyState
@@ -1195,7 +1240,7 @@ let sliceTests =
                     |> Expect.equal "the attempt it suspended into" (Some(LaunchResult.Enrolling "attempt-1"))
 
                     // past the lifetime the record is absent, as the dropped row will be
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" emptyState
+                    SqlSessions.withLaunch warn cs TimeZoneInfo.Utc conn (t0.AddMinutes 3.0) "nonce" "n-1" emptyState
                     |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
                 )
             }
@@ -1212,8 +1257,8 @@ let raceTests =
                     // both servers load before either writes, so neither sees the other's open
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let a = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
-                    let b = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+                    let a = SqlSessions.withLogin warn cs TimeZoneInfo.Utc conn t0 "prescriber" emptyState
+                    let b = SqlSessions.withLogin warn cs TimeZoneInfo.Utc conn t0 "prescriber" emptyState
 
                     a.Sessions |> Expect.isEmpty "nothing for the login yet"
                     b.Sessions |> Expect.isEmpty "for either of them"
@@ -1531,7 +1576,7 @@ let credentialLoadTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let state = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let state = SqlSessions.withSession warn cs TimeZoneInfo.Utc conn t0 "s-1" emptyState
 
                     match state.Credentials |> Map.tryFind "user-1" with
                     | Some c -> PinHash.verify "1234" c.PinHash.Value |> Expect.isTrue "the PIN it signs with"
@@ -1592,8 +1637,10 @@ let withOpenSession (cs: string) =
 let noticeOf nonce data : Session.Notice =
     {
         Nonce = nonce
-        Ehr = data |> Option.map (fun _ -> StubPatientData.data "stub-patient")
-        Data = data
+        EhrPatient =
+            data
+            |> Option.map (fun _ -> StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
+        PatientData = data
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -1602,8 +1649,7 @@ let challengeOf nonce : Session.Challenge =
     {
         Nonce = nonce
         Digest = "digest-1"
-        Ehr = None
-        Reading = None
+        EhrPatient = None
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -1633,18 +1679,18 @@ let flightWriteTests =
 
                     scalarOf cs "select data from data_notice"
                     |> unbox<string>
-                    |> Expect.equal "the patient it showed, as its Dto" patientJson
+                    |> Expect.equal "the patient it showed, as its Dto" patientDataJson
 
                     scalarOf cs "select json_version from data_notice"
                     |> unbox<int64>
-                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientJsonWritten)
+                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientDataJsonVersion)
 
                     scalarOf cs "select digest from challenge"
                     |> unbox<string>
                     |> Expect.equal "the digest it was issued over" "digest-1"
 
-                    // a reading that could not be taken is no reading, and no structure version
-                    scalarOf cs "select count(*) from challenge where reading is null and json_version is null"
+                    // EHR data that could not be read is no data, and no structure version
+                    scalarOf cs "select count(*) from challenge where ehr_data is null and ehr_json_version is null"
                     |> unbox<int64>
                     |> Expect.equal "the challenge carries neither" 1L
                 )
@@ -1654,24 +1700,24 @@ let flightWriteTests =
                 "the notice and the challenge keep the EHR data they were told or issued over, and a row from before has none" {
                 withSessions (fun cs ->
                     withOpenSession cs
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient"
 
                     runWrites
                         cs
                         [
                             Session.WriteNotice("s-1", noticeOf "n-1" (Some patient), t0)
-                            Session.WriteChallenge("s-1", { challengeOf "c-1" with Ehr = Some ehr }, t0)
+                            Session.WriteChallenge("s-1", { challengeOf "c-1" with EhrPatient = Some ehr }, t0)
                         ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     use conn = connect cs
 
-                    SqlSessions.loadNotice conn t0 "s-1"
-                    |> Option.map (Result.map _.Ehr)
+                    SqlSessions.loadNotice conn t0 t0 "s-1"
+                    |> Option.map (Result.map _.EhrPatient)
                     |> Expect.equal "the notice's read" (Some(Ok(Some ehr)))
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
-                    |> Option.map (Result.map _.Ehr)
+                    SqlSessions.loadChallenge conn t0 t0 "s-1"
+                    |> Option.map (Result.map _.EhrPatient)
                     |> Expect.equal "the challenge's read" (Some(Ok(Some ehr)))
 
                     // a row written before the columns existed
@@ -1690,8 +1736,8 @@ let flightWriteTests =
 
                     cmd.ExecuteNonQuery() |> ignore
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
-                    |> Option.map (Result.map (fun c -> c.Nonce, c.Ehr))
+                    SqlSessions.loadChallenge conn t0 t0 "s-1"
+                    |> Option.map (Result.map (fun c -> c.Nonce, c.EhrPatient))
                     |> Expect.equal "the newest, with no read" (Some(Ok("c-0", None)))
 
                     // the notice row as one from before the columns holds it: patient data, no
@@ -1706,7 +1752,7 @@ let flightWriteTests =
 
                     cmd.ExecuteNonQuery() |> ignore
 
-                    SqlSessions.loadNotice conn t0 "s-1"
+                    SqlSessions.loadNotice conn t0 t0 "s-1"
                     |> Expect.isNone "a notice told before the store kept the read is not held"
                 )
             }
@@ -1739,6 +1785,67 @@ let flightWriteTests =
                 )
             }
 
+            test "a remembered answer repeats the patient signed, at the age of the sign" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
+                    let patient = v1.Plan.PatientData |> Session.atBirthDate v1.SignedAt whom
+                    let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteVersion(v1, whom)
+                            Session.RememberAnswer("s-1", "k-1", answer, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.loadAnswer
+                        TimeZoneInfo.Utc
+                        conn
+                        (fun _ -> Some(StoredVersion.Readable(v1, whom)))
+                        "s-1"
+                        "k-1"
+                    |> Option.map fst
+                    |> Expect.equal "the same answer" (Some answer)
+                )
+            }
+
+            test "a remembered answer signed just after local midnight repeats the age on the local date" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    // 23:30 UTC on 26 September is 01:30 on 27 September in Amsterdam
+                    let signedAt = DateTime(2026, 9, 26, 23, 30, 0, DateTimeKind.Utc)
+                    let amsterdam = LocalDate.defaultZone ()
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
+                    let patientOn zone =
+                        v1.Plan.PatientData
+                        |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
+                    let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patientOn amsterdam)
+
+                    patientOn amsterdam
+                    |> Expect.notEqual "the UTC date gives another age" (patientOn TimeZoneInfo.Utc)
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteVersion(v1, whom)
+                            Session.RememberAnswer("s-1", "k-1", answer, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.loadAnswer amsterdam conn (fun _ -> Some(StoredVersion.Readable(v1, whom))) "s-1" "k-1"
+                    |> Option.map fst
+                    |> Expect.equal "the same answer, at the age on the Amsterdam date" (Some answer)
+                )
+            }
+
             test "an answer names the version it signed and is not written over" {
                 withSessions (fun cs ->
                     withOpenSession cs
@@ -1751,7 +1858,7 @@ let flightWriteTests =
                             Session.RememberAnswer(
                                 "s-1",
                                 "k-1",
-                                SigningOutcome.Submitted(v1, None, OpenedToken "opened-again", v1.Plan.Patient),
+                                SigningOutcome.Submitted(v1, None, OpenedToken "opened-again", v1.Plan.PatientData),
                                 t0
                             )
                         ]
@@ -1852,7 +1959,7 @@ let newestOnlyTests =
 
                     use conn = connect cs
 
-                    match SqlSessions.loadChallenge conn t0 "s-1" with
+                    match SqlSessions.loadChallenge conn t0 t0 "s-1" with
                     | Some(Ok c) -> c.Nonce |> Expect.equal "the newer one" "c-2"
                     | other -> failtest $"expected the newer challenge, got %A{other}"
 
@@ -1860,7 +1967,7 @@ let newestOnlyTests =
                     // challenge at all, and not the one that was replaced before it
                     runWrites cs [ Session.SpendChallenge("s-1", "c-2", t0) ] |> ignore
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
+                    SqlSessions.loadChallenge conn t0 t0 "s-1"
                     |> Expect.isNone "no challenge, and never the replaced one"
                 )
             }
@@ -1905,7 +2012,7 @@ let newestOnlyTests =
 
                     use conn = connect cs
 
-                    SqlSessions.loadChallenge conn (t0.AddMinutes 3.0) "s-1"
+                    SqlSessions.loadChallenge conn (t0.AddMinutes 3.0) t0 "s-1"
                     |> Expect.isNone "both are past it, and the older is no fallback"
                 )
             }
@@ -1924,6 +2031,12 @@ let auditRows (cs: string) =
 
 
 let actions (cs: string) = auditRows cs |> List.map (fun (action, _, _, _, _) -> action)
+
+
+/// A Session whose newest row was written by the act given.
+let withAct act =
+    let session = sessionOf "s-1" "prescriber" None None
+    { session with Opened = { session.Opened with Act = act } }
 
 
 /// The audit of one request, as the store derives it.
@@ -1993,7 +2106,7 @@ let auditTests =
                         Session.RememberAnswer(
                             "s-1",
                             "k-1",
-                            SigningOutcome.Submitted(v1, None, OpenedToken "t", v1.Plan.Patient),
+                            SigningOutcome.Submitted(v1, None, OpenedToken "t", v1.Plan.PatientData),
                             t0
                         )
                     ]
@@ -2061,20 +2174,23 @@ let auditTests =
             }
 
             test "a version opened is audited, though no write of it is its own" {
-                let session = sessionOf "s-1" "prescriber" None None
-
                 // what openVersion writes: the heartbeat, the challenge it used up, and what the
-                // Session now opens with. An open and a signature write that too, and are
-                // audited by what they write besides it
+                // Session now opens with, which names the act
                 SqlSessions.auditOf
                     t0
                     [
                         Session.RecordSeen("s-1", t0)
                         Session.SpendChallenge("s-1", "c-1", t0)
-                        Session.RecordOpenedWith("s-1", session, t0)
+                        Session.RecordOpenedWith("s-1", withAct SessionAct.VersionOpened, t0)
                     ]
                 |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
                 |> Expect.equal "the version opened" [ "version-opened", Some "s-1", Some "user-1" ]
+            }
+
+            test "a refresh is told as a refresh, not as a version opened" {
+                SqlSessions.auditOf t0 [ Session.RecordOpenedWith("s-1", withAct SessionAct.Refreshed, t0) ]
+                |> List.map _.Action
+                |> Expect.equal "the refresh" [ "session-refreshed" ]
             }
 
             test "a request that only says it was seen is no act, and no entry" {

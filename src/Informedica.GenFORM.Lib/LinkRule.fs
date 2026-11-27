@@ -1,0 +1,184 @@
+namespace Informedica.GenForm.Lib
+
+
+/// Reads the rows of the LinkRules sheet, checks them against the dose rules and matches them against
+/// an order.
+module LinkRule =
+
+    open Informedica.Utils.Lib.BCL
+
+
+    /// Whether a row of the sheet is blank: both dose type columns are empty. A blank row is no rule,
+    /// whatever its other cells hold.
+    let isBlank (d: LinkRuleData) =
+        String.isNullOrWhiteSpace d.DoseType && String.isNullOrWhiteSpace d.MainDoseType
+
+
+    /// Reads one side of a row. Returns an error that names the dose type column when the dose type is
+    /// empty or unknown, or is once or onceTimed, because a once dose is never linked.
+    let side doseTypeColumn generic route indication doseType doseText =
+        match DoseType.parse doseType doseText with
+        | NoDoseType, warning ->
+            let reason = warning |> Option.defaultValue "the dose type is empty"
+            Error $"%s{doseTypeColumn}: %s{reason}"
+        | Once _, _
+        | OnceTimed _, _ -> Error $"%s{doseTypeColumn}: a once dose is never linked"
+        | dt, _ ->
+            Ok
+                {
+                    LinkSide.Generic = generic
+                    LinkSide.Route = route
+                    LinkSide.Indication = indication
+                    LinkSide.DoseType = dt
+                }
+
+
+    /// Parses the Required column in any case: yes gives Required, no or empty gives Optional, and any
+    /// other value is an error.
+    let requirement s =
+        match s |> String.toLower with
+        | "yes" -> Ok LinkRequirement.Required
+        | "no"
+        | "" -> Ok LinkRequirement.Optional
+        | _ -> Error $"Required: %s{s} is not yes or no"
+
+
+    /// Reads a row into a link rule, or returns every reason the row is refused.
+    let ofData (d: LinkRuleData) =
+        let errorOf =
+            function
+            | Error e -> [ e ]
+            | Ok _ -> []
+
+        let linked = side "DoseType" d.Generic d.Route d.Indication d.DoseType d.DoseText
+
+        let main = side "MainDoseType" d.MainGeneric d.MainRoute d.MainIndication d.MainDoseType d.MainDoseText
+
+        let required = d.Required |> requirement
+
+        match linked, main, required with
+        | Ok l, Ok m, Ok r ->
+            Ok
+                {
+                    LinkRule.Linked = l
+                    LinkRule.Main = m
+                    LinkRule.Requirement = r
+                }
+        | _ -> Error(errorOf linked @ errorOf main @ errorOf required)
+
+
+    /// Returns the rows that are not blank with their row number in the sheet, counting the header as
+    /// row 1. The number is correct only when the sheet export keeps blank rows as quoted empty cells.
+    let numbered (rows: LinkRuleData[]) =
+        rows
+        |> Array.indexed
+        |> Array.filter (snd >> isBlank >> not)
+        |> Array.map (fun (i, d) -> i + 2, d)
+
+
+    /// Reads every row that is not blank, with its row number in the sheet.
+    let read rows = rows |> numbered |> Array.map (fun (no, d) -> no, d |> ofData)
+
+
+    /// Returns the link rules of the rows, or an error per refusal with its row number. One refused row
+    /// refuses the whole sheet, because leaving out a required link would let its order be prescribed alone.
+    let ofRows (rows: LinkRuleData[]) =
+        let read = rows |> read
+
+        match
+            read
+            |> Array.toList
+            |> List.collect (fun (no, r) ->
+                match r with
+                | Ok _ -> []
+                | Error es -> es |> List.map (fun e -> ErrorMsg($"LinkRules row %i{no}: %s{e}", None))
+            )
+        with
+        | [] -> read |> Array.choose (snd >> Result.toOption) |> Ok
+        | es -> Error es
+
+
+    /// Returns a field of a side as an option; a blank field gives None.
+    let fieldOf (field: string) =
+        if field |> String.isNullOrWhiteSpace then
+            None
+        else
+            Some field
+
+
+    /// Whether a field of a side matches a value: an empty field matches any value, and names compare
+    /// without regard to case.
+    let fieldMatches (field: string) (value: string) =
+        field |> String.isNullOrWhiteSpace || String.equalsCapInsens field value
+
+
+    /// Whether the dose type of a side matches a dose type: the same kind, and the same text unless
+    /// the side has none.
+    let doseTypeMatches (side: DoseType) (doseType: DoseType) =
+        DoseType.toCategory side = DoseType.toCategory doseType
+        && fieldMatches (DoseType.getText side) (DoseType.getText doseType)
+
+
+    /// Whether a side matches an order with the indication, the generic label, the route and the dose
+    /// type. The routes compare by the route mapping, so a long and a short name of a route match.
+    let matches routeMapping (side: LinkSide) indication label route doseType =
+        fieldMatches side.Indication indication
+        && fieldMatches side.Generic label
+        && (route |> Mapping.eqsRoute routeMapping (fieldOf side.Route))
+        && doseTypeMatches side.DoseType doseType
+
+
+    /// Whether a link rule with Required yes matches the dose rule on its linked side, so that an order
+    /// of that dose rule is only prescribed with its main order.
+    let needsMainOrder routeMapping (rules: LinkRule[]) (doseRule: DoseRule) =
+        let label = doseRule.Generic.Label |> GenericLabel.toString
+
+        rules
+        |> Array.exists (fun r ->
+            r.Requirement = LinkRequirement.Required
+            && matches routeMapping r.Linked doseRule.Indication label doseRule.Route doseRule.DoseType
+        )
+
+
+    /// The dose rules whose orders can be prescribed on their own: those that need no main order.
+    let standAlone routeMapping rules doseRules =
+        doseRules |> Array.filter (needsMainOrder routeMapping rules >> not)
+
+
+    /// Returns a warning for each side of a row that matches no dose rule, because no order can match
+    /// that side. When a dose rule has the generic of the side as its generic name, the warning gives the
+    /// labels to write instead. A refused row is skipped here; the read reports it.
+    let check routeMapping (doseRules: RuleSet.DoseRuleNames[]) (rows: LinkRuleData[]) =
+        let matchesRule (side: LinkSide) (d: RuleSet.DoseRuleNames) =
+            matches routeMapping side d.Indication d.Label d.Route d.DoseType
+
+        // the labels of the dose rules that match the side when its generic is compared with the generic name
+        let labelsOf (side: LinkSide) =
+            doseRules
+            |> Array.filter (fun d ->
+                matchesRule { side with LinkSide.Generic = "" } d
+                && String.equalsCapInsens d.Generic side.Generic
+            )
+            |> Array.map _.Label
+            |> Array.distinct
+
+        [
+            for no, r in rows |> read do
+                match r with
+                | Error _ -> ()
+                | Ok rule ->
+                    for name, side in [ "linked", rule.Linked; "main", rule.Main ] do
+                        if doseRules |> Array.exists (matchesRule side) |> not then
+                            match labelsOf side with
+                            | [||] -> Warning $"LinkRules: the %s{name} side of row %i{no} matches no dose rule"
+                            | labels ->
+                                let labels = labels |> String.concat ", "
+
+                                Warning
+                                    $"LinkRules: the %s{name} side of row %i{no} names %s{side.Generic}, offered as %s{labels}"
+        ]
+
+
+    /// The warnings of the rows against the dose rule data.
+    let checkData routeMapping doseRules rows =
+        rows |> check routeMapping (RuleSet.DoseRuleNames.ofData doseRules)

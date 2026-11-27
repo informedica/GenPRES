@@ -23,7 +23,7 @@ module DoseLimit =
         }
 
 
-    /// An empty DoseLimit.
+    /// A dose limit without a target, units or limits.
     let limit =
         {
             DoseLimitTarget = NoLimitTarget
@@ -36,35 +36,6 @@ module DoseLimit =
             Rate = MinMax.empty
             RateAdjust = MinMax.empty
         }
-
-
-    /// <summary>
-    /// Check whether an adjust is used in
-    /// the DoseLimit.
-    /// </summary>
-    /// <remarks>
-    /// If any of the adjust values is not None
-    /// then an adjust is used.
-    /// </remarks>
-    let useAdjust (dl: DoseLimit) =
-        let adj =
-            [
-                dl.QuantityAdjust = MinMax.empty
-                dl.PerTimeAdjust = MinMax.empty
-                dl.RateAdjust = MinMax.empty
-            ]
-            |> List.forall id
-            |> not
-
-        let abs =
-            [
-                dl.Quantity.Min.IsSome && dl.Quantity.Max.IsSome
-                dl.PerTime.Min.IsSome && dl.PerTime.Max.IsSome
-                dl.Rate.Min.IsSome && dl.Rate.Max.IsSome
-            ]
-            |> List.exists id
-
-        adj && not abs
 
 
     let hasNoLimits (dl: DoseLimit) =
@@ -99,12 +70,12 @@ module DoseLimit =
     let isNormDose = getNormDose >> Option.isSome
 
 
-    /// <summary>Formats the MinMax of a dose in Dutch decimals, with a per-dose suffix.</summary>
-    /// <param name="perDose">The suffix after the formatted MinMax, as "/dosis"; may be empty.</param>
-    /// <param name="minMax">The MinMax to format.</param>
+    /// <summary>Formats a dose range as text in Dutch, followed by a suffix.</summary>
+    /// <param name="perDose">The text after the range, such as "/dosis"; may be empty.</param>
+    /// <param name="minMax">The range to format.</param>
     /// <returns>
-    /// An empty string for an empty MinMax; the single value when min equals max, a norm dose;
-    /// else the range, as "10 - 20 mg/dosis", or the one limit, as "max 20 mg/dosis".
+    /// An empty string for an empty range; the single value when min equals max;
+    /// otherwise the range, such as "10 - 20 mg/dosis", or a single limit, such as "max 20 mg/dosis".
     /// </returns>
     let printMinMaxDose perDose (minMax: MinMax) =
         let vuToStr = Utils.ValueUnit.toString 3
@@ -124,3 +95,22 @@ module DoseLimit =
         else
             minMax |> toStr
         |> String.trim
+
+
+    /// Returns the six ranges of a dose limit, each named after the limit target and the kind of range.
+    /// Uses the fallback name when the target has no name.
+    let ranges fallback (dl: DoseLimit) =
+        let target =
+            match dl.DoseLimitTarget |> LimitTarget.toString with
+            | s when s |> String.notEmpty -> s
+            | _ -> fallback
+
+        [
+            "quantity", dl.Quantity
+            "quantity adjust", dl.QuantityAdjust
+            "per time", dl.PerTime
+            "per time adjust", dl.PerTimeAdjust
+            "rate", dl.Rate
+            "rate adjust", dl.RateAdjust
+        ]
+        |> List.map (fun (name, mm) -> $"%s{target} %s{name}", mm)

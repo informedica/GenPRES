@@ -1,9 +1,9 @@
 namespace Components
 
 
-/// How an order is given, in a line: its name, then each value as a chip coloured by its
-/// severity, such as the frequency, the dose, the rate and the time. The words between values,
-/// such as "in" or "=", stay plain text, and a plus stands between the rows.
+/// Shows how an order is given on one line: the order name, then the parts of each row. A part
+/// with a digit is a chip coloured by its severity, any other part is plain text such as "in" or
+/// "=", and a plus separates the rows.
 module AdministrationSummary =
 
     open Informedica.GenPRES.Client.Core.Models
@@ -22,7 +22,7 @@ module AdministrationSummary =
         |}
 
 
-    /// The summary: the order's name and the rows of parts.
+    /// The order name and the rows of parts.
     type Props =
         {|
             name: string
@@ -47,7 +47,7 @@ module AdministrationSummary =
         |}
 
 
-    /// A part with a number in it is a value; one without is a name or a word between values.
+    /// Returns true when the text holds a digit, which marks a value rather than a word.
     let isValue (text: string) = text |> Seq.exists System.Char.IsDigit
 
 

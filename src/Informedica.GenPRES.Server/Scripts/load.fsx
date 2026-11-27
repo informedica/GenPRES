@@ -8,7 +8,6 @@
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.Agents.Lib/bin/Debug/net10.0/Informedica.Agents.Lib.dll"
 #r "../../Informedica.Logging.Lib/bin/Debug/net10.0/Informedica.Logging.Lib.dll"
 #r "../../Informedica.GenUNITS.Lib/bin/Debug/net10.0/Informedica.GenUNITS.Lib.dll"
 #r "../../Informedica.GenCORE.Lib/bin/Debug/net10.0/Informedica.GenCORE.Lib.dll"
@@ -23,13 +22,10 @@
 
 #load "../Logging.fs"
 #load "../LogAnalyzer.fs"
-#load "../ServerApi.Mappers.Order.fs"
 #load "../ServerApi.Ports.fs"
-#load "../ServerApi.NutritionRuleSets.fs"
 #load "../ServerApi.Mappers.Patient.fs"
-#load "../ServerApi.Mappers.Measurements.fs"
+#load "../ServerApi.Mappers.Order.fs"
 #load "../ServerApi.Mappers.OrderContext.fs"
-#load "../ServerApi.Mappers.OrderPlan.fs"
 #load "../ServerApi.Mappers.Session.fs"
 #load "../ServerApi.Services.fs"
 #load "../ServerApi.Session.fs"
@@ -37,17 +33,8 @@
 #load "../ServerApi.SqlAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Compute.fs"
-#load "../ServerApi.FormularyCommand.fs"
-#load "../ServerApi.PatientCommand.fs"
-#load "../ServerApi.InteractionCommand.fs"
-#load "../ServerApi.OrderPlanCommand.fs"
-#load "../ServerApi.AdminCommand.fs"
-#load "../ServerApi.OrderContextCommand.fs"
-#load "../ServerApi.LaunchCommand.fs"
-#load "../ServerApi.SessionCommand.fs"
-#load "../ServerApi.SigningCommand.fs"
+#load "../ServerApi.Commands.fs"
 #load "../ServerApi.CompositionRoot.fs"
-#load "../ServerApi.ApiImpl.fs"
 
 fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 

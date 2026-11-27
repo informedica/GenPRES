@@ -1,8 +1,8 @@
 namespace Informedica.GenOrder.Lib
 
 
-/// The medication as its text, a YAML 1.2 document, and back: the medication's Dto written and
-/// read by YamlDotNet.
+/// Writes a medication as a YAML 1.2 text and reads it back, through the medication Dto and
+/// YamlDotNet.
 module MedicationText =
 
     open YamlDotNet.Core
@@ -26,12 +26,12 @@ module MedicationText =
     let deserializer = DeserializerBuilder().Build()
 
 
-    /// The medication as its text.
+    /// Writes the medication as YAML text.
     let toString med = med |> Medication.Dto.toDto |> serializer.Serialize
 
 
-    /// The medication of a text, or every error of it, each with the path of its field. A text
-    /// that is no document of this shape is one error with the reader's line and column.
+    /// Reads a medication from a YAML text. Returns every error with the path of its field. A text
+    /// that cannot be read returns one error with the line and column from the YAML reader.
     let fromString (s: string) =
         try
             let dto = s |> deserializer.Deserialize<Medication.Dto.Dto>

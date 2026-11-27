@@ -36,9 +36,9 @@ let dataUrlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
 
 #load "../Types.fs" "../Utils.fs" "../Logging.fs" "../Mapping.fs" "../Patient.fs"
        "../Product.fs" "../Filter.fs" "../LimitTarget.fs" "../DoseLimit.fs" "../DoseType.fs"
-       "../GenericLabel.fs" "../PharmaceuticalForm.fs" "../ProductId.fs" "../Generic.fs"
+       "../GenericLabel.fs" "../PharmaceuticalForm.fs" "../Generic.fs"
        "../Source.fs" "../DoseRule.fs" "../DoseRuleData.fs" "../DoseRuleLoader.fs" "../Check.fs"
-       "../SolutionLimit.fs" "../SolutionRule.fs" "../RenalRule.fs"
+       "../SolutionRule.fs" "../RenalRule.fs"
        "../PrescriptionRule.fs" "../FormLogging.fs" "../Api.fs"
 
 open System.IO
@@ -148,7 +148,7 @@ printfn $"products round-trip count = %d{prodsBack.Length} (orig %d{subsetProds.
 // fr = [||] — see note above.
 // ---------------------------------------------------------------------------
 let forward (data: DoseRuleData[]) =
-    DoseRuleLoader.fromData rm [||] subsetProds data |> fst
+    DoseRuleLoader.fromData rm [||] subsetProds [||] data |> fst
 
 let pass1Rules = subsetData |> forward
 let pass1Gen = pass1Rules |> Array.collect DoseRule.toData

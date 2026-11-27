@@ -1,6 +1,5 @@
-/// The refresh: the EHR read again for the Session and projected at the time of the refresh
-/// with what the user measured over it under a fresh OpenedToken, the standing challenge spent
-/// and the notice dropped; the order plan version the Session opened with stays. No reading
+/// The refresh: the EHR read again for the Session, its ages created at the time of the refresh,
+/// under a fresh OpenedToken, the standing challenge spent and the notice dropped; the order plan version the Session opened with stays. No reading
 /// leaves the patient as it was.
 module Informedica.GenPRES.Server.Tests.RefreshTests
 
@@ -23,30 +22,32 @@ module Fixtures =
             Role = UserRole.Prescriber
         }
 
-    /// The stub EHR, counting its reads.
+    /// The stub EHR read at the time of the refresh.
+    let atRefresh = StubEhrPatient.portAt (fun () -> later)
+
+    /// The stub EHR read at the time of the refresh, counting its reads.
     let counting () =
         let reads = ref 0
 
         reads,
-        { StubPatientData.port with
+        { atRefresh with
             read =
                 fun pid ->
                     reads.Value <- reads.Value + 1
-                    StubPatientData.port.read pid
+                    atRefresh.read pid
         }
 
-    let opened (measured: Measurements) : OpenedSession =
-        let ehr = StubPatientData.data "p1"
+    let opened: OpenedSession =
+        let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "p1"
 
         {
             User = Some prescriber
             PatientId = Some "p1"
-            EhrData = Some ehr
-            Patient = Some(Session.merged openedAt StubPatientData.port measured ehr)
-            Measured = measured
+            EhrPatient = Some ehr
             OpenedToken = Some(OpenedToken "opened-s1")
             KeyThumbprint = Some "t"
             Head = None
+            Act = SessionAct.Opened
         }
 
     let record (opened: OpenedSession) : Session.SessionRecord =
@@ -60,16 +61,6 @@ module Fixtures =
 
     let stateWith (r: Session.SessionRecord) = { Session.emptyState with Sessions = Map [ ("s1", r) ] }
 
-    let weighed =
-        { Measurements.none with
-            Weight =
-                Some
-                    {
-                        Value = Some 34000<gram>
-                        At = openedAt
-                    }
-        }
-
     let ids () =
         let n = ref 0
 
@@ -77,7 +68,7 @@ module Fixtures =
             n.Value <- n.Value + 1
             $"%i{n.Value}"
 
-    let refreshed (port: PatientDataPort) (state: Session.State) = Session.refresh later (ids ()) port "s1" state
+    let refreshed (port: EhrPatientPort) (state: Session.State) = Session.refresh later (ids ()) port "s1" state
 
 
 open Fixtures
@@ -88,54 +79,61 @@ let tests =
     testList
         "Refresh"
         [
-            test "a refresh reads the EHR once and projects at the date of the refresh" {
+            test "a refresh reads the EHR once, with the ages of the time of the refresh" {
                 let reads, port = counting ()
-                let _, opened, _ = stateWith (record (opened Measurements.none)) |> refreshed port
+                let _, opened, _ = stateWith (record opened) |> refreshed port
 
                 reads.Value |> Expect.equal "read once" 1
 
                 opened
-                |> Option.bind _.Patient
+                |> Option.bind (Session.sessionPatientData later (fun () -> None) port)
                 |> Expect.equal
-                    "the merge at the refresh"
-                    (Some(Session.merged later StubPatientData.port Measurements.none (StubPatientData.data "p1")))
+                    "the projection at the refresh"
+                    (Some(atRefresh.patientData (StubEhrPatient.patient later "p1")))
             }
 
             test "the age is the one at the refresh" {
-                let before = stateWith (record (opened Measurements.none))
-                let after, _, _ = before |> refreshed StubPatientData.port
+                let before = stateWith (record opened)
+                let after, _, _ = before |> refreshed atRefresh
 
-                Session.age "s1" before
-                |> Option.map _.Months
+                let months date (state: Session.State) =
+                    state.Sessions["s1"].Opened
+                    |> Session.sessionPatientData date (fun () -> None) StubEhrPatient.port
+                    |> Option.bind (Patient.ofPatientData >> _.Age)
+                    |> Option.map _.Months
+
+                before
+                |> months openedAt
                 |> Expect.equal "ten years at the open" (Some 0<month>)
-
-                Session.age "s1" after
-                |> Option.map _.Months
+                after
+                |> months later
                 |> Expect.equal "six months more at the refresh" (Some 6<month>)
             }
 
-            test "the measurements stand" {
-                let _, opened, _ = stateWith (record (opened weighed)) |> refreshed StubPatientData.port
+            test "a refresh with no EHR data changes nothing and writes no row" {
+                let signed = { opened with Act = SessionAct.Signed }
+                let nothing = { StubEhrPatient.port with read = fun _ -> None }
+                let before = stateWith (record signed)
+                let state, after, writes = before |> refreshed nothing
 
-                opened
-                |> Option.map _.Measured
-                |> Expect.equal "the user's weight kept" (Some weighed)
+                after
+                |> Expect.equal "the Session as it was, token and act included" (Some signed)
+                state.Sessions["s1"].Opened |> Expect.equal "in the store too" signed
 
-                opened
-                |> Option.bind _.Patient
-                |> Option.bind _.Weight
-                |> Expect.equal
-                    "and on the patient"
-                    ((Session.merged later StubPatientData.port weighed (StubPatientData.data "p1")).Weight)
+                writes
+                |> List.exists (
+                    function
+                    | Session.RecordOpenedWith _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no row: the newest still says what the Session stands on"
             }
 
-            test "a refresh with no EHR data leaves the patient as it was" {
-                let before = opened Measurements.none
-                let nothing = { StubPatientData.port with read = fun _ -> None }
-                let _, after, _ = stateWith (record before) |> refreshed nothing
+            test "a refresh that reads names itself as the latest act" {
+                let signed = { opened with Act = SessionAct.Signed }
+                let _, after, _ = stateWith (record signed) |> refreshed StubEhrPatient.port
 
-                after |> Option.bind _.Patient |> Expect.equal "the patient" before.Patient
-                after |> Option.bind _.EhrData |> Expect.equal "the EHR data" before.EhrData
+                after |> Option.map _.Act |> Expect.equal "the act" (Some SessionAct.Refreshed)
             }
 
             test "a fresh token, the version kept, the challenge spent and the notice dropped" {
@@ -143,17 +141,16 @@ let tests =
                     {
                         Nonce = "n-1"
                         Digest = "d"
-                        Ehr = None
-                        Reading = None
+                        EhrPatient = None
                         Expiry = later.AddMinutes 1.0
                     }
 
                 let state =
-                    { stateWith { record (opened Measurements.none) with OpenedWith = Some "old" } with
+                    { stateWith { record opened with OpenedWith = Some "old" } with
                         Challenges = Map [ ("s1", challenge) ]
                     }
 
-                let state, opened, writes = state |> refreshed StubPatientData.port
+                let state, opened, writes = state |> refreshed StubEhrPatient.port
 
                 opened
                 |> Option.bind _.OpenedToken
@@ -183,15 +180,15 @@ let tests =
             }
 
             test "nothing to refresh without a Session, anonymously or without a Patient" {
-                let _, none, _ = Session.emptyState |> refreshed StubPatientData.port
+                let _, none, _ = Session.emptyState |> refreshed StubEhrPatient.port
                 none |> Expect.isNone "no Session"
 
-                let anonymous = { opened Measurements.none with User = None }
-                let _, none, _ = stateWith (record anonymous) |> refreshed StubPatientData.port
+                let anonymous = { opened with User = None }
+                let _, none, _ = stateWith (record anonymous) |> refreshed StubEhrPatient.port
                 none |> Expect.isNone "anonymous"
 
-                let noPatient = { opened Measurements.none with PatientId = None }
-                let _, none, _ = stateWith (record noPatient) |> refreshed StubPatientData.port
+                let noPatient = { opened with PatientId = None }
+                let _, none, _ = stateWith (record noPatient) |> refreshed StubEhrPatient.port
                 none |> Expect.isNone "no Patient"
             }
         ]

@@ -37,12 +37,17 @@ sequenceDiagram
     alt the reading differs from what the Session shows, or there is none
         S->>D: Notice {Nonce, Data, 2 min}, a standing challenge dropped
         S-->>C: DataNotice {Data, Token}
-        Note over U,C: the dialog shows the data as it stands (or that it could not be verified), Doorgaan
-        U->>C: accepts
-        C->>S: RequestSignChallenge (plan on that data, OpenedToken, Some token)
+        Note over U,C: the dialog shows the data as it stands next to the plan's (or that it could not be verified)
+        alt the User keeps the plan's data, or takes the EHR's with no unsigned orders on the plan
+            U->>C: keeps or takes
+            C->>S: RequestSignChallenge (plan on the chosen data, OpenedToken, Some token)
+        else the User takes the EHR's data with unsigned orders on the plan
+            U->>C: takes
+            Note over C,S: no token returns and the signing ends: the unsigned orders go, the Session reads the EHR again
+        end
     end
     Note over S: the record not moved on since the Session opened its version
-    S->>D: Challenge {Nonce, Patient, Scenarios, Reading, 2 min}, the notice spent
+    S->>D: Challenge {Nonce, Patient, Scenarios, Ehr, 2 min}, the notice spent
     S-->>C: ChallengeIssued nonce
 
     Note over U,C: step 3, the dialog lists the orders as they will be signed and asks the PIN
@@ -74,11 +79,14 @@ and no order twice. The OpenedToken is opaque in the same way: the Session holds
 Submission must present it, and the commit re-mints it over the new head.
 
 **The data notice has no token type of its own.** When the platform reads other data than the
-Session shows, or none, the answer is a `DataNotice` with the data as it stands and a token.
-The Client shows it and the User proceeds by returning the token; the challenge then records
-whether the data was the platform's reading (`Verified`), and the version is signed as
-unverified when it was not. What the User entered or was shown is what the signed version
-records; the Patient is the Session's, and nothing compares the plan's data with the Session's.
+EHR data the Session opened on, or none, the answer is a `DataNotice` with the data as it stands
+and a token. The Client shows that data next to the plan's, and the User takes it or keeps the
+plan's. Keeping the plan's data returns the token. Taking the EHR's data ends the signature with no
+challenge: the Session reads the EHR again, the orders follow the new data, none is removed, and the
+User signs again. Data that could not be read can only be kept. The challenge then records whether
+the platform answered (`Verified`), and the version is signed as unverified when it did not. The version holds the plan's patient as signed and the EHR data as
+read at the challenge; the Patient's identity is the Session's, and nothing compares the plan's
+data with the EHR's at the commit.
 
 **The Role is taken twice.** Once at the launch, and again at every commit, from the registry.
 A registry that answers no standing, or a Role other than Prescriber, refuses the signature
@@ -172,6 +180,6 @@ The walkthrough is in [Testing Workflows](../../user-guide/testing-workflows.md#
 
 Read off `Session.seen`, `Session.challenge` and `Session.commit` in
 `src/Informedica.GenPRES.Server/ServerApi.Session.fs`, `Credential` in the same file, the
-dispatch in `ServerApi.SigningCommand.fs` and `ServerApi.Compute.fs`, and `SigningMachine.fs`,
+dispatch in `ServerApi.Commands.fs` and `ServerApi.Compute.fs`, and `SigningMachine.fs`,
 `SigningPolicy.fs` and `Views/SignDialog.fs` in `src/Informedica.GenPRES.Client/`. The design
 is UC-3 in [`Integration.fsx`](Integration.fsx).

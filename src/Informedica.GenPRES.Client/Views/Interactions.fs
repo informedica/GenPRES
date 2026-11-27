@@ -21,7 +21,7 @@ module Interactions =
     module private Elmish =
 
 
-        // the drugs of the plan as settled; none while it changes, as before
+        // The medication names of a settled plan; empty while the plan changes or without patient data.
         let getPlanDrugs (orderPlan: OrderPlanView) =
             match orderPlan with
             | OrderPlanView.Settled(tp, _) ->
@@ -29,7 +29,7 @@ module Interactions =
                 |> Array.map _.Name
                 |> Array.distinct
                 |> Array.toList
-            | OrderPlanView.NoPatient
+            | OrderPlanView.NoPatientData
             | OrderPlanView.Changing _ -> []
 
 
@@ -135,9 +135,9 @@ module Interactions =
 
         let planDrugs = getPlanDrugs orderPlan
 
-        // Re-check interactions when plan drugs change (e.g., order added or removed).
-        // Skip while a check runs to avoid duplicate API calls (processApiMsg also
-        // dispatches CheckInteractions on OrderPlan API responses).
+        // Checks the interactions again when the plan medications change, such as an order added or
+        // removed. Skips while a check runs, to avoid duplicate API calls; the order plan machine also
+        // sends CheckInteractions after an order plan answer.
         let planDrugsKey = planDrugs |> String.concat "|"
 
         React.useEffect (
@@ -156,7 +156,7 @@ module Interactions =
             [| box planDrugsKey |]
         )
 
-        // the rows shown stay while the drugs are checked again; the progress shows over them
+        // While the interactions are checked again, the rows stay and the progress shows over them.
         let interactionRows =
             match interactions with
             | Resolved interactions
@@ -215,11 +215,11 @@ module Interactions =
 
         let chipList = Array.append planChips manualChips
 
-        let drug1Label = Terms.``Interactions Drug 1`` |> getTerm "Medicatie 1"
-        let drug2Label = Terms.``Interactions Drug 2`` |> getTerm "Medicatie 2"
-        let classLabel = Terms.``Interactions Class`` |> getTerm "Interactie klasse"
+        let drug1Label = Terms.``Interactions Drug 1`` |> getTerm "Drug 1"
+        let drug2Label = Terms.``Interactions Drug 2`` |> getTerm "Drug 2"
+        let classLabel = Terms.``Interactions Class`` |> getTerm "Interaction class"
 
-        let noneFoundLabel = Terms.``Interactions None Found`` |> getTerm "Geen interacties gevonden"
+        let noneFoundLabel = Terms.``Interactions None Found`` |> getTerm "No interactions found"
 
         let interactionTable =
             if interactionRows.Length > 0 then
@@ -268,12 +268,12 @@ module Interactions =
             else
                 null
 
-        let titleLabel = Terms.``Interactions`` |> getTerm "Interacties"
+        let titleLabel = Terms.``Interactions`` |> getTerm "Interactions"
 
         let autocomplete =
             Components.Autocomplete.View
                 {|
-                    label = Terms.``Interactions Medication`` |> getTerm "Medicatie"
+                    label = Terms.``Interactions Medication`` |> getTerm "Medication"
                     selected = None
                     values = drugNameValues
                     updateSelected =
@@ -283,12 +283,13 @@ module Interactions =
                             | None -> ()
                     isLoading = false
                     disabled = false
-                    // the box holds no choice, but it does hold what is being typed, and the
-                    // cross is how that is thrown away in one go
+                    // The field never holds a choice, but it holds the typed text; the clear button removes
+                    // that text at once.
                     canClear = true
+                    placeholder = None
                 |}
 
-        let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"
+        let deleteLabel = Terms.``Delete`` |> getTerm "Delete"
         let onClickClear = fun _ -> ClearManualDrugs |> dispatch
 
         let patientNotice =

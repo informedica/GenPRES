@@ -11,14 +11,14 @@ module Types =
 
     type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
 
+    [<Measure>]
+    type pH = Informedica.GenCore.Lib.Measures.pH
+
 
     /// <summary>
-    /// Associate a Route and a Form, setting default values for the other fields.
-    ///
-    /// One row of the "FormRoute" sheet, parsed by <c>Mapping.getFormRoutes</c>.
-    /// Field names equal sheet column names except where noted. The boolean columns
-    /// hold the literal text "true"/"false", matched case-insensitively; every
-    /// column is required.
+    /// One row of the "FormRoute" sheet, parsed by <c>Mapping.getFormRoutes</c>: the default values for a
+    /// pharmaceutical form on a route. Field names equal sheet column names except where noted. A boolean
+    /// column is true only for the text "true", in any case. Every column is required.
     /// </summary>
     type FormRoute =
         {
@@ -28,17 +28,19 @@ module Types =
             Form: string
             /// The Unit of the form
             Unit: Unit
-            /// The Dose Unit to use for Dose Limits
+            /// The DoseUnit column; NoUnit when it is empty. The dose limits then use the Unit of the form,
+            /// and they are empty only when both units are missing.
             DoseUnit: Unit
             /// The minimum Dose quantity
             MinDoseQty: ValueUnit option
             /// The maximum Dose quantity
             MaxDoseQty: ValueUnit option
-            /// The minimum Adjusted Dose quantity; sheet column "MinDoseQtyKg"
+            /// The minimum dose quantity per kg; sheet column "MinDoseQtyKg"
             MinDoseQtyPerKg: ValueUnit option
-            /// The maximum Adjusted Dose quantity; sheet column "MaxDoseQtyKg"
+            /// The maximum dose quantity per kg; sheet column "MaxDoseQtyKg"
             MaxDoseQtyPerKg: ValueUnit option
-            /// The divisibility of a pharmaceutical form; sheet column "Divisible"
+            /// The Divisible of the pharmaceutical form, used for a product whose Formulary row has no
+            /// Divisible; sheet column "Divisible". It means the same as the Divisible on the product.
             Divisibility: BigRational option
             /// Whether a Dose runs over a Time
             Timed: bool
@@ -46,6 +48,8 @@ module Types =
             Reconstitute: bool
             /// Whether the pharmaceutical form is a solution
             IsSolution: bool
+            /// Whether an order of the pharmaceutical form on the route counts in the intake totals
+            Totals: bool
         }
 
 
@@ -83,51 +87,115 @@ module Types =
         | Discontinuous of string
         /// A Continuous Dose
         | Continuous of string
-        /// A discontinuous per time
+        /// A discontinuous dose given over an administration time
         | Timed of string
-        /// A once per time
+        /// A once only dose given over an administration time
         | OnceTimed of string
         | NoDoseType
 
 
+    /// A substance of a product.
+    type SubstanceItem =
+        {
+            /// The name of the substance.
+            Name: string
+            /// The concentration of the substance.
+            Concentration: ValueUnit option
+            /// The molar concentration of the substance.
+            MolarConcentration: ValueUnit option
+        }
+
+
     /// <summary>
-    /// One row of the "Reconstitution" sheet, parsed by
-    /// <c>Product.Reconstitution.parseReconstitution</c>. Describes how a product
-    /// is brought into an administrable form by adding a diluent. Field names equal
-    /// sheet column names except where noted; every column is required.
+    /// One row of the "Reconstitution" sheet, parsed by <c>Product.Reconstitution.parseReconstitution</c>:
+    /// the one solvent that dissolves a product for administration, for a route, a location, a department
+    /// and an age and weight range. Field names equal sheet column names except where noted. Every column
+    /// is required.
     /// </summary>
     type Reconstitution =
         {
-            /// The GPK of the reconstitution
+            /// The GPK of the reconstitution.
             GPK: string
-            /// The route for the reconstitution
+            /// The route for the reconstitution.
             Route: string
-            /// The location for the reconstitution rule; sheet column "Loc"
+            /// The location for the reconstitution rule; sheet column "Loc".
             Location: string option
-            /// The department for the reconstitution; sheet column "Dep"
+            /// The department for the reconstitution; sheet column "Dep".
             Department: string option
-            /// The volume of the reconstitution, in mL; sheet column "DiluentVol".
-            /// Defaults to 1 mL when the cell is empty.
-            DiluentVolume: ValueUnit
-            /// An optional expansion volume of the reconstitution, in mL - the
-            /// increase in total volume caused by dissolving the product; sheet
-            /// column "ExpansionVol"
+            /// The minimum age in days; None when the cell is empty.
+            MinAge: BigRational option
+            /// The maximum age in days; None when the cell is empty.
+            MaxAge: BigRational option
+            /// The minimum weight in grams; None when the cell is empty.
+            MinWeight: BigRational option
+            /// The maximum weight in grams; None when the cell is empty.
+            MaxWeight: BigRational option
+            /// The volume of the solvent, in mL; sheet column "SolventVol".
+            SolventVolume: ValueUnit
+            /// The increase in total volume, in mL, when the product dissolves; sheet column "ExpansionVol".
             ExpansionVolume: ValueUnit option
-            /// The Diluents for the reconstitution, ';'-separated in the sheet
-            Diluents: string[]
+            /// The solvent, the name of a product in the Formulary sheet.
+            Solvent: string
+            /// The time the reconstituted product can be kept, in minutes; None when the cell is empty.
+            ShelfLife: ValueUnit option
+            /// Free text about the reconstitution; None when the cell is empty.
+            Notes: string option
         }
 
 
-    /// A Substance type.
-    type Substance =
+    /// A reconstitution of a product: a reconstitution rule with the substances of its solvent.
+    type ProductReconstitution =
         {
-            /// The name of the Substance
-            Name: string
-            /// The Quantity of the Substance
-            Concentration: ValueUnit option
-            /// The indivisible Quantity of the Substance
-            MolarConcentration: ValueUnit option
+            /// The reconstitution rule: the route, location, department and patient ranges it applies to,
+            /// the solvent and the volumes.
+            Rule: Reconstitution
+            /// The substances per mL of the solvent, from the Formulary product with the solvent as its name.
+            SolventSubstances: SubstanceItem[]
         }
+
+
+    /// A predilution rule: a volume of a liquid product diluted with a volume of one diluent, for a route, an
+    /// indication, a location, a department and an age and weight range.
+    type Predilution =
+        {
+            /// The GPK of the product that is diluted.
+            GPK: string
+            /// The route for the predilution.
+            Route: string
+            /// The indication for the predilution; None for every indication.
+            Indication: string option
+            /// The location for the predilution; None for every location.
+            Location: string option
+            /// The department for the predilution; None for every department.
+            Department: string option
+            /// The minimum age in days; None when there is no minimum age.
+            MinAge: BigRational option
+            /// The maximum age in days; None when there is no maximum age.
+            MaxAge: BigRational option
+            /// The minimum weight in grams; None when there is no minimum weight.
+            MinWeight: BigRational option
+            /// The maximum weight in grams; None when there is no maximum weight.
+            MaxWeight: BigRational option
+            /// The volume of the product that is diluted, in mL.
+            MedVolume: ValueUnit
+            /// The volume of the diluent that the product volume is diluted with, in mL.
+            DiluentVolume: ValueUnit
+            /// The name of the diluent, a parenteral product.
+            Diluent: string
+        }
+
+
+    /// A predilution of a product: a predilution rule with the substances of its diluent.
+    type ProductPredilution =
+        {
+            /// The predilution rule: the route, indication, location, department and patient ranges it
+            /// applies to, the diluent and the diluent volume.
+            Rule: Predilution
+            /// The substances per mL of the diluent, from the parenteral product with the diluent as its generic
+            /// name.
+            DiluentSubstances: SubstanceItem[]
+        }
+
 
     type Brand = string
     type HPK = string
@@ -136,7 +204,7 @@ module Types =
         {
             HPK: HPK
             Brand: Brand
-            Substances: Substance list
+            Substances: SubstanceItem list
         }
 
     type GPK = string
@@ -163,7 +231,7 @@ module Types =
             TallMan: string
             /// Synonyms for the Product
             Synonyms: string array
-            /// The full product name of the Product
+            /// The full product names of the Product
             ProductLabels: string list
             /// The label of the Product
             Label: string
@@ -171,69 +239,83 @@ module Types =
             Form: string
             /// The possible Routes of administration of the Product
             Routes: string[]
-            /// The possible quantities of the Pharmacological Form of the Product
+            /// The possible quantities of the pharmaceutical form of the Product
             FormQuantities: ValueUnit
-            /// The uid of the pharmaceutical form of the Product
+            /// The unit of the pharmaceutical form of the Product
             FormUnit: Unit
             /// Whether the pharmaceutical form of the Product requires reconstitution
             RequiresReconstitution: bool
-            /// The possible reconstitution rules for the Product
-            Reconstitution: Reconstitution[]
-            /// The division factor of the Product
+            /// The possible reconstitutions of the Product, each a reconstitution rule with the substances of
+            /// its solvent. A reconstituted Product holds only the reconstitution it was made with.
+            Reconstitution: ProductReconstitution[]
+            /// The predilution the Product was made with; None for a Product that is not pre-diluted.
+            Predilution: ProductPredilution option
+            /// The number of equal parts one unit of the Product can be divided into, from the Formulary row or
+            /// else from the pharmaceutical form. A tablet in 4 parts has the value 4 and a step of 1/4 tablet.
+            /// For a droplet form the value is the number of drops per mL: it sets the size of the droplet unit,
+            /// and the step is one drop. None means the Product has no step.
             Divisible: BigRational option
             /// The Substances in the Product
-            Substances: Substance array
+            Substances: SubstanceItem array
             /// Brand products
             TradeProducts: TradeProduct list
         }
 
 
     /// <summary>
-    /// The Formulary Product that is available as a GenericProduct: one row of the
-    /// "Formulary" sheet, parsed by <c>Product.parseFormularyProducts</c>.
+    /// One row of the "Formulary" sheet, parsed by <c>Product.parseFormularyProducts</c>: a product of the
+    /// hospital formulary.
     /// </summary>
     /// <remarks>
-    /// Besides the hospital formulary itself, this sheet is the sole source of
-    /// enteral and parenteral product composition: rows are selected by
-    /// <c>ProductType</c> and turned into <c>ProductComponent</c>s by
-    /// <c>Product.Enteral.get</c> / <c>Product.Parenteral.get</c>, with the
-    /// nutrition fields below supplying the substances (see
-    /// <c>Product.getAdditionalSubstances</c> for the substance naming).
+    /// The sheet is also the only source of the composition of enteral and parenteral products.
+    /// <c>Product.Enteral.get</c> and <c>Product.Parenteral.get</c> select these rows by <c>ProductType</c>
+    /// and make a <c>ProductComponent</c> from each, with the substances from the nutrition fields below
+    /// (named by <c>Product.getAdditionalSubstances</c>).
     ///
-    /// Field names equal sheet column names except where noted. Every column is
-    /// required: a missing column fails the parse.
+    /// Field names equal sheet column names except where noted. Every column is required: a missing column
+    /// fails the parse.
     /// </remarks>
     type FormularyProduct =
         {
-            /// The GPK code; sheet column "GPKODE". A row with GPK "0" is a dummy
-            /// and is dropped.
-            GPK: string
-            /// The type of procuct; sheet column "Type", one of "medication",
-            /// "enteral" or "parenteral" (anything else is NoProduct)
+            /// The GPK code.
+            GPKODE: string
+            /// The type of product; sheet column "Type", one of "medication", "enteral" or "parenteral".
+            /// Any other value gives NoProduct.
             ProductType: ProductType
-            /// The department UMCU, ICC, NEO, ICK, etc...; collected from the
-            /// same-named columns, each marked with "x"
+            /// The departments whose column (UMCU, ICC, NEO, ICK, HCK) holds an "x"
             Departments: string list
             /// The generic name
             Generic: string
             /// The TallMan alternative name
             TallMan: string
-            /// The Divisibility of the product
+            /// The number of equal parts one unit of the product can be divided into, or the
+            /// number of drops per mL for a droplet form; sheet column "Divisible". See the
+            /// Divisible on the Product.
             Divisible: int option
-            /// Use generic name; sheet column "UseGenName", "x" for true
+            /// Whether the substances take the G-Standaard generic name instead of the substance name;
+            /// sheet column "UseGenName", "x" for true
             UseGenName: bool
-            /// Mmol
+            /// The mmol per unit of the form, for the substance with the same name as the product
             Mmol: BigRational option
-            /// Form
+            /// The pharmaceutical form. Required on a parenteral and an enteral row,
+            /// where it is the form of the virtual product.
             Form: string option
+            /// The routes, separated by ";" in the sheet column "Routes". Required on a parenteral and an
+            /// enteral row, where each route must be in the Routes sheet. Empty on a medication row, which
+            /// takes its routes from the G-Standaard.
+            Routes: string[]
             /// Brand
             Brand: string option
             /// Generic name
             GenName: string option
             /// GStand generic name; sheet column "GStand"
             GStandName: string option
-            /// Unit: the form/base unit. Required for enteral and parenteral rows -
-            /// a row whose Unit does not parse is skipped by those derivations.
+            /// The name that replaces the G-Standaard name of the product, such as
+            /// "amfotericine b lipidencomplex", taken as written without lowercasing. None when the cell is
+            /// empty. The name of a virtual product, such as "NaCl 0,9%", is not used yet (#1444).
+            AltName: string option
+            /// The unit of the form. An enteral row whose unit does not parse gives no product. A parenteral
+            /// product does not read this unit; its form unit is always mL.
             Unit: string option
             // The composition columns below carry a space in the sheet header:
             // "Energy kCal", "Carb g", "Prot g", "Lip g", "Sod mmol", "Pot mmol",
@@ -264,13 +346,16 @@ module Types =
             IronMmol: BigRational option
             /// Vitamin D in IE
             VitDIE: BigRational option
-            /// Is reconstituted; sheet column "IsReconste", "x" for true
-            /// TODO rename to IsReconst
-            IsReconste: bool
-            /// Is diluted; "x" for true
-            IsDilute: bool
-            /// Is additive; "x" for true
-            IsAdditive: bool
+            // The three flag columns below hold x or TRUE for true, and nothing or FALSE
+            // for false, in any case; any other value fails the parse.
+
+            /// The product can be used as a solvent to reconstitute another product;
+            /// sheet column "IsSolvent"
+            CanBeUsedAsSolvent: bool
+            /// The product can be used as a diluent; sheet column "IsDiluent"
+            CanBeUsedAsDiluent: bool
+            /// The product can be used as an additive; sheet column "IsAdditive"
+            CanBeUsedAsAdditive: bool
         }
 
     and ProductType =
@@ -278,6 +363,18 @@ module Types =
         | ParenteralProduct
         | EnteralProduct
         | NoProduct
+
+
+    module ProductType =
+
+        /// Returns true for a parenteral or an enteral product, which is built from its Formulary row and not
+        /// from the G-Standaard.
+        let isVirtual =
+            function
+            | ParenteralProduct
+            | EnteralProduct -> true
+            | MedicationProduct
+            | NoProduct -> false
 
 
     type LimitTarget =
@@ -310,12 +407,12 @@ module Types =
         }
 
 
-    /// The age a rule applies to: an absolute range, or adults, which is the domain's adult
-    /// threshold and over, eighteen years, and no patient whose age is unknown.
+    /// The age a rule applies to: an age range, or adults. A rule for adults applies from 18 years, and to a
+    /// patient marked as an adult; it does not apply to an unmarked patient without an age.
     type Age =
-        /// The range the sheet names, in days.
+        /// The age range the sheet names, in days.
         | AbsoluteAge of MinMax
-        /// The rule says adults: the adult threshold and over.
+        /// The rule applies to adults.
         | IsAdult
 
 
@@ -334,88 +431,8 @@ module Types =
         }
 
 
-    /// A specific Patient to filter DoseRules.
-    type Patient =
-        {
-            /// The Location of the Patient
-            Location: string option
-            /// The Department of the Patient
-            Department: string option
-            /// A list of Diagnoses of the Patient
-            Diagnoses: string[]
-            /// The Gender of the Patient
-            Gender: Gender
-            /// The Age in days of the Patient
-            Age: ValueUnit option
-            /// The Weight in grams of the Patient
-            Weight: ValueUnit option
-            /// The Height in cm of the Patient
-            Height: ValueUnit option
-            /// Whether the Weight held was measured; false for an estimate, from age or
-            /// entered. With no Weight the flag says nothing.
-            WeightMeasured: bool
-            /// Whether the Height held was measured; false for an estimate
-            HeightMeasured: bool
-            /// The Gestational Age in days of the Patient
-            GestAge: ValueUnit option
-            /// The Post Menstrual Age in days of the Patient
-            PMAge: ValueUnit option
-            /// The administration access devices of the Patient
-            Access: AccessDevice list
-            /// The Renal Function of the Patient
-            RenalFunction: RenalFunction option
-        }
-
-
-        static member Gender_ = (fun (p: Patient) -> p.Gender), (fun g (p: Patient) -> { p with Gender = g })
-
-        static member Age_ = (fun (p: Patient) -> p.Age), (fun a (p: Patient) -> { p with Age = a })
-
-        static member Weight_ = (fun (p: Patient) -> p.Weight), (fun w (p: Patient) -> { p with Weight = w })
-
-        static member Height_ = (fun (p: Patient) -> p.Height), (fun b (p: Patient) -> { p with Height = b })
-
-        static member GestAge_ = (fun (p: Patient) -> p.GestAge), (fun a (p: Patient) -> { p with GestAge = a })
-
-        static member PMAge_ = (fun (p: Patient) -> p.PMAge), (fun a (p: Patient) -> { p with PMAge = a })
-
-        static member Department_ =
-            (fun (p: Patient) -> p.Department), (fun d (p: Patient) -> { p with Department = d })
-
-        static member Access_ = (fun (p: Patient) -> p.Access), (fun a (p: Patient) -> { p with Access = a })
-
-        static member RenalFunction_ =
-            (fun (p: Patient) -> p.RenalFunction), (fun r (p: Patient) -> { p with RenalFunction = r })
-
-        static member Location_ = (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
-
-
-    /// What the EHR returns for a patient id: the core patient, with the identity on it, and
-    /// the data only the rules read. Access lives here alone; the core patient's own access
-    /// fields are not filled from EHR data. The rules read the Patient projected from it at a
-    /// date.
-    type EhrPatientData =
-        {
-            /// The identity, the birthdate, the gender, the dated measurements, the department.
-            Patient: Informedica.GenCore.Lib.Patients.Patient
-            /// The renal function, as the renal rules read it.
-            RenalFunction: RenalFunction option
-            /// The access devices, venous and enteral, as the rules read them.
-            Access: AccessDevice list
-        }
-
-
-    /// Why a value is no patient, or why a Dto does not parse to one.
-    [<RequireQualifiedAccess>]
-    type PatientError =
-        /// Below the minimum data: no age, and no measured weight with a measured height
-        | NoAgeOrMeasuredWeightAndHeight
-        /// A gender string the Dto carries that names no gender
-        | UnknownGender of string
-        /// An access string the Dto carries that names no access device
-        | UnknownAccess of string
-        /// A renal function string the Dto carries that names no renal function
-        | UnknownRenalFunction of string
+    /// The patient data from GenCORE that selects the rules.
+    type PatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
     type ProductId =
@@ -486,11 +503,11 @@ module Types =
         {
             /// Unique identifier of this DoseRule. Treated as opaque by consumers.
             Id: DoseRuleId
-            /// Date id, the unique identifier of the orginal dose rule data
+            /// The unique identifier of the original dose rule data
             DataId: DataId
-            /// Identifier shared by every DoseRule that belongs to the same rule group, i.e. the same
-            /// clinical context (Source, Generic, Form, Brand, Route, Indication, PatientCategory).
-            /// Rules in one group differ only in DoseType and dose schedule. Treated as opaque.
+            /// The identifier shared by every DoseRule with the same Source, Generic, Form, Brand, Route,
+            /// Indication and PatientCategory. Rules in one group differ only in DoseType and dose schedule.
+            /// Treated as opaque.
             GroupId: DoseRuleGroupId
             /// Ordinal rank within a rule group, used for stable presentation order.
             SortNo: SortNo
@@ -506,14 +523,11 @@ module Types =
             Route: Route
             /// The original text describing the patient category this rule applies to.
             PatientText: string
-            /// The PatientCategory the rule applies to. Whether the rule applies specifically to
-            /// adults is expressed by the Age case (AbsoluteAge | IsAdult).
+            /// The PatientCategory the rule applies to. The Age case IsAdult marks a rule for adults.
             PatientCategory: PatientCategory
             /// The original text describing the dose schedule.
             ScheduleText: string
-            /// The DoseType of the DoseRule. Each case (Once/OnceTimed/Discontinuous/Timed/Continuous)
-            /// carries the original dose text as its string payload, so DoseType captures both
-            /// the temporal category and the free-text description of the dose.
+            /// The DoseType of the DoseRule, with the original dose text in each case.
             DoseType: DoseType
             /// The unit to adjust dosing with
             AdjustUnit: Unit option
@@ -525,10 +539,9 @@ module Types =
             IntervalTime: MinMax
             /// MinMax total duration of the order. The time unit is part of the MinMax value.
             Duration: MinMax
-            /// the limits based upon the pharmaceutical form and route
+            /// The limits for the pharmaceutical form and route
             FormLimit: DoseLimit option
-            /// the limits for the component and substances
-            /// in the component
+            /// The limits for each component and the substances in the component
             ComponentLimits: ComponentLimit[]
             /// Reference to a renal-adjustment rule that applies on top of this DoseRule.
             /// TODO: replace with a structured RenalRule type once the renal rule layer is finalised.
@@ -546,89 +559,136 @@ module Types =
         }
 
 
-    /// A SolutionLimit for a Substance.
-    type SolutionLimit =
+    /// What a DilutionLimit applies to: one component or one substance in the solution.
+    [<RequireQualifiedAccess>]
+    type DilutionTarget =
+        /// The component with this name
+        | Component of string
+        /// The substance with this name
+        | Substance of string
+
+
+    /// A limit on one component or one substance in the solution: how much of the component
+    /// or substance the solution may hold, and in what concentration.
+    type DilutionLimit =
         {
-            /// The Substance for the SolutionLimit
-            SolutionLimitTarget: LimitTarget
-            /// The MinMax Quantity of the Substance for the SolutionLimit
+            /// The component or the substance the DilutionLimit applies to
+            DilutionLimitTarget: DilutionTarget
+            /// The MinMax Quantity of the component or substance in the solution
             Quantity: MinMax
-            /// The MinMax Quantity Adjust of the Substance for the SolutionLimit
-            QuantityAdj: MinMax
-            /// A list of possible Quantities of the Substance for the SolutionLimit
+            /// The MinMax Quantity of the component or substance in the solution per adjust unit of the solution rule
+            QuantityAdjust: MinMax
+            /// The possible Quantities of the component or substance in the solution
             Quantities: ValueUnit option
-            /// The Minmax Concentration of the Substance for the SolutionLimit
+            /// The MinMax Concentration of the component or substance in the solution
             Concentration: MinMax
-            /// The Products the SolutionRule applies to
+            /// The Products of the component the DilutionLimit applies to
             Products: ProductComponent[]
         }
 
 
-    /// A SolutionRule for a specific Generic, pharmaceutical form, Route, DoseType, Department
-    /// Venous Access Location, Age range, Weight range, Dose range and Generic Products.
+    /// The limits on the solution as a whole, which an order applies to the orderable.
+    type SolutionLimit =
+        {
+            /// The number of equal parts one unit of the prepared solution can be divided into, so
+            /// the step of the orderable is 1 divided by this value. It takes the place of the
+            /// Divisible of the products of the medication.
+            Div: BigRational option
+            /// The possible Volumes of the solution
+            Volumes: ValueUnit option
+            /// The MinMax Volume of the solution
+            Volume: MinMax
+            /// The MinMax Volume of the solution per adjust unit of the solution rule
+            VolumeAdjust: MinMax
+            /// The MinMax Drip Rate of the solution
+            DripRate: MinMax
+            /// The fraction of the preparation that makes up one dose, for example 0.5 for half the
+            /// preparation. The order uses 1 divided by the fraction as the number of doses in the
+            /// preparation.
+            DoseFraction: MinMax
+        }
+
+
+    /// A SolutionRule for a Generic, pharmaceutical form, Route, Indication, DoseType, PatientCategory and
+    /// Dose range: the diluents and the limits for the solution.
     type SolutionRule =
         {
+            /// A hash of the fields that identify the SolutionRule. Treated as opaque.
+            Id: string
+            /// The original source text the SolutionRule is built on.
+            SourceText: string
             /// The Generic of the SolutionRule
             Generic: string
             /// The pharmaceutical form of the SolutionRule
             Form: string option
             /// The Route of the SolutionRule
             Route: string
-            /// The DoseType of the SolutionRule
+            /// The Indication of the SolutionRule
             Indication: string option
+            /// The GPKs of the generic products the SolutionRule applies to: products with the same substances
+            /// in different strengths. Empty for every generic product.
+            GPKs: string[]
+            /// The HPKs of the trade products the SolutionRule applies to; empty for every trade product.
+            HPKs: string[]
             /// The dose type of the SolutionRule
             DoseType: DoseType
-            /// The PatientCategory of the DoseRule
+            /// The PatientCategory of the SolutionRule
             PatientCategory: PatientCategory
             /// The MinMax Dose range of the SolutionRule
             Dose: MinMax
-            /// The possible Solutions to use
+            /// The unit to adjust the limits of the SolutionRule with; None when the sheet gives no adjust unit
+            AdjustUnit: Unit option
+            /// The diluents to use, from the column "Diluents" of the SolutionRules sheet. A rule
+            /// without diluents gives the medication undiluted.
             Diluents: ProductComponent[]
-            /// An optional dividability option
-            Div: BigRational option
-            /// The possible Volumes to use
-            Volumes: ValueUnit option
-            /// A MinMax Volume range to use
-            Volume: MinMax
-            /// A MinMax adjusted Volume range to use
-            VolumeAdjust: MinMax
-            /// A MinMax Drip Rate for the SolutionRule
-            DripRate: MinMax
-            /// The percentage to be used as a DoseQuantity
-            DosePerc: MinMax
-            /// The SolutionLimits for the SolutionRule
-            SolutionLimits: SolutionLimit[]
+            /// The limits on the solution as a whole
+            SolutionLimit: SolutionLimit
+            /// The limits on the components and the substances in the solution
+            DilutionLimits: DilutionLimit[]
+            /// The time the prepared solution can be kept
+            ShelfLife: ValueUnit option
+            /// The lowest pH of the prepared solution
+            MinPh: decimal<pH> option
+            /// The highest pH of the prepared solution
+            MaxPh: decimal<pH> option
+            /// The generics that can be given through the same line as the solution
+            SameLine: string[]
+            /// The generics that cannot be given through the same line as the solution
+            NotSameLine: string[]
+            /// Any additional notes on the SolutionRule
+            Notes: string
+            /// The instructions for the preparation of the solution
+            PrepText: string
+            /// The instructions for the administration of the solution
+            AdminText: string
         }
 
 
-    /// A DoseLimit for a pharmaceutical form or Substance.
+    /// A renal adjustment of the DoseLimit for a pharmaceutical form or Substance.
     type RenalLimit =
         {
             DoseLimitTarget: LimitTarget
             DoseReduction: DoseReduction
             Quantity: MinMax
-            /// An optional Dose Quantity Adjust for the DoseLimit.
-            /// Note: if this is specified a min and max QuantityAdjust
-            /// will be assumed to be 10% minus and plus the normal value
-            NormQuantityAdjust: ValueUnit option
-            /// A MinMax Quantity Adjust for the DoseLimit
+            /// A MinMax Quantity Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose,
+            /// which the order widens for a substance to 90% and 110% of the value.
             QuantityAdjust: MinMax
             /// An optional Dose Per Time for the DoseLimit
             PerTime: MinMax
-            /// An optional Per Time Adjust for the DoseLimit
-            /// Note: if this is specified a min and max NormPerTimeAdjust
-            /// will be assumed to be 10% minus and plus the normal value
-            NormPerTimeAdjust: ValueUnit option
-            /// A MinMax Per Time Adjust for the DoseLimit
+            /// A MinMax Per Time Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose,
+            /// which the order widens for a substance to 90% and 110% of the value.
             PerTimeAdjust: MinMax
             /// A MinMax Rate for the DoseLimit
             Rate: MinMax
-            /// A MinMax Rate Adjust for the DoseLimit
+            /// A MinMax Rate Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose,
+            /// which the order widens for a substance to 90% and 110% of the value.
             RateAdjust: MinMax
         }
 
     and DoseReduction =
-        | Absolute
+        /// The renal values replace the dose limits of the dose rule.
+        | Replace
+        /// The renal values are factors that scale the dose limits of the dose rule.
         | Relative
         | NoReduction
 
@@ -664,16 +724,13 @@ module Types =
         }
 
 
-    /// The departments a patient can be prescribed for: the names the loaded rules carry, and
-    /// the one a patient without a department is prescribed for.
-    type Departments =
-        {
-            /// Every department a dose rule, a solution rule or a reconstitution names, the
-            /// default included, distinct and sorted.
-            Names: string[]
-            /// The department a patient without one is prescribed for.
-            Default: string
-        }
+    /// The components a prescriber selected.
+    [<RequireQualifiedAccess>]
+    type ComponentSelection =
+        /// No selection is made: the order uses every component.
+        | AllComponents
+        /// The selected optional components. An empty list selects no optional component.
+        | Selected of string list
 
 
     /// A Filter to get the DoseRules for a specific Patient.
@@ -691,10 +748,10 @@ module Types =
             DoseType: DoseType option
             /// the diluent to use
             Diluent: string option
-            /// the components to use
-            Components: string list
+            /// the optional components the prescriber selected
+            Components: ComponentSelection
             /// the patient to filter on
-            Patient: Patient
+            PatientData: PatientData
         }
 
 
@@ -716,20 +773,20 @@ module Types =
 
     type SolutionFilter =
         {
-            /// The Generic of the SolutionRule
-            Generic: string
+            /// The generic of the solution rule; None for every generic.
+            Generic: string option
             /// The pharmaceutical form of the SolutionRule
             Form: string option
             /// The Route of the SolutionRule
             Route: string option
-            /// The DoseType of the SolutionRule
+            /// The Indication of the SolutionRule
             Indication: string option
             DoseType: DoseType option
             /// the patient
-            Patient: Patient
+            PatientData: PatientData
             /// the diluent to dilute the component
             Diluent: string option
-            /// The MinMax Dose range of the SolutionRule
+            /// A dose to select the SolutionRule with. SolutionRule.filter does not use it.
             Dose: ValueUnit option
         }
 
@@ -737,10 +794,58 @@ module Types =
     /// with a DoseRule and a list of SolutionRules.
     type PrescriptionRule =
         {
-            Patient: Patient
+            PatientData: PatientData
             DoseRule: DoseRule
             SolutionRules: SolutionRule[]
             RenalRules: RenalRule[]
+        }
+
+
+    /// Whether the solution rules count when two prescription rules are compared.
+    [<RequireQualifiedAccess>]
+    type SolutionRuleComparison =
+        | Counted
+        | Ignored
+
+
+    // qualified, so that the field names do not take over the type inference of the dose rule records
+    /// One side of a link rule: what an order must match, by the dose rule it comes from. An empty
+    /// generic, route or indication matches any value, and a dose type with an empty text matches any
+    /// text. The route compares by the route mapping, so a long and a short name of a route match.
+    [<RequireQualifiedAccess>]
+    type LinkSide =
+        {
+            /// The generic label of the dose rule
+            Generic: string
+            /// The route
+            Route: string
+            /// The indication
+            Indication: string
+            /// The dose type with its text; discontinuous, timed or continuous
+            DoseType: DoseType
+        }
+
+
+    /// Whether a linked order can be prescribed without its main order.
+    [<RequireQualifiedAccess>]
+    type LinkRequirement =
+        /// The linked order is only prescribed with its main order
+        | Required
+        /// The linked order can also be prescribed alone
+        | Optional
+
+
+    /// A parsed row of the LinkRules sheet: the order that may be linked, its main order, and
+    /// whether the link is required.
+    [<RequireQualifiedAccess>]
+    type LinkRule =
+        {
+            /// The side of the linked order
+            Linked: LinkSide
+            /// The side of the main order
+            Main: LinkSide
+            /// Whether the linked order needs its main order
+            Requirement: LinkRequirement
         }
 
 
@@ -758,17 +863,36 @@ module Types =
         interface IMessage
 
 
-    /// Data-transfer / raw-parse (IO) types. Loaded from sheets and mapped
-    /// into the pure domain types above. Defined last so the domain layer
-    /// cannot reference these DTOs (one-way dependency: Data -> Domain only).
+    /// The categories of nutrition.
+    [<RequireQualifiedAccess>]
+    type NutritionCategory =
+        | EnteralFeeding
+        | EnteralSupplement
+        | TPN
+        | Lipid
+        | ElectrolyteGlucose
+
+
+    /// What a rule set selects the dose rules for.
+    [<RequireQualifiedAccess>]
+    type RuleSetKind =
+        /// The dose rules of a nutrition category
+        | Nutrition of NutritionCategory
+        /// The dose rules of the emergency list
+        | EmergencyList
+        /// The dose rules of the standard infusions
+        | StandardInfusions
+
+
+    /// The rows of the sheets, mapped into the domain types above. Defined last so that the domain types
+    /// cannot refer to these types.
     [<AutoOpen>]
     module Data =
 
         /// <summary>
-        /// One row of the "Units" sheet, parsed by <c>Mapping.getUnitMapping</c>.
-        /// Maps a long Z-Index unit name to the short name used throughout the
-        /// application. <c>Mapping.mapUnit</c> matches on any of Long/Short/MV and
-        /// yields <c>"{Short}[{Group}]"</c> for <c>UnitsParse.fromString</c>.
+        /// One row of the "Units" sheet, parsed by <c>Mapping.getUnitMapping</c>: a long Z-Index unit name
+        /// and its short name. <c>Mapping.mapUnit</c> matches Long, Short or MV and returns
+        /// <c>"{Short}[{Group}]"</c> for <c>UnitsParse.fromString</c>.
         /// </summary>
         type UnitMapping =
             {
@@ -785,10 +909,8 @@ module Types =
 
 
         /// <summary>
-        /// One row of the "Routes" sheet, parsed by <c>Mapping.getRouteMapping</c>.
-        /// Maps a long Z-Index route name to the short Dutch name. <c>Long</c> is
-        /// the canonical form: <c>Mapping.mapRoute</c> matches either and returns
-        /// <c>Long</c>.
+        /// One row of the "Routes" sheet, parsed by <c>Mapping.getRouteMapping</c>: a long Z-Index route name
+        /// and its short Dutch name. <c>Mapping.mapRoute</c> matches either name and returns <c>Long</c>.
         /// </summary>
         type RouteMapping =
             {
@@ -800,16 +922,13 @@ module Types =
 
 
         /// <summary>
-        /// Reference intake-totals row: per patient age/weight category, the
-        /// unit/time-unit and per-time min/max limits used to compute and annotate
-        /// aggregated intake (volume, energy, etc.). Loaded from the "Totals" sheet
-        /// by <c>Mapping.getTotals</c> and consumed by
-        /// <c>Informedica.GenOrder.Lib.Totals.getTotals</c>.
+        /// One row of the "Totals" sheet, parsed by <c>Mapping.getTotals</c> and used by
+        /// <c>Informedica.GenOrder.Lib.Totals.getTotals</c>: for a range of age, weight and gestational age,
+        /// the unit, time unit and per-time limits of a total intake, such as volume or energy.
         /// </summary>
         /// <remarks>
-        /// Unlike every other resource this one is optional: a load failure yields
-        /// an empty array plus a Warning rather than failing the whole load (see
-        /// <c>Resources.defaultRegistry</c>).
+        /// The resource is optional: a load failure gives an empty array and a Warning, and does not fail
+        /// the whole load (see <c>Resources.defaultRegistry</c>).
         /// </remarks>
         type TotalsData =
             {
@@ -820,6 +939,9 @@ module Types =
                 /// weight bounds in GRAMS
                 MinWeight: BigRational option
                 MaxWeight: BigRational option
+                /// sheet columns "MinGestAge" and "MaxGestAge": gestational age bounds in DAYS
+                MinGestAge: BigRational option
+                MaxGestAge: BigRational option
                 Unit: Unit option
                 /// sheet column "Adj": the patient adjustment unit (kg, m2)
                 Adj: Unit option
@@ -831,7 +953,106 @@ module Types =
             }
 
 
-        type HashId = string
+        // qualified, so that the field names do not take over the type inference of the records before it
+        /// One row of the "RuleSets" sheet: a category, its label, and an indication and a generic the
+        /// category offers for a location and a department. Several rows make up the rule set of one category.
+        [<RequireQualifiedAccess>]
+        type RuleSetData =
+            {
+                /// sheet column "Category": EnteralFeeding, EnteralSupplement, TPN, Lipid, ElectrolyteGlucose,
+                /// EmergencyList or StandardInfusions
+                Category: string
+                /// sheet column "Label": the label of the category; the label of the first row of the category is used
+                Label: string
+                /// sheet column "Indication": an indication the dose rules of the category are filtered on
+                Indication: string
+                /// sheet column "Generic": a generic label the dose rules of the category are filtered on, with
+                /// the brand or the form in brackets when the dose rule is restricted to one. Empty for every
+                /// generic under the indication.
+                Generic: string
+                /// sheet column "Loc": the location the row is for; None for every location
+                Location: string option
+                /// sheet column "Dep": the department the row is for; None for every department
+                Department: string option
+            }
+
+
+        // qualified, so that the field names do not take over the type inference of the records before it
+        /// One row of the "LinkRules" sheet: the dose rule of a linked order and the dose rule of its
+        /// main order. An empty field matches any value, except the two dose types, and Required, where
+        /// empty means no. A row with both dose types empty is blank and skipped.
+        [<RequireQualifiedAccess>]
+        type LinkRuleData =
+            {
+                /// sheet column "Generic": the generic label of the linked order
+                Generic: string
+                /// sheet column "Route": the route of the linked order
+                Route: string
+                /// sheet column "Indication": the indication of the linked order
+                Indication: string
+                /// sheet column "DoseType": discontinuous, timed or continuous; never empty
+                DoseType: string
+                /// sheet column "DoseText": the text of the dose type; empty for any text
+                DoseText: string
+                /// sheet column "MainGeneric": the generic of the main order, by its label
+                MainGeneric: string
+                /// sheet column "MainRoute": the route of the main order
+                MainRoute: string
+                /// sheet column "MainIndication": the indication of the main order
+                MainIndication: string
+                /// sheet column "MainDoseType": discontinuous, timed or continuous; never empty
+                MainDoseType: string
+                /// sheet column "MainDoseText": the text of the main dose type; empty for any text
+                MainDoseText: string
+                /// sheet column "Required": yes when the linked order cannot be prescribed without its
+                /// main order; no or empty when it can
+                Required: string
+            }
+
+
+        /// A hash of the fields that identify a sheet row, a rule or a group of rules: 12 lowercase hexadecimal
+        /// characters, or empty when the hash is not calculated yet.
+        type HashId = private | HashId of string
+
+
+        /// Creates, cleans and reads a HashId.
+        [<RequireQualifiedAccess>]
+        module HashId =
+
+
+            /// A HashId that is not calculated yet.
+            let empty = HashId ""
+
+
+            /// Whether a text is a hash: 12 lowercase hexadecimal characters.
+            let isHash (s: string) =
+                s.Length = 12
+                && s |> Seq.forall (fun c -> (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))
+
+
+            /// Cleans a text from a sheet into a HashId: trims it, removes a leading apostrophe, with which a sheet
+            /// marks a value as text, and makes it lower case. A text that is then not a hash gives the empty HashId,
+            /// such as a hash that a sheet has turned into a number.
+            let create s =
+                let s = s |> String.trim
+
+                let s =
+                    if s |> String.startsWith "'" then
+                        s |> String.subString 1 (String.length s - 1)
+                    else
+                        s
+
+                let s = s |> String.trim |> String.toLower
+
+                if s |> isHash then HashId s else empty
+
+
+            /// Hashes the fields into a HashId.
+            let ofFields fields = fields |> String.sha1Short |> HashId
+
+
+            /// Returns the hash as text, or an empty text for the empty HashId.
+            let toString (HashId s) = s
 
 
         /// <summary>
@@ -840,31 +1061,28 @@ module Types =
         /// <c>DoseRuleLoader.fromData</c>.
         /// </summary>
         /// <remarks>
-        /// Field names equal sheet column names except where a comment says
-        /// otherwise; <c>DoseRuleData.headers</c> is the canonical column order and
-        /// the emit order of <c>dataToCsv</c>. Several rows (one per
-        /// component/substance dose limit) make up a single dose rule.
+        /// Field names equal sheet column names except where a comment says otherwise.
+        /// <c>DoseRuleData.headers</c> gives the column order, which <c>dataToCsv</c> also writes. A dose rule
+        /// has one row for each component or substance dose limit.
         ///
-        /// Columns read through <c>getIfNull</c>/<c>getOpt</c> may be absent from the
-        /// sheet; every other column is required and its absence fails the parse.
+        /// A column read with <c>getIfNull</c> or <c>getOpt</c> may be absent from the sheet. Every other
+        /// column is required: a missing column fails the parse.
         /// </remarks>
         type DoseRuleData =
             {
-                /// Hash over the row's identifying fields, Component and Substance
-                /// included. Rows sharing a RowId are collapsed by dedupRowsByRowId;
-                /// differing dose-limit values across such rows violate the invariant
-                /// and raise a warning.
+                /// A hash of the identifying fields of the row, Component and Substance included.
+                /// Of the rows with the same RowId, dedupRowsByRowId keeps the first, and warns when their dose
+                /// limits differ.
                 RowId: HashId
-                /// Hash of the dose rule this row contributes to; shared by every
-                /// component/substance row of one rule. Becomes DoseRule.DataId.
+                /// A hash of the dose rule, shared by every component and substance row of the rule.
+                /// Becomes DoseRule.DataId.
                 RuleId: HashId
-                /// sheet column "GrpId": shared by every rule in the same clinical
-                /// context, which differ only in dose type/schedule
+                /// sheet column "GrpId": shared by every rule with the same clinical context; such rules
+                /// differ only in dose type and schedule
                 GrpId: HashId
-                /// Ordinal rank within a rule group, for stable presentation order.
-                /// Defaults to 1 when absent or unparsable.
+                /// The rank within a rule group, for a stable order. Defaults to 1 when absent or not a number.
                 SortNo: int
-                /// Parsed into the Source DU (Identified/Other)
+                /// The source, parsed into Identified or Other
                 Source: string
                 /// The original free text this structured row was derived from
                 SourceText: string
@@ -876,31 +1094,33 @@ module Types =
                 Patient: PatientCategoryData
                 ScheduleText: string
                 ScheduleData: ScheduleData
-                /// Validation stamp -> DoseRule.Validated
+                /// The validation stamp; becomes DoseRule.Validated
                 Validated: string option
-                /// G-Standaard check outcome -> DoseRule.Check. Empty when the rule
-                /// agrees with the G-Standaard; written back by Export.fs.
+                /// The outcome of the G-Standaard check; becomes DoseRule.Check. Empty when the rule agrees with
+                /// the G-Standaard. Export.fs writes it back.
                 FreqCheck: string option
                 DoseCheck: string option
             }
 
         /// <summary>
-        /// The generic-identifying columns of a "DoseRules" row. Combined at ingest
-        /// into the <c>Generic</c> record, where the label takes the brand over the
-        /// form when both are present. Only ONE narrowing survives parsing, by
-        /// precedence HPKs > GPKs > Brand > Form (see
+        /// The columns of a "DoseRules" row that identify the generic, combined into the <c>Generic</c>
+        /// record. Parsing keeps one narrowing, in the order HPKs, GPKs, Brand, Form (see
         /// <c>DoseRuleData.withSingleNarrowing</c>).
         /// </summary>
         and GenericData =
             {
-                /// sheet column "Generic": the BASE substance name. External lookups
-                /// (G-Standaard dose check, solution/renal rule matching) key on this,
-                /// not on the display label.
+                /// sheet column "Generic": the base substance name. The G-Standaard dose check and the matching
+                /// of solution and renal rules use this name, not the generic label.
                 Name: string
                 Form: string
                 Brand: string
-                /// ';'-separated in the sheet
+                /// sheet column "GPKs", ';'-separated: narrows the products of the Generic to
+                /// those with one of these GPKs. Never replaces the Generic name. Dropped at
+                /// parse time when the row has HPKs.
                 GPKs: string array
+                /// sheet column "HPKs", ';'-separated: narrows the products of the Generic to
+                /// those with a trade product that has one of these HPKs. Never replaces the
+                /// Generic name.
                 HPKs: string array
             }
 
@@ -908,14 +1128,14 @@ module Types =
         /// that decide which patients a rule applies to.
         and PatientCategoryData =
             {
-                /// sheet column "Loc": organizational location / hospital / institute.
-                /// Read tolerantly and absent from headers.
+                /// sheet column "Loc": the location, hospital or institute. The column may be absent and is not
+                /// in the headers.
                 Location: string
-                /// sheet column "Dep": department / ward
+                /// sheet column "Dep": the department or ward
                 Dep: string
-                /// sheet column "IsAdult", "x" for true: the rule applies to adults,
-                /// asserted categorically, so MinAge/MaxAge are empty for such a row.
-                /// Empty asserts NOTHING - it is never a negative.
+                /// sheet column "IsAdult", "x" for true: the rule applies to adults when MinAge and MaxAge are
+                /// empty; with an age the rule gets the age range, with a warning. An empty cell does not mean the
+                /// rule excludes adults.
                 IsAdult: bool
                 Gender: Gender
                 /// age bounds in DAYS
@@ -940,7 +1160,7 @@ module Types =
             {
                 /// one of: once, onceTimed, discontinuous, timed, continuous
                 DoseType: string
-                /// free-text description of the dose type, may be empty
+                /// the free text of the dose type, may be empty
                 DoseText: string
                 /// sheet column "Freqs", ';'-separated
                 Freqs: BigRational array
@@ -957,20 +1177,19 @@ module Types =
                 MinInt: BigRational option
                 MaxInt: BigRational option
                 IntUnit: string
-                /// sheet columns "MinDur"/"MaxDur": duration of the whole rule,
-                /// in DurUnit
+                /// sheet columns "MinDur"/"MaxDur": the total duration of the order, in DurUnit
                 MinDur: BigRational option
                 MaxDur: BigRational option
                 DurUnit: string
                 DoseLimitData: DoseLimitData
             }
 
-        /// The dose-limit columns of a "DoseRules" row. Quantities are per
-        /// administration, PerTime is accumulated per FreqUnit, Rate is continuous
-        /// delivery speed; the *Adj variants are normalized to AdjustUnit.
+        /// The dose-limit columns of a "DoseRules" row. A quantity is per administration, a per-time value
+        /// is per FreqUnit, and a rate is the speed of continuous delivery. A column ending in Adj is per
+        /// AdjustUnit.
         ///
-        /// Note there is deliberately no NormQtyAdj/NormPerTimeAdj here - normative
-        /// adjusted doses exist on RenalRuleData only.
+        /// A norm dose has no column of its own: an adjusted minimum equal to the adjusted maximum
+        /// is the norm, as in the renal rules.
         and DoseLimitData =
             {
                 /// sheet column "CmpBased", "x" for true: the limit targets the
@@ -993,8 +1212,8 @@ module Types =
                 MaxRateAdj: BigRational option
             }
 
-        /// Grouping key for raw dose rule data: rows sharing this key belong to one
-        /// dose rule group and differ only by dose type/text and component/substance.
+        /// The key that groups the DoseRules rows: rows with the same key belong to one dose rule group and
+        /// differ only in dose type, dose text, component and substance.
         type DataGroupKey =
             {
 
@@ -1006,42 +1225,62 @@ module Types =
             }
 
 
-        /// A group of raw DoseRuleData rows sharing a DataGroupKey, together with the
-        /// resolved product forms/components and any warnings raised while grouping.
+        /// The DoseRuleData rows with the same DataGroupKey, with their pharmaceutical forms, products and the
+        /// warnings from grouping.
         type GroupedRuleData =
             {
                 DataGroupKey: DataGroupKey
                 DoseRuleData: DoseRuleData[]
                 Forms: string[]
                 Products: ProductComponent[]
-                /// warnings raised while grouping (e.g. RowId dedup conflicts);
-                /// carried out of the parallel group pass and merged in fromData
+                /// The warnings from grouping, such as rows with the same RowId and different dose limits.
+                /// DoseRuleLoader.fromData collects them.
                 Warnings: string list
             }
 
         /// <summary>
-        /// One row of the "SolutionRules" sheet, parsed by
-        /// <c>SolutionRule.parseSolutionRuleData</c> and built into
-        /// <c>SolutionRule</c>s by <c>SolutionRule.map</c>. Describes how a
-        /// medication must be diluted and administered.
+        /// One row of the "SolutionRules" sheet, parsed by <c>SolutionRule.parseSolutionRuleData</c> and
+        /// built into <c>SolutionRule</c>s by <c>SolutionRule.map</c>: how a medication is diluted and
+        /// administered.
         /// </summary>
         /// <remarks>
-        /// Field names equal sheet column names except where noted. Generic, Route
-        /// and Indication must match the corresponding DoseRule. Every column is
-        /// required: a missing column fails the parse.
+        /// Field names equal sheet column names except where noted. Generic, Route and Indication must match
+        /// the corresponding DoseRule. Every column is required: a missing column fails the parse.
         /// </remarks>
         type SolutionRuleData =
             {
-                /// solution rule section
+                /// A hash of every field of the row except RowId, RowNo, RuleId and SourceText, the dilution limits
+                /// included. SolutionRule.setDataId calculates it.
+                Id: HashId
+                /// A hash of the fields that identify the row: the fields of the rule, with the kind and the name
+                /// of the dilution target. Of the rows with the same RowId, SolutionRule.dedupRowsByRowId keeps
+                /// the first with a dilution limit, and warns when their dilution limits differ.
+                /// SolutionRule.setDataHashIds calculates it.
+                RowId: HashId
+                /// The place of the row in its rule, for a strict order of the rows in the rule, counted from 0.
+                /// SolutionRule.setDataHashIds calculates it.
+                RowNo: int
+                /// A hash of the fields that identify the solution rule: every field that is the same for all
+                /// rows of the rule, except the source text. SolutionRule.setDataHashIds calculates it.
+                RuleId: HashId
+                // solution rule section
+                /// The generic of the rule
                 Generic: string
                 Form: string
                 Route: string
                 Indication: string
-                /// sheet column "Loc": organizational location / hospital / institute
+                /// sheet column "GPKs", ';'-separated: the generic products the rule applies to, with the same
+                /// substances in different strengths
+                GPKs: string array
+                /// sheet column "HPKs", ';'-separated: the trade products the rule applies to
+                HPKs: string array
+                /// sheet column "Loc": the location, hospital or institute
                 Location: string option
-                /// sheet column "Dep": department / ward
+                /// sheet column "Dep": the department or ward
                 Department: string option
-                /// administration access device, "x" for applies
+                /// the original source text the rule is built on
+                SourceText: string
+                /// the venous access, "x" when the rule applies to it
                 CVL: string
                 PVL: string
                 /// age bounds in DAYS
@@ -1053,30 +1292,37 @@ module Types =
                 /// gestational age bounds in DAYS
                 MinGestAge: BigRational option
                 MaxGestAge: BigRational option
-                /// dose range this solution rule applies to (a selection constraint,
-                /// not a limit to compute)
+                /// the dose range that selects this solution rule; not a dose limit
                 MinDose: BigRational option
                 MaxDose: BigRational option
                 /// one of: once, onceTimed, discontinuous, timed, continuous
                 DoseType: string
                 DoseText: string
-                /// sheet column "Solutions": acceptable diluents, '|'-separated
-                Solutions: string list
-                /// sheet column "Div": divisibility of the solution
+                /// sheet column "Diluents": the diluents, '|'-separated. An order takes the first one when none
+                /// is chosen. Rows belong to one rule only when this cell is the same, so every row of a rule,
+                /// the diluent row too, repeats the cell.
+                Diluents: string list
+                /// sheet column "Div": the number of equal parts one unit of the prepared
+                /// solution can be divided into, see the Div on the SolutionRule
                 Div: BigRational option
                 /// standard volumes in mL, ';'-separated
                 Volumes: BigRational array
                 /// total volume bounds in mL
                 MinVol: BigRational option
                 MaxVol: BigRational option
-                /// volume bounds per kg, in mL/kg
+                /// volume bounds in mL per AdjustUnit
                 MinVolAdj: BigRational option
                 MaxVolAdj: BigRational option
-                /// administration fraction: the percentage of the solution that makes
-                /// up one dose quantity
+                /// the patient adjustment unit (kg, m2). A row with a volume or a quantity per adjust needs it. Rows
+                /// belong to one rule only when this cell is the same, so every row of a rule repeats the cell.
+                AdjustUnit: string
+                /// administration fraction: the fraction of the preparation that makes up one dose,
+                /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
                 MaxPerc: BigRational option
-                /// solution limit section
+                // dilution limit section
+                /// sheet column "Component": the component the row limits. The value "diluent" without a
+                /// substance limits the chosen diluent of the rule.
                 Component: string
                 Substance: string
                 /// sheet column "Unit": the substance unit the quantity and
@@ -1086,27 +1332,49 @@ module Types =
                 Quantities: BigRational array
                 MinQty: BigRational option
                 MaxQty: BigRational option
+                /// the minimum quantity per AdjustUnit; sheet column "MinQtyAdj"
                 MinQtyAdj: BigRational option
+                /// the maximum quantity per AdjustUnit; sheet column "MaxQtyAdj"
                 MaxQtyAdj: BigRational option
                 /// infusion (drip) rate bounds in mL/hour
                 MinDrip: BigRational option
                 MaxDrip: BigRational option
-                /// concentration bounds in Unit/mL
+                /// Concentration bounds in Unit/mL. On a row with a Substance the bounds are the concentration
+                /// of the substance in the prepared solution. On a row with a Component, no Substance and the
+                /// Unit mL, the bounds are the fraction of the whole prepared solution, other components and
+                /// diluent included, that the component may be: 1 part in 8 is the value 0.125.
                 MinConc: BigRational option
                 MaxConc: BigRational option
+                // The cells below belong to the rule as a whole. Rows belong to one rule only when these cells
+                // are the same, so every row of a rule repeats them.
+                /// the shelf life of the prepared solution in minutes
+                ShelfLife: BigRational option
+                /// the lowest pH of the prepared solution
+                MinPh: decimal<pH> option
+                /// the highest pH of the prepared solution
+                MaxPh: decimal<pH> option
+                /// sheet column "CombY", '|'-separated: the generics that can be given through the same line
+                CombY: string list
+                /// sheet column "NonCombY", '|'-separated: the generics that cannot be given through the
+                /// same line
+                NonCombY: string list
+                /// sheet column "Notes": any additional notes
+                Notes: string
+                /// sheet column "PrepText": the preparation instructions
+                PrepText: string
+                /// sheet column "AdminText": the administration instructions
+                AdminText: string
             }
 
 
         /// <summary>
-        /// One row of the "RenalRules" sheet, parsed by
-        /// <c>RenalRule.parseRenalRuleData</c>. Adjusts the dose advice of a
-        /// matching DoseRule according to renal function; applied to patients of
-        /// 28 days and older.
+        /// One row of the "RenalRules" sheet, parsed by <c>RenalRule.parseRenalRuleData</c>: the adjustment of
+        /// the dose limits of a matching DoseRule for a renal function. A renal rule does not apply to a
+        /// patient younger than 28 days.
         /// </summary>
         /// <remarks>
-        /// Field names equal sheet column names except where noted. Generic, Route,
-        /// Indication and Substance must match the corresponding DoseRule. Every
-        /// column is required: a missing column fails the parse.
+        /// Field names equal sheet column names except where noted. Generic, Route, Indication and Substance
+        /// must match the corresponding DoseRule. Every column is required: a missing column fails the parse.
         /// </remarks>
         type RenalRuleData =
             {
@@ -1117,7 +1385,7 @@ module Types =
                 /// age bounds in DAYS
                 MinAge: BigRational option
                 MaxAge: BigRational option
-                /// dialysis modality this rule applies to, "x" for applies
+                /// the dialysis the rule applies to, "x" when it applies
                 ContDial: string
                 IntDial: string
                 PerDial: string
@@ -1135,9 +1403,8 @@ module Types =
                 /// sheet column "IntUnit"
                 IntervalUnit: string
                 Substance: string
-                /// sheet column "DoseRed": how to read the dose values below -
-                /// "rel" for a relative (multiplier) adjustment, "abs" for an
-                /// absolute one
+                /// sheet column "DoseRed": "rel" when the dose values below are factors on the dose limits,
+                /// "repl" when they replace the dose limits. The value "abs" is read as "repl".
                 DoseRed: string
                 DoseUnit: string
                 AdjustUnit: string
@@ -1145,15 +1412,10 @@ module Types =
                 RateUnit: string
                 MinQty: BigRational option
                 MaxQty: BigRational option
-                /// " - "-separated in the sheet (e.g. "4 - 5"), unlike the
-                /// ';'-separated multi-value columns elsewhere
-                NormQtyAdj: BigRational array
                 MinQtyAdj: BigRational option
                 MaxQtyAdj: BigRational option
                 MinPerTime: BigRational option
                 MaxPerTime: BigRational option
-                /// " - "-separated, see NormQtyAdj
-                NormPerTimeAdj: BigRational array
                 MinPerTimeAdj: BigRational option
                 MaxPerTimeAdj: BigRational option
                 MinRate: BigRational option

@@ -156,6 +156,14 @@ commit in `ServerApi.Session.fs`:
   except supplements (any number, each under a feeding) and electrolyte and glucose lines (any
   number, one per generic prescribed). That rule is what makes "a
   feeding's supplements" every enteral supplement in the plan; no link between them is recorded.
+
+> Note (2026-11-05): plan [1612](1612-nutrition-slots-outside-the-plan.md) takes the nutrition
+> workbenches out of the plan. A nutrition order is composed in a slot on the nutrition page and enters
+> the plan when it is prescribed, as a medication does; `addContext` and its rule of one context per
+> nutrition category are gone, and the plan takes any number of orders of every category. A supplement
+> is a linked order of its feeding, recorded as the link of its context, and removing the feeding
+> removes it.
+
 - `navigate` by id only: the command evaluated over the context as the page sent it, in the
   context's own patient. Verified in the code: a stepping, select, update or reset command
   runs the order already in the scenario through the order pipeline and reads no patient

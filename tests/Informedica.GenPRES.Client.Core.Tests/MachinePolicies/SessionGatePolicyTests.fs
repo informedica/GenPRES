@@ -160,6 +160,16 @@ module SessionGatePolicyTests =
                     |> Expect.equal "repeat" (Some "The two PINs differ.")
                 }
 
+                test "an inactive tab says so, asks for no relaunch, and offers the anonymous open" {
+                    let named = namedGateOf (SessionView.Ended SessionEnding.InactiveTab)
+
+                    named.Title |> Expect.equal "title term" "<Session Gate Inactive Tab>"
+                    named.Body |> Expect.equal "body term" "<Session Ending Inactive Tab>"
+
+                    named.Actions
+                    |> Expect.equal "the anonymous open" [ Action.ContinueWithoutLaunch ]
+                }
+
                 test "Ended says why, asks for a relaunch, and offers the anonymous open (Rule 11)" {
                     let gate = gateOf (SessionView.Ended SessionEnding.SupersededByLaunch)
                     gate.Busy |> Expect.isFalse "not busy"

@@ -29,6 +29,12 @@ module Mapping =
         [<Literal>]
         let totalsSheet = "Totals"
 
+        [<Literal>]
+        let ruleSetsSheet = "RuleSets"
+
+        [<Literal>]
+        let linkRulesSheet = "LinkRules"
+
 
     let parseSheet apply (data: string[][]) =
         try
@@ -54,8 +60,7 @@ module Mapping =
     let getData dataUrlId sheet apply = Web.getDataFromSheet dataUrlId sheet |> parseSheet apply
 
 
-    /// Map one row of the "Routes" sheet. Named rather than inlined into
-    /// getRouteMapping so the column contract can be tested without IO.
+    /// Map one row of the "Routes" sheet. A separate function so the column-contract test runs without IO.
     let routeMappingRow (get: string -> string) (_: string -> float option) =
         {
             Long = get "ZIndex"
@@ -95,6 +100,8 @@ module Mapping =
             MaxAge = get "MaxAge" |> toBrOpt
             MinWeight = get "MinWeight" |> toBrOpt
             MaxWeight = get "MaxWeight" |> toBrOpt
+            MinGestAge = get "MinGestAge" |> toBrOpt
+            MaxGestAge = get "MaxGestAge" |> toBrOpt
             Unit = get "Unit" |> UnitsParse.fromString
             Adj = get "Adj" |> UnitsParse.fromString
             TimeUnit = get "TimeUnit" |> UnitsParse.fromString
@@ -111,69 +118,64 @@ module Mapping =
         |> Result.mapErrorSource "getTotals"
 
 
-    /// The emergency-list workbook, where the normal values of weight and height by age and
-    /// sex live. One hospital's workbook written in code, as it is in the client; the two
-    /// literals become one setting together.
-    let normalValuesUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
+    /// Map one row of the "RuleSets" sheet, every cell trimmed; an empty Loc or Dep is None.
+    let ruleSetRow (get: string -> string) (_: string -> float option) =
+        let getOpt col =
+            let s = get col |> String.trim
+            if s |> String.isNullOrWhiteSpace then None else s |> Some
+
+        {
+            RuleSetData.Category = get "Category" |> String.trim
+            RuleSetData.Label = get "Label" |> String.trim
+            RuleSetData.Indication = get "Indication" |> String.trim
+            RuleSetData.Generic = get "Generic" |> String.trim
+            RuleSetData.Location = getOpt "Loc"
+            RuleSetData.Department = getOpt "Dep"
+        }
 
 
-    /// The four normal-value sheets: the weight and the height by age in years, and by
-    /// post-conceptional age in weeks for the newborn.
-    let normalValueSheets = [| "weight"; "height"; "weight neo"; "height neo" |]
+    /// Returns the rows of the "RuleSets" sheet, without the rows that have no category.
+    let getRuleSets dataUrlId =
+        ruleSetRow
+        |> getData dataUrlId Constants.ruleSetsSheet
+        |> Result.map (Array.filter (fun r -> r.Category |> String.notEmpty))
+        |> Result.mapErrorSource "getRuleSets"
 
 
-    /// The columns a normal-value sheet has: the sex, the age, and the third percentile, the
-    /// mean and the 97th of the measure.
-    let normalValueColumns = [| "sex"; "age"; "p3"; "mean"; "p97" |]
+    /// A row of the "LinkRules" sheet, every cell trimmed.
+    let linkRuleRow (get: string -> string) (_: string -> float option) =
+        {
+            LinkRuleData.Generic = get "Generic" |> String.trim
+            LinkRuleData.Route = get "Route" |> String.trim
+            LinkRuleData.Indication = get "Indication" |> String.trim
+            LinkRuleData.DoseType = get "DoseType" |> String.trim
+            LinkRuleData.DoseText = get "DoseText" |> String.trim
+            LinkRuleData.MainGeneric = get "MainGeneric" |> String.trim
+            LinkRuleData.MainRoute = get "MainRoute" |> String.trim
+            LinkRuleData.MainIndication = get "MainIndication" |> String.trim
+            LinkRuleData.MainDoseType = get "MainDoseType" |> String.trim
+            LinkRuleData.MainDoseText = get "MainDoseText" |> String.trim
+            LinkRuleData.Required = get "Required" |> String.trim
+        }
 
 
-    /// The rows of one sheet checked at load, so that a sheet the parser cannot read fails the
-    /// resource here and not a request later: the header names every column, and every row
-    /// holds a number in each numeric column.
-    let checkNormalValueRows sheet (rows: string[][]) : Result<string[][], Message list> =
-        let refuse (what: string) =
-            Error [ ErrorMsg($"normal values, sheet %s{sheet}: %s{what}", None) ]
-
-        match rows |> Array.tryHead with
-        | None -> refuse "no header"
-        | Some header ->
-            let header = header |> Array.map _.Trim()
-
-            match normalValueColumns |> Array.filter (fun c -> header |> Array.contains c |> not) with
-            | [||] ->
-                let numeric =
-                    normalValueColumns[1..]
-                    |> Array.map (fun c -> header |> Array.findIndex ((=) c))
-
-                let isNumber (row: string[]) i = i < row.Length && fst (Double.TryParse row[i])
-
-                match
-                    rows[1..]
-                    |> Array.indexed
-                    |> Array.filter (fun (_, row) -> numeric |> Array.forall (isNumber row) |> not)
-                with
-                | [||] -> Ok rows
-                | bad ->
-                    let first = fst bad[0] + 2
-                    refuse $"%i{bad.Length} rows hold a value that is not a number, the first at row %i{first}"
-            | missing ->
-                let names = missing |> String.concat ", "
-                refuse $"columns missing: %s{names}"
+    /// Returns the rows of the "LinkRules" sheet, blank rows included, so each row keeps its sheet row number.
+    let getLinkRules dataUrlId =
+        linkRuleRow
+        |> getData dataUrlId Constants.linkRulesSheet
+        |> Result.mapErrorSource "getLinkRules"
 
 
-    /// The four sheets fetched as rows and checked, every one or none: a table missing would
-    /// make the estimate silently blank for the ages it covers. The rows stay rows here, since
-    /// the parser and the estimate are the contract model's, shared with the client, and the
-    /// domain does not reference the contract.
-    let getNormalValueRows urlId : Result<Map<string, string[][]>, Message list> =
-        normalValueSheets
-        |> Array.fold
+    /// Fetches the rows of each of the sheets, by sheet name. Returns an error when any sheet fails to load.
+    /// GenCORE parses and checks the rows.
+    let getSheetRows urlId sheets : Result<Map<string, string[][]>, Message list> =
+        sheets
+        |> List.fold
             (fun acc sheet ->
                 acc
                 |> Result.bind (fun rows ->
-                    Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
-                    |> Result.mapError (fun e -> [ ErrorMsg($"normal values, sheet %s{sheet}: %s{e}", None) ])
-                    |> Result.bind (checkNormalValueRows sheet)
+                    Web.GoogleSheets.getRowsFromSheetSync urlId sheet
+                    |> Result.mapError (fun e -> [ ErrorMsg($"sheet %s{sheet}: %s{e}", None) ])
                     |> Result.map (fun data -> rows |> Map.add sheet data)
                 )
             )
@@ -208,6 +210,10 @@ module Mapping =
             |> Option.map _.Long
 
 
+    /// Returns None for an empty route, which asks for no route, and the route otherwise.
+    let routeOption rte = if rte |> String.isNullOrWhiteSpace then None else Some rte
+
+
     let eqsRoute routeMapping r1 r2 =
         let mapRoute = mapRoute routeMapping
 
@@ -220,8 +226,8 @@ module Mapping =
 
 
     /// <summary>
-    /// Map one row of the "FormRoute" sheet. Takes the unit mappings because the
-    /// dose columns are only read once a dose unit resolves.
+    /// Map one row of the "FormRoute" sheet, using the unit mappings to parse the units.
+    /// The dose limits are read only when the dose unit, or else the unit, resolves.
     /// </summary>
     let formRouteRow unitMapping =
         let mapUnit = mapUnit unitMapping
@@ -271,6 +277,7 @@ module Mapping =
                 Timed = getStr "Timed" |> String.equalsCapInsens "true"
                 Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                 IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                Totals = getStr "Totals" |> String.equalsCapInsens "true"
             }
 
 

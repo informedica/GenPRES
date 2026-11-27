@@ -37,8 +37,7 @@ module Trail =
         }
 
 
-    /// The text with every line break and other control character replaced by a space, so that no text a step
-    /// carries can split its line.
+    /// Replaces every line break and other control character with a space, so that a step stays on one line.
     let oneLine (text: string) =
         text |> String.map (fun c -> if Char.IsControl c then ' ' else c)
 
@@ -56,7 +55,7 @@ module Trail =
         |> oneLine
 
 
-    /// The trail with the line added, keeping the newest max lines, oldest first.
+    /// Adds the line to the trail and keeps the newest max lines, oldest first.
     let append (max: int) (line: string) (lines: string list) =
         let lines = lines @ [ line ]
         let drop = lines.Length - max
@@ -72,7 +71,23 @@ module Trail =
         let shortId (id: string) = if id.Length > 8 then id.Substring(0, 8) else id
 
 
-        /// A sentence the snackbar shows, by its case.
+        /// The word when the condition is true, None otherwise.
+        let flag word condition = if condition then Some word else None
+
+
+        /// Why the server refused the order context.
+        let contextRefusal (r: OrderContextRefusal) =
+            match r with
+            | OrderContextRefusal.NoDoseRules -> "NoDoseRules"
+            | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
+            | OrderContextRefusal.NoProducts -> "NoProducts"
+            | OrderContextRefusal.MeasurementMissing -> "MeasurementMissing"
+            | OrderContextRefusal.NoDiluent -> "NoDiluent"
+            | OrderContextRefusal.NotSolved -> "NotSolved"
+            | OrderContextRefusal.NoAdjustedDose -> "NoAdjustedDose"
+
+
+        /// The case name of a snackbar alert.
         let alert (a: Alert.Alert) =
             match a with
             | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
@@ -91,25 +106,26 @@ module Trail =
             | Alert.Alert.SignedPlanOpened _ -> "SignedPlanOpened"
             | Alert.Alert.NewerSignedPlan _ -> "NewerSignedPlan"
             | Alert.Alert.PatientRefreshFailed -> "PatientRefreshFailed"
-            | Alert.Alert.ChangeNotApplied -> "ChangeNotApplied"
+            | Alert.Alert.ChangeNotApplied r -> $"ChangeNotApplied %s{contextRefusal r}"
+            | Alert.Alert.PatientDataChanged summary ->
+                $"PatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
 
 
-        /// The value described, or none.
+        /// Describes the value, or returns none when there is no value.
         let orNone (describe: 'a -> string) (x: 'a option) = x |> Option.map describe |> Option.defaultValue "none"
 
 
-        /// Ok with the answer described, or Error without its text.
+        /// Describes an Ok result with its value, or an Error result without the error text.
         let result (describe: 'a -> string) (r: Result<'a, 'e>) =
             match r with
             | Ok x -> $"Ok %s{describe x}"
             | Error _ -> "Error"
 
 
-        /// The patient by age, gestational age, weight, height and gender, a weight or a height marked est when it is
-        /// estimated rather than measured, so that two patients that differ show as different. A patient carries no
-        /// identity, and the trail shows none. The department and the location are left out: both can arrive as free
-        /// text in the url, and the location can name a bed.
-        let patient (p: Patient) =
+        /// Describes the patient by age, gestational age, weight, height and gender, with est before an estimated
+        /// weight or height. The trail shows no identity. The department and the location are left out, because
+        /// both can arrive as free text in the url and the location can name a bed.
+        let patient (p: PatientData) =
             let age =
                 p
                 |> PatientRead.getAgeInYears
@@ -118,6 +134,7 @@ module Trail =
 
             let gestationalAge =
                 p.GestationalAge
+                |> GestationalAge.value
                 |> Option.map (fun ga -> $" GA %i{int ga.Weeks}+%i{int ga.Days}")
                 |> Option.defaultValue ""
 
@@ -142,8 +159,8 @@ module Trail =
             $"patient %s{age}%s{gestationalAge} %s{weight} %s{height} %s{gender}"
 
 
-        /// The patient by age and weight, or no patient.
-        let patientOption (p: Patient option) = p |> Option.map patient |> Option.defaultValue "no patient"
+        /// Describes the patient as patient does, or returns no patient.
+        let patientOption (p: PatientData option) = p |> Option.map patient |> Option.defaultValue "no patient"
 
 
         /// The dose type with its name.
@@ -163,7 +180,7 @@ module Trail =
             | NoDoseType -> "no dose type"
 
 
-        /// The picks of a filter, in the order the workbench asks for them.
+        /// The chosen values of a filter, in the order the workbench asks for them.
         let picks (f: Filter) =
             [
                 f.Indication
@@ -176,14 +193,14 @@ module Trail =
             |> List.choose id
 
 
-        /// The picks of a filter as one text.
+        /// The chosen values of a filter as one text, or no picks when there are none.
         let filter (f: Filter) =
             match picks f with
             | [] -> "no picks"
             | xs -> xs |> String.concat "/"
 
 
-        /// An order context by its id alone; the workbench has none.
+        /// An order context by its short id, or workbench for the workbench, which has no id.
         let contextId (c: OrderContext) =
             if String.IsNullOrEmpty c.Id then
                 "workbench"
@@ -198,8 +215,8 @@ module Trail =
             $"%s{shortId sc.Order.Id} cmp %s{cmp}"
 
 
-        /// An order context by its id, its picks and its scenarios, the one scenario shown; never its
-        /// argumentation.
+        /// Describes an order context by its id, its chosen values and the number of scenarios, with the
+        /// scenario when there is only one; never the argumentation.
         let context (c: OrderContext) =
             match c.Scenarios with
             | [| sc |] -> $"%s{contextId c} %s{filter c.Filter} 1 scenario %s{scenario sc}"
@@ -225,17 +242,8 @@ module Trail =
             | None -> "no token"
 
 
-        /// The nutrition category.
-        let nutrition (c: NutritionCategory) =
-            match c with
-            | NutritionCategory.EnteralFeeding -> "enteral feeding"
-            | NutritionCategory.EnteralSupplement -> "enteral supplement"
-            | NutritionCategory.TPN -> "TPN"
-            | NutritionCategory.Lipid -> "lipid"
-            | NutritionCategory.ElectrolyteGlucose -> "electrolyte glucose"
-
-
-        /// A session by who opened it and on which version; never the user or the patient id.
+        /// Describes a session by whether a user opened it, whether it has a patient context, and its signed
+        /// version; never the user or the patient id.
         let opened (so: SessionOpened) =
             let who =
                 match so.User with
@@ -269,6 +277,7 @@ module Trail =
             | SessionEnding.WrongPinLimit -> "WrongPinLimit"
             | SessionEnding.Unreadable -> "Unreadable"
             | SessionEnding.Idle -> "Idle"
+            | SessionEnding.InactiveTab -> "InactiveTab"
 
 
         /// Why the server refused the PIN or the code.
@@ -296,48 +305,38 @@ module Trail =
             | SigningRefusal.Locked _ -> "Locked"
             | SigningRefusal.StoreFailed -> "StoreFailed"
             | SigningRefusal.PlanUnreadable -> "PlanUnreadable"
-            | SigningRefusal.ContextDiffers -> "ContextDiffers"
 
 
-        /// Why the server refused the order context.
-        let contextRefusal (r: OrderContextRefusal) =
-            match r with
-            | OrderContextRefusal.NoDoseRules -> "NoDoseRules"
-            | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
-            | OrderContextRefusal.NoProducts -> "NoProducts"
-            | OrderContextRefusal.NotSolved -> "NotSolved"
-
-
-        /// What a reply told besides its answer.
+        /// Describes the record notice that a reply carries besides its answer.
         let notice (n: RecordNotice) =
             match n with
             | RecordNotice.NewerVersion h -> $"NewerVersion %s{head h}"
             | RecordNotice.Ended e -> $"Ended %s{ending e}"
 
 
-        /// A page's change to the plan by what it wants; never the plan.
+        /// Describes a change to the plan by its kind; never the plan.
         let change (c: OrderPlanMachine.OrderPlanChange) =
             match c with
-            | OrderPlanMachine.OrderPlanChange.Add ctx -> $"Add %s{context ctx}"
-            | OrderPlanMachine.OrderPlanChange.NewNutrition category -> $"NewNutrition %s{nutrition category}"
+            | OrderPlanMachine.OrderPlanChange.Add(ctx, linked) -> $"Add %s{context ctx} %i{linked.Length} linked"
+            | OrderPlanMachine.OrderPlanChange.AddMany contexts -> $"AddMany %i{contexts.Length}"
             | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.FilterRows ids -> $"FilterRows %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.OrderDialogCommand(id, cmd) ->
                 $"OrderDialogCommand %s{shortId id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)}"
 
 
-        /// A plan command by what it does, with a context as describeContext tells it; never the plan.
+        /// Describes a plan command, with a context as describeContext describes it; never the plan.
         let planCommand (describeContext: OrderContext -> string) (cmd: OrderPlanCommand) =
             match cmd with
-            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.UpdatePatientData _ -> "UpdatePatientData"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
-            | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
+            | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, ctx) ->
                 // an effect describes the context by its id, which the line already shows
                 let described = describeContext ctx
                 let context = if described = shortId id then "" else $" %s{described}"
-                $"Navigate %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
-            | OrderPlanCommand.AddOrderContext(_, ctx) -> $"AddOrderContext %s{describeContext ctx}"
-            | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
+                $"EvaluateContext %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
+            | OrderPlanCommand.AddOrderContext(_, ctx, _) -> $"AddOrderContext %s{describeContext ctx}"
+            | OrderPlanCommand.AddOrderContexts(_, contexts) -> $"AddOrderContexts %i{contexts.Length}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length} contexts"
 
@@ -377,8 +376,8 @@ module Trail =
         let reopened (r: Result<SessionOpened option, string>) = r |> Part.result (Part.orNone Part.opened)
 
 
-        /// A Session message as one trail line: its name and the answer it carries. The line never
-        /// shows the launch, the key, the mailed code, the PIN, the token or whom the Session is for.
+        /// Describes a session message by its name and its answer. Never shows the launch, the key, the mailed
+        /// code, the PIN, the token or the person the session is for.
         let msg (msg: SessionMsg) =
             match msg with
             | SessionMsg.PresentLaunch _ -> "PresentLaunch"
@@ -399,20 +398,23 @@ module Trail =
             | SessionMsg.OpenSignedPlan id -> $"OpenSignedPlan %s{Part.shortId id}"
             | SessionMsg.SignedPlanOpened(from, r) -> $"SignedPlanOpened %s{Part.token from} %s{reopened r}"
             | SessionMsg.RefreshPatient -> "RefreshPatient"
+            | SessionMsg.InactiveTab from -> $"InactiveTab %s{Part.token from}"
             | SessionMsg.PatientRefreshed(from, r) -> $"PatientRefreshed %s{Part.token from} %s{reopened r}"
             | SessionMsg.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
             | SessionMsg.SignatureBlocked h -> $"SignatureBlocked %s{Part.head h}"
 
 
-        /// Never the url, the key, the code or the PIN.
+        /// Describes a session effect; never the url, the key, the code or the PIN.
         let effect (effect: SessionEffect) =
             match effect with
             | SessionEffect.CallPresentLaunch _ -> "CallPresentLaunch"
             | SessionEffect.CallResume -> "CallResume"
-            | SessionEffect.CallCloseSession -> "CallCloseSession"
+            | SessionEffect.CallCloseSession _ -> "CallCloseSession"
             | SessionEffect.CallSupplyPin _ -> "CallSupplyPin"
             | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
             | SessionEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
+            | SessionEffect.SetPatientDataRead p -> $"SetPatientDataRead %s{Part.patientOption p}"
+            | SessionEffect.TakeAge p -> $"TakeAge %s{Part.patientOption p}"
             | SessionEffect.KeepBrowserKey _ -> "KeepBrowserKey"
             | SessionEffect.LoadSignedPlan s -> $"LoadSignedPlan %s{Part.signed s}"
             | SessionEffect.CallOpenSignedPlan(id, from) ->
@@ -424,7 +426,7 @@ module Trail =
             | SessionEffect.Alert a -> $"Alert %s{Part.alert a}"
 
 
-        /// The state as the pages read it; never the name the enrolment shows.
+        /// Describes the session view; never the name the enrolment shows.
         let view (view: SessionView) =
             match view with
             | SessionView.Anonymous -> "Anonymous"
@@ -452,34 +454,31 @@ module Trail =
         open SigningMachine
 
 
-        /// Never the challenge, the token or the identity.
+        /// Describes a signing response; never the challenge, the token or the identity.
         let response (r: SigningResponse) =
             match r with
             | SigningResponse.ChallengeIssued _ -> "ChallengeIssued"
-            | SigningResponse.DataNotice n -> $"DataNotice %s{Part.patientOption n.Data}"
+            | SigningResponse.DataNotice n -> $"DataNotice %s{Part.patientOption n.PatientData}"
             | SigningResponse.Submitted(s, _, _) -> $"Submitted %s{Part.signed s}"
             | SigningResponse.Refused r -> $"Refused %s{Part.signingRefusal r}"
 
 
-        /// Never the PIN.
+        /// Describes a signing message; never the PIN.
         let msg (msg: SigningMsg) =
             match msg with
             | SigningMsg.Sign(p, differences, request) ->
                 $"Sign %s{Part.plan p} %i{differences.Length} differences %s{Part.shortId request}"
             | SigningMsg.ChallengeAnswered(request, r) ->
                 $"ChallengeAnswered %s{Part.shortId request} %s{r |> Part.result response}"
-            | SigningMsg.AcceptDataChange held ->
-                if held then
-                    "AcceptDataChange holding the context"
-                else
-                    "AcceptDataChange"
+            | SigningMsg.TakeEhrData -> "TakeEhrData"
+            | SigningMsg.KeepPlanData -> "KeepPlanData"
             | SigningMsg.ConfirmPin _ -> "ConfirmPin"
             | SigningMsg.Cancel -> "Cancel"
             | SigningMsg.SubmitAnswered(_, r) -> $"SubmitAnswered %s{r |> Part.result response}"
             | SigningMsg.SessionEnded -> "SessionEnded"
 
 
-        /// Never the challenge, the PIN, the notice token or the identity.
+        /// Describes a signing effect; never the challenge, the PIN, the notice token or the identity.
         let effect (effect: SigningEffect) =
             match effect with
             | SigningEffect.CallChallenge(p, notice, request) ->
@@ -491,14 +490,15 @@ module Trail =
             | SigningEffect.TellSigned s -> $"TellSigned %s{Part.signed s}"
             | SigningEffect.TellRefused r -> $"TellRefused %s{Part.signingRefusal r}"
             | SigningEffect.TellError _ -> "TellError"
+            | SigningEffect.ReadEhrAgain -> "ReadEhrAgain"
 
 
-        /// The signing state as the dialog reads it; never the challenge.
+        /// Describes the signing view; never the challenge.
         let view (view: SigningView) =
             match view with
             | SigningView.Idle -> "Idle"
             | SigningView.RequestingChallenge -> "RequestingChallenge"
-            | SigningView.DataChanged(p, n) -> $"DataChanged %s{Part.plan p} %s{Part.patientOption n.Data}"
+            | SigningView.DataChanged(p, n) -> $"DataChanged %s{Part.plan p} %s{Part.patientOption n.PatientData}"
             | SigningView.AskingPin(p, r) ->
                 $"AskingPin %s{Part.plan p} refusal %s{r |> Part.orNone Part.signingRefusal}"
             | SigningView.Submitting p -> $"Submitting %s{Part.plan p}"
@@ -515,7 +515,7 @@ module Trail =
         open OrderPlanMachine
 
 
-        /// Never the argumentation.
+        /// Describes an order plan message; never the argumentation.
         let msg (msg: OrderPlanMsg) =
             match msg with
             | OrderPlanMsg.PatientDataChanged(p, request) ->
@@ -528,7 +528,7 @@ module Trail =
             | OrderPlanMsg.Signed -> "Signed"
 
 
-        /// An order plan effect; a context by its id, never the error texts.
+        /// Describes an order plan effect, with a context by its id; never the error texts.
         let effect (effect: OrderPlanEffect) =
             match effect with
             | OrderPlanEffect.CallPlan(cmd, request) ->
@@ -536,27 +536,31 @@ module Trail =
             | OrderPlanEffect.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
             | OrderPlanEffect.TellError _ -> "TellError"
             | OrderPlanEffect.TellAnswered -> "TellAnswered"
+            | OrderPlanEffect.TellPatientDataChanged summary ->
+                $"TellPatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
+            | OrderPlanEffect.PatientDataNotFollowed -> "PatientDataNotFollowed"
+            | OrderPlanEffect.OrderAdded None -> "OrderAdded"
+            | OrderPlanEffect.OrderAdded(Some slotId) -> $"OrderAdded %s{slotId}"
 
 
         /// The order plan state as the pages read it.
         let view (view: OrderPlanView) =
             match view with
-            | OrderPlanView.NoPatient -> "NoPatient"
+            | OrderPlanView.NoPatientData -> "NoPatientData"
             | OrderPlanView.Settled(p, selected) ->
                 $"Settled %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
             | OrderPlanView.Changing(p, selected) ->
                 $"Changing %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
 
 
-        /// The order plan state, through the view the pages read, with the request it awaits and whether a
-        /// plan is kept for a reopen.
+        /// Describes the order plan state by its view, the request it awaits and whether it is recalculating.
         let state (state: OrderPlanState) =
             [
                 state |> OrderPlanState.view |> view |> Some
                 state
                 |> OrderPlanState.inFlightRequest
                 |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-                if OrderPlanState.isKept state then Some "kept" else None
+                state |> OrderPlanState.isRecalculating |> Part.flag "recalculating"
             ]
             |> List.choose id
             |> String.concat " "
@@ -573,7 +577,7 @@ module Trail =
         /// The server's answer to an order context command.
         let response (r: OrderContextResponse) =
             match r with
-            | OrderContextResponse.Evaluated ctx -> $"Evaluated %s{Part.context ctx}"
+            | OrderContextResponse.Evaluated(ctx, linked) -> $"Evaluated %s{Part.context ctx} %i{linked.Length} offers"
             | OrderContextResponse.Refused(ctx, r) -> $"Refused %s{Part.context ctx} %s{Part.contextRefusal r}"
 
 
@@ -581,13 +585,12 @@ module Trail =
         let seedSource (source: SeedSource) =
             match source with
             | SeedSource.Url -> "url"
-            | SeedSource.MedicationList -> "list"
             | SeedSource.Formulary -> "formulary"
             | SeedSource.Parenteralia -> "parenteralia"
             | SeedSource.Reload -> "reload"
 
 
-        /// How many choices a seed sets, never their text.
+        /// Counts the choices a seed sets; never their text.
         let seedChoices (seed: FilterSeed) =
             [ seed.Indication; seed.Generic; seed.Route; seed.Form ]
             |> List.filter Option.isSome
@@ -595,8 +598,8 @@ module Trail =
             |> (+) (if seed.DoseType.IsSome then 1 else 0)
 
 
-        /// The command with the context as describeContext tells it. A seed's choices come from the url
-        /// or a list, before the server has checked them, so a seed shows how many, never their text.
+        /// Describes the command, with the context as describeContext describes it. A seed shows only the number
+        /// of its choices, because the choices come from the url or a list before the server has checked them.
         let command (describeContext: OrderContext -> string) (cmd: OrderViewCommand) (ctx: OrderContext) =
             match cmd with
             | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
@@ -614,11 +617,11 @@ module Trail =
             | _ -> $"%s{OrderViewCommand.toString (cmd, ctx)} %s{describeContext ctx}"
 
 
-        /// The command alone, as a message from the page carries it.
+        /// Describes the command without a context, as a message from the page carries it.
         let commandAlone (cmd: OrderViewCommand) = (command (fun _ -> "") cmd OrderContext.empty).TrimEnd()
 
 
-        /// Never the argumentation.
+        /// Describes an order context message; never the argumentation.
         let msg (msg: OrderContextMsg) =
             match msg with
             | OrderContextMsg.PatientDataChanged(p, request) ->
@@ -630,38 +633,41 @@ module Trail =
             | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
             | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
             | OrderContextMsg.RestoreField -> "RestoreField"
+            | OrderContextMsg.TurnOfferOn index -> $"TurnOfferOn %i{index}"
+            | OrderContextMsg.TurnOfferOff index -> $"TurnOfferOff %i{index}"
+            | OrderContextMsg.OfferCommand(index, cmd, request) ->
+                $"OfferCommand %i{index} %s{commandAlone cmd} %s{Part.shortId request}"
+            | OrderContextMsg.Chosen ctx -> $"Chosen %s{Part.context ctx}"
 
 
-        /// An order context effect; a context by its id, never the filter or the error texts.
+        /// Describes an order context effect, with a context by its id; never the filter or the error texts.
         let effect (effect: OrderContextEffect) =
             match effect with
             | OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request) ->
                 $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
-            | OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(_, ctx), request) ->
-                $"CallContext UpdatePatient %s{Part.contextId ctx} %s{Part.shortId request}"
             | OrderContextEffect.SyncPages _ -> "SyncPages"
             | OrderContextEffect.TellError _ -> "TellError"
-            | OrderContextEffect.TellNotSolved -> "TellNotSolved"
+            | OrderContextEffect.TellNotApplied r -> $"TellNotApplied %s{Part.contextRefusal r}"
 
 
-        /// The order context state as the page reads it; a context by its id.
+        /// Describes the order context view, with a context by its id.
         let view (view: OrderContextView) =
             match view with
-            | OrderContextView.NoPatient -> "NoPatient"
+            | OrderContextView.NoPatientData -> "NoPatientData"
             | OrderContextView.Settled ctx -> $"Settled %s{Part.contextId ctx}"
             | OrderContextView.Refused(ctx, r) -> $"Refused %s{Part.contextId ctx} %s{Part.contextRefusal r}"
             | OrderContextView.Changing ctx -> $"Changing %s{Part.contextId ctx}"
 
 
-        /// The order context state, through the view the page reads, with the request it awaits and whether
-        /// a state is kept for a reopen.
+        /// Describes the order context state by its view, the request it awaits and whether it is
+        /// recalculating.
         let state (state: OrderContextState) =
             [
                 state |> OrderContextState.view |> view |> Some
                 state
                 |> OrderContextState.inFlightRequest
                 |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-                if OrderContextState.isKept state then Some "kept" else None
+                state |> OrderContextState.isRecalculating |> Part.flag "recalculating"
             ]
             |> List.choose id
             |> String.concat " "
@@ -674,30 +680,32 @@ module Trail =
         open PatientMachine
 
 
-        /// What becomes of the estimates once the change is answered.
-        let estimates (estimates: PatientDraftPolicy.Estimates) =
-            match estimates with
-            | PatientDraftPolicy.Estimates.Renewed -> "estimates renewed"
-            | PatientDraftPolicy.Estimates.Kept -> "estimates kept"
-
-
-        /// A patient by age and weight, never its identity.
+        /// Describes a patient message, with the patient data as Part.patient describes it; never the identity.
         let msg (msg: PatientMsg) =
             match msg with
-            | PatientMsg.Changed(p, e, request) ->
-                $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
+            | PatientMsg.Changed(p, request) -> $"Changed %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.Cleared -> "Cleared"
+            | PatientMsg.Edited(edit, p, request) ->
+                $"Edited %A{edit} %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
+            | PatientMsg.Refreshed(p, request) -> $"Refreshed %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.AgeTaken(p, request) -> $"AgeTaken %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.PlanNotFollowed -> "PlanNotFollowed"
+            | PatientMsg.GiveAgain request -> $"GiveAgain %s{Part.shortId request}"
 
 
-        /// A patient effect; never the error texts.
+        /// Describes a patient effect; never the error texts.
         let effect (effect: PatientEffect) =
             match effect with
             | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
+            | PatientEffect.CallEdit(edit, p, request) ->
+                $"CallEdit %A{edit} %s{Part.patient p} %s{Part.shortId request}"
             | PatientEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
             | PatientEffect.TellError _ -> "TellError"
+            | PatientEffect.GivePlan p -> $"GivePlan %s{Part.patient p}"
 
 
-        /// The draft, with the request it awaits.
+        /// Describes the patient data draft and the request it awaits.
         let state (state: PatientState) =
             [
                 state |> PatientState.draft |> Part.patientOption |> Some
@@ -721,15 +729,13 @@ module Trail =
             match l with
             | Load.Settings -> "Settings"
             | Load.Localization -> "Localization"
-            | Load.Hospitals -> "Hospitals"
-            | Load.NormalValues -> "NormalValues"
-            | Load.BolusMedication -> "BolusMedication"
-            | Load.ContinuousMedication -> "ContinuousMedication"
-            | Load.Products -> "Products"
+            | Load.EmergencyList -> "EmergencyList"
+            | Load.ContinuousList -> "ContinuousList"
             | Load.Formulary -> "Formulary"
             | Load.Parenteralia -> "Parenteralia"
             | Load.Interactions -> "Interactions"
             | Load.DrugNames -> "DrugNames"
+            | Load.Totals -> "Totals"
             | Load.LogFiles -> "LogFiles"
             | Load.LogAnalysis -> "LogAnalysis"
             | Load.Reload -> "Reload"
@@ -742,6 +748,9 @@ module Trail =
             | ServerErrorPolicy.ErrorSource.Formulary -> "Formulary"
             | ServerErrorPolicy.ErrorSource.Parenteralia -> "Parenteralia"
             | ServerErrorPolicy.ErrorSource.Interactions -> "Interactions"
+            | ServerErrorPolicy.ErrorSource.Totals -> "Totals"
+            | ServerErrorPolicy.ErrorSource.EmergencyList -> "EmergencyList"
+            | ServerErrorPolicy.ErrorSource.ContinuousList -> "ContinuousList"
             | ServerErrorPolicy.ErrorSource.Login -> "Login"
             | ServerErrorPolicy.ErrorSource.LogFiles -> "LogFiles"
             | ServerErrorPolicy.ErrorSource.LogAnalysis -> "LogAnalysis"
@@ -763,24 +772,23 @@ module Trail =
             | Page.Page.Settings -> "Settings"
 
 
-        /// How many choices a page holds, never their text.
+        /// Counts the given choices; never their text.
         let choices (xs: string option list) = xs |> List.filter Option.isSome |> List.length
 
 
-        /// The formulary by how many choices it holds and its patient.
+        /// Describes the formulary by the number of choices and its patient data.
         let formulary (f: Formulary) =
             let n = choices [ f.Indication; f.Generic; f.Route; f.Form ]
             let n = if f.DoseType.IsSome then n + 1 else n
-            $"%i{n} choices %s{Part.patientOption f.Patient}"
+            $"%i{n} choices %s{Part.patientOption f.PatientData}"
 
 
-        /// The parenteralia page by how many choices it holds.
+        /// Describes the parenteralia page by the number of choices.
         let parenteralia (p: Parenteralia) = $"%i{choices [ p.Generic; p.Route; p.Form ]} choices"
 
 
         /// An answer by its load and its size; never the error text.
         let landing (landing: Landing) =
-            let count (xs: 'a list) = $"%i{xs.Length} items"
             let rows (xs: string[][]) = $"%i{xs.Length} rows"
             let named name _ = name
 
@@ -793,13 +801,17 @@ module Trail =
                 match landing with
                 | Landing.Settings r -> "Settings", r |> Part.result (named "settings")
                 | Landing.Localization r -> "Localization", r |> Part.result rows
-                | Landing.NormalValues r -> "NormalValues", r |> Part.result (named "normal values")
-                | Landing.BolusMedication r -> "BolusMedication", r |> Part.result count
-                | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
-                | Landing.Products r -> "Products", r |> Part.result count
                 | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result interactionReply
                 | Landing.Interactions(check, from, r) ->
                     $"Interactions check %i{check} %s{Part.token from}", r |> Part.result interactionReply
+                | Landing.Totals(number, from, r) ->
+                    $"Totals %i{number} %s{Part.token from}", r |> Part.result (named "totals")
+                | Landing.EmergencyList(number, from, r) ->
+                    $"EmergencyList %i{number} %s{Part.token from}",
+                    r |> Part.result (fun reply -> $"%i{reply.Response.Length} rows")
+                | Landing.ContinuousList(number, from, r) ->
+                    $"ContinuousList %i{number} %s{Part.token from}",
+                    r |> Part.result (fun reply -> $"%i{reply.Response.Length} rows")
                 | Landing.Formulary(from, r) -> $"Formulary %s{Part.token from}", r |> Part.result (named "formulary")
                 | Landing.Parenteralia(from, r) ->
                     $"Parenteralia %s{Part.token from}", r |> Part.result (named "parenteralia")
@@ -816,6 +828,7 @@ module Trail =
             | LoaderMsg.Landed l -> $"Landed %s{landing l}"
             | LoaderMsg.CheckServer -> "CheckServer"
             | LoaderMsg.ServerChecked r -> $"ServerChecked %s{r |> Part.result answered}"
+            | LoaderMsg.PatientExpected -> "PatientExpected"
             | LoaderMsg.PatientSet p -> $"PatientSet %s{Part.patientOption p}"
             | LoaderMsg.FilterAnswered f -> $"FilterAnswered %s{Part.filter f}"
             | LoaderMsg.PageShown p -> $"PageShown %s{page p}"
@@ -823,22 +836,26 @@ module Trail =
             | LoaderMsg.ParenteraliaChanged p -> $"ParenteraliaChanged %s{parenteralia p}"
             | LoaderMsg.ResourcesReloaded -> "ResourcesReloaded"
             | LoaderMsg.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
+            | LoaderMsg.QueryTotals query -> $"QueryTotals %s{query |> Part.orNone TotalsQuery.toString}"
+            | LoaderMsg.QueryEmergencyList p -> $"QueryEmergencyList %s{Part.patientOption p}"
+            | LoaderMsg.CheckEmergencyListRows numbers -> $"CheckEmergencyListRows %i{numbers.Length}"
+            | LoaderMsg.QueryContinuousList p -> $"QueryContinuousList %s{Part.patientOption p}"
+            | LoaderMsg.CheckContinuousListRows numbers -> $"CheckContinuousListRows %i{numbers.Length}"
 
 
-        /// A call to make.
+        /// Describes a loader effect.
         let effect (effect: LoaderEffect) =
             match effect with
             | LoaderEffect.FetchSettings -> "FetchSettings"
             | LoaderEffect.FetchLocalization -> "FetchLocalization"
-            | LoaderEffect.FetchNormalValues -> "FetchNormalValues"
-            | LoaderEffect.FetchBolusMedication -> "FetchBolusMedication"
-            | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
-            | LoaderEffect.FetchProducts -> "FetchProducts"
             | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
             | LoaderEffect.FetchFormulary f -> $"FetchFormulary %s{formulary f}"
             | LoaderEffect.FetchParenteralia p -> $"FetchParenteralia %s{parenteralia p}"
             | LoaderEffect.FetchInteractions(check, drugs) ->
                 $"FetchInteractions check %i{check} %i{drugs.Length} drugs"
+            | LoaderEffect.FetchTotals(number, query) -> $"FetchTotals %i{number} %s{TotalsQuery.toString query}"
+            | LoaderEffect.FetchEmergencyList(number, p) -> $"FetchEmergencyList %i{number} %s{Part.patient p}"
+            | LoaderEffect.FetchContinuousList(number, p) -> $"FetchContinuousList %i{number} %s{Part.patient p}"
             | LoaderEffect.SeedWorkbench seed ->
                 $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
             | LoaderEffect.SettingsLanded s ->
@@ -854,8 +871,9 @@ module Trail =
             | LoaderEffect.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
 
 
-        /// The loads out, the loads that landed, the ones that failed, the pages to ask again once they
-        /// land, the drug names' failures and whether the server answered.
+        /// Describes the loader state: the pending, loaded and failed loads, the pages asked again, the
+        /// medication name failures, the interaction check number and the server check. Returns nothing asked
+        /// when there is nothing to show.
         let state (state: LoaderState) =
             let names loads = loads |> List.map load |> String.concat ", "
 
@@ -889,14 +907,14 @@ module Trail =
                 | parts -> parts |> String.concat "; "
 
 
-    /// The admin machine, never with the password, the token or a log file's text.
+    /// Describes the admin machine, never the password, the token or the text of a log file.
     [<RequireQualifiedAccess>]
     module Admin =
 
         open AdminMachine
 
 
-        /// An admin answer by what it brought.
+        /// Describes an admin answer by its result.
         let response (r: AdminResponse) =
             match r with
             | AdminResponse.PasswordValidated(true, _) -> "valid"
@@ -906,7 +924,7 @@ module Trail =
             | AdminResponse.ResourcesReloaded -> "reloaded"
 
 
-        /// An answer by its call and what it brought; never the error text.
+        /// Describes an admin answer by its call and its result; never the error text.
         let landing (landing: Landing) =
             match landing with
             | Landing.Login(attempt, r) -> $"Login attempt %i{attempt} %s{r |> Part.result response}"
@@ -926,7 +944,7 @@ module Trail =
             | AdminMsg.Landed l -> $"Landed %s{landing l}"
 
 
-        /// A call to make, or what is told.
+        /// Describes an admin effect.
         let effect (effect: AdminEffect) =
             match effect with
             | AdminEffect.ValidatePassword(attempt, _) -> $"ValidatePassword attempt %i{attempt}"
@@ -940,7 +958,7 @@ module Trail =
             | AdminEffect.RequestSucceeded s -> $"RequestSucceeded %s{Loader.source s}"
 
 
-        /// Whether logged in, the attempt, and the loads out.
+        /// Describes the admin state: logged in or out, the login attempt and the pending loads.
         let state (state: AdminState) =
             let names loads = loads |> List.map Loader.load |> String.concat ", "
 
@@ -954,7 +972,7 @@ module Trail =
             |> String.concat "; "
 
 
-    /// The shell, never a url's patient or an error text.
+    /// Describes the shell machine, never the patient of a url or an error text.
     [<RequireQualifiedAccess>]
     module Shell =
 
@@ -966,8 +984,8 @@ module Trail =
             Informedica.GenPRES.Shared.Localization.toString l
 
 
-        /// What a url carries, by page and language and by kind for the rest, never a value: the values
-        /// are patient data, and a launch holds a token.
+        /// Describes a parsed url by its page and language, and the patient, the medication and the launch only
+        /// by kind, because the values are patient data and a launch contains a token.
         let url (url: Url.UrlParts) =
             [
                 $"page %s{url.Page |> Part.orNone Loader.page}"
@@ -984,7 +1002,7 @@ module Trail =
             |> String.concat " "
 
 
-        /// What a url change is decided against.
+        /// Describes the conditions that a url change is checked against, or idle when none applies.
         let check (check: UrlCheck) =
             [
                 if check.SigningUnderWay then
@@ -1011,6 +1029,7 @@ module Trail =
             | ShellMsg.LoggedOut -> "LoggedOut"
             | ShellMsg.LanguageChosen l -> $"LanguageChosen %s{language l}"
             | ShellMsg.HospitalChosen h -> $"HospitalChosen %s{h}"
+            | ShellMsg.PatientHospitalLanded h -> $"PatientHospitalLanded %s{h}"
             | ShellMsg.DisclaimerAccepted -> "DisclaimerAccepted"
             | ShellMsg.SettingsLanded s ->
                 let data = if s.IsDemo then "demo" else "production"
@@ -1038,6 +1057,7 @@ module Trail =
             | ShellEffect.PageShown p -> $"PageShown %s{Loader.page p}"
             | ShellEffect.PutBackUrl _ -> "PutBackUrl"
             | ShellEffect.EraseLaunch -> "EraseLaunch"
+            | ShellEffect.HospitalShown h -> $"HospitalShown %s{h}"
             | ShellEffect.PresentLaunch _ -> "PresentLaunch"
             | ShellEffect.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
             | ShellEffect.StartOver p -> $"StartOver %s{Part.patientOption p}"
@@ -1048,7 +1068,7 @@ module Trail =
             | ShellEffect.LeaveSession -> "LeaveSession"
 
 
-        /// The page, the language, and what shows over it.
+        /// Describes the shell state: the page, the language, what shows over the page, and the flags set.
         let state (state: ShellState) =
             [
                 Loader.page state.Page
@@ -1071,7 +1091,7 @@ module Trail =
             |> String.concat "; "
 
 
-    /// The client's own messages, read by what they ask, never the patient data or the plan.
+    /// Describes the messages of the client itself, never the patient data or the plan.
     module Client =
 
         open Client
@@ -1085,15 +1105,17 @@ module Trail =
             | ClientMsg.Admin m -> $"Admin %s{Admin.msg m}"
             | ClientMsg.Shell m -> $"Shell %s{Shell.msg m}"
             | ClientMsg.PageChosen p -> $"PageChosen %s{Loader.page p}"
-            | ClientMsg.PanelChanged(_, _, request) -> $"PanelChanged %s{Part.shortId request}"
+            | ClientMsg.PanelCleared request -> $"PanelCleared %s{Part.shortId request}"
+            | ClientMsg.PanelEdited(_, request) -> $"PanelEdited %s{Part.shortId request}"
+            | ClientMsg.NewPatient(_, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
-            | ClientMsg.EmergencyListItemChosen item -> $"EmergencyListItemChosen %s{item}"
-            | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"
+            | ClientMsg.EmergencyListRowChosen ctx -> $"EmergencyListRowChosen %s{Part.context ctx}"
+            | ClientMsg.ContinuousListRowChosen ctx -> $"ContinuousListRowChosen %s{Part.context ctx}"
             | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
-            | ClientMsg.AcceptDataChange -> "AcceptDataChange"
+            | ClientMsg.TakeEhrData -> "TakeEhrData"
 
 
-    /// One step of a machine, described with that machine's describers.
+    /// Describes one step of a machine with the describe functions of that machine.
     let step machine describeMsg describeEffect describeState (no: int) (at: DateTime) msg (state, effects) =
         {
             No = no
@@ -1105,7 +1127,8 @@ module Trail =
         }
 
 
-    /// A state the App set outside the machine, with why: no message and no effects.
+    /// Describes a state that the App set outside the machine, with the reason; the step has no message and
+    /// no effects.
     let reset machine describeState (no: int) (at: DateTime) (why: string) state =
         {
             No = no
@@ -1117,7 +1140,8 @@ module Trail =
         }
 
 
-    /// The lanes set back when the url moved on, by the patient draft they start over on.
+    /// Describes the lanes set back after a url brought a patient, a medication or a launch, by the patient
+    /// data draft.
     let startedOver = reset "Lanes" (fun (lanes: Lanes.LanesState) -> Patient.state lanes.Patient)
 
 
@@ -1133,6 +1157,10 @@ module Trail =
     /// A step of the order context machine.
     let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect OrderContext.state
 
+    /// A step of the order context machine of the nutrition slot with the id.
+    let slot id =
+        step $"Slot %s{id}" OrderContext.msg OrderContext.effect OrderContext.state
+
     /// A step of the patient machine.
     let patient = step "Patient" Patient.msg Patient.effect Patient.state
 
@@ -1146,7 +1174,7 @@ module Trail =
     let shell = step "Shell" Shell.msg Shell.effect Shell.state
 
 
-    /// A step the lanes took: a machine's step, or the lanes started over.
+    /// Describes a step of the lanes: a machine step, a removed nutrition slot, or a start-over.
     let lanes no at step =
         match step with
         | Lanes.LanesStep.Signing(msg, state, effects) -> signing no at msg (state, effects)
@@ -1154,10 +1182,21 @@ module Trail =
         | Lanes.LanesStep.Patient(msg, state, effects) -> patient no at msg (state, effects)
         | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
         | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
+        | Lanes.LanesStep.Slot(id, msg, state, effects) -> slot id no at msg (state, effects)
+        | Lanes.LanesStep.SlotRemoved id ->
+            {
+                No = no
+                At = at
+                Machine = $"Slot %s{id}"
+                Msg = "Removed"
+                Effects = []
+                State = "gone"
+            }
         | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state
 
 
-    /// A step the client took: a step of the lanes, the loads, the admin or the shell.
+    /// Describes a step of the client: a step of the lanes, the loader, the admin or the shell, or a dropped
+    /// message.
     let client no at step =
         match step with
         | Client.ClientStep.Lanes step -> lanes no at step

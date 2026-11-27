@@ -47,6 +47,10 @@ module Measures =
     [<Measure>]
     type L
 
+    /// The acidity of a solution.
+    [<Measure>]
+    type pH
+
     [<Measure>]
     type mmol
 
@@ -56,12 +60,21 @@ module Measures =
     [<Measure>]
     type normalM2
 
+    /// Millimeter, a unit of length.
+    [<Measure>]
+    type mm
+
+    /// French, a unit of the outer diameter of a line: 1 French is 1/3 millimeter.
+    [<Measure>]
+    type french
+
+    /// Joule, a unit of energy.
+    [<Measure>]
+    type joule
+
 
 module Constants =
 
-
-    [<Literal>]
-    let fullTerm = 40<week>
 
     [<Literal>]
     let premature = 37<week>
@@ -77,6 +90,10 @@ module Constants =
 
     [<Literal>]
     let daysInYear = 365
+
+    /// The number of days in a month of an age: every month counts 30 days.
+    [<Literal>]
+    let daysInMonth = 30
 
     [<Literal>]
     let kilo = 1000

@@ -7,13 +7,13 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Api
 
 
-let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
 
 /// The data a plan carries, and the patient it is: an age makes the draft a patient.
-let draft = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+let draft = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
-let asPatient (dto: Patient) =
-    match dto |> Informedica.GenPRES.Shared.Models.Patient.validate with
+let asPatient (dto: PatientData) =
+    match dto |> Informedica.GenPRES.Shared.Models.PatientData.validate with
     | Ok pat -> pat
     | Error err -> invalidOp $"the fixture is no patient: %A{err}"
 
@@ -68,6 +68,19 @@ let scenario (id: string) (name: string) : OrderScenario =
     }
 
 
+/// One value in a unit, as an order variable holds it once it is solved.
+let valueIn (json: string) (v: decimal) =
+    Some
+        {
+            Value = [| $"%M{v}", v |]
+            Unit = "x/dag"
+            Group = ""
+            Short = true
+            Language = ""
+            Json = json
+        }
+
+
 let context id name =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = id
@@ -99,7 +112,7 @@ let head: SignedOrderPlan =
         PatientId = "p"
         Base = None
         OrderContexts = two.OrderContexts
-        Patient = draft
-        Identity = None
+        PatientData = draft
+        PatientIdentity = None
         Verified = true
     }

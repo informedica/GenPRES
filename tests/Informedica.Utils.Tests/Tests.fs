@@ -544,6 +544,40 @@ module Tests =
                 ]
 
 
+    module Int32 =
+
+        [<Tests>]
+        let tests =
+            testList
+                "Int32.toStringNumberNL"
+                [
+                    for n, expected in
+                        [
+                            0, "0"
+                            7, "7"
+                            999, "999"
+                            1000, "1.000"
+                            12345, "12.345"
+                            1234567, "1.234.567"
+                            -1, "-1"
+                            -999, "-999"
+                            -1000, "-1.000"
+                            -1234567, "-1.234.567"
+                            Int32.MaxValue, "2.147.483.647"
+                            Int32.MinValue, "-2.147.483.648"
+                        ] do
+                        test $"%i{n} becomes %s{expected}" {
+                            Expect.equal
+                                (n |> Int32.toStringNumberNL)
+                                expected
+                                "a dot between each group of three digits"
+                        }
+
+                    testProperty "the text read back without the dots is the number"
+                    <| fun (n: int) -> (n |> Int32.toStringNumberNL).Replace(".", "") |> int = n
+                ]
+
+
     module Double =
 
         [<Tests>]
@@ -566,6 +600,47 @@ module Tests =
 
                     testPropertyWithConfig config "any string can be used to try parse"
                     <| fun s -> s |> Double.tryParse |> (fun _ -> true)
+
+                    testList
+                        "tryParse reads a number in the float style"
+                        [
+                            for s, exp in
+                                [
+                                    "3.5", 3.5
+                                    " 3.5 ", 3.5
+                                    "-2", -2.
+                                    "+2", 2.
+                                    "0", 0.
+                                    ".5", 0.5
+                                    "3.", 3.
+                                    "1e3", 1000.
+                                    "1.5E-2", 0.015
+                                ] do
+                                test $"%s{s} is %g{exp}" { s |> Double.tryParse |> equals (Some exp) "the number" }
+                        ]
+
+                    testList
+                        "tryParse gives no number"
+                        [
+                            for s in
+                                [
+                                    "3,5"
+                                    "1,000"
+                                    "1.000,5"
+                                    "NaN"
+                                    "Infinity"
+                                    "-Infinity"
+                                    "1e400"
+                                    ""
+                                    " "
+                                    "€3"
+                                    "(3)"
+                                    "0x10"
+                                    "3 5"
+                                    "3.5 mg"
+                                ] do
+                                test $"\"%s{s}\" is none" { s |> Double.tryParse |> equals None "none" }
+                        ]
 
                     testPropertyWithConfig config "getPrecision can be calculated for any valid double"
                     <| fun (a: Double) n ->
@@ -664,6 +739,154 @@ module Tests =
 
                     // * 6.6666 |> Double.fixPrecision 3 = 6.67
                     test "6.6666 |> Double.fixPrecision 3 = 6.67" { 6.6666 |> Double.fixPrecision 3 |> equals 6.67 "" }
+
+                    testList
+                        "toStringNumberNLWithoutTrailingZerosFixPrecision"
+                        [
+                            // the value, the number of significant digits and the expected text
+                            for d, n, exp in
+                                [
+                                    0.00123m, 3, "0,00123"
+                                    0.125m, 3, "0,125"
+                                    0.0666m, 2, "0,067"
+                                    0.035m, 2, "0,035"
+                                    0.0999m, 1, "0,1"
+                                    0.5m, 1, "0,5"
+                                    12.3456m, 3, "12,3"
+                                    105m, 3, "105"
+                                    1234.5678m, 3, "1 235"
+                                    0.0666m, 0, "0"
+                                    0m, 3, "0"
+                                    -0.00123m, 3, "-0,00123"
+                                    // a negative precision: the number in full
+                                    0.041666m, -1, "0,041666"
+                                    12.55m, -1, "12,55"
+                                ] do
+                                test $"the float %M{d} with %i{n} significant digits is %s{exp}" {
+                                    d
+                                    |> float
+                                    |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision n
+                                    |> equals exp "the Dutch text"
+                                }
+
+                                test $"the decimal %M{d} with %i{n} significant digits is %s{exp}" {
+                                    d
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n
+                                    |> equals exp "the Dutch text"
+                                }
+
+                            // the value and the expected text at 3 significant digits
+                            for d, exp in
+                                [
+                                    0.00123m, "0,00123"
+                                    1m / 3m, "0,333"
+                                    12.55m, "12,6"
+                                    125.55m, "126"
+                                    1234.6m, "1 235"
+                                    105m, "105"
+                                    0m, "0"
+                                ] do
+                                test $"the decimal %M{d} without a precision is %s{exp}" {
+                                    d |> Decimal.toStringNumberNLWithoutTrailingZeros |> equals exp "the Dutch text"
+                                }
+
+                            // 3 000 000 000 is above the largest 32 bit whole number
+                            test "the decimal 3000000000 without a precision prints in full" {
+                                3000000000m
+                                |> Decimal.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
+                                3000000000.6m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                                |> equals "3 000 000 001" "the Dutch text"
+                            }
+
+                            test "a decimal with 29 significant digits and a negative n prints every digit" {
+                                1.1234567890123456789012345678m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "1,1234567890123456789012345678" "the Dutch text"
+                            }
+
+                            test "the float 3000000000 without a precision prints in full" {
+                                3e9
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "3 000 000 000" "the Dutch text"
+                            }
+
+                            test "the float 12.55 with a negative n prints as 12,55" {
+                                12.55
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision -1
+                                |> equals "12,55" "the Dutch text"
+                            }
+
+                            test "the decimal 1e-27 with 3 significant digits prints with all its decimals" {
+                                1e-27m
+                                |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                                |> equals "0,000000000000000000000000001" "the Dutch text"
+                            }
+
+
+                            test "the float 1e-10 with 7 significant digits prints as 0,0000000001" {
+                                1e-10
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 7
+                                |> equals "0,0000000001" "the Dutch text"
+                            }
+
+                            test "the float -0.1 with 0 significant digits prints as 0" {
+                                -0.1
+                                |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 0
+                                |> equals "0" "the Dutch text"
+                            }
+
+                            test "the float 1/3 without a precision is 0,333" {
+                                1. / 3.
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "0,333" "the Dutch text"
+                            }
+
+                            // a decimal with at most 8 decimals, and a number of significant digits from 0 to 6
+                            let value (whole: int) (decimals: byte) = decimal whole / pown 10m (int decimals % 9)
+                            let digits (n: byte) = int n % 7
+                            // Reads a Dutch number text back as a decimal.
+                            let parse (s: string) = s.Replace(" ", "").Replace(",", ".") |> decimal
+
+                            testPropertyWithConfig
+                                config
+                                "the decimal text reads back as the value rounded to n significant digits"
+                            <| fun whole decimals n ->
+                                let d, n = value whole decimals, digits n
+
+                                d |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n |> parse =
+                                    (d |> Decimal.fixPrecision n)
+
+                            testPropertyWithConfig config "the decimal text has no trailing zeros after the comma"
+                            <| fun whole decimals n ->
+                                let s =
+                                    value whole decimals
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision (digits n)
+
+                                not (s.Contains ",") || not (s.EndsWith "0" || s.EndsWith ",")
+
+                            testPropertyWithConfig config "with a negative n, the text reads back as the value itself"
+                            <| fun whole decimals ->
+                                let d = value whole decimals
+
+                                d |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1 |> parse = d
+
+                            testPropertyWithConfig config "the float text is the decimal text of the same value"
+                            <| fun whole decimals n ->
+                                let f, n = value whole decimals |> float, digits n
+
+                                let expected =
+                                    f
+                                    |> Double.fixPrecision n
+                                    |> decimal
+                                    |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n
+
+                                f |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision n = expected
+                        ]
 
                     testPropertyWithConfig config "for any valid float, this float can be converted to a fraction"
                     <| fun f ->
@@ -968,6 +1191,21 @@ module Tests =
                                 |> equals None "no decimal form"
                             }
 
+                            test "formatDecimal of a value within the range of a decimal uses the format function" {
+                                1N / 2N |> BigRational.formatDecimal string |> equals "0.5" "the decimal text"
+                            }
+
+                            for sign, exp in
+                                [
+                                    1N, "10000000000000000000000000000000000000000/3"
+                                    -1N, "-10000000000000000000000000000000000000000/3"
+                                ] do
+                                test $"formatDecimal of %s{exp} is the fraction" {
+                                    sign * BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40)) / 3N
+                                    |> BigRational.formatDecimal string
+                                    |> equals exp "the fraction"
+                                }
+
                             for br, exp in [ 1N / 2N, "0.5"; 1N / 3N, "1/3"; -7N / 3N, "-7/3"; 500N, "500" ] do
                                 test $"toStringExact of %s{br |> BigRational.toString} is %s{exp}" {
                                     br |> BigRational.toStringExact |> equals exp "the exact text"
@@ -1097,37 +1335,6 @@ module Tests =
                         |> Array.length
                         |> fun n -> Expect.equal n 2 "two distinct values remain"
                     }
-                ]
-
-
-    module DateTime =
-
-        let tests =
-            testList
-                "Age"
-                [
-
-                    fun dt1 dt2 ->
-                        let dt1 = DateTime.date dt1
-                        let dt2 = DateTime.date dt2
-                        let dtFirst, dtLast = if dt1 < dt2 then dt1, dt2 else dt2, dt1
-
-                        let y, m, w, d = DateTime.age dtLast dtFirst
-
-                        dtFirst
-                        |> DateTime.addYears y
-                        |> DateTime.addMonths m
-                        |> DateTime.addWeeks w
-                        |> DateTime.addDays d
-                        |> fun dt ->
-                            if dt = dtLast then
-                                true
-                            else
-                                printfn $"age {dt} should be last {dtLast} (first {dtFirst})"
-                                false
-
-                    |> Generators.testProp $"calc age and back to date"
-
                 ]
 
 
@@ -1692,25 +1899,21 @@ module Tests =
 
                 ]
 
-        // Performance and stress tests
+        // Stress tests on large buffers. They assert the result only: a wall-clock limit depends on the load of
+        // the machine that runs the tests, not on the code, and fails a build without a defect.
         let performanceTests =
             testList
                 "Performance Tests"
                 [
 
-                    test "large buffer operations should be fast" {
+                    test "a large buffer keeps the last items up to its capacity" {
                         let capacity = 10000
                         let rb = RingBuffer.create capacity
-
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
 
                         // Add many items
                         for i in 1..50000 do
                             RingBuffer.add i rb
 
-                        sw.Stop()
-
-                        Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should add 50k items quickly"
                         Expect.equal rb.CountValue capacity "Should maintain capacity"
 
                         // Verify the buffer contains the last 'capacity' items
@@ -1720,33 +1923,15 @@ module Tests =
                         Expect.equal items[capacity - 1] 50000 "Should end with correct item"
                     }
 
-                    test "frequent clear and refill should be efficient" {
-                        let rb = RingBuffer.create 1000
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
-
-                        for cycle in 1..100 do
-                            RingBuffer.clear rb
-
-                            for i in 1..1000 do
-                                RingBuffer.add (cycle * 1000 + i) rb
-
-                        sw.Stop()
-
-                        Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should handle frequent clear/refill efficiently"
-                    }
-
-                    test "toSeq should handle large buffers efficiently" {
+                    test "toSeq returns every item of a full large buffer" {
                         let capacity = 10000
                         let rb = RingBuffer.create capacity
 
                         for i in 1..capacity do
                             RingBuffer.add i rb
 
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
                         let items = RingBuffer.toSeq rb |> Array.ofSeq
-                        sw.Stop()
 
-                        Expect.isLessThan sw.ElapsedMilliseconds 100L "Should convert to sequence quickly"
                         Expect.equal items.Length capacity "Should have correct length"
                     }
                 ]
@@ -2017,6 +2202,193 @@ module Tests =
                     }
                 ]
 
+
+    /// The memo of a function for a bounded number of distinct arguments.
+    module MemoizeBounded =
+
+        open Expecto.Flip
+
+
+        /// Creates a memo with a counter of the calls of f.
+        let counted maxCount f =
+            let calls = ref 0
+
+            let memo =
+                fun x ->
+                    Threading.Interlocked.Increment(&calls.contents) |> ignore
+                    f x
+                |> Memoization.memoizeBounded maxCount
+
+            memo, (fun () -> calls.Value)
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Memoization.memoizeBounded"
+                [
+                    test "a second call with the same argument does not run f again" {
+                        let memo, calls = counted 4 id
+
+                        [ memo 1; memo 1 ] |> Expect.equal "the same result" [ 1; 1 ]
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "structurally equal arguments share one entry" {
+                        let memo, calls = counted 4 (fun (xs: int list) -> xs.Length)
+
+                        memo [ 1; 2 ] |> ignore
+                        memo [ 1; 2 ] |> ignore
+
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "with fewer arguments than the bound, every argument stays cached" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 1; 2; 3 ] |> List.iter (memo >> ignore)
+
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
+
+                    test "a new argument past the bound empties the cache" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 4 ] |> List.iter (memo >> ignore)
+                        memo 4 |> ignore
+                        calls () |> Expect.equal "the last argument is still cached" 4
+
+                        memo 1 |> ignore
+                        calls () |> Expect.equal "the first argument is computed again" 5
+                    }
+
+                    test "a call with a cached argument at the bound does not empty the cache" {
+                        let memo, calls = counted 3 id
+
+                        [ 1; 2; 3; 3; 2; 1 ] |> List.iter (memo >> ignore)
+
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
+
+                    test "many distinct arguments keep at most the bound cached" {
+                        let memo, calls = counted 64 id
+
+                        [ 1..1000 ] |> List.iter (memo >> ignore)
+                        // 1000 = 15 * 64 + 40: the cache was emptied at 961, so 961 to 1000 are cached
+                        [ 961..1000 ] |> List.iter (memo >> ignore)
+                        calls () |> Expect.equal "the last 40 are cached" 1000
+
+                        memo 960 |> ignore
+                        calls () |> Expect.equal "an earlier argument is computed again" 1001
+                    }
+
+                    test "concurrent calls with one argument run f once" {
+                        let memo, calls =
+                            counted
+                                4
+                                (fun (x: int) ->
+                                    Threading.Thread.Sleep 50
+                                    x
+                                )
+
+                        Array.init 32 (fun _ -> async { return memo 7 })
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Expect.allEqual "every call gets the result" 7
+
+                        calls () |> Expect.equal "f ran once" 1
+                    }
+
+                    test "a call that raised an exception runs f again on the next call" {
+                        let mutable fail = true
+
+                        let memo, calls =
+                            counted
+                                4
+                                (fun (x: int) ->
+                                    if fail then
+                                        fail <- false
+                                        invalidOp "first call fails"
+
+                                    x
+                                )
+
+                        Expect.throwsT<InvalidOperationException> "the exception passes" (fun () -> memo 1 |> ignore)
+
+                        memo 1 |> Expect.equal "the second call succeeds" 1
+                        calls () |> Expect.equal "f ran twice" 2
+                    }
+
+                    test "a full cache keeps an entry still being built, so a call for it does not run f again" {
+                        use started = new Threading.ManualResetEventSlim(false)
+                        use release = new Threading.ManualResetEventSlim(false)
+                        let callsOfOne = ref 0
+
+                        let memo, calls =
+                            counted
+                                2
+                                (fun (x: int) ->
+                                    if x = 1 then
+                                        Threading.Interlocked.Increment(&callsOfOne.contents) |> ignore
+                                        started.Set()
+                                        release.Wait()
+
+                                    x
+                                )
+
+                        // the build of 1 runs and blocks
+                        let first = Threading.Tasks.Task.Run(fun () -> memo 1)
+                        started.Wait()
+
+                        // 2 fills the cache; 3 finds it full while 1 is still being built
+                        memo 2 |> ignore
+                        memo 3 |> ignore
+
+                        // a second call for 1 joins the running build
+                        let second = Threading.Tasks.Task.Run(fun () -> memo 1)
+                        Threading.Thread.Sleep 50
+                        release.Set()
+
+                        [ first.Result; second.Result ]
+                        |> Expect.equal "both calls get the result" [ 1; 1 ]
+                        callsOfOne.Value |> Expect.equal "f ran once for the argument being built" 1
+
+                        // 2 was built, so the full cache removed it
+                        let before = calls ()
+                        memo 2 |> ignore
+                        calls ()
+                        |> Expect.equal "the built entry was removed and is computed again" (before + 1)
+                    }
+
+                    test "a full cache with every entry being built keeps them all" {
+                        use release = new Threading.ManualResetEventSlim(false)
+                        use bothStarted = new Threading.CountdownEvent(2)
+
+                        let memo, calls =
+                            counted
+                                2
+                                (fun (x: int) ->
+                                    // a second build of 1 or 2 would signal a third time; it finds the countdown set
+                                    if x < 3 && not bothStarted.IsSet then
+                                        bothStarted.Signal() |> ignore
+                                        release.Wait()
+
+                                    x
+                                )
+
+                        let builds = [ 1; 2 ] |> List.map (fun x -> Threading.Tasks.Task.Run(fun () -> memo x))
+                        bothStarted.Wait()
+
+                        // 3 finds the cache full with two entries being built; it removes neither
+                        memo 3 |> Expect.equal "the new argument is computed" 3
+                        release.Set()
+
+                        builds |> List.map _.Result |> Expect.equal "the builds finish" [ 1; 2 ]
+                        [ memo 1; memo 2; memo 3 ] |> Expect.equal "every entry is cached" [ 1; 2; 3 ]
+                        calls () |> Expect.equal "f ran once per argument" 3
+                    }
+                ]
+
     module Optic =
 
         open Informedica.Utils.Lib.Optics
@@ -2167,4 +2539,428 @@ module Tests =
                         Optic.get snd_ (1, "a") |> equals "a" "get snd"
                         Optic.set snd_ "z" (1, "a") |> equals (1, "z") "set snd"
                     }
+                ]
+
+
+    module XlsxTests =
+
+        open System.IO
+        open System.IO.Compression
+        open Expecto.Flip
+
+        module Fixture =
+
+            let relType kind =
+                $"http://schemas.openxmlformats.org/officeDocument/2006/relationships/%s{kind}"
+
+
+            let relationshipsXml (rels: (string * string * string) list) =
+                let items =
+                    rels
+                    |> List.map (fun (id, kind, target) ->
+                        $"""<Relationship Id="%s{id}" Type="%s{relType kind}" Target="%s{target}"/>"""
+                    )
+                    |> String.concat ""
+
+                $"""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">%s{items}</Relationships>"""
+
+
+            let sheetXml (rows: string) =
+                $"""<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>%s{rows}</sheetData></worksheet>"""
+
+
+            /// Returns the entries of an xlsx package, as (entry name, content), with the workbook in the given folder.
+            let parts folder (sheets: (string * string) list) (shared: string list) =
+                let sheetEntries =
+                    sheets
+                    |> List.mapi (fun i (name, _) ->
+                        $"""<sheet name="%s{name}" sheetId="%i{i + 1}" r:id="rId%i{i + 1}"/>"""
+                    )
+                    |> String.concat ""
+
+                let items = shared |> List.map (fun s -> $"<si><t>%s{s}</t></si>") |> String.concat ""
+
+                [
+                    "_rels/.rels", relationshipsXml [ "rId1", "officeDocument", $"%s{folder}/workbook.xml" ]
+                    $"%s{folder}/workbook.xml",
+                    $"""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>%s{sheetEntries}</sheets></workbook>"""
+                    $"%s{folder}/_rels/workbook.xml.rels",
+                    relationshipsXml
+                        [
+                            // The first sheet uses a target from the package root, the others a relative one.
+                            for i in 1 .. sheets.Length do
+                                let target =
+                                    if i = 1 then
+                                        $"/%s{folder}/worksheets/sheet1.xml"
+                                    else
+                                        $"worksheets/sheet%i{i}.xml"
+
+                                $"rId%i{i}", "worksheet", target
+                            "rIdShared", "sharedStrings", "strings/../sharedStrings.xml"
+                        ]
+                    $"%s{folder}/sharedStrings.xml",
+                    $"""<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">%s{items}</sst>"""
+                    for i, (_, xml) in sheets |> List.indexed do
+                        $"%s{folder}/worksheets/sheet%i{i + 1}.xml", xml
+                ]
+
+
+            /// Zips the entries, given as (entry name, content), into the bytes of a package.
+            let package (entries: (string * string) list) =
+                use ms = new MemoryStream()
+
+                do
+                    use zip = new ZipArchive(ms, ZipArchiveMode.Create, true)
+
+                    for path, content in entries do
+                        use w = new StreamWriter(zip.CreateEntry(path).Open())
+                        w.Write content
+
+                ms.ToArray()
+
+
+            /// Builds an xlsx workbook in memory, with the workbook in the xl folder.
+            let workbook sheets shared = parts "xl" sheets shared |> package
+
+
+            // Shared strings: 0 GPKODE, 1 Generic, 2 Mmol, 3 MinGestAge, 4 paracetamol, 5 259 (a number stored as text),
+            // 6 Timed, 7 ibuprofen, 8 a filtered row
+            let shared =
+                [
+                    "GPKODE"
+                    "Generic"
+                    "Mmol"
+                    "MinGestAge"
+                    "paracetamol"
+                    "259"
+                    "Timed"
+                    "ibuprofen"
+                    "a filtered row"
+                ]
+
+
+            // A Formulary-like sheet without a dummy row: the numeric columns of the first data rows are empty.
+            let formulary =
+                sheetXml
+                    """
+        <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c><c r="D1" t="s"><v>3</v></c><c r="E1" t="s"><v>6</v></c></row>
+        <row r="2"><c r="A2"><v>166022.0</v></c><c r="B2" t="s"><v>4</v></c><c r="E2" t="b"><v>0</v></c></row>
+        <row r="3" hidden="1"><c r="A3"><v>1.0</v></c><c r="B3" t="s"><v>8</v></c></row>
+        <row r="4"/>
+        <row r="5"><c r="A5"><v>161144.0</v></c><c r="B5" t="s"><v>7</v></c><c r="C5"><v>6.0E-4</v></c><c r="D5" t="s"><v>5</v></c><c r="E5" t="b"><v>1</v></c></row>
+        <row r="6"><c r="A6"><v>2.4E7</v></c><c r="B6" t="inlineStr"><is><t> inline </t></is></c><c r="C6"><v>6.666666666666667</v></c><c r="D6" t="str"><v>formula text</v></c><c r="E6" t="e"><v>#N/A</v></c></row>
+        <row r="7" hidden="1"><c r="A7" s="1"/></row>
+        """
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Xlsx"
+                [
+                    testList
+                        "columnIndex"
+                        [
+                            for cellRef, expected in [ "A1", 0; "Z9", 25; "AA1", 26; "AB12", 27; "b3", 1 ] do
+                                test $"%s{cellRef} is column %i{expected}" {
+                                    cellRef |> Xlsx.columnIndex |> Expect.equal "zero-based column" expected
+                                }
+                        ]
+
+                    testList
+                        "numberText"
+                        [
+                            for stored, expected in
+                                [
+                                    "30.0", "30"
+                                    "127434.0", "127434"
+                                    "2.4E7", "24000000"
+                                    "6.0E-4", "0.0006"
+                                    "6.666666666666667", "6.66666666666667"
+                                    "0.16699999999999998", "0.167"
+                                    "0.027000000000000003", "0.027"
+                                    "9.129E-5", "0.00009129"
+                                    "-2.5E-3", "-0.0025"
+                                    "1.0E16", "10000000000000000"
+                                    "1.5E16", "15000000000000000"
+                                    "1E-30", "0.000000000000000000000000000001"
+                                    "1.23456789012345E-25", "0.000000000000000000000000123456789012345"
+                                    "0", "0"
+                                    "-1.5", "-1.5"
+                                    "text", "text"
+                                ] do
+                                test $"%s{stored} is written as %s{expected}" {
+                                    stored |> Xlsx.numberText |> Expect.equal "shortest text" expected
+                                }
+                        ]
+
+                    testList
+                        "folderOf"
+                        [
+                            for path, expected in
+                                [
+                                    "xl/workbook.xml", "xl"
+                                    "xl/worksheets/sheet1.xml", "xl/worksheets"
+                                    "workbook.xml", ""
+                                    "", ""
+                                ] do
+                                test $"'%s{path}' is in '%s{expected}'" {
+                                    path |> Xlsx.folderOf |> Expect.equal "folder" expected
+                                }
+                        ]
+
+                    testList
+                        "relationshipsPath"
+                        [
+                            for part, expected in
+                                [
+                                    "", "_rels/.rels"
+                                    "xl/workbook.xml", "xl/_rels/workbook.xml.rels"
+                                    "workbook.xml", "_rels/workbook.xml.rels"
+                                ] do
+                                test $"'%s{part}' has '%s{expected}'" {
+                                    part |> Xlsx.relationshipsPath |> Expect.equal "relationships" expected
+                                }
+                        ]
+
+                    testList
+                        "resolveTarget"
+                        [
+                            for folder, target, expected in
+                                [
+                                    "xl", "worksheets/sheet1.xml", "xl/worksheets/sheet1.xml"
+                                    "xl", "/xl/worksheets/sheet1.xml", "xl/worksheets/sheet1.xml"
+                                    "xl/worksheets", "../sharedStrings.xml", "xl/sharedStrings.xml"
+                                    "xl", "./styles.xml", "xl/styles.xml"
+                                    "", "xl/workbook.xml", "xl/workbook.xml"
+                                ] do
+                                test $"'%s{target}' from '%s{folder}' is '%s{expected}'" {
+                                    target |> Xlsx.resolveTarget folder |> Expect.equal "entry name" expected
+                                }
+                        ]
+
+                    testList
+                        "read"
+                        [
+                            let read () =
+                                Fixture.workbook
+                                    [ "Formulary", Fixture.formulary; "Empty", Fixture.sheetXml "" ]
+                                    Fixture.shared
+                                |> Xlsx.read
+                                |> function
+                                    | Ok sheets -> sheets |> Map.map (fun _ s -> s.Rows)
+                                    | Error e -> failtest e
+
+                            let sheet =
+                                Fixture.sheetXml
+                                    """<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>2.0</v></c></row>"""
+
+                            test "the workbook is found through _rels/.rels in another folder" {
+                                Fixture.parts "book" [ "First", sheet ] [ "GPKODE" ]
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Result.map (Map.find "First" >> _.Rows)
+                                |> Expect.equal "the sheet" (Ok [| [| "GPKODE"; "2" |] |])
+                            }
+
+                            test "a package without _rels/.rels gives an error" {
+                                Fixture.parts "xl" [ "First", sheet ] [ "GPKODE" ]
+                                |> List.filter (fst >> (<>) "_rels/.rels")
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Expect.isError "no office document"
+                            }
+
+                            test "a package without the office document gives an error" {
+                                Fixture.parts "xl" [ "First", sheet ] [ "GPKODE" ]
+                                |> List.filter (fst >> (<>) "xl/workbook.xml")
+                                |> Fixture.package
+                                |> Xlsx.read
+                                |> Expect.isError "office document missing"
+                            }
+
+                            test "every sheet is found by name, also with a target from the package root" {
+                                read ()
+                                |> Map.keys
+                                |> Seq.toList
+                                |> Expect.equal "sheet names" [ "Empty"; "Formulary" ]
+                            }
+
+                            test "the header is kept when the numeric columns of the first data rows are empty" {
+                                (read () |> Map.find "Formulary")[0]
+                                |> Expect.equal "header row" [| "GPKODE"; "Generic"; "Mmol"; "MinGestAge"; "Timed" |]
+                            }
+
+                            test "the first data row is kept" {
+                                (read () |> Map.find "Formulary")[1]
+                                |> Expect.equal "first data row" [| "166022"; "paracetamol"; ""; ""; "FALSE" |]
+                            }
+
+                            test "a number stored as text keeps its value" {
+                                let rows = read () |> Map.find "Formulary"
+                                rows[2][3] |> Expect.equal "MinGestAge" "259"
+                            }
+
+                            test
+                                "numbers, booleans, inline strings and formula strings are written as text, an error cell is empty" {
+                                let rows = read () |> Map.find "Formulary"
+                                rows[2]
+                                |> Expect.equal "second data row" [| "161144"; "ibuprofen"; "0.0006"; "259"; "TRUE" |]
+                                rows[3]
+                                |> Expect.equal
+                                    "third data row"
+                                    [| "24000000"; "inline"; "6.66666666666667"; "formula text"; "" |]
+                            }
+
+                            test "a hidden row and an empty row are left out" {
+                                read ()
+                                |> Map.find "Formulary"
+                                |> Array.length
+                                |> Expect.equal "header and three data rows" 4
+                            }
+
+                            test "a hidden row with text is counted, an empty hidden row is not" {
+                                Fixture.workbook [ "Formulary", Fixture.formulary ] Fixture.shared
+                                |> Xlsx.read
+                                |> Result.map (Map.find "Formulary" >> _.HiddenRows)
+                                |> Expect.equal "one hidden row" (Ok 1)
+                            }
+
+                            test "an empty formatted cell beyond the data does not widen the rows" {
+                                Fixture.workbook
+                                    [
+                                        "Wide",
+                                        Fixture.sheetXml
+                                            """<row r="1"><c r="A1"><v>1</v></c><c r="XFD1" s="1"/></row><row r="2"><c r="B2"><v>2</v></c><c r="C2" s="1"/></row>"""
+                                    ]
+                                    []
+                                |> Xlsx.read
+                                |> Result.map (Map.find "Wide" >> _.Rows)
+                                |> Expect.equal "two columns" (Ok [| [| "1"; "" |]; [| ""; "2" |] |])
+                            }
+
+                            test "a sheet without rows has no rows" {
+                                read () |> Map.find "Empty" |> Expect.isEmpty "no rows"
+                            }
+
+                            test "bytes that are not a workbook give an error" {
+                                "<html>Sign in</html>"
+                                |> Text.Encoding.UTF8.GetBytes
+                                |> Xlsx.read
+                                |> Expect.isError "not an xlsx workbook"
+                            }
+                        ]
+                ]
+
+
+    module WebTests =
+
+        open Expecto.Flip
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "Web.GoogleSheets"
+                [
+                    testList
+                        "sheetRows"
+                        [
+                            test "the sheet rows have no double quotes" {
+                                [| [| "Name" |]; [| "BOTULINE A TOXINE \"MERZ\"" |] |]
+                                |> Web.GoogleSheets.sheetRows
+                                |> Expect.equal "quotes removed" [| [| "Name" |]; [| "BOTULINE A TOXINE MERZ" |] |]
+                            }
+                        ]
+
+                    testList
+                        "hiddenRowsWarning"
+                        [
+                            test "a sheet with hidden rows gives a warning that names the sheet and the count" {
+                                {
+                                    Xlsx.Rows = [||]
+                                    Xlsx.HiddenRows = 248
+                                }
+                                |> Web.GoogleSheets.hiddenRowsWarning "RenalRules"
+                                |> Expect.equal
+                                    "warning"
+                                    (Some "Sheet 'RenalRules': 248 rows are hidden, so those rows are not loaded.")
+                            }
+
+                            test "a sheet without hidden rows gives no warning" {
+                                {
+                                    Xlsx.Rows = [||]
+                                    Xlsx.HiddenRows = 0
+                                }
+                                |> Web.GoogleSheets.hiddenRowsWarning "Units"
+                                |> Expect.isNone "no warning"
+                            }
+                        ]
+
+                    // The workbook cache is shared, so these tests run one after the other.
+                    testSequenced
+                    <| testList
+                        "getWorkbookWith"
+                        [
+                            // Counts the calls and returns the result after the delay in milliseconds.
+                            let countingLoad (calls: int ref) (delay: int) result =
+                                fun (_: string) ->
+                                    async {
+                                        Threading.Interlocked.Increment calls |> ignore
+                                        do! Async.Sleep delay
+                                        return result
+                                    }
+
+                            test "the workbook is loaded once until the cache is cleared" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Ok Map.empty)
+
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "one load" 1
+
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "a second load after the clear" 2
+                            }
+
+                            test "each spreadsheet id has its own workbook" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Ok Map.empty)
+
+                                Web.GoogleSheets.getWorkbookWith load "id1" |> Async.RunSynchronously |> ignore
+                                Web.GoogleSheets.getWorkbookWith load "id2" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "two loads" 2
+                            }
+
+                            test "a failed load is not kept" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+                                let load = countingLoad calls 0 (Error "network down")
+
+                                Web.GoogleSheets.getWorkbookWith load "id"
+                                |> Async.RunSynchronously
+                                |> Expect.isError "failed"
+
+                                Web.GoogleSheets.getWorkbookWith load "id" |> Async.RunSynchronously |> ignore
+                                calls.Value |> Expect.equal "the load is tried again" 2
+                            }
+
+                            test "callers at the same time share one load" {
+                                Web.GoogleSheets.clearWorkbookCache ()
+                                let calls = ref 0
+
+                                // The delay makes the ten callers overlap.
+                                let load = countingLoad calls 200 (Ok Map.empty)
+
+                                List.replicate 10 (Web.GoogleSheets.getWorkbookWith load "id")
+                                |> Async.Parallel
+                                |> Async.RunSynchronously
+                                |> ignore
+
+                                calls.Value |> Expect.equal "one load" 1
+                            }
+                        ]
                 ]

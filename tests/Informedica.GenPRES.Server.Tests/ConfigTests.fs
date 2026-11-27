@@ -213,6 +213,7 @@ let fromEnvTests =
                 s.Password |> Expect.isNone "no password"
                 s.TrustedProxies |> Expect.equal "loopback" loopback
                 s.Log |> Expect.equal "log" "0"
+                s.Debug |> Expect.equal "debug" "0"
                 s.Lang |> Expect.isNone "no language"
                 s.DbConnection |> Expect.isNone "no session store"
             }
@@ -344,30 +345,43 @@ let languageTests =
                 |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
 
-            test "toServerSettings carries the language, the demo flag and the departments" {
-                Map [ "GENPRES_LANG", "en" ] |> settings |> Config.toServerSettings
-                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+            test "toServerSettings carries the language, the demo flag, the departments and the locations" {
+                Config.toServerSettings (Map [ "GENPRES_LANG", "en" ] |> settings) [||] [| "AMC"; "UMCU" |]
                 |> Expect.equal
                     "demo, English"
                     {
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.English
                         IsDemo = true
-                        Departments = [| "ICK" |]
-                        DefaultDepartment = "ICK"
+                        Departments = [| None |]
+                        Locations = [| "AMC"; "UMCU" |]
+                        DefaultLocation = Some "UMCU"
                     }
 
-                Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
-                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+                Config.toServerSettings (Map [ "GENPRES_PROD", "1" ] |> settings) [||] [||]
                 |> Expect.equal
                     "production, Dutch"
                     {
                         Informedica.GenPRES.Shared.Api.ServerSettings.Language =
                             Informedica.GenPRES.Shared.Localization.Dutch
                         IsDemo = false
-                        Departments = [| "ICK" |]
-                        DefaultDepartment = "ICK"
+                        Departments = [| None |]
+                        Locations = [||]
+                        DefaultLocation = None
                     }
+            }
+
+            test "toServerSettings offers no department first, then the departments in the order given" {
+                [
+                    [||], [| None |]
+                    [| "NEO" |], [| None; Some "NEO" |]
+                    [| "ICC"; "ICK"; "NEO" |], [| None; Some "ICC"; Some "ICK"; Some "NEO" |]
+                ]
+                |> List.iter (fun (departments, expected) ->
+                    Config.toServerSettings (Map.empty |> settings) departments [||]
+                    |> _.Departments
+                    |> Expect.equal "no department, then the departments" expected
+                )
             }
 
             test "the banner shows the derived language, or flags the raw value" {
@@ -425,6 +439,89 @@ let sessionIdleTests =
                 with
                 | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_SESSION_IDLE_MINUTES"
                 | Ok _ -> failtest "expected a refused start"
+            }
+        ]
+
+
+let timeZoneTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_TIME_ZONE"
+        [
+            for raw in [ None; Some ""; Some "   " ] do
+                test $"%A{raw} is Europe/Amsterdam" {
+                    raw
+                    |> Config.parseTimeZone
+                    |> Result.map _.Id
+                    |> Expect.equal "the default" (Ok "Europe/Amsterdam")
+                }
+
+            test "a known id is taken, trimmed" {
+                Some " UTC "
+                |> Config.parseTimeZone
+                |> Result.map _.Id
+                |> Expect.equal "UTC" (Ok "UTC")
+            }
+
+            test "fromEnv reads it, blank as unset" {
+                (Map [ "GENPRES_TIME_ZONE", "Europe/London" ] |> settings).TimeZone
+                |> Expect.equal "raw" (Some "Europe/London")
+
+                (Map [ "GENPRES_TIME_ZONE", " " ] |> settings).TimeZone |> Expect.isNone "blank"
+            }
+
+            test "a zone the system does not know refuses the start, naming the setting and the value" {
+                match
+                    Map [ "GENPRES_URL_ID", "sheet-id"; "GENPRES_TIME_ZONE", "Mars/Olympus" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg ->
+                    msg |> Expect.stringContains "names the setting" "GENPRES_TIME_ZONE"
+                    msg |> Expect.stringContains "names the value" "Mars/Olympus"
+                | Ok _ -> failtest "expected a refused start"
+            }
+        ]
+
+
+let locationTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_LOCATION"
+        [
+            test "fromEnv reads it, blank as unset" {
+                (Map [ "GENPRES_LOCATION", "AMC" ] |> settings).Location
+                |> Expect.equal "raw" (Some "AMC")
+
+                (Map [ "GENPRES_LOCATION", " " ] |> settings).Location |> Expect.isNone "blank"
+            }
+
+            test "the setting is the default location, in production and outside it" {
+                Map [ "GENPRES_PROD", "1"; "GENPRES_LOCATION", "AMC" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "production" (Some "AMC")
+
+                Map [ "GENPRES_LOCATION", "AMC" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "demo" (Some "AMC")
+            }
+
+            test "without the setting, production has no default location" {
+                Map [ "GENPRES_PROD", "1" ]
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.isNone "none"
+            }
+
+            test "without the setting, the default location outside production is UMCU" {
+                Map.empty
+                |> settings
+                |> Config.defaultLocation
+                |> Expect.equal "UMCU" (Some "UMCU")
             }
         ]
 
@@ -517,5 +614,7 @@ let tests =
             fromEnvTests
             languageTests
             sessionIdleTests
+            timeZoneTests
+            locationTests
             productionDebugTests
         ]

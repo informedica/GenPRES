@@ -8,11 +8,18 @@ module Tests =
     open System.Text.Json
     open Expecto
     open Expecto.Flip
+    open Informedica.GenCore.Tests
     open Serilog.Events
     open Serilog.Formatting
+
+
+    /// The date the patient data is read on.
+    let today = DateTime(2026, 1, 1)
     open Serilog.Parsing
     open Informedica.Logging.Lib
     open Informedica.MCP.Lib
+
+    type CoreEGFRBandOption = Informedica.GenCore.Lib.Patients.EGFRBandOption
 
     let testHelloWorld =
         test "hello world test" { "Hello World" |> Expect.equal "Strings should be equal" "Hello World" }
@@ -125,7 +132,10 @@ module Tests =
 
         let private emptyInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = None
                 HeightCm = None
                 Sex = None
@@ -150,7 +160,7 @@ module Tests =
 
                     test "both measures without an age are Ok" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
@@ -160,7 +170,7 @@ module Tests =
 
                     test "one measure without an age is Error" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             WeightKg = Some 12.0
                         }
                         |> requireAgeOrMeasures
@@ -168,14 +178,14 @@ module Tests =
                     }
 
                     test "nothing is Error" {
-                        { emptyInput with AgeMonths = None }
+                        { emptyInput with AgeYears = None }
                         |> requireAgeOrMeasures
                         |> Expect.isError "should be Error"
                     }
 
                     test "createOrderContext refuses before touching the provider when the input is no patient" {
-                        { emptyInput with AgeMonths = None }
-                        |> createOrderContext unusedProvider
+                        { emptyInput with AgeYears = None }
+                        |> createOrderContext today unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
 
@@ -185,20 +195,23 @@ module Tests =
                             Indication = None
                             Route = None
                             Form = None
+                            AgeYears = None
                             AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
                             WeightKg = Some 12.0
                             HeightCm = None
                         }
-                        |> getFilterOptions unusedProvider
+                        |> getFilterOptions today unusedProvider
                         |> Expect.isError "should refuse without building the options"
                     }
 
                     test "getOrderScenarios refuses before touching the provider when the input is no patient" {
                         { emptyInput with
-                            AgeMonths = None
+                            AgeYears = None
                             HeightCm = Some 86.0
                         }
-                        |> getOrderScenarios unusedProvider
+                        |> getOrderScenarios today unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
                 ]
@@ -207,23 +220,41 @@ module Tests =
     module EstimateFixtures =
 
         /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
-        /// centimetres, a girl eleven and 86.
+        /// centimetres, a girl eleven and 86. The neonatal sheets hold only their header, since
+        /// every sheet must be there.
         let rows: Map<string, string[][]> =
             Map
                 [
-                    "weight",
+                    "norm_weight",
                     [|
                         [| "sex"; "age"; "p3"; "mean"; "p97" |]
                         [| "M"; "2"; "10"; "12"; "14" |]
                         [| "F"; "2"; "9"; "11"; "13" |]
                     |]
-                    "height",
+                    "norm_height",
                     [|
                         [| "sex"; "age"; "p3"; "mean"; "p97" |]
                         [| "M"; "2"; "80"; "87"; "94" |]
                         [| "F"; "2"; "79"; "86"; "93" |]
                     |]
+                    "norm_weight_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                    "norm_height_neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
                 ]
+
+
+        /// The tables GenCORE parses from rows, as the registry holds them: none when they do
+        /// not parse.
+        let tablesOf rows =
+            rows
+            |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
+            |> Result.toOption
+
+
+        /// The patient that buildPatient builds from the input; fails the test when the input is refused.
+        let patientOf provider input =
+            input
+            |> GenOrderTools.buildPatient today provider
+            |> Expect.wantOk "the patient is built"
 
 
     module CheckDepartmentTests =
@@ -231,19 +262,28 @@ module Tests =
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
         open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
 
-        /// The departments the tests prescribe for: two named by rules, the default among them.
-        let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
+        /// The departments the tests prescribe for, named by rules.
+        let private departments = distinctNames [ Some "NEO"; Some "ICC" ]
 
         /// A provider that answers the departments and nothing else: a test that reaches any
         /// rule raises, so a refusal proves that the guard ran before the rules were read.
         let private departmentsOnly: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box EstimateFixtures.rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -261,6 +301,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -269,10 +310,18 @@ module Tests =
         let emptyRules: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box EstimateFixtures.rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -290,6 +339,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -298,7 +348,10 @@ module Tests =
 
         let private measured: CreateOrderContextInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = Some 12.0
                 HeightCm = Some 86.0
                 Sex = None
@@ -313,11 +366,11 @@ module Tests =
             testList
                 "checkDepartment"
                 [
-                    test "the names are the ones the rules name and the default, sorted" {
-                        departments.Names |> Expect.equal "the names" [| "ICC"; "ICK"; "NEO" |]
+                    test "the names are the ones the rules name, sorted" {
+                        departments |> Expect.equal "the names" [| "ICC"; "NEO" |]
                     }
 
-                    test "no department is Ok and stays none, so the default applies" {
+                    test "no department is Ok and stays none, so only the rules without a department apply" {
                         measured
                         |> checkDepartment departments
                         |> Expect.equal "unchanged" (Ok measured)
@@ -344,24 +397,16 @@ module Tests =
                         |> Expect.equal "ICC" (Ok(Some "ICC"))
                     }
 
-                    test "the default itself is Ok as given" {
-                        { measured with Department = Some "ICK" }
-                        |> checkDepartment departments
-                        |> Result.map _.Department
-                        |> Expect.equal "ICK" (Ok(Some "ICK"))
-                    }
-
                     test "a department the rules do not name is refused, naming the ones they do" {
                         match { measured with Department = Some "PICU" } |> checkDepartment departments with
                         | Ok _ -> failtest "should refuse"
                         | Error msg ->
                             msg |> Expect.stringContains "names the input" "'PICU'"
-                            msg |> Expect.stringContains "names the known" "ICC, ICK, NEO"
-                            msg |> Expect.stringContains "names the default" "ICK"
+                            msg |> Expect.stringContains "names the known" "ICC, NEO"
                     }
 
                     test "when the rules spell a name in two cases, the spelling given wins" {
-                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+                        let both = distinctNames [ Some "NEO"; Some "neo" ]
 
                         { measured with Department = Some "neo" }
                         |> checkDepartment both
@@ -370,7 +415,7 @@ module Tests =
                     }
 
                     test "when the rules spell a name in two cases, a third case is refused" {
-                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+                        let both = distinctNames [ Some "NEO"; Some "neo" ]
 
                         { measured with Department = Some "Neo" }
                         |> checkDepartment both
@@ -386,7 +431,8 @@ module Tests =
                     test "the checked department is the one the patient is built with" {
                         { measured with Department = Some "neo" }
                         |> checkDepartment departments
-                        |> Result.map (buildPatient departmentsOnly >> Patient.getDepartment)
+                        |> Result.bind (buildPatient today departmentsOnly)
+                        |> Result.map Patient.getDepartment
                         |> Expect.equal "NEO on the patient" (Ok(Some "NEO"))
                     }
 
@@ -395,16 +441,16 @@ module Tests =
                         // the domain's refusal, not the department's, which proves the guard
                         // let the department through and the patient was built with it
                         { measured with Department = Some "neo" }
-                        |> evaluateOrderContext emptyRules
+                        |> evaluateOrderContext today emptyRules
                         |> Result.mapError (fun msg -> msg.Contains "Unknown department")
                         |> Expect.equal "refused for lack of rules, not for the department" (Error false)
                     }
 
-                    test "evaluateOrderContext names the evaluation when the rules refuse it" {
+                    test "evaluateOrderContext gives the reason of the refusal" {
                         measured
-                        |> evaluateOrderContext emptyRules
-                        |> Result.mapError _.StartsWith("Failed to evaluate order context: ")
-                        |> Expect.equal "the evaluation refusal keeps its prefix" (Error true)
+                        |> evaluateOrderContext today emptyRules
+                        |> Result.mapError _.StartsWith("Failed to evaluate order context: no dose rule")
+                        |> Expect.equal "the reason of the refusal" (Error true)
                     }
 
                     test "applyFilters sets each of the four filters on its own field" {
@@ -418,7 +464,7 @@ module Tests =
 
                         let filter =
                             input
-                            |> buildPatient departmentsOnly
+                            |> EstimateFixtures.patientOf departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
                             |> applyFilters input
                             |> _.Filter
@@ -432,7 +478,7 @@ module Tests =
                     test "applyFilters leaves out the filters the input does not name" {
                         let ctx =
                             measured
-                            |> buildPatient departmentsOnly
+                            |> EstimateFixtures.patientOf departmentsOnly
                             |> OrderContext.create OrderLogging.noOp emptyRules
 
                         let filter = ctx |> applyFilters { measured with Generic = None } |> _.Filter
@@ -451,28 +497,31 @@ module Tests =
                             Indication = None
                             Route = None
                             Form = None
+                            AgeYears = None
                             AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
-                        |> getFilterOptions emptyRules
+                        |> getFilterOptions today emptyRules
                         |> Result.map (fun o -> o.Generics, o.Routes, o.Indications, o.Forms, o.DoseTypes)
                         |> Expect.equal "the options, all empty" (Ok([||], [||], [||], [||], [||]))
                     }
 
                     test "evaluateOrderContext refuses an unknown department before reading any rule" {
                         { measured with Department = Some "PICU" }
-                        |> evaluateOrderContext departmentsOnly
+                        |> evaluateOrderContext today departmentsOnly
                         |> Expect.isError "should refuse without evaluating"
                     }
 
                     test "evaluateOrderContext refuses no patient before touching the provider" {
                         { measured with
-                            AgeMonths = None
+                            AgeYears = None
                             HeightCm = None
                             Department = Some "PICU"
                         }
-                        |> evaluateOrderContext unusedProvider
+                        |> evaluateOrderContext today unusedProvider
                         |> Result.mapError (fun msg -> msg.Contains "HeightCm")
                         |> Expect.equal "the patient, not the department" (Error true)
                     }
@@ -483,20 +532,49 @@ module Tests =
 
         open Informedica.GenForm.Lib.Resources
         open Informedica.GenOrder.Lib
-        open Informedica.GenOrder.Lib.Patient.Optics
+        open Informedica.GenOrder.Lib.Patient.AgeParts
         open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
+
+        module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+        module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+        module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+        module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+        module CoreSource = Informedica.GenCore.Lib.Patients.Source
+        module Api = Informedica.GenForm.Lib.Api
+
+        type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+
+
+        let private weightMeasured (pat: PatientData) = pat.Weight |> CoreWeight.isMeasured
+
+        let private heightMeasured (pat: PatientData) = pat.Height |> CoreHeight.isMeasured
+
+        let private kg = CoreWeightValue.weightInKg >> Some
+
+        let private gram = CoreWeightValue.weightInGram >> Some
+
+        let private cm = CoreHeightValue.heightInCm >> Some
 
         /// A provider that answers the given normal-value rows and the departments and nothing
         /// else: an evaluation that reaches a rule raises, so a refusal proves the guard ran first.
         let private withRows (rows: Map<string, string[][]>) : IResourceProvider =
-            let departments = Departments.ofNamed []
+            let departments = distinctNames []
 
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
                     else
-                        raise (NotImplementedException key.Name)
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
 
                 member _.GetData() = raise (NotImplementedException())
                 member _.GetUnitMappings() = raise (NotImplementedException())
@@ -514,6 +592,7 @@ module Tests =
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetDepartments() = departments
+                member _.GetLocations() = [||]
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -530,7 +609,10 @@ module Tests =
 
         let private ageAlone: CreateOrderContextInput =
             {
-                AgeMonths = Some 24.0
+                AgeYears = Some 2
+                AgeMonths = None
+                AgeWeeks = None
+                AgeDays = None
                 WeightKg = None
                 HeightCm = None
                 Sex = Some "male"
@@ -546,21 +628,25 @@ module Tests =
                 "the estimate at the MCP host"
                 [
                     test "an age and a sex alone build a patient with the weight and height the client shows" {
-                        let pat = ageAlone |> buildPatient tablesOnly
+                        let pat = ageAlone |> EstimateFixtures.patientOf tablesOnly
 
-                        (pat |> Patient.getWeight, pat |> Patient.getHeight, pat.WeightMeasured, pat.HeightMeasured)
+                        (pat |> Patient.getWeight,
+                         pat |> Patient.getHeight,
+                         pat |> weightMeasured,
+                         pat |> heightMeasured)
                         |> Expect.equal
                             "twelve kilograms, 87 centimetres, estimated"
-                            (Some(Gram 12000), Some(Centimeter 87), false, false)
+                            (gram 12000m, cm 87m, false, false)
                     }
 
                     test "a measure given stays measured, the other estimated" {
-                        let pat = { ageAlone with WeightKg = Some 14.0 } |> buildPatient tablesOnly
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> EstimateFixtures.patientOf tablesOnly
 
-                        (pat |> Patient.getWeight, pat.WeightMeasured, pat |> Patient.getHeight, pat.HeightMeasured)
-                        |> Expect.equal
-                            "fourteen measured, 87 estimated"
-                            (Some(Gram 14000), true, Some(Centimeter 87), false)
+                        (pat |> Patient.getWeight,
+                         pat |> weightMeasured,
+                         pat |> Patient.getHeight,
+                         pat |> heightMeasured)
+                        |> Expect.equal "fourteen measured, 87 estimated" (kg 14m, true, cm 87m, false)
                     }
 
                     test "both measures given, nothing is estimated" {
@@ -569,41 +655,271 @@ module Tests =
                                 WeightKg = Some 14.0
                                 HeightCm = Some 90.0
                             }
-                            |> buildPatient tablesOnly
+                            |> EstimateFixtures.patientOf tablesOnly
 
-                        (pat.WeightMeasured, pat.HeightMeasured) |> Expect.equal "measured" (true, true)
+                        (pat |> weightMeasured, pat |> heightMeasured)
+                        |> Expect.equal "measured" (true, true)
                     }
 
                     test "no sex: the estimate is the average of the two, as the client's" {
                         { ageAlone with Sex = None }
-                        |> buildPatient tablesOnly
+                        |> EstimateFixtures.patientOf tablesOnly
                         |> Patient.getWeight
-                        |> Expect.equal "eleven and a half kilograms" (Some(Gram 11500))
+                        |> Expect.equal "eleven and a half kilograms" (gram 11500m)
                     }
 
                     test "without an age nothing is estimated" {
-                        let pat = { ageAlone with AgeMonths = None } |> buildPatient tablesOnly
+                        let pat = { ageAlone with AgeYears = None } |> EstimateFixtures.patientOf tablesOnly
 
-                        (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
+                        (pat |> Patient.getWeight, pat |> Patient.getHeight)
+                        |> Expect.equal "none" (None, None)
                     }
 
-                    test "an age alone while the tables are not loaded is refused, naming both measures" {
+                    test "a child's age alone while the tables are not loaded is refused, naming the weight" {
                         ageAlone
-                        |> evaluateOrderContext noTables
-                        |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg"; "HeightCm" ]))
+                        |> evaluateOrderContext today noTables
+                        |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg" ]))
                     }
 
-                    test "a weight given while the tables are not loaded is refused, naming the height alone" {
+                    test "a child with a weight and no height while the tables are not loaded passes the check" {
                         { ageAlone with WeightKg = Some 14.0 }
-                        |> evaluateOrderContext noTables
-                        |> Expect.equal "the height" (Error(noEstimate [ "HeightCm" ]))
+                        |> validPatient today noTables
+                        |> Result.isOk
+                        |> Expect.isTrue "passes"
+                    }
+
+                    test "an adult without a weight and a height while the tables are not loaded passes the check" {
+                        { ageAlone with AgeYears = Some 40 }
+                        |> validPatient today noTables
+                        |> Result.isOk
+                        |> Expect.isTrue "passes"
+                    }
+
+                    test "an adult of 40 gets no estimate" {
+                        let pat = { ageAlone with AgeYears = Some 40 } |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat |> Patient.getWeight, pat |> Patient.getHeight)
+                        |> Expect.equal "none" (None, None)
+                    }
+
+                    test "without the tables nothing is estimated" {
+                        ageAlone
+                        |> EstimateFixtures.patientOf noTables
+                        |> Patient.getWeight
+                        |> Expect.isNone "no weight"
+                    }
+
+                    test "the age, the gender and the department are on the patient" {
+                        let pat =
+                            { ageAlone with Department = Some "NEO" }
+                            |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat |> Patient.getAge, pat |> Patient.getGender, pat |> Patient.getDepartment)
+                        |> Expect.equal "two years, a boy, the NEO" ([ Years 2 ], CoreGender.Male, Some "NEO")
+                    }
+
+                    test "the measured and the estimated weight and height have no date" {
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat.Weight.Calculation |> Option.map (CoreSource.value >> _.Date),
+                         pat.Height.Calculation |> Option.map (CoreSource.value >> _.Date))
+                        |> Expect.equal "no dates" (Some None, Some None)
+                    }
+
+                    test "the body surface area is calculated from the weight and the height" {
+                        { ageAlone with
+                            WeightKg = Some 14.0
+                            HeightCm = Some 90.0
+                        }
+                        |> EstimateFixtures.patientOf tablesOnly
+                        |> _.BodySurfaceArea
+                        |> Expect.isSome "a body surface area"
+                    }
+
+                    test "a weight outside the bounds is refused" {
+                        { ageAlone with WeightKg = Some 1000.0 }
+                        |> buildPatient today tablesOnly
+                        |> Expect.isError "1000 kg"
                     }
 
                     test "the tables loaded without a row for the sex are refused the same way" {
                         { ageAlone with Sex = Some "female" }
-                        |> evaluateOrderContext boysOnly
+                        |> evaluateOrderContext today boysOnly
                         |> Result.mapError (fun m -> m.Contains "hold no row")
                         |> Expect.equal "named as a missing row too" (Error true)
+                    }
+
+                    test "the patient data resources are the tables, the calculation values and the eGFR bands" {
+                        (tablesOnly |> Api.getPatientDataResources |> Option.map _.EGFRBandOptions,
+                         noTables |> Api.getPatientDataResources)
+                        |> Expect.equal "the resources, none without the tables" (Some [], None)
+                    }
+
+                    test "a weight given is rounded to the calculation weights and stays measured" {
+                        let pat = { ageAlone with WeightKg = Some 12.34 } |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat |> Patient.getWeight, pat |> weightMeasured)
+                        |> Expect.equal "12.5 kg measured" (gram 12500m, true)
+                    }
+
+                    test "the weight and height given are kept as given, in kg and in cm without a date" {
+                        let pat =
+                            { ageAlone with
+                                WeightKg = Some 12.34
+                                HeightCm = Some 87.5
+                            }
+                            |> EstimateFixtures.patientOf tablesOnly
+
+                        (pat.Weight.Actual |> List.map (fun w -> w.Date, Some w.Weight),
+                         pat.Height.Actual |> List.map (fun h -> h.Date, Some h.Height))
+                        |> Expect.equal "12.34 kg and 87.5 cm" ([ None, kg 12.34m ], [ None, cm 87.5m ])
+                    }
+
+                    test "the answer gives the weight GenCORE uses, rounded or estimated" {
+                        ({ ageAlone with WeightKg = Some 12.34 }
+                         |> EstimateFixtures.patientOf tablesOnly
+                         |> patientWeightKg,
+                         ageAlone |> EstimateFixtures.patientOf tablesOnly |> patientWeightKg)
+                        |> Expect.equal "12.5 kg given, 12 kg estimated" (Some 12.5, Some 12.0)
+                    }
+
+                    test "the age parts are read together and reported as GenCORE completed them" {
+                        { ageAlone with
+                            AgeYears = Some 1
+                            AgeMonths = Some 6
+                            AgeWeeks = Some 2
+                            AgeDays = Some 3
+                        }
+                        |> EstimateFixtures.patientOf tablesOnly
+                        |> patientAge
+                        |> Expect.equal "1 year, 6 months, 2 weeks, 3 days" (Some 1, Some 6, Some 2, Some 3)
+                    }
+
+                    test "months beyond 11 are refused with the GenCORE message" {
+                        { ageAlone with
+                            AgeYears = None
+                            AgeMonths = Some 24
+                        }
+                        |> buildPatient today tablesOnly
+                        |> Result.mapError _.Contains("Months")
+                        |> Expect.equal "refused" (Error true)
+                    }
+
+                    test "any age part alone is an age" {
+                        { ageAlone with
+                            AgeYears = None
+                            AgeDays = Some 3
+                        }
+                        |> requireAgeOrMeasures
+                        |> Expect.isOk "an age"
+                    }
+                ]
+
+
+    module RefusalTests =
+
+        open Informedica.GenForm.Lib.Resources
+        open Informedica.GenOrder.Lib
+        open Informedica.MCP.Lib.GenOrderTools
+        module GenFormTypes = Informedica.GenForm.Lib.Types
+
+        /// The vancomycin rule without a diluent, with the growth tables the tool reads for the
+        /// patient, here empty because the input gives the weight and the height.
+        type UndilutedVancomycin() =
+            inherit OrderPlanTests.UndilutedVancomycin()
+
+            interface IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (None: Informedica.GenCore.Lib.Patients.NormalValueTables option) :?> 'T
+                    elif key.Name = Keys.calculationWeightsAndHeights.Name then
+                        box CalculationWeightsAndHeightsFixture.calc :?> 'T
+                    elif key.Name = Keys.egfrBandOptions.Name then
+                        box ([]: CoreEGFRBandOption list) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
+                    elif key.Name = Keys.productPredilutions.Name then
+                        box Array.empty<GenFormTypes.ProductPredilution> :?> 'T
+                    else
+                        raise (System.Collections.Generic.KeyNotFoundException key.Name)
+
+                // the department of the vancomycin rule
+                member _.GetDepartments() = distinctNames [ Some "ICK" ]
+                member _.GetLocations() = [||]
+
+
+        let refusals =
+            [
+                Refusal.NoDoseRules
+                Refusal.NoDoseRulesForPatient
+                Refusal.NoProducts
+                Refusal.MeasurementMissing
+                Refusal.NoDiluent
+                Refusal.NotSolved
+                Refusal.NoAdjustedDose
+            ]
+
+        let tests =
+            testList
+                "the order context tools answer a refusal with its reason"
+                [
+                    test "a value evaluated is answered as it is" {
+                        Evaluated 1 |> refusedAsError |> Expect.equal "the value" (Ok 1)
+                    }
+
+                    testList
+                        "a refusal is an error, with the prefix of an evaluation that failed"
+                        [
+                            for refusal in refusals do
+                                test $"%A{refusal}" {
+                                    Refused(1, refusal)
+                                    |> refusedAsError
+                                    |> Result.mapError _.StartsWith("Failed to evaluate order context: ")
+                                    |> Expect.equal "the prefix" (Error true)
+                                }
+                        ]
+
+                    test "each refusal has a reason of its own" {
+                        refusals
+                        |> List.map refusalReason
+                        |> List.distinct
+                        |> List.length
+                        |> Expect.equal "as many reasons as refusals" refusals.Length
+                    }
+
+                    test "a medication without its diluent is not an empty success" {
+                        Refused(1, Refusal.NoDiluent)
+                        |> refusedAsError
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
+                    }
+
+                    test "the undiluted reason does not say a diluent is missing" {
+                        let reason = refusalReason Refusal.NoDiluent
+
+                        [ "diluent"; "formulary"; "solution rule"; "must be diluted" ]
+                        |> List.filter reason.Contains
+                        |> Expect.isEmpty "no missing-diluent framing"
+                    }
+
+                    test "a medication without its diluent is an error through the tool path" {
+                        {
+                            AgeYears = Some 40
+                            AgeMonths = None
+                            AgeWeeks = None
+                            AgeDays = None
+                            WeightKg = Some 70.0
+                            HeightCm = Some 175.0
+                            Sex = None
+                            Department = Some "ICK"
+                            Generic = Some "vancomycine"
+                            Indication = Some "infectie"
+                            Route = None
+                            Form = None
+                        }
+                        |> evaluateOrderContext today (UndilutedVancomycin())
+                        |> Result.mapError _.Contains("given undiluted")
+                        |> Expect.equal "says the medication is given undiluted" (Error true)
                     }
                 ]
 
@@ -664,6 +980,9 @@ module Tests =
                                 null,
                                 null,
                                 Nullable(),
+                                Nullable(),
+                                Nullable(),
+                                Nullable(),
                                 Nullable 12.0,
                                 Nullable 86.0
                             )
@@ -684,6 +1003,9 @@ module Tests =
                                 null,
                                 null,
                                 null,
+                                Nullable(),
+                                Nullable(),
+                                Nullable(),
                                 Nullable(),
                                 Nullable 12.0,
                                 Nullable()
@@ -788,19 +1110,19 @@ module Tests =
                         let! r =
                             callTool
                                 "get_order_context_filter_options"
-                                [ "generic", box "paracetamol"; "ageMonths", box 72; "weightKg", box 24 ]
+                                [ "generic", box "paracetamol"; "ageYears", box 6; "weightKg", box 24 ]
 
                         r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
                     }
 
                     testTask "get_order_context_filter_options with only an age binds and answers" {
-                        let! r = callTool "get_order_context_filter_options" [ "ageMonths", box 72 ]
+                        let! r = callTool "get_order_context_filter_options" [ "ageYears", box 6 ]
 
                         r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
                     }
 
                     testTask "create_order_context without its optional arguments binds" {
-                        let! r = callTool "create_order_context" [ "ageMonths", box 72 ]
+                        let! r = callTool "create_order_context" [ "ageYears", box 6 ]
 
                         // the empty rules give a summary with no scenarios, not the SDK's invocation failure
                         r
@@ -827,6 +1149,7 @@ module Tests =
                 GenOrderToolsTests.tests
                 CheckDepartmentTests.tests
                 EstimateTests.tests
+                RefusalTests.tests
                 ToJsonResultTests.tests
                 FilterOptionsToolTests.tests
                 SdkInvocationTests.tests

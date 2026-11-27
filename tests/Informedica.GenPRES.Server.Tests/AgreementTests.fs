@@ -47,7 +47,7 @@ type Generators =
                     n
                     (gen {
                         let! category =
-                            Gen.elements (OrderCategory.Drug :: (categories |> List.map OrderCategory.Nutrition))
+                            Gen.elements (OrderCategory.Medication :: (categories |> List.map OrderCategory.Nutrition))
 
                         let! scenarios = Gen.choose (0, 2)
                         let! kept = Arb.generate<bool>
@@ -75,13 +75,13 @@ let planOf (shape: Shape) : OrderPlan =
             { Informedica.GenPRES.Shared.Models.OrderContext.empty with
                 Id = $"c-{i}"
                 Category = category
-                Patient = StubPatientData.patient
+                PatientData = StubEhrPatient.contractPatient
                 Scenarios = Array.init scenarios (fun k -> SessionStubTests.scenarioWithOrder $"o-{i}-{k}")
             }
         )
         |> List.toArray
 
-    { Informedica.GenPRES.Shared.Models.OrderPlan.create StubPatientData.patient contexts with
+    { Informedica.GenPRES.Shared.Models.OrderPlan.create StubEhrPatient.contractPatient contexts with
         Filtered =
             shape.Contexts
             |> List.mapi (fun i (_, _, kept) -> if kept then Some $"c-{i}" else None)
@@ -102,7 +102,7 @@ let tests =
         [
             testPropertyWithConfig
                 config
-                "orders, filtered and nutritionContexts"
+                "orders and filtered"
                 (fun (shape: Shape) ->
                     let plan = planOf shape
                     let parsed = SessionStubTests.parsed plan
@@ -115,13 +115,7 @@ let tests =
                         Informedica.GenPRES.Shared.Models.OrderPlan.filtered plan |> Array.map _.Id =
                             (Domain.filtered parsed |> Array.map _.Id)
 
-                    let nutrition =
-                        Informedica.GenPRES.Shared.Models.OrderPlan.nutritionContexts plan
-                        |> Array.map _.Id
-                            =
-                            (Domain.nutritionContexts parsed |> Array.map _.Id)
-
-                    orders && filtered && nutrition
+                    orders && filtered
                 )
 
             testPropertyWithConfig
@@ -147,22 +141,6 @@ let tests =
                                  |> Option.map (Types.OrderCategory.Nutrition >> OrderContextMapper.Category.ofDomain))
 
                         contribution && category
-                    )
-                )
-
-            testPropertyWithConfig
-                config
-                "mayAdd says yes exactly where admits does"
-                (fun (shape: Shape) ->
-                    let plan = planOf shape
-                    let parsed = SessionStubTests.parsed plan
-
-                    categories
-                    |> List.forall (fun category ->
-                        Informedica.GenPRES.Shared.Models.OrderPlan.mayAdd category plan =
-                            (parsed
-                             |> Domain.admits (OrderPlanMapper.nutritionCategory category)
-                             |> Result.isOk)
                     )
                 )
         ]

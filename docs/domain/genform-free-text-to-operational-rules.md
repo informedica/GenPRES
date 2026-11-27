@@ -222,7 +222,7 @@ GenFORM occupies the **first transformation stage**, responsible for:
 
 GenFORM defines **Patient Categories** (also referred to as "Patient" in rule tables)—these are *types* of patients characterized by demographic ranges (age, weight, BSA, gestational age). A Patient Category is not a specific individual but rather a classification used to determine which rules apply.
 
-In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with a specific **Patient** instance—an actual individual with concrete demographic values. GenORDER matches the Patient's attributes against GenFORM's Patient Categories to select the applicable OKRs.
+In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with the **Patient Data** of one patient: concrete values such as an age and a weight. GenORDER matches the Patient Data against GenFORM's Patient Categories to select the applicable OKRs. Neither GenFORM nor GenORDER knows who the patient is; the Patient Identity stays in the server.
 
 For a specific patient, a matching property like BSA can be calculated from weight and height (e.g., Mosteller: $\mathrm{BSA}(m^2)=\sqrt{(\mathrm{height}_{cm}\cdot\mathrm{weight}_{kg})/3600}$).
 
@@ -331,17 +331,18 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 
 ### Appendix D.2. Reconstitution Rule Model Table
 
-| Object   | Property     | Type      | Unit | Key | Description                                       |
-|----------|--------------|-----------|------|-----|---------------------------------------------------|
-| Generic  | GPK          | text      |      | yes | The unique Generic Product Identifier             |
-| Generic  | Generic      | text      |      |     | The generic medication name                       |
-| Generic  | Form         | text      |      |     | The pharmaceutical form of the generic medication |
-| Route    | Route        | text      |      | yes | The route                                         |
-| Setting  | Location     | text      |      | yes | Hospital / institute / organization               |
-| Setting  | Department   | text      |      | yes | The department                                    |
-| Solution | DiluentVol   | float     | mL   |     | The volume of the diluent                         |
-| Solution | ExpansionVol | float     | mL   |     | The expansion volume                              |
-| Solution | Diluents     | text list |      |     | The possible diluents that can be used            |
+| Object   | Property     | Type      | Unit   | Key | Description                                       |
+|----------|--------------|-----------|--------|-----|---------------------------------------------------|
+| Generic  | GPK          | text      |        | yes | The unique Generic Product Identifier             |
+| Generic  | Generic      | text      |        |     | The generic medication name                       |
+| Generic  | Form         | text      |        |     | The pharmaceutical form of the generic medication |
+| Route    | Route        | text      |        | yes | The route                                         |
+| Setting  | Location     | text      |        | yes | Hospital / institute / organization               |
+| Setting  | Department   | text      |        | yes | The department                                    |
+| Solution | SolventVol   | float     | mL     |     | The volume of the solvent                         |
+| Solution | ExpansionVol | float     | mL     |     | The expansion volume                              |
+| Solution | Solvents     | text list |        |     | The possible solvents that can be used            |
+| Solution | ShelfLife    | float     | minute |     | The shelf life of the reconstituted product       |
 
 ### Appendix D.3. Solution Rule Model Table
 
@@ -351,6 +352,8 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 | Generic                      | Form       | text                                                  |                 | yes | The pharmaceutical form name of the generic medication             |
 | Route                        | Route      | text                                                  |                 | yes | The route                                                          |
 | Indication                   | Indication | text                                                  |                 | yes | The corresponding matching dose rule indication                    |
+| Generic                      | GPKs       | text list                                             |                 | yes | The generic products the rule applies to                           |
+| Generic                      | HPKs       | text list                                             |                 | yes | The trade products the rule applies to                             |
 | DoseType                     | DoseType   | once / onceTimed / discontinuous / timed / continuous |                 | yes | The dosetype                                                       |
 | Administration Access Device | CVL        | boolean                                               |                 | yes | Central Venous Line                                                |
 | Administration Access Device | PVL        | boolean                                               |                 | yes | Peripheral Venous Line                                             |
@@ -362,23 +365,32 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 | Patient                      | MaxWeight  | int                                                   | gram            | yes | The maximum weight                                                 |
 | SolutionRule                 | MinDose    | float                                                 | unit            | yes | The minimum dose                                                   |
 | SolutionRule                 | MaxDose    | float                                                 | unit            | yes | The maximum dose                                                   |
-| SolutionRule                 | Solutions  | text list                                             |                 |     | The possible solutions that can be used                            |
-| SolutionRule                 | Volumes    | float list                                            | mL              |     | The possible volume quantities that can be used                    |
-| SolutionRule                 | MinVol     | float                                                 | mL              |     | The minimum volume                                                 |
-| SolutionRule                 | MaxVol     | float                                                 | mL              |     | The maximum volume                                                 |
-| SolutionRule                 | MinVolAdj  | float                                                 | mL / kg         |     | The minimum allowed solution volume                                |
-| SolutionRule                 | MaxVolAdj  | float                                                 | mL / kg         |     | The maximum allowed solution volume                                |
-| SolutionRule                 | MinDrip    | float                                                 | mL / hour       |     | The minimum allowed infusion rate                                  |
-| SolutionRule                 | MaxDrip    | float                                                 | mL / hour       |     | The maximum allowed infusion rate                                  |
-| SolutionRule                 | MinPerc    | float                                                 | perc            |     | The minimum percentage of the solution to use for the DoseQuantity |
-| SolutionRule                 | MaxPerc    | float                                                 | perc            |     | The maximum percentage of the solution to use for the DoseQuantity |
-| SolutionLimit                | Substance  | text                                                  |                 |     | The substance used for the below fields                            |
-| SolutionLimit                | SubstUnit  | text                                                  |                 |     | The unit to measure the substance                                  |
-| SolutionLimit                | Quantities | float list                                            | subst_unit      |     | The substance quantities that can be used                          |
-| SolutionLimit                | MinQty     | float                                                 | subst_unit      |     | The minimum substance quantity                                     |
-| SolutionLimit                | MaxQty     | float                                                 | subst_unit      |     | The maximum substance quantity                                     |
-| SolutionLimit                | MinConc    | float                                                 | subst_unit / mL |     | The minimum substance concentration                                |
-| SolutionLimit                | MaxConc    | float                                                 | subst_unit / mL |     | The maximum substance concentration                                |
+| SolutionRule                 | Diluents   | text list                                             |                 |     | The possible diluents that can be used                             |
+| SolutionLimit                | Volumes    | float list                                            | mL              |     | The possible volume quantities that can be used                    |
+| SolutionLimit                | MinVol     | float                                                 | mL              |     | The minimum volume                                                 |
+| SolutionLimit                | MaxVol     | float                                                 | mL              |     | The maximum volume                                                 |
+| SolutionLimit                | MinVolAdj  | float                                                 | mL / kg         |     | The minimum allowed solution volume                                |
+| SolutionLimit                | MaxVolAdj  | float                                                 | mL / kg         |     | The maximum allowed solution volume                                |
+| SolutionLimit                | MinDrip    | float                                                 | mL / hour       |     | The minimum allowed infusion rate                                  |
+| SolutionLimit                | MaxDrip    | float                                                 | mL / hour       |     | The maximum allowed infusion rate                                  |
+| SolutionLimit                | MinPerc    | float                                                 | fraction        |     | The minimum fraction of the preparation that makes up one dose     |
+| SolutionLimit                | MaxPerc    | float                                                 | fraction        |     | The maximum fraction of the preparation that makes up one dose     |
+| DilutionLimit                | Substance  | text                                                  |                 |     | The substance used for the below fields                            |
+| DilutionLimit                | SubstUnit  | text                                                  |                 |     | The unit to measure the substance                                  |
+| DilutionLimit                | Quantities | float list                                            | subst_unit      |     | The substance quantities that can be used                          |
+| DilutionLimit                | MinQty     | float                                                 | subst_unit      |     | The minimum substance quantity                                     |
+| DilutionLimit                | MaxQty     | float                                                 | subst_unit      |     | The maximum substance quantity                                     |
+| DilutionLimit                | MinConc    | float                                                 | subst_unit / mL |     | The minimum substance concentration                                |
+| DilutionLimit                | MaxConc    | float                                                 | subst_unit / mL |     | The maximum substance concentration                                |
+| SolutionRule                 | SourceText | text                                                  |                 |     | The original source text the rule is built on                      |
+| SolutionRule                 | ShelfLife  | float                                                 | minute          |     | The shelf life of the prepared solution                            |
+| SolutionRule                 | MinPh      | float                                                 |                 |     | The minimum pH of the prepared solution                            |
+| SolutionRule                 | MaxPh      | float                                                 |                 |     | The maximum pH of the prepared solution                            |
+| SolutionRule                 | CombY      | text list                                             |                 |     | The generics that can be given through the same line               |
+| SolutionRule                 | NonCombY   | text list                                             |                 |     | The generics that cannot be given through the same line            |
+| SolutionRule                 | Notes      | text                                                  |                 |     | Any additional note                                                |
+| SolutionRule                 | PrepText   | text                                                  |                 |     | The preparation instructions                                       |
+| SolutionRule                 | AdminText  | text                                                  |                 |     | The administration instructions                                    |
 
 ### Appendix E.1. Renal Rule Model Figure
 
@@ -413,12 +425,10 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 | Schedule   | RateUnit       | text                                                  |                                            |     | The rate time unit                                                                 |
 | DoseLimit  | MinQty         | float                                                 | count /dose_unit                           |     | The relative or absolute minimum dose quantity (renal adjustment)                  |
 | DoseLimit  | MaxQty         | float                                                 | count /dose_unit                           |     | The relative or absolute maximum dose quantity (renal adjustment)                  |
-| DoseLimit  | NormQtyAdj     | float                                                 | count /dose_unit / adjust_unit             |     | The relative or absolute norm dose patient-adjusted quantity (renal adjustment)    |
 | DoseLimit  | MinQtyAdj      | float                                                 | count /dose_unit / adjust_unit             |     | The relative or absolute minimum dose patient-adjusted quantity (renal adjustment) |
 | DoseLimit  | MaxQtyAdj      | float                                                 | count /dose_unit / adjust_unit             |     | The relative or absolute maximum dose patient-adjusted quantity (renal adjustment) |
 | DoseLimit  | MinPerTime     | float                                                 | count /dose_unit / freq_unit               |     | The relative or absolute minimum dose per time (renal adjustment)                  |
 | DoseLimit  | MaxPerTime     | float                                                 | count /dose_unit / freq_unit               |     | The relative or absolute maximum dose per time (renal adjustment)                  |
-| DoseLimit  | NormPerTimeAdj | float                                                 | count /dose_unit / adjust_unit / freq_unit |     | The relative or absolute norm dose patient-adjusted per time (renal adjustment)    |
 | DoseLimit  | MinPerTimeAdj  | float                                                 | count /dose_unit / adjust_unit / freq_unit |     | The relative or absolute minimum dose patient-adjusted per time (renal adjustment) |
 | DoseLimit  | MaxPerTimeAdj  | float                                                 | count /dose_unit / adjust_unit / freq_unit |     | The relative or absolute maximum dose patient-adjusted per time (renal adjustment) |
 | DoseLimit  | MinRate        | float                                                 | count /dose_unit / rate_unit               |     | The relative or absolute minimum dose rate (renal adjustment)                      |

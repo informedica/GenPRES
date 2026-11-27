@@ -16,7 +16,9 @@
 // Run with: dotnet fsi scripts/CheckDependencyRule.fsx
 // Prototype per the script-only policy in AGENTS.md; no build is required.
 
-#r "nuget: Expecto"
+// Pinned to the Expecto version in paket.lock: an exact version restores from the NuGet
+// packages folder the CI cache restores, where an unpinned reference queries nuget.org on every run.
+#r "nuget: Expecto, 10.2.3"
 #load "DependencyRule.fsx"
 
 open System
@@ -122,12 +124,11 @@ let allowances =
         allowFile "src/Informedica.Utils.Lib/StopWatch.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/Web.fs" utilsSplit
         allowToken "src/Informedica.Utils.Lib/Path.fs" "System.IO" "Permanent: System.IO.Path string helpers only, no filesystem access"
+        allowToken "src/Informedica.Utils.Lib/Xlsx.fs" "System.IO" "Permanent: reads a zip archive from bytes in memory, no filesystem access"
         allowToken "src/Informedica.Utils.Lib/Memoization.fs" "Stopwatch" "Permanent: timing in an example function, no IO"
         // Logging.Lib
         allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
         allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
-        // GenCORE.Lib
-        allowToken "src/Informedica.GenCORE.Lib/Patient.fs" "DateTime.Now" clock
         // GenSOLVER.Lib
         allowToken "src/Informedica.GenSOLVER.Lib/Utils.fs" "Environment.ProcessorCount" chunking
         // GenFORM.Lib
@@ -143,7 +144,9 @@ let allowances =
         allowFile "src/Informedica.GenFORM.Lib/SourceLoader.fs" evict
         allowToken "src/Informedica.GenFORM.Lib/SolutionRule.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "Web." evict
+        allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
+        allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "Memoization.memoize" "prescription rule cache per resource load; moves with the providers to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "File." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Directory." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Environment.CurrentDirectory" "cwd-relative export file write; moves to the adapter project (Phase 2)"
@@ -162,17 +165,16 @@ let contractToken = "GenPRES.Shared"
 
 /// T5: the server files in which a code line may name the contract model, as file-name
 /// globs over `src/Informedica.GenPRES.Server/`: the mappers, the command handlers, the
-/// ports, the composition root, the session service, the compute wrapper, the API
-/// implementation and the host. Every other server file needs a `contractAllowances` entry.
+/// ports, the composition root with the API implementation, the session service, the
+/// compute wrapper and the host. Every other server file needs a `contractAllowances` entry.
 let contractEdgeFiles =
     [
         "ServerApi.Mappers*.fs"
-        "ServerApi.*Command.fs"
+        "ServerApi.Commands.fs"
         "ServerApi.Ports.fs"
         "ServerApi.CompositionRoot.fs"
         "ServerApi.Session.fs"
         "ServerApi.Compute.fs"
-        "ServerApi.ApiImpl.fs"
         "Server.fs"
     ]
 

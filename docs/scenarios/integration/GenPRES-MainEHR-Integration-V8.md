@@ -831,6 +831,8 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
     - Recorded: every launch, honored or refused; every Session opening and ending, with the reason; every Submission, committed or refused, failed PIN entries included; every PIN change; every refused request, anonymous ones by count.  
     - Append-only; who reads it is out of scope (Guarantee 4).
 
+47. Before the PIN of a signature, the User is told when the Patient of the Session is no longer the Patient active in MainEHR: GenPRES Server asks the UserRegistry when it issues the SigningChallenge, and GenPRES Client names the Patient being signed for, when MainEHR gave a name. This does not block the signature, since a User may finish the orders of the previous Patient on purpose, and Rule 8 keeps the record right either way. No answer from the UserRegistry gives no warning. Rule 6 still decides a launch.
+
 ### Guarantees
 
 What the Rules add up to. Derived, not asserted: each holds because the Rules cited enforce it, and none is negotiable without changing a Rule.

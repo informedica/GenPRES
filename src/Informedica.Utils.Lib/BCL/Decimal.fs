@@ -77,12 +77,17 @@ module Decimal =
                 let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
 
-                if int leftPart > 0 then
+                if leftPart <> "0" then
                     p
                 else
                     let rightPart = parts[1]
                     let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
                     zeroCount + p
+
+
+    /// Returns the number of decimals that d is rounded to for n significant digits.
+    /// The number is at most 28, because Math.Round takes at most 28 decimals for a decimal.
+    let roundingDecimals n (d: decimal) = d |> getPrecision n |> min 28
 
 
     /// Fix the precision of a float f to
@@ -99,7 +104,7 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then the value is not changed.
-    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> getPrecision n)
+    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> roundingDecimals n)
 
 
     //----------------------------------------------------------------------------
@@ -128,12 +133,18 @@ module Decimal =
         else
             formattedInteger + "," + decimalPart
 
-    /// Returns a string representation of a decimal in Dutch format without trailing zeros
-    let toStringNumberNLWithoutTrailingZeros =
-        toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
+    /// Formats d as a Dutch number with at least n significant digits and without trailing zeros.
+    /// A negative n prints the number in full, without rounding.
+    /// Example: 0.0666m with n = 2 gives "0,067".
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n d =
+        // a decimal has at most 28 decimals
+        let decimals = if n < 0 then 28 else d |> roundingDecimals n
+
+        d
+        |> fixPrecision n
+        |> toStringNumberNL $"%i{decimals}"
+        |> String.removeTrailingZerosFromDutchNumber
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    /// and with a fixed precision.
-    /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    /// Formats d as a Dutch number with at least 3 significant digits and without trailing zeros.
+    let toStringNumberNLWithoutTrailingZeros d = d |> toStringNumberNLWithoutTrailingZerosFixPrecision 3

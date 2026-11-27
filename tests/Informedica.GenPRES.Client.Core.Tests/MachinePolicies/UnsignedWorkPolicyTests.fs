@@ -17,15 +17,30 @@ module UnsignedWorkPolicyTests =
     open UnsignedWorkPolicy
 
 
-    let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+    let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
     let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
     let context = Informedica.GenPRES.Shared.Models.OrderContext.empty
 
     let prescribing = { context with OrderContext.Filter.Generic = Some "paracetamol" }
 
-    let add = OrderPlanCommand.AddOrderContext(plan, context)
+    /// A TPN slot its rule set narrowed to one order, without a pick.
+    let tpnNarrowed =
+        { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.context "s-1" "TPN" with
+            Category = OrderCategory.Nutrition NutritionCategory.TPN
+        }
+
+    let tpnTwoOrders =
+        { tpnNarrowed with
+            Scenarios =
+                [|
+                    Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario "o-1" "TPN"
+                    Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario "o-2" "TPN"
+                |]
+        }
+
+    let add = OrderPlanCommand.AddOrderContext(plan, context, [||])
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
-    let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
+    let updatePatient = OrderPlanCommand.UpdatePatientData(patient, plan)
     let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)
 
 
@@ -34,8 +49,8 @@ module UnsignedWorkPolicyTests =
             "UpdatePatient", updatePatient, false
             "FilterRows", filterRows, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
-            "Navigate",
-            OrderPlanCommand.Navigate(
+            "EvaluateContext",
+            OrderPlanCommand.EvaluateContext(
                 plan,
                 "c-1",
                 OrderViewCommand.SetNthFilterProperty(Informedica.GenPRES.Shared.Models.OrderContext.Route, 0),
@@ -43,7 +58,6 @@ module UnsignedWorkPolicyTests =
             ),
             true
             "AddOrderContext", add, true
-            "NewOrderContext", OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN), true
             "RemoveOrderContexts", remove, true
         ]
 
@@ -57,30 +71,40 @@ module UnsignedWorkPolicyTests =
                     "hasUnsignedWork"
                     [
                         test "nothing on the workbench, no signature, the plan as signed: no work" {
-                            hasUnsignedWork None SigningView.Idle PlanWork.AsSigned
+                            hasUnsignedWork None [] SigningView.Idle PlanWork.AsSigned
                             |> Expect.isFalse "should be no work"
                         }
 
                         test "a workbench without a generic is no work" {
-                            hasUnsignedWork (Some context) SigningView.Idle PlanWork.AsSigned
+                            hasUnsignedWork (Some context) [] SigningView.Idle PlanWork.AsSigned
                             |> Expect.isFalse "should be no work"
                         }
 
                         test "a medication on the workbench is work" {
-                            hasUnsignedWork (Some prescribing) SigningView.Idle PlanWork.AsSigned
+                            hasUnsignedWork (Some prescribing) [] SigningView.Idle PlanWork.AsSigned
                             |> Expect.isTrue "should be work"
                         }
 
+                        test "a nutrition slot narrowed to one order is work, also without a pick" {
+                            hasUnsignedWork None [ tpnNarrowed ] SigningView.Idle PlanWork.AsSigned
+                            |> Expect.isTrue "should be work"
+                        }
+
+                        test "a nutrition slot with two orders is no work" {
+                            hasUnsignedWork None [ tpnTwoOrders ] SigningView.Idle PlanWork.AsSigned
+                            |> Expect.isFalse "should be no work"
+                        }
+
                         test "a signature under way is work" {
-                            hasUnsignedWork None (SigningView.AskingPin(plan, None)) PlanWork.AsSigned
+                            hasUnsignedWork None [] (SigningView.AskingPin(plan, None)) PlanWork.AsSigned
                             |> Expect.isTrue "should be work"
 
-                            hasUnsignedWork None SigningView.RequestingChallenge PlanWork.AsSigned
+                            hasUnsignedWork None [] SigningView.RequestingChallenge PlanWork.AsSigned
                             |> Expect.isTrue "the challenge asked is work too"
                         }
 
                         test "a plan changed since the version last signed is work" {
-                            hasUnsignedWork None SigningView.Idle PlanWork.Changed
+                            hasUnsignedWork None [] SigningView.Idle PlanWork.Changed
                             |> Expect.isTrue "should be work"
                         }
                     ]

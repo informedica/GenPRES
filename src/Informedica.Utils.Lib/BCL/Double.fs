@@ -49,14 +49,13 @@ module Double =
     let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
 
 
-    /// Get a float Option from a string
+    /// Get the finite float a string holds, read with the float number style and the invariant culture:
+    /// none for a decimal comma, a thousands separator, a currency sign, parentheses, not a number, an
+    /// infinity or an overflow. Spaces around the number are allowed.
     let tryParse (s: string) =
-        let style = NumberStyles.Any
-        let cult = CultureInfo.InvariantCulture
-
-        match Double.TryParse(s, style, cult) with
-        | true, v -> Some v
-        | false, _ -> None
+        match Double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture) with
+        | true, v when Double.IsFinite v -> Some v
+        | _ -> None
 
 
     /// Get a float32 from a string
@@ -109,12 +108,17 @@ module Double =
                 let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
 
-                if int leftPart > 0 then
+                if leftPart <> "0" then
                     p
                 else
                     let rightPart = parts[1]
                     let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
                     zeroCount + p
+
+
+    /// Returns the number of decimals that f is rounded to for n significant digits.
+    /// The number is at most 15, because Math.Round takes at most 15 decimals for a float.
+    let roundingDecimals n (f: float) = f |> getPrecision n |> min 15
 
 
     /// Fix the precision of a float f to
@@ -135,8 +139,8 @@ module Double =
         if n < 0 then
             f
         else
-            let precision = getPrecision n f
-            Math.Round(f, precision)
+            // Adding zero turns a negative zero into zero, so that it does not print as "-0".
+            Math.Round(f, f |> roundingDecimals n) + 0.
 
 
     //----------------------------------------------------------------------------
@@ -184,12 +188,17 @@ module Double =
             formattedInteger + "," + decimalPart
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    let toStringNumberNLWithoutTrailingZeros =
-        toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
+    /// Formats f as a Dutch number with at least n significant digits and without trailing zeros.
+    /// A negative n counts as 15, the most significant digits that a float holds exactly.
+    /// Example: 0.0666 with n = 2 gives "0,067".
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n f =
+        let n = if n < 0 then 15 else n
+
+        f
+        |> fixPrecision n
+        |> toStringNumberNL $"%i{f |> roundingDecimals n}"
+        |> String.removeTrailingZerosFromDutchNumber
 
 
-    /// Returns a string representation of a float in Dutch format without trailing zeros
-    /// and with a fixed precision.
-    /// Example: 0.0666 |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    /// Formats f as a Dutch number with at least 3 significant digits and without trailing zeros.
+    let toStringNumberNLWithoutTrailingZeros f = f |> toStringNumberNLWithoutTrailingZerosFixPrecision 3

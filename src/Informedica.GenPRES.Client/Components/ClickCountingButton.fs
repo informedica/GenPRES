@@ -8,9 +8,9 @@ module ClickCountingButton =
     open Feliz
 
 
-    /// An arrow that steps on each click and repeats while held. It sends nothing itself: the
-    /// field adds up the clicks of all its arrows and sends them as one command. The badge shows
-    /// the clicks the field holds in this arrow's direction.
+    /// A step button that calls onStep on each click and every 150 ms while it is pressed. The
+    /// caller adds up the steps and sends them as one command. The badge shows the count when it
+    /// is above one.
     [<JSX.Component>]
     let View
         (props:

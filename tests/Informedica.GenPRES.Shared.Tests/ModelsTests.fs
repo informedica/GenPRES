@@ -5,7 +5,6 @@ open Expecto.Flip
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
 
-
 [<Tests>]
 let tests =
     testList
@@ -13,7 +12,8 @@ let tests =
         [
             test "a workbench not in the plan has the empty id and is a drug" {
                 OrderContext.empty.Id |> Expect.equal "no id" ""
-                OrderContext.empty.Category |> Expect.equal "a drug" OrderCategory.Drug
+                OrderContext.empty.Category
+                |> Expect.equal "a medication" OrderCategory.Medication
             }
 
         ]
@@ -30,7 +30,7 @@ let planTests =
     let drug = { OrderContext.empty with Id = "c-d" }
 
     testList
-        "OrderPlan.nutritionContexts"
+        "OrderContext.nutritionCategory"
         [
             test "a drug has no nutrition category, a nutrition context its own" {
                 drug |> OrderContext.nutritionCategory |> Expect.equal "a drug" None
@@ -39,80 +39,21 @@ let planTests =
                 |> OrderContext.nutritionCategory
                 |> Expect.equal "tpn" (Some NutritionCategory.TPN)
             }
-
-            test "the nutrition contexts are the ones with a nutrition category" {
-                { OrderPlan.empty with OrderContexts = [| drug; tpn |] }
-                |> OrderPlan.nutritionContexts
-                |> Array.map _.Id
-                |> Expect.equal "the tpn" [| "c-t" |]
-            }
-        ]
-
-
-[<Tests>]
-let mayAddTests =
-    let context id category =
-        { OrderContext.empty with
-            Id = id
-            Category = OrderCategory.Nutrition category
-        }
-
-    let plan contexts = { OrderPlan.empty with OrderContexts = contexts }
-
-    let all =
-        [
-            NutritionCategory.EnteralFeeding
-            NutritionCategory.EnteralSupplement
-            NutritionCategory.TPN
-            NutritionCategory.Lipid
-            NutritionCategory.ElectrolyteGlucose
-        ]
-
-    testList
-        "OrderPlan.mayAdd"
-        [
-            test "an empty plan takes every category but a supplement, which needs a feeding" {
-                all
-                |> List.map (fun c -> plan [||] |> OrderPlan.mayAdd c)
-                |> Expect.equal "feeding, tpn, lipid, electrolyte; no supplement" [ true; false; true; true; true ]
-            }
-
-            test
-                "a feeding, a tpn and a lipid are taken once; a supplement under a feeding and an electrolyte line any number of times" {
-                let full =
-                    plan
-                        [|
-                            context "c-f" NutritionCategory.EnteralFeeding
-                            context "c-s" NutritionCategory.EnteralSupplement
-                            context "c-t" NutritionCategory.TPN
-                            context "c-l" NutritionCategory.Lipid
-                            context "c-e" NutritionCategory.ElectrolyteGlucose
-                        |]
-
-                all
-                |> List.map (fun c -> full |> OrderPlan.mayAdd c)
-                |> Expect.equal "supplement and electrolyte still" [ false; true; false; false; true ]
-            }
-
-            test "a drug context holds no category: the plan takes any nutrition context" {
-                let drugs = plan [| { OrderContext.empty with Id = "c-d" } |]
-
-                all
-                |> List.filter (fun c -> c <> NutritionCategory.EnteralSupplement)
-                |> List.forall (fun c -> drugs |> OrderPlan.mayAdd c)
-                |> Expect.isTrue "every category but the supplement"
-            }
         ]
 
 
 module PatientFixtures =
 
-    let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+    let ten = { PatientData.Age.ageZero with Age.Years = 10<year> }
 
-    let measured (w: int<gram>) (h: int<cm>) (dto: Patient) =
+    /// An age of whole years.
+    let years n = PatientData.Age.create (n * 1<year>) None None None |> Some
+
+
+    let measured (w: int<gram>) (h: int<cm>) (dto: PatientData) =
         { dto with
-            Patient.Weight.Measured = Some w
-            Patient.Height.Measured = Some h
+            PatientData.Weight.Measured = Some w
+            PatientData.Height.Measured = Some h
         }
 
 
@@ -125,114 +66,143 @@ let patientTests =
         "Patient.validate"
         [
             test "an age alone is a patient" {
-                { Patient.empty with Age = Some ten }
-                |> Patient.validate
+                { PatientData.empty with Age = Some ten }
+                |> PatientData.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
             }
 
             test "a measured weight and height without an age is a patient" {
-                Patient.empty
+                PatientData.empty
                 |> measured 32000<gram> 140<cm>
-                |> Patient.validate
+                |> PatientData.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
             }
 
             test "a weight alone is not: the height is needed too" {
-                { Patient.empty with Patient.Weight.Measured = Some 32000<gram> }
-                |> Patient.validate
+                { PatientData.empty with PatientData.Weight.Measured = Some 32000<gram> }
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "an estimated weight and height do not count: the estimate follows an age" {
-                { Patient.empty with
-                    Patient.Weight.Estimated = Some 32000<gram>
-                    Patient.Height.Estimated = Some 140<cm>
+                { PatientData.empty with
+                    PatientData.Weight.Estimated = Some 32000<gram>
+                    PatientData.Height.Estimated = Some 140<cm>
                 }
-                |> Patient.validate
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "the blank draft is not a patient" {
-                Patient.empty
-                |> Patient.validate
+                PatientData.empty
+                |> PatientData.validate
                 |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
             }
 
             test "a patient is the draft unchanged: validate adds nothing" {
                 let dto =
-                    { Patient.empty with
+                    { PatientData.empty with
                         Age = Some ten
                         Department = Some "ICK"
                     }
                     |> measured 32000<gram> 140<cm>
 
-                dto |> Patient.validate |> Expect.equal "the same draft" (Ok dto)
+                dto |> PatientData.validate |> Expect.equal "the same draft" (Ok dto)
+            }
+
+            test "a patient marked as an adult without an age is a patient" {
+                { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
+                |> PatientData.validate
+                |> Result.isOk
+                |> Expect.isTrue "a patient"
             }
         ]
 
 
-module EstimateFixtures =
-
-    let row sex age p3 mean p97 : NormalValue =
-        {
-            Sex = sex
-            Age = age
-            P3 = p3
-            Mean = mean
-            P97 = p97
-        }
-
-    let weights = Some [ row "M" 10. 25. 32. 40. ]
-    let heights = Some [ row "M" 10. 130. 140. 150. ]
-
-    let estimated (dto: Patient) = dto |> Patient.applyNormalValues weights heights None None
-
-
-open EstimateFixtures
+[<Tests>]
+let selectsRulesTests =
+    testList
+        "Patient.selectsRules"
+        [
+            test "the rules are selected for an adult, and for a child with a weight" {
+                [
+                    { PatientData.empty with
+                        Age = years 40
+                        AdultMark = AdultMark.Adult
+                    }
+                    { PatientData.empty with
+                        Age = years 17
+                        AdultMark = AdultMark.MarkableAdult true
+                    }
+                    { PatientData.empty with AdultMark = AdultMark.MarkableAdult true }
+                    { PatientData.empty with
+                        Age = years 5
+                        PatientData.Weight.Estimated = Some 18000<gram>
+                    }
+                    { PatientData.empty with Age = years 5 }
+                    { PatientData.empty with Age = years 17 }
+                ]
+                |> List.map PatientData.selectsRules
+                |> Expect.equal "adults and a child with a weight" [ true; true; true; true; false; false ]
+            }
+        ]
 
 
 [<Tests>]
-let estimateTests =
+let sameValuesTests =
+    let options =
+        {
+            Weights = [| 12000<gram> |]
+            Heights = [| 90<cm> |]
+            Years = [ 0<year>; 1<year> ]
+            Months = [ 0<month> ]
+            Weeks = [ 0<week> ]
+            Days = [ 0<day> ]
+            GestationalWeeks = [ 37<week> ]
+            GestationalDays = [ 0<day> ]
+            EGFRBands = []
+            Dialyses = [ IntermittentHemodialysis ]
+        }
+
+    let child = { PatientData.empty with Age = years 2 }
+
     testList
-        "the estimate stays an estimate"
+        "PatientData.sameValues"
         [
-            test "nothing measured: the estimate is written, the measured value stays empty" {
-                let dto =
-                    { Patient.empty with
-                        Age = Some ten
-                        Gender = Male
+            test "patient data with and without options have the same values" {
+                PatientData.sameValues child { child with Options = Some options }
+                |> Expect.isTrue "the same values"
+            }
+
+            test "patient data with another age do not have the same values" {
+                PatientData.sameValues
+                    child
+                    { child with
+                        Age = years 3
+                        Options = Some options
                     }
-                    |> estimated
-
-                (dto.Weight.Estimated, dto.Weight.Measured, dto.Height.Estimated, dto.Height.Measured)
-                |> Expect.equal "estimated, not measured" (Some 32000<gram>, None, Some 140<cm>, None)
+                |> Expect.isFalse "another age"
             }
+        ]
 
-            test "a measured weight survives the estimate" {
-                let dto =
-                    { Patient.empty with
-                        Age = Some ten
-                        Gender = Male
-                        Patient.Weight.Measured = Some 30000<gram>
-                    }
-                    |> estimated
 
-                (dto.Weight.Measured, dto.Weight.Estimated)
-                |> Expect.equal "both, apart" (Some 30000<gram>, Some 32000<gram>)
+[<Tests>]
+let isAdultTests =
+    testList
+        "Patient.isAdult"
+        [
+            test "an adult by the mark: from 18 years, or marked by the user" {
+                [
+                    AdultMark.NotAdult
+                    AdultMark.MarkableAdult false
+                    AdultMark.MarkableAdult true
+                    AdultMark.Adult
+                ]
+                |> List.map (fun mark -> { PatientData.empty with AdultMark = mark } |> PatientData.isAdult)
+                |> Expect.equal "the adults" [ false; false; true; true ]
             }
-
-            test "the readers fall back to the estimate, so what is calculated does not change" {
-                { Patient.empty with
-                    Age = Some ten
-                    Gender = Male
-                }
-                |> estimated
-                |> fun dto -> dto |> Patient.getWeight, dto |> Patient.getHeight
-                |> Expect.equal "the estimate" (Some 32000<gram>, Some 140<cm>)
-            }
-
         ]
 
 
@@ -384,153 +354,131 @@ let cascadeTests =
         ]
 
 
-module NeonatalEstimateFixtures =
-
-    /// The neonatal tables, in weeks of post-conceptional age, reaching to 42 weeks as the
-    /// sheet does.
-    let neoWeights = Some [ row "M" 40. 2800. 3500. 4200.; row "M" 42. 3000. 3700. 4500. ]
-
-    let neoHeights = Some [ row "M" 40. 48. 50. 53.; row "M" 42. 50. 52. 55. ]
-
-    let estimated (dto: Patient) =
-        dto |> Patient.applyNormalValues weights heights neoWeights neoHeights
-
-
-    let term: GestAge =
-        {
-            Weeks = 40<week>
-            Days = 0<day>
-        }
-
-    let premature: GestAge =
-        {
-            Weeks = 30<week>
-            Days = 0<day>
-        }
-
-
 [<Tests>]
-let neonatalEstimateTests =
-    testList
-        "the neonatal tables answer while they reach"
+let gestationalAgeTests =
+    let awd w d : AgeWeeksDays =
+        {
+            Weeks = w * 1<week>
+            Days = d * 1<day>
+        }
+    let ga30 = awd 30 0
+
+    let all =
         [
-            test "a term newborn one week old is estimated from the neonatal tables" {
-                { Patient.empty with
-                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
-                    Gender = Male
-                }
-                |> NeonatalEstimateFixtures.estimated
-                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
-                |> Expect.equal "41 weeks post-conceptional: the 40-week row" (Some 3500<gram>, Some 50<cm>)
+            GestationalAge.NoGestationalAge
+            GestationalAge.OptionalGestationalAge None
+            GestationalAge.OptionalGestationalAge(Some ga30)
+            GestationalAge.RequiredGestationalAge None
+            GestationalAge.RequiredGestationalAge(Some ga30)
+        ]
+
+    testList
+        "the gestational age"
+        [
+            test "the value, given or not" {
+                all
+                |> List.map GestationalAge.value
+                |> Expect.equal "the values" [ None; None; Some ga30; None; Some ga30 ]
             }
 
-            test "an infant of six months with a gestational age is estimated from the age tables" {
-                { Patient.empty with
-                    Age = Some { Patient.Age.ageZero with Months = 6<month> }
-                    GestationalAge = Some NeonatalEstimateFixtures.premature
-                    Gender = Male
-                }
-                |> NeonatalEstimateFixtures.estimated
-                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
-                |> Expect.equal
-                    "past 42 weeks: the age tables, not the last neonatal row"
-                    (Some 32000<gram>, Some 140<cm>)
+            test "the gestational age may be given, except when there is none to give" {
+                all
+                |> List.map GestationalAge.mayBeGiven
+                |> Expect.equal "may be given" [ false; true; true; true; true ]
             }
 
-            test "each table is judged by its own reach: a neonatal weight is kept when the height table is missing" {
-                { Patient.empty with
-                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
-                    Gender = Male
-                }
-                |> Patient.applyNormalValues weights heights NeonatalEstimateFixtures.neoWeights None
-                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
-                |> Expect.equal "neonatal weight, age-table height" (Some 3500<gram>, Some 140<cm>)
-            }
-
-            test "a neonatal table with no row for the sex answers nothing, and the age table does" {
-                { Patient.empty with
-                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
-                    Gender = Female
-                }
-                |> Patient.applyNormalValues
-                    (Some [ row "F" 10. 25. 30. 40. ])
-                    heights
-                    NeonatalEstimateFixtures.neoWeights
-                    NeonatalEstimateFixtures.neoHeights
-                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
-                |> Expect.equal
-                    "male-only neonatal tables: the age table for her, no height row at all"
-                    (Some 30000<gram>, None)
-            }
-
-            test "without the neonatal tables a newborn is estimated from the age tables" {
-                { Patient.empty with
-                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
-                    Gender = Male
-                }
-                |> estimated
-                |> _.Weight.Estimated
-                |> Expect.equal "the age tables" (Some 32000<gram>)
+            test "the gestational age is missing only when it is needed and not given" {
+                all
+                |> List.map GestationalAge.isMissing
+                |> Expect.equal "missing" [ false; false; false; true; false ]
             }
         ]
 
 
-module RowFixtures =
-
-    /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
-    /// centimetres, a girl eleven and 86.
-    let rows: Map<string, string[][]> =
-        Map
-            [
-                "weight",
-                [|
-                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
-                    [| "M"; "2"; "10"; "12"; "14" |]
-                    [| "F"; "2"; "9"; "11"; "13" |]
-                |]
-                "height",
-                [|
-                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
-                    [| "M"; "2"; "80"; "87"; "94" |]
-                    [| "F"; "2"; "79"; "86"; "93" |]
-                |]
-            ]
-
-
-open RowFixtures
-
-
+/// A choice that decides the dose rule lets go of the components of the dose rule, as the domain's change
+/// and seed do; the next scenario sets them again.
 [<Tests>]
-let normalValuesOfRowsTests =
+let doseRuleComponentsTests =
+    let additives = [| "NaCl 3%"; "KCl 7,4%" |]
+    let names = [| "Samenstelling C"; "NaCl 3%"; "KCl 7,4%"; "gluc 10%" |]
+
+    let first =
+        { OrderContext.empty with
+            Filter =
+                { OrderContext.filter with
+                    Generic = Some "Samenstelling C"
+                    Components = additives
+                    DoseRuleComponents = names
+                    SelectedComponents = ComponentSelection.Selected [ "KCl 7,4%" ]
+                }
+        }
+
+    let components (ctx: OrderContext) =
+        ctx.Filter.Components, ctx.Filter.DoseRuleComponents, ctx.Filter.SelectedComponents
+
+    let none = [||], [||], ComponentSelection.AllComponents
+
     testList
-        "the tables from the rows"
+        "the components of the dose rule after another dose rule is picked"
         [
-            test "each sheet parses to its table, a sheet absent giving an empty one" {
-                let nv = rows |> NormalValues.ofRows
-
-                (nv.Weights |> List.length, nv.Heights |> List.length, nv.NeoWeights, nv.NeoHeights)
-                |> Expect.equal "two rows each, no neonatal tables" (2, 2, [], [])
-
-                nv.Weights
-                |> List.find (fun r -> r.Sex = "M")
-                |> Expect.equal "the boy's row" (NormalValues.create "M" 2. 10. 12. 14.)
+            test "a dose type picked lets go of them" {
+                first
+                |> OrderContext.doseTypeChange (Some(DoseType.Once "dag 3"))
+                |> components
+                |> Expect.equal "emptied" none
             }
 
-            test "the tables applied are the estimate the panel shows" {
-                let pat =
-                    { Patient.empty with
-                        Age = Some(Patient.Age.fromDays 730)
-                        Gender = Male
-                    }
-                    |> NormalValues.apply (rows |> NormalValues.ofRows)
+            test "a medication emptied lets go of them" {
+                first
+                |> OrderContext.medicationChange None
+                |> components
+                |> Expect.equal "emptied" none
+            }
 
-                (pat.Weight.Estimated, pat.Height.Estimated, pat.Weight.Measured)
-                |> Expect.equal
-                    "twelve kilograms, 87 centimetres, nothing measured"
-                    (Some 12000<gram>, Some 87<cm>, None)
+            test "the same dose type keeps them" {
+                let held = { first with OrderContext.Filter.DoseType = Some(DoseType.Once "dag 2") }
+
+                held
+                |> OrderContext.doseTypeChange (Some(DoseType.Once "dag 2"))
+                |> components
+                |> Expect.equal "kept" (components held)
+            }
+
+            test "a diluent picked keeps them" {
+                first
+                |> OrderContext.diluentChange (Some "gluc 20%")
+                |> components
+                |> Expect.equal "kept" (components first)
+            }
+
+            test "a seed of another medication from the formulary lets go of them" {
+                first
+                |> OrderContext.seedFilter SeedSource.Formulary None (Some "Intralipid 20%") None None None
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same medication with another dose type lets go of them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter
+                    SeedSource.Formulary
+                    f.Indication
+                    f.Generic
+                    f.Route
+                    f.Form
+                    (Some(DoseType.Once "dag 3"))
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same picks keeps them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter SeedSource.Url f.Indication f.Generic f.Route f.Form f.DoseType
+                |> components
+                |> Expect.equal "kept" (components first)
             }
         ]

@@ -129,8 +129,13 @@ module Solver =
                     // need to calculate a result first to enable tail call optimization
                     let q, r =
                         // An equation that cannot change is put on the accumulated equations,
-                        // unless its variables are all solved: then it is evaluated
-                        if eq |> Equation.isSolvable |> not && eq |> Equation.isSolved |> not then
+                        // unless its variables are all solved: then it is evaluated. A sum with
+                        // mismatched units always goes to the solve, which returns the unit mismatch error
+                        if
+                            eq |> Equation.isSolvable |> not
+                            && eq |> Equation.isSolved |> not
+                            && eq |> Equation.hasSumUnitMismatch |> not
+                        then
                             tail, [ eq ] |> List.append acc |> Ok
                         // Else go solve the equation
                         else

@@ -1,19 +1,13 @@
 /// <summary>
-/// The browser key pair of the launch: a non-extractable ECDSA P-256 signing key made at the
-/// launch, whose private key stays in IndexedDB under the public key's RFC 7638 thumbprint and
-/// whose public key goes to the server with the Launch. The server stores the public key in
-/// the SessionRecord and answers the thumbprint; <c>keep</c> then prunes the private keys of
-/// earlier launches once they are older than the grace period. Signing every request with it
-/// (launch step 7, DPoP) comes later; the key is made now so the SessionRecord already holds it.
+/// The browser key pair of a launch, a non-extractable ECDSA P-256 key pair. The private key stays in
+/// IndexedDB under the RFC 7638 thumbprint of the public key; the public key goes to the server with the
+/// launch, and the server stores it in the SessionRecord.
 /// </summary>
 /// <remarks>
-/// WebCrypto and IndexedDB are promise- and event-based browser APIs, so the interop is one
-/// JavaScript literal (the pattern of <c>themeDef</c> in App.fs) with thin typed F# wrappers.
-/// Keys are kept per thumbprint, not as a single entry, so a second launch in another tab
-/// that is refused cannot take away the key of the first tab's open Session. Pruning is by
-/// age, not by identity: <c>keep</c> deletes only keys older than the Launch lifetime, so two
-/// launches racing in two tabs cannot delete each other's fresh key and leave
-/// the winning Session unable to sign. The loser's key lingers until the next launch prunes it.
+/// WebCrypto and IndexedDB are promise- and event-based browser APIs, so the interop is one JavaScript
+/// literal with thin typed F# wrappers. Keys are stored per thumbprint, so a refused launch in another tab
+/// cannot remove the key of the open Session in the first tab. <c>keep</c> deletes only keys older than the
+/// grace period, so two launches racing in two tabs cannot delete each other's new key.
 /// </remarks>
 module Keys
 
@@ -106,8 +100,8 @@ let private keysDef =
 """
 
 
-// emitJsExpr, not an Emit attribute on a jsNative value: the attribute form is inlined at
-// every use, which would run the literal's IIFE per call; this is evaluated once on load
+// emitJsExpr evaluates the literal once on load. An Emit attribute on a jsNative value is inlined at
+// every use and would run the function in the literal on every call.
 let private keys: obj = emitJsExpr () keysDef
 
 
@@ -115,16 +109,16 @@ let private keys: obj = emitJsExpr () keysDef
 let private settle (promise: JS.Promise<'T>) (resolved: 'T -> unit) (rejected: obj -> unit) : unit = jsNative
 
 
-/// A promise as an Async, so the callers fit Cmd.fromAsync; a rejection becomes an exception
-/// carrying the rejection's text.
+/// Converts a promise to an Async, so the callers fit Cmd.fromAsync; a rejection raises an exception
+/// with the rejection text.
 let private await (promise: JS.Promise<'T>) : Async<'T> =
     Async.FromContinuations(fun (cont, econt, _) ->
         settle promise cont (fun reason -> econt (System.Exception(string reason)))
     )
 
 
-/// Creates the key pair of this launch: the private key, not extractable, goes into IndexedDB
-/// under the public key's thumbprint; the public key comes back as JWK text.
+/// Creates the key pair of this launch. Stores the non-extractable private key in IndexedDB under the
+/// thumbprint of the public key, and returns the public key as JWK text.
 let generate () : Async<PublicKey> =
     async {
         let! json = keys?generate () |> await
@@ -136,10 +130,9 @@ let generate () : Async<PublicKey> =
 let thumbprint (PublicKey json) : Async<string> = keys?thumbprint json |> await
 
 
-/// Deletes the stored private keys of earlier launches: every key except this one and those
-/// younger than the Launch lifetime. Called when a Session opens with this key. A key made by
-/// a launch racing in another tab is left alone; if that launch won, its key is the one its
-/// Session signs with, and this one is pruned by a later launch.
+/// Deletes every stored private key except the key with this thumbprint and the keys younger than the
+/// grace period, the Launch lifetime with a margin. Called when a Session opens with this key. A new key
+/// of a launch in another tab is left alone; a later launch deletes it when it is older.
 let keep (thumbprint: string) : Async<unit> = keys?keep thumbprint |> await
 
 

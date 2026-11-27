@@ -1,48 +1,36 @@
 namespace Informedica.GenPRES.Client.Core.Tests.Policies
 
 
-/// What an order context in the order plan can change and when, and the differences the sign
-/// dialog lists.
+/// What an order context in the order plan can change and when.
 module PlanContextPolicyTests =
 
+    open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.Tests
 
     open Expecto
     open Expecto.Flip
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
     open Informedica.GenPRES.Shared.Types
-    open HeldContextPolicy
 
 
     /// An OrderScenario with its order id and its name set, every other field a default.
     let scenario = OrderFixtures.scenario
 
 
-    let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
-    let eleven = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 11<year> }
-    let patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    let ten = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 10<year> }
+    let eleven = { Informedica.GenPRES.Shared.Models.PatientData.Age.ageZero with Age.Years = 11<year> }
+    let patient = { Informedica.GenPRES.Shared.Models.PatientData.empty with Age = Some ten }
 
     let context id name =
         { Informedica.GenPRES.Shared.Models.OrderContext.empty with
             Id = id
-            Patient = patient
+            PatientData = patient
             Scenarios = [| scenario $"o-{id}" name |]
         }
 
     let plan contexts =
         Informedica.GenPRES.Shared.Models.OrderPlan.create patient contexts
-
-    /// One value in a unit, as an order variable holds it once it is solved.
-    let valueIn (json: string) (v: decimal) =
-        Some
-            {
-                Value = [| $"%M{v}", v |]
-                Unit = "x/dag"
-                Group = ""
-                Short = true
-                Language = ""
-                Json = json
-            }
 
     let valueOf = valueIn "x/day"
 
@@ -64,7 +52,6 @@ module PlanContextPolicyTests =
         withOrder (fun o -> { o with Order.Orderable.OrderableQuantity.Variable.Vals = valueOf v })
 
     /// The plan of the context, its patient data the context's own changed by f.
-    let planWithPatient (f: Patient -> Patient) (ctx: OrderContext) = { plan [| ctx |] with Patient = f ctx.Patient }
 
     let para = context "c1" "paracetamol"
     let morf = context "c2" "morfine"
@@ -78,9 +65,6 @@ module PlanContextPolicyTests =
         }
 
     let opened = [| para; morf |]
-
-    let kinds (ds: (OrderContext * Difference)[]) = ds |> Array.map (fun (c, d) -> c.Id, d)
-
 
     [<Tests>]
     let planContextTests =
@@ -104,95 +88,37 @@ module PlanContextPolicyTests =
                     ]
 
                 testList
-                    "matches"
-                    [
-                        test "equal patient data match" {
-                            PlanContextPolicy.matches (plan [| para |]) para
-                            |> Expect.isTrue "the context was calculated with the plan's patient"
-                        }
-
-                        test "only the age different still matches" {
-                            let older = para |> planWithPatient (fun p -> { p with Age = Some eleven })
-
-                            PlanContextPolicy.matches older para |> Expect.isTrue "the age is left out"
-                        }
-
-                        test "a different estimate beside a measured value still matches" {
-                            let measured =
-                                { para with
-                                    Patient =
-                                        { patient with
-                                            Weight = { patient.Weight with Measured = Some 30000<gram> }
-                                            Height = { patient.Height with Measured = Some 135<cm> }
-                                        }
-                                }
-
-                            let estimated =
-                                measured
-                                |> planWithPatient (fun p ->
-                                    { p with
-                                        Weight = { p.Weight with Estimated = Some 35000<gram> }
-                                        Height = { p.Height with Estimated = Some 140<cm> }
-                                    }
-                                )
-
-                            PlanContextPolicy.matches estimated measured
-                            |> Expect.isTrue "the doses rest on the measured values"
-                        }
-
-                        test "a different estimated weight without a measured one locks" {
-                            let estimated =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with Weight = { p.Weight with Estimated = Some 35000<gram> } }
-                                )
-
-                            PlanContextPolicy.locked estimated para
-                            |> Expect.isTrue "the doses rest on the estimated weight"
-                        }
-
-                        test "different P3 and P97 estimates still match" {
-                            let bounds =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with
-                                        Weight =
-                                            { p.Weight with
-                                                EstimatedP3 = Some 25000<gram>
-                                                EstimatedP97 = Some 45000<gram>
-                                            }
-                                    }
-                                )
-
-                            PlanContextPolicy.matches bounds para |> Expect.isTrue "no dose rests on them"
-                        }
-
-                        test "a different weight locks" {
-                            let heavier =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with Weight = { p.Weight with Measured = Some 30000<gram> } }
-                                )
-
-                            PlanContextPolicy.locked heavier para |> Expect.isTrue "the weight counts"
-                        }
-
-                        test "a different department locks" {
-                            let moved = para |> planWithPatient (fun p -> { p with Department = Some "ICK" })
-
-                            PlanContextPolicy.locked moved para |> Expect.isTrue "the department counts"
-                        }
-
-                        test "a different access locks" {
-                            let access = para |> planWithPatient (fun p -> { p with Access = [ CVL ] })
-
-                            PlanContextPolicy.locked access para |> Expect.isTrue "the access counts"
-                        }
-                    ]
-
-                testList
                     "changed"
                     [
+                        test "an order that could not be calculated is locked, and shows as changed" {
+                            let order = para
+
+                            let marked =
+                                { order with
+                                    Scenarios =
+                                        order.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
+                                }
+
+                            PlanContextPolicy.locked (plan [| order |]) order
+                            |> Expect.isFalse "an order calculated"
+                            PlanContextPolicy.locked (plan [| marked |]) marked
+                            |> Expect.isTrue "an order not calculated"
+
+                            PlanContextPolicy.editingOf (plan [| order |]) order.Id
+                            |> Expect.equal
+                                "the plan context rule"
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
+
+                            PlanContextPolicy.editingOf (plan [| marked |]) marked.Id
+                            |> Expect.equal "read-only" PlanContextPolicy.Editing.Locked
+
+                            PlanContextPolicy.changed order marked |> Expect.isTrue "the mark is a change"
+                            PlanContextPolicy.canEdit PlanContextPolicy.Editing.Locked "x"
+                            |> Expect.isFalse "no field"
+                            PlanContextPolicy.argues PlanContextPolicy.Editing.Locked
+                            |> Expect.isFalse "no argumentation"
+                        }
+
                         test "an unchanged context is not changed" {
                             PlanContextPolicy.changed para para |> Expect.isFalse "nothing differs"
                         }
@@ -212,6 +138,69 @@ module PlanContextPolicyTests =
                             |> Expect.isTrue "the dose rate is editable"
                         }
 
+                        testList
+                            "a dose per kg moved by new patient data, the given amount the same"
+                            [
+                                let onItem v =
+                                    withOrder (fun o ->
+                                        let dose = (defaultFor<Dose>())
+                                        let item =
+                                            { defaultFor<Item>() with
+                                                Dose = { dose with QuantityAdjust.Variable.Vals = valueIn "mg/kg" v }
+                                            }
+
+                                        { o with
+                                            Order.Orderable.Components =
+                                                [| { defaultFor<Component>() with Items = [| item |] } |]
+                                        }
+                                    )
+
+                                let onComponent v =
+                                    withOrder (fun o ->
+                                        let dose = (defaultFor<Dose>())
+
+                                        { o with
+                                            Order.Orderable.Components =
+                                                [|
+                                                    { defaultFor<Component>() with
+                                                        Dose =
+                                                            { dose with
+                                                                QuantityAdjust.Variable.Vals = valueIn "mg/kg" v
+                                                            }
+                                                    }
+                                                |]
+                                        }
+                                    )
+
+                                for name, perKg in [ "on an item", onItem; "on a component", onComponent ] do
+                                    test name {
+                                        let signed = para |> withDoseQuantity 150m |> perKg 10m
+
+                                        PlanContextPolicy.changed signed (signed |> perKg 7.5m)
+                                        |> Expect.isTrue "10 mg/kg is now 7.5 mg/kg"
+
+                                        PlanContextPolicy.changed signed (signed |> perKg 10m)
+                                        |> Expect.isFalse "corrected back"
+                                    }
+                            ]
+
+                        test "a new notification changes it, no dose moved" {
+                            para
+                            |> withOrder (fun o -> { o with Order.Orderable.Dose.Quantity.Level = IsAlert })
+                            |> PlanContextPolicy.changed para
+                            |> Expect.isTrue "the alert is new"
+                        }
+
+                        test "the rules no longer applying changes it" {
+                            let noticed =
+                                { para with
+                                    Scenarios =
+                                        para.Scenarios |> Array.map (fun sc -> { sc with RulesNoLongerApply = true })
+                                }
+
+                            PlanContextPolicy.changed para noticed |> Expect.isTrue "the notice is new"
+                        }
+
                         test "the argumentation alone changes it" {
                             PlanContextPolicy.changed para { para with Argumentation = Some "sepsis" }
                             |> Expect.isTrue "the argumentation is signed"
@@ -225,10 +214,10 @@ module PlanContextPolicyTests =
                         test "an intake difference alone does not change it" {
                             let intake =
                                 { Informedica.GenPRES.Shared.Models.Totals.empty with
-                                    Volume = [| TextItem.Normal "10 mL" |]
+                                    Volume = Some(Valid [| TextItem.Normal "10 mL" |])
                                 }
 
-                            PlanContextPolicy.changed para { para with Intake = intake }
+                            PlanContextPolicy.changed para { para with Totals = intake }
                             |> Expect.isFalse "the intake is no change to an order in the plan"
                         }
 
@@ -285,104 +274,6 @@ module PlanContextPolicyTests =
 
 
     [<Tests>]
-    let differenceTests =
-        testList
-            "HeldContextPolicy.differences"
-            [
-                test "an unchanged plan has no differences" {
-                    differences opened (plan opened)
-                    |> Expect.isEmpty "nothing new, changed or removed"
-                }
-
-                test "a new, a changed and a removed context, in plan order then removed" {
-                    differences opened (plan [| amox; para |> withFrequency 3m |])
-                    |> kinds
-                    |> Expect.equal
-                        "new and changed in plan order, then removed"
-                        [| "c3", Difference.New; "c1", Difference.Changed; "c2", Difference.Removed |]
-                }
-
-                test "a removed row carries the opened context" {
-                    differences opened (plan [| para |])
-                    |> Array.map fst
-                    |> Expect.equal "the context as opened" [| morf |]
-                }
-
-                test "on no version every context is new" {
-                    differences [||] (plan opened)
-                    |> kinds
-                    |> Expect.equal "all new, in plan order" [| "c1", Difference.New; "c2", Difference.New |]
-                }
-
-                test "a new context that contributes no order is left out" {
-                    differences opened (plan [| para; morf; tpn |])
-                    |> Expect.isEmpty "nothing to list yet"
-                }
-
-                test "a context of the version that contributed no order is left out" {
-                    differences [| para; morf; tpn |] (plan [| para; morf |])
-                    |> Expect.isEmpty "it was never listed, so it is not removed"
-                }
-
-                test "a context of the version narrowed since is new" {
-                    let narrowed = { tpn with Scenarios = [| scenario "o-c4" "tpn" |] }
-
-                    differences [| para; tpn |] (plan [| para; narrowed |])
-                    |> kinds
-                    |> Expect.equal "its order enters the plan now" [| "c4", Difference.New |]
-                }
-
-                test "a filter difference alone is held and no difference" {
-                    let filtered = { para with OrderContext.Filter.Indication = Some "pijn" }
-
-                    let now = plan [| filtered; morf |]
-
-                    (changed opened now, differences opened now)
-                    |> Expect.equal
-                        "the held rule sees the whole context, the difference rule the order"
-                        ([| "c1" |], [||])
-                }
-
-                test "another medication in the same context is a change" {
-                    differences opened (plan [| para |> withOrder (fun o -> { o with Id = "o-other" }); morf |])
-                    |> kinds
-                    |> Expect.equal "the context is changed" [| "c1", Difference.Changed |]
-                }
-
-                test "the argumentation alone is a change" {
-                    differences opened (plan [| { para with Argumentation = Some "sepsis" }; morf |])
-                    |> kinds
-                    |> Expect.equal "the context is changed" [| "c1", Difference.Changed |]
-                }
-
-                test "a change of the plan's filtered rows or totals alone is no change" {
-                    let now =
-                        { plan opened with
-                            Filtered = [| "c1" |]
-                            Totals =
-                                { Informedica.GenPRES.Shared.Models.Totals.empty with
-                                    Volume = [| TextItem.Normal "10 mL" |]
-                                }
-                        }
-
-                    differences opened now
-                    |> Expect.isEmpty "the rows shown and the totals are no order"
-                }
-
-                test "every context marked new or changed is held" {
-                    let now = plan [| amox; para |> withDoseRate 2m; morf |]
-
-                    let held = changed opened now
-
-                    differences opened now
-                    |> Array.filter (fun (_, d) -> d <> Difference.Removed)
-                    |> Array.forall (fun (c, _) -> held |> Array.contains c.Id)
-                    |> Expect.isTrue "the held rule sees each of them"
-                }
-            ]
-
-
-    [<Tests>]
     let editingTests =
         testList
             "PlanContextPolicy editing"
@@ -394,12 +285,21 @@ module PlanContextPolicyTests =
                             [
                                 PlanContextPolicy.Editing.Workbench, "substDoseQty", true
                                 PlanContextPolicy.Editing.Workbench, "compOrdQty", true
-                                PlanContextPolicy.Editing.PlanContext, "frequency", true
-                                PlanContextPolicy.Editing.PlanContext, "ordDoseQty", true
-                                PlanContextPolicy.Editing.PlanContext, "ordDoseRate", true
-                                PlanContextPolicy.Editing.PlanContext, "compOrdQty", false
-                                PlanContextPolicy.Editing.PlanContext, "substDoseQty", false
-                                PlanContextPolicy.Editing.Locked, "frequency", false
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "frequency",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "ordDoseQty",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "ordDoseRate",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "compOrdQty",
+                                false
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "substDoseQty",
+                                false
                             ] do
                             test $"%A{editing} edits %s{key}: %b{exp}" {
                                 PlanContextPolicy.canEdit editing key |> Expect.equal "as the rule says" exp
@@ -414,37 +314,142 @@ module PlanContextPolicyTests =
                 test "Reset on the workbench alone" {
                     [
                         PlanContextPolicy.Editing.Workbench
-                        PlanContextPolicy.Editing.PlanContext
-                        PlanContextPolicy.Editing.Locked
+                        (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
                     ]
                     |> List.map PlanContextPolicy.resets
-                    |> Expect.equal "only the workbench resets" [ true; false; false ]
+                    |> Expect.equal "only the workbench resets" [ true; false ]
+                }
+            ]
+
+
+    /// Breast milk with the fortifier Nutrilon Nenatal BMF pdr linked to it, which the LinkRules sheet links
+    /// with MainGeneric MM and Required yes, a second supplement Fantomalt linked to the same feeding, the
+    /// morning and midday dose of ataluren with its evening dose linked, and paracetamol, linked to nothing.
+    module LinkFixtures =
+
+        let linked id name linkedTo = { context id name with LinkedTo = linkedTo }
+
+
+        /// The context as it stands when it could not be calculated on the current patient data.
+        let notCalculated (ctx: OrderContext) =
+            { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+
+        let breastMilk = linked "c-1" "MM" None
+        let fortifier = linked "c-2" "Nutrilon Nenatal BMF pdr" (Some "c-1")
+        let fantomalt = linked "c-3" "Fantomalt" (Some "c-1")
+        let paracetamol = linked "c-4" "paracetamol" None
+        let atalurenMain = linked "c-5" "ataluren" None
+        let atalurenEvening = linked "c-6" "ataluren" (Some "c-5")
+
+
+        /// The plan with every order calculated.
+        let calculated =
+            [|
+                breastMilk
+                fortifier
+                fantomalt
+                paracetamol
+                atalurenMain
+                atalurenEvening
+            |]
+
+
+        /// The plan with the context with the id not calculated.
+        let withNotCalculated id =
+            calculated
+            |> Array.map (fun c -> if c.Id = id then notCalculated c else c)
+            |> plan
+
+
+        /// The context with the id in the plan.
+        let find id (tp: OrderPlan) = tp.OrderContexts |> Array.find (fun c -> c.Id = id)
+
+
+    open LinkFixtures
+    open Informedica.GenPRES.Client.Core.StateMachines.OrderPlanMachine
+
+
+    [<Tests>]
+    let groupLockTests =
+        testList
+            "PlanContextPolicy group lock"
+            [
+                test "a supplement not calculated locks its feeding and the other supplement of the feeding" {
+                    let tp = withNotCalculated "c-2"
+
+                    [ "c-1"; "c-2"; "c-3"; "c-4"; "c-5"; "c-6" ]
+                    |> List.map (fun id -> id, PlanContextPolicy.lock tp (find id tp))
+                    |> Expect.equal
+                        "the group of breast milk locked, the rest not"
+                        [
+                            "c-1", PlanContextPolicy.Lock.Group
+                            "c-2", PlanContextPolicy.Lock.NotCalculated
+                            "c-3", PlanContextPolicy.Lock.Group
+                            "c-4", PlanContextPolicy.Lock.Unlocked
+                            "c-5", PlanContextPolicy.Lock.Unlocked
+                            "c-6", PlanContextPolicy.Lock.Unlocked
+                        ]
                 }
 
-                test "the argumentation everywhere but a locked context" {
-                    [
-                        PlanContextPolicy.Editing.Workbench
-                        PlanContextPolicy.Editing.PlanContext
-                        PlanContextPolicy.Editing.Locked
-                    ]
-                    |> List.map PlanContextPolicy.argues
-                    |> Expect.equal "a locked context commits nothing" [ true; true; false ]
+                test "a feeding not calculated locks the supplements linked to it" {
+                    let tp = withNotCalculated "c-1"
+
+                    [ "c-2"; "c-3" ]
+                    |> List.map (fun id -> PlanContextPolicy.lock tp (find id tp))
+                    |> Expect.equal "both by the group" [ PlanContextPolicy.Lock.Group; PlanContextPolicy.Lock.Group ]
                 }
 
-                test "a context with the plan's patient data follows the plan context rule" {
-                    PlanContextPolicy.editingOf (plan [| para |]) para.Id
-                    |> Expect.equal "not locked" PlanContextPolicy.Editing.PlanContext
+                test "the evening dose of ataluren not calculated locks the morning and midday dose" {
+                    let tp = withNotCalculated "c-6"
+
+                    PlanContextPolicy.locked tp (find "c-5" tp)
+                    |> Expect.isTrue "the main order locked"
                 }
 
-                test "a context with other patient data is locked" {
-                    let moved = para |> planWithPatient (fun p -> { p with Department = Some "ICK" })
+                test "BMF not calculated: BMF has the lock text, breast milk and Fantomalt the group lock text" {
+                    let tp = withNotCalculated "c-2"
 
-                    PlanContextPolicy.editingOf moved para.Id
-                    |> Expect.equal "locked" PlanContextPolicy.Editing.Locked
+                    [ "c-1"; "c-2"; "c-3"; "c-4" ]
+                    |> List.map (fun id -> id, PlanContextPolicy.lock tp (find id tp) |> PlanContextPolicy.lockTerm)
+                    |> Expect.equal
+                        "the group lock text for the group, no text for paracetamol"
+                        [
+                            "c-1", Some Terms.``Plan Context Group Locked``
+                            "c-2", Some Terms.``Plan Context Locked``
+                            "c-3", Some Terms.``Plan Context Group Locked``
+                            "c-4", None
+                        ]
                 }
 
-                test "an id the plan does not hold follows the plan context rule" {
-                    PlanContextPolicy.editingOf (plan [| para |]) "c-unknown"
-                    |> Expect.equal "nothing to lock" PlanContextPolicy.Editing.PlanContext
+                test "a plan with every order calculated locks nothing" {
+                    let tp = plan calculated
+
+                    tp.OrderContexts
+                    |> Array.exists (PlanContextPolicy.locked tp)
+                    |> Expect.isFalse "nothing locked"
+                }
+
+                test "an order locked by its group opens the order dialog locked and sends no command" {
+                    let tp = withNotCalculated "c-2"
+
+                    PlanContextPolicy.editingOf (plan calculated) "c-1"
+                    |> Expect.equal
+                        "the dialog open on a calculated plan"
+                        (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
+
+                    PlanContextPolicy.editingOf tp "c-1"
+                    |> Expect.equal "the dialog locked" PlanContextPolicy.Editing.Locked
+
+                    OrderPlanChange.command
+                        tp
+                        (OrderPlanChange.OrderDialogCommand(
+                            "c-1",
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty
+                        ))
+                    |> Expect.isNone "no command"
+
+                    OrderPlanChange.command tp (OrderPlanChange.Remove [| "c-1" |])
+                    |> Expect.isSome "the removal goes"
                 }
             ]

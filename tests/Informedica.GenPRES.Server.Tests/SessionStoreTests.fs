@@ -12,6 +12,7 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 let t0 = DateTime(2026, 9, 17, 12, 0, 0, DateTimeKind.Utc)
@@ -25,7 +26,7 @@ let counter prefix =
         n.Value <- n.Value + 1
         $"{prefix}-{n.Value}"
 
-let stubPatient = StubPatientData.patient
+let stubPatient = StubEhrPatient.contractPatient
 let token sid = OpenedToken $"opened-{sid}"
 
 let prescriber: UserContext =
@@ -76,7 +77,7 @@ let domainPlan = lazy (parsed plan)
 let session sid (user: UserContext) openedWith =
     sid, SessionStubTests.sessionOf sid (Some user) (Some("stub-patient", Some stubPatient)) openedWith
 
-let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.OrderPlanVersion =
+let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : OrderPlanVersion =
     {
         Id = $"plan-{no}"
         No = no
@@ -90,6 +91,7 @@ let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.O
         SignedAt = at
         Plan = p
         Verified = true
+        EhrPatient = None
     }
 
 let unreadable no (by: UserContext) (at: DateTime) : StoredVersion =
@@ -120,7 +122,7 @@ let ask now nonces state sid (p, opened) =
         now
         nonces
         StubDatabase.digest
-        StubAdapterTests.StubAdapters.patientData
+        StubAdapterTests.StubAdapters.ehrPatients
         sid
         (p, opened, None)
         state
@@ -139,8 +141,7 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        Ehr = Some(StubPatientData.data "stub-patient")
-        Reading = Some(SessionStubTests.parsePatient stubPatient)
+        EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
         Expiry = at + Session.challengeLifetime
     }
 
@@ -155,7 +156,7 @@ let versionWritten writes =
 
 
 let commitAt now ids state sid s =
-    Session.commit now ids StubDatabase.digest StubAdapters.patientData registry ignore sid s state
+    Session.commit TimeZoneInfo.Utc now ids StubDatabase.digest registry ignore sid s state
 
 let submitWith persist now ids state sid s =
     StubDatabase.submitWith persist (fun st -> commitAt now ids st sid s) state
@@ -164,6 +165,11 @@ let opened = session "s-1" prescriber None
 
 let ready =
     lazy ({ stateOf [ opened ] [] with Challenges = Map.ofList [ challenged "s-1" t0 domainPlan.Value ] })
+
+/// The plan with every order removed.
+let emptyPlan = SessionStubTests.planOf stubPatient [||]
+
+let emptyDomainPlan = lazy (parsed emptyPlan)
 
 
 [<Tests>]
@@ -174,7 +180,7 @@ let tests =
             test "the challenge keeps the digest of the plan, never the plan" {
                 let state, answer = ask t0 (counter "n") (stateOf [ opened ] []) "s-1" (domainPlan.Value, token "s-1")
 
-                answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                 state.Challenges["s-1"].Digest
                 |> Expect.equal "the digest of the plan" (StubDatabase.digest domainPlan.Value)
@@ -197,9 +203,7 @@ let tests =
                     version.Verified |> Expect.isTrue "the reading stood"
 
                     // the version names the patient the Session is for
-                    let whom =
-                        StubPatientData.data "stub-patient"
-                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
 
                     Session.headOf "stub-patient" state
                     |> Expect.equal "the head" (Some(StoredVersion.Readable(version, whom)))
@@ -253,7 +257,7 @@ let tests =
                     |> OrderPlan.Dto.toDto
                     |> Canonical.serialize
                     |> Canonical.deserialize<OrderPlan.Dto.Dto>
-                    |> OrderPlan.Dto.fromDto
+                    |> OrderPlan.Dto.fromDto readAt
                     |> Result.defaultWith (fun e -> failtest $"%A{e}")
 
                 StubDatabase.digest (parsed plan)
@@ -412,7 +416,7 @@ let tests =
                         challenge =
                             fun _ (p, _, _) ->
                                 seen.Value <- Some p
-                                async { return SigningOutcome.ChallengeIssued "n-1" }
+                                async { return SigningOutcome.ChallengeIssued("n-1", false) }
                         submit =
                             fun _ s ->
                                 seen.Value <- Some s.Plan
@@ -422,7 +426,7 @@ let tests =
                                             versionOf 1 prescriber t0 s.Plan,
                                             None,
                                             token "s-2",
-                                            s.Plan.Patient
+                                            s.Plan.PatientData
                                         )
                                 }
                     }
@@ -433,6 +437,7 @@ let tests =
                           (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                         session = port
                         demo = demo
+                        today = fun () -> SessionStubTests.today0
                     }
 
                 let cookie: SessionCookie =
@@ -448,7 +453,7 @@ let tests =
                         cookie
                         (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(plan, token "s-1", None))
 
-                issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued("n-1", false))
                 seen.Value |> Expect.equal "the plan parsed" (Some domainPlan.Value)
 
                 let submission: Submission =
@@ -544,4 +549,84 @@ let tests =
 
                 seen.Value |> Expect.isNone "the port never asked"
             }
+
+            testList
+                "signing a plan without orders"
+                [
+                    test "the commit over a plan with every order removed stores a version without orders" {
+                        // the first version, with two orders
+                        let state, first, _ =
+                            commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" domainPlan.Value)
+
+                        let first =
+                            match first with
+                            | SigningOutcome.Submitted(version, _, _, _) -> version
+                            | other -> failtest $"expected Submitted, got %A{other}"
+
+                        // the orders removed: a challenge over the plan without orders, then its commit, both
+                        // with the token the first commit minted
+                        let reopened = state.Sessions["s-1"].Opened.OpenedToken |> Option.get
+
+                        let state, issued =
+                            ask (t0 + seconds 30.0) (fun () -> "c-s-1") state "s-1" (emptyDomainPlan.Value, reopened)
+
+                        issued |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("c-s-1", false))
+
+                        let _, answer, write =
+                            commitAt
+                                (t0 + seconds 40.0)
+                                (counter "v")
+                                state
+                                "s-1"
+                                { signature "s-1" "1234" "k-2" emptyDomainPlan.Value with Opened = reopened }
+
+                        match answer, versionWritten write with
+                        | SigningOutcome.Submitted(version, _, _, _), Some written ->
+                            version |> Expect.equal "the write is the version" written
+                            version.No |> Expect.equal "the second version" 2
+                            version.Base |> Expect.equal "over the first" (Some first.Id)
+                            version.Plan |> OrderPlan.orders |> Expect.isEmpty "no orders"
+                        | other -> failtest $"expected Submitted, got %A{other}"
+                    }
+
+                    testAsync "the handler parses a plan without orders and asks the port" {
+                        let seen = ref None
+
+                        let port =
+                            { sessionNone with
+                                challenge =
+                                    fun _ (p, _, _) ->
+                                        seen.Value <- Some p
+                                        async { return SigningOutcome.ChallengeIssued("n-1", false) }
+                            }
+
+                        let env =
+                            { makeEnv
+                                  (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty)
+                                  (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
+                                session = port
+                                today = fun () -> SessionStubTests.today0
+                            }
+
+                        let cookie: SessionCookie =
+                            {
+                                read = fun () -> Some "s-1"
+                                write = ignore
+                                delete = ignore
+                            }
+
+                        let! issued =
+                            SigningCommand.processCmd
+                                env
+                                cookie
+                                (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(
+                                    emptyPlan,
+                                    token "s-1",
+                                    None
+                                ))
+
+                        issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued("n-1", false))
+                        seen.Value |> Expect.equal "the plan parsed" (Some emptyDomainPlan.Value)
+                    }
+                ]
         ]

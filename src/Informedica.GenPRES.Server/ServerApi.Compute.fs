@@ -11,20 +11,18 @@ type Gate =
     | Open
 
 
-/// What every computing member goes through, and what the other members share of it.
+/// Wraps the server api functions with logging, the session check and the loaded-resources check.
 module Compute =
 
-    /// Every computing member: the Session the cookie names is marked seen and told whether the
-    /// record moved on or the Session ended, and what a patient change measures is recorded.
-    /// Every patient the command carries is computed as sent. The gate refuses a command that
-    /// needs the formulary while it is not loaded, with the provider's messages. An exception is
-    /// an Error with its message. The token is never logged.
+    /// Runs a command that computes. Marks the session of the cookie as seen and returns its notice:
+    /// a newer version of the record or the end of the session. Refuses a command that needs the
+    /// formulary while it is not loaded, with the messages of the provider. An exception becomes an
+    /// Error with its message. The token is never logged.
     let bound
         (env: AppEnv)
         (cookie: SessionCookie)
         (name: 'cmd -> string)
         (gate: 'cmd -> Gate)
-        (patientOf: 'cmd -> Patient option)
         (handler: 'cmd -> Async<Result<'resp, string[]>>)
         (request: Request<'cmd>)
         : Async<Result<Reply<'resp>, string[]>>
@@ -39,9 +37,9 @@ module Compute =
                 let! notice =
                     match cookie.read () with
                     | None -> async { return None }
-                    | Some id -> env.session.seen id request.Opened (patientOf cmd)
+                    | Some id -> env.session.seen id request.Opened
 
-                // an open command never asks the provider: asking may load
+                // An open command does not call requireLoaded, because asking the provider may start a load.
                 let! result =
                     match gate cmd with
                     | Gate.Open -> handler cmd
@@ -53,6 +51,7 @@ module Compute =
                 let told =
                     match notice with
                     | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
+                    | Some(RecordNotice.Ended SessionEnding.InactiveTab) -> ", the tab is not the active one"
                     | Some(RecordNotice.Ended _) -> ", the Session ended"
                     | None -> ""
 
@@ -75,7 +74,7 @@ module Compute =
         }
 
 
-    /// A member that is not computing: the same two log lines around it, nothing else.
+    /// Runs a command that does not compute, with only a log line before and after it.
     let logged (env: AppEnv) (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
         async {
             Logging.ServerLogging.Info $"Processing {what}: {name cmd}"

@@ -20,7 +20,7 @@ module PatientScripts =
     open Informedica.GenCore.Lib
     open Informedica.GenCore.Lib.Patients
 
-    let fromAgeType = Patient.fromAgeType UnknownGender DateTime.Now
+    let fromAgeType = Patient.fromAgeType UnknownGender
 
 
     let ageDto = AgeValue.Dto.dto ()
@@ -42,9 +42,6 @@ module PatientScripts =
     WeightValue.Validation.maxWeightGram |> decimal
 
 
-    VenousAccess.Validation.validate "VenousAcces" "central"
-
-
     Patient.unknown
     |> Patient.Dto.toDto
     |> Patient.Dto.fromDto
@@ -60,14 +57,12 @@ module PatientScripts =
 
     patDto.Weight.Calculation <-
         let w = WeightAtDate.Dto.dto ()
-        w.DateTime <- DateTime.Now
         w.WeightValue.Weight <- 4.7m
         Some w
 
 
     patDto.Height.Calculation <-
         let h = HeightAtDate.Dto.dto ()
-        h.DateTime <- DateTime.Now
         h.HeightValue.Height <- 57m
         h.HeightValue.HeightInMeter <- false
         Some h
@@ -83,7 +78,7 @@ module PatientScripts =
     Department.pediatricDepartment "WKZ" |> Department.toString
 
 
-    "UMCU" |> Department.adultICU |> Department.toString |> Department.fromString
+    "UMCU" |> Department.adultICU |> Department.Dto.toDto |> Department.Dto.fromDto
 
 
     Calculations.Age.ageToStringNL None None None None
@@ -91,12 +86,7 @@ module PatientScripts =
     Calculations.Age.ageToStringNL (Some 2<year>) (Some 1<month>) (Some 2<week>) None
 
 
-    PatientAge.newBorn
-    PatientAge.infant
-    PatientAge.toddler
-    PatientAge.child
-    PatientAge.adolescent
-    PatientAge.adult
+    [ NewBorn; Infant; Toddler; Child; Adolescent; Adult ] |> List.map AgeValue.fromAgeType
 
 
     NewBorn |> fromAgeType |> Patient.BSA.calcMosteller
@@ -105,21 +95,6 @@ module PatientScripts =
     Adult |> fromAgeType |> Patient.Dto.toDto |> Patient.Dto.fromDto
 
 
-    FullTerm
-    |> AgeWeeksDays.fromGestation
-    |> Option.map (AgeWeeksDays.SetGet.setDays 1<day>)
-    |> Option.map AgeWeeksDays.toString
-    |> Option.defaultValue ""
-
-
-    FullTerm
-    |> AgeWeeksDays.fromGestation
-    |> Option.map (AgeWeeksDays.SetGet.getWeeks >> GestationType.fromWeeks)
-
-    FullTerm
-    |> AgeWeeksDays.fromGestation
-    |> Option.map AgeWeeksDays.SetGet.getWeeks
-
     37<week> |> GestationType.fromWeeks
     GestationType.max
     GestationType.min
@@ -127,14 +102,13 @@ module PatientScripts =
 
     NewBorn
     |> fromAgeType
-    //|> Patient.SetGet
-    //|> Patient.SetGet.getAgeValue DateTime.Now
 
-    |> Patient.calcPostMenstrualAge DateTime.Now
+    |> Patient.atDate DateTime.Now
+    |> _.Data.PostMenstrualAge
     //|> Patient.toString DateTime.Now
 
 
-    NewBorn |> fromAgeType |> Patient.SetGet.getAge |> PatientAge.toString
+    NewBorn |> fromAgeType |> _.Data.Age |> Option.map AgeValue.toString
 
 
     AgeValue.create (Some 0<year>) None None None |> AgeValue.toString
@@ -159,16 +133,13 @@ module PatientScripts =
     |> Patient.Dto.fromDto
     |> function
         | Ok p ->
-            p
-            |> Patient.SetGet.getAgeValue DateTime.Now
+            p.Data.Age
             |> Option.map AgeValue.getAgeInDays
             |> printfn "%A"
 
             p |> Patient.toString DateTime.Now
         | _ -> []
 
-
-    Calculations.Age.postMenstrualAge 97<day> 40<week> 0<day>
 
     AgeType.normalValues
 
@@ -211,29 +182,6 @@ module ValueUnitScripts =
     ValueUnit.Calculations.BSA.calcDuBois w2 h1
     ValueUnit.Calculations.BSA.calcMosteller w2 h1
 
-    let ds = 1N |> ValueUnit.createSingle Units.Time.day
-    let ws = 34N |> ValueUnit.createSingle Units.Time.week
-
-    let dtNow = DateTime.Now
-    let dtBirth = dtNow.AddDays(-7)
-
-    ValueUnit.Calculations.Age.adjusted (DateTime.Now.AddDays(-7)) DateTime.Now ds ws
-
-
-    Calculations.Age.adjustedAge 1<day> 34<week> (DateTime.Now.AddDays(-7)) DateTime.Now
-
-    DateTime.dateDiff (DateTime.Now.AddDays(-7)) DateTime.Now
-
-    7<day> - (34<week> |> Conversions.weeksToDays)
-
-    let y, m, w, d =
-        ValueUnit.Calculations.Age.fromBirthDate (DateTime(1965, 12, 7)) DateTime.Now
-
-
-    ValueUnit.Calculations.Age.ageToString None (Some m) (Some w) (Some d)
-    ValueUnit.Calculations.Age.ageToStringNL (Some y) None (Some w) (Some d)
-    ValueUnit.Calculations.Age.ageToStringNLShort (Some y) None (Some w) (Some d)
-    ValueUnit.Calculations.Age.ageToStringNLShort None (Some m) (Some w) (Some d)
 
 
 open Informedica.Utils.Lib.BCL
@@ -241,15 +189,13 @@ open Informedica.GenUnits.Lib
 open Informedica.GenCore.Lib.Ranges
 
 
-let foldMaximize = MinMax.foldMaximize true true
-
 // a Minimum
 
 [
     MinMax.create None None
     MinMax.create None (Some(1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.exclusive))
 ]
-|> foldMaximize
+|> MinMax.foldMaximize
 
 
 [
@@ -259,7 +205,7 @@ let foldMaximize = MinMax.foldMaximize true true
     MinMax.create None (Some(2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
 
 ]
-|> foldMaximize
+|> MinMax.foldMaximize
 
 
 [
@@ -275,4 +221,4 @@ let foldMaximize = MinMax.foldMaximize true true
         (Some(2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
 
 ]
-|> foldMaximize
+|> MinMax.foldMaximize

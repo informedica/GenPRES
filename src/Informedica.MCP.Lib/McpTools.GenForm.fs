@@ -65,7 +65,7 @@ module GenFormTools =
             Generic: string
             Form: string option
             Route: string
-            Solutions: string[]
+            Diluents: string[]
         }
 
     type RenalRuleOutput =
@@ -116,12 +116,12 @@ module GenFormTools =
         }
 
 
-    let solutionRuleToOutput (sr: SolutionRule) : SolutionRuleOutput =
+    let solutionRuleToOutput (solRule: SolutionRule) : SolutionRuleOutput =
         {
-            Generic = sr.Generic
-            Form = sr.Form
-            Route = sr.Route
-            Solutions = sr.Diluents |> Array.map _.Generic
+            Generic = solRule.Generic
+            Form = solRule.Form
+            Route = solRule.Route
+            Diluents = solRule.Diluents |> Array.map _.Generic
         }
 
 
@@ -131,7 +131,7 @@ module GenFormTools =
             |> Array.tryHead
             |> Option.map (fun rl ->
                 match rl.DoseReduction with
-                | DoseReduction.Absolute -> "absolute"
+                | DoseReduction.Replace -> "replace"
                 | DoseReduction.Relative -> "relative"
                 | DoseReduction.NoReduction -> "none"
             )
@@ -164,16 +164,12 @@ module GenFormTools =
 
 
     let filterDoseRules (provider: IResourceProvider) (input: FilterDoseRulesInput) : DoseRuleOutput[] =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
-                Patient = Patient.patient
             }
 
         let allRules = provider |> Api.getDoseRules
@@ -191,16 +187,12 @@ module GenFormTools =
 
 
     let getPrescriptionRules (provider: IResourceProvider) (input: GetPrescriptionRulesInput) : string =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
-                Patient = Patient.patient
             }
 
         match provider |> Api.filterPrescriptionRules <| filter with

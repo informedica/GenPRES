@@ -7,7 +7,7 @@ module DoseType =
     open Informedica.Utils.Lib.BCL
 
 
-    /// Get a sort order for a dose type.
+    /// Returns the sort order of a dose type: once first, no dose type last.
     let sortBy =
         function
         | OnceTimed _
@@ -40,9 +40,8 @@ module DoseType =
         | _ -> false
 
 
-    /// Parse a dose type from a string. Pure: returns the DoseType together with
-    /// an optional warning message (Some when the type is non-empty but unknown).
-    /// No console IO, so callers can surface the warning as data.
+    /// Parses a dose type name and a dose text into a dose type. Returns NoDoseType for an unknown name,
+    /// with a warning when the name is not empty.
     let parse doseType doseText =
         let doseType = doseType |> String.toLower |> String.trim
         let withText c = doseText |> c
@@ -63,10 +62,7 @@ module DoseType =
             NoDoseType, warn
 
 
-    /// <summary>
-    /// Get a dose type from a string. Pure wrapper over <c>parse</c> that
-    /// discards the warning.
-    /// </summary>
+    /// <summary>Parses a dose type like <c>parse</c>, without the warning.</summary>
     let fromString doseType doseText = parse doseType doseText |> fst
 
 
@@ -81,7 +77,7 @@ module DoseType =
         |> fun (s1, s2) -> if String.isNullOrWhiteSpace s2 then s1 else $"{s1} {s2}"
 
 
-    /// Get a string representation of a dose type.
+    /// Returns the dose text of a dose type, or an empty string for NoDoseType.
     let getText doseType =
         match doseType with
         | OnceTimed s
@@ -92,8 +88,7 @@ module DoseType =
         | NoDoseType -> ""
 
 
-    /// The category-only string; the inverse of parse
-    /// and the category arm of toString. Keeps the mapping in one place.
+    /// Returns the dose type name without the dose text, the name that parse reads.
     let toCategory =
         function
         | Once _ -> "once"
@@ -104,7 +99,7 @@ module DoseType =
         | NoDoseType -> ""
 
 
-    /// Get a string representation of a dose type.
+    /// Returns the dose text, or a Dutch default for the dose type when the text is empty.
     let toDescription doseType =
         let s = getText doseType
 

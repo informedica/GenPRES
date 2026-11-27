@@ -1,30 +1,22 @@
 namespace Informedica.GenPRES.Client.Core.MachinePolicies
 
-/// What is out: the requests of the five lanes, a field counting its step clicks and the loads.
+/// Detects pending work besides requests: a plan based on older patient data, which blocks like a pending
+/// request.
 module OutPolicy =
 
-    open Informedica.GenPRES.Client.Core.Helpers
     open Informedica.GenPRES.Client.Core.StateMachines
-    open Loads
+    open Informedica.GenPRES.Shared.Models
 
 
-    /// The requests out: a field counting its step clicks, the five lanes and the loads.
-    let out counting patient orderContext orderPlan session signing loads =
-        [
-            if counting then
-                Request.Counting
-            if PatientMachine.PatientState.changing patient then
-                Request.Patient
-            if (OrderContextMachine.OrderContextState.inFlightRequest orderContext).IsSome then
-                Request.Workbench
-            if (OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan).IsSome then
-                Request.Plan
-            if
-                SessionMachine.SessionState.changing session
-                || (SessionMachine.SessionState.reopening session).IsSome
-            then
-                Request.Session
-            if signing |> SigningMachine.SigningState.view |> SigningPolicy.underWay then
-                Request.Signature
-            yield! loads |> List.map Request.Load
-        ]
+    /// Whether the orders are based on other patient data than the panel shows while no patient or plan
+    /// request is pending, as after a failed update. The orders do not fit the shown data, so nothing
+    /// continues until the plan is updated. The options are not patient data, so they are left out.
+    let planBehind patient orderPlan =
+        match
+            PatientMachine.PatientState.changing patient,
+            OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan,
+            OrderPlanMachine.OrderPlanState.patient orderPlan,
+            PatientMachine.PatientState.current patient
+        with
+        | false, None, Some onPlan, Some shown -> not (PatientData.sameValues onPlan shown)
+        | _ -> false

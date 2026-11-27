@@ -3,7 +3,7 @@ namespace Informedica.GenPRES.Client.Core.Tests.Policies
 
 /// Which intent case is allowed on a wire order: every recalculation case on every dose type, a
 /// field with several values or a range, the component dose the rules do not constrain, the cases
-/// that are never allowed, and which commands reopen.
+/// that are never allowed, and which commands are a recalculation.
 module IntentPolicyTests =
 
     open Expecto
@@ -304,15 +304,15 @@ module IntentPolicyTests =
                                 }
                     ]
 
-                test "reopens: the four recalculation commands, no other" {
+                test "isReCalc: the four recalculation commands, no other" {
                     [
                         reCalcTime
                         OrderViewCommand.ReCalcOrderableProperty OrderableProperty.Quantity
                         OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.DoseQuantityAdjust)
                         reCalcItem ItemProperty.DoseQuantity
                     ]
-                    |> List.forall IntentPolicy.reopens
-                    |> Expect.isTrue "a recalculation reopens"
+                    |> List.forall IntentPolicy.isReCalc
+                    |> Expect.isTrue "a recalculation"
 
                     [
                         OrderViewCommand.ResetOrderScenario
@@ -320,7 +320,7 @@ module IntentPolicyTests =
                         OrderViewCommand.IncreaseScheduleFrequencyProperty
                         OrderViewCommand.ClearAllFilterProperty
                     ]
-                    |> List.exists IntentPolicy.reopens
-                    |> Expect.isFalse "nothing else reopens"
+                    |> List.exists IntentPolicy.isReCalc
+                    |> Expect.isFalse "nothing else"
                 }
             ]

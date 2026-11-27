@@ -1,36 +1,35 @@
 namespace Informedica.GenOrder.Lib
 
-// The Dto helpers and the Dtos that come before Api.fs (ADR-0008,
-// docs/adr/0008-contract-model-dto-mapping-boundary.md): a serializable shape per aggregate,
-// toDto total, fromDto a Result that never throws, and the canonical serialization the signing
-// digest and the database share. OrderScenario.Dto and OrderContext.Dto live with their modules
-// in Api.fs; the order plan Dtos in OrderPlan.fs after it.
+// The Dto helpers, the Dtos of the text block, dose type, filter and order category, and the canonical JSON
+// serialization used for a digest and for the database. A toDto never fails; a fromDto returns a Result and
+// never throws. OrderScenario.Dto and OrderContext.Dto are in OrderContext.fs, the order plan Dtos in OrderPlan.fs.
 
 open System
 open Newtonsoft.Json
 open FsToolkit.ErrorHandling
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
-// after GenForm, so that the TextBlock cases win over its Message cases
+// Opened after GenForm, so the TextBlock cases shadow the GenForm Message cases.
 open Informedica.GenOrder.Lib.Types
 
 
-/// Every error of a list of results, or every value.
+/// Helpers that read values that can be null after JSON deserialization, and collect results.
 module DtoResult =
 
-    /// A reference field a serializer left null is read as absent, never dereferenced.
+    /// Returns the array, or an empty array when the array is null after JSON deserialization.
     let orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
 
 
-    /// A string a serializer left null is read as blank.
+    /// Returns the string, or an empty string when the string is null after JSON deserialization.
     let orBlank (s: string) = if isNull s then "" else s
 
 
-    /// A blank string is written as null, so a serializer that leaves nulls out leaves it out;
-    /// orBlank reads it back.
+    /// Returns null for a null or empty string, and the string otherwise. orBlank reads null back as an
+    /// empty string.
     let blankToNull s = if s |> String.isNullOrEmpty then null else s
 
 
+    /// Returns every value when all results are Ok, otherwise every error.
     let sequence (rs: Result<'a, 'e> list) : Result<'a list, 'e list> =
         let errors =
             rs
@@ -46,9 +45,10 @@ module DtoResult =
             Error errors
 
 
-/// A Dto a serializer left null, the root or a nested one, is an error, by its name.
+/// Reads Dtos that can be null after JSON deserialization, without dereferencing a null Dto.
 module Nested =
 
+    /// Reads the Dto with read. A Dto that is null after JSON deserialization gives DtoError.Missing name.
     let required name (dto: 'a) (read: 'a -> Result<'b, DtoError list>) =
         if isNull (box dto) then
             Error [ DtoError.Missing name ]
@@ -56,9 +56,9 @@ module Nested =
             read dto
 
 
-    /// Every item of an array a serializer left null or not, read with its index in its path,
-    /// "Components[0]"; an item left null is missing by that path. Every error of every item when
-    /// one fails.
+    /// Reads every Dto of an array with read; a null array reads as an empty array. Each item gets the
+    /// path and its index, such as "Components[0]", and a null item gives DtoError.Missing with that path.
+    /// Returns the errors of every item that fails.
     let items path read xs =
         xs
         |> DtoResult.orEmpty
@@ -72,8 +72,7 @@ module Nested =
 
 module TextBlock =
 
-    /// A text block as one kind and its text; the markup the client shows is added on
-    /// the way out and is no part of the domain.
+    /// The serializable shape of a text block: the kind as a string and the text, without markup.
     module Dto =
 
         type Dto =
@@ -108,7 +107,7 @@ module TextBlock =
 
 
         let fromDto (dto: Dto) =
-            // a null block, from a serializer, names no kind
+            // A block that is null after JSON deserialization has no kind and gives UnknownTextKind.
             let kind =
                 if isNull (box dto) then
                     ""
@@ -123,17 +122,15 @@ module TextBlock =
             | kind -> Error(DtoError.UnknownTextKind kind)
 
 
-/// The string form of a dose type, for the Dtos: the category and its text as
-/// DoseType.toString writes them, and the same read back strictly.
+/// Writes a dose type as the string of DoseType.toString for the Dtos, and reads it back.
 module DoseTypeDto =
 
     let toString (dt: DoseType) = dt |> DoseType.toString
 
 
-    /// A dose type from its string form; an unknown category is an error, an empty string
-    /// is NoDoseType, as the parser reads it.
+    /// Reads a dose type from the category and the text, split at the first space. Returns UnknownDoseType
+    /// for an unknown category or a null string; an empty string gives NoDoseType.
     let fromString (s: string) =
-        // a null string, from a serializer, names nothing; an empty one is NoDoseType
         if isNull s then
             Error(DtoError.UnknownDoseType "")
         else
@@ -151,15 +148,13 @@ module DoseTypeDto =
 
 module Filter =
 
-    /// The held selections reconciled against fresh pick lists: a selection still offered
-    /// narrows its list to that one entry, in the fresh spelling; a selection no longer
-    /// offered is dropped and its fresh list kept whole. The dose types are the fresh list
-    /// when it has exactly one entry, the held dose type narrowed to it or not, and the
-    /// held list otherwise, since the fresh list is computed once the generic is chosen.
-    /// The diluents, the components and what is
-    /// selected among them are the held ones: the pick lists for them come from the
-    /// evaluation, not from the rules.
-    let reconcile (fresh: Filter) (held: Filter) : Filter =
+    /// Reconciles the selections of the sent filter with the lists of a fresh filter. A selection that the
+    /// fresh list still has stays selected, and the list narrows to that fresh entry; a selection that the
+    /// fresh list does not have is cleared, and the fresh list is used whole. The dose types are the resulting
+    /// list when it has one entry, otherwise the sent list, because the fresh list holds the dose types of
+    /// every rule for the patient. The diluents, the components, their selections and the picked products
+    /// come from the sent filter, because the evaluation sets them and not the rules.
+    let reconcile (fresh: Filter) (sent: Filter) : Filter =
         let pick eqs itm (items: 'a[]) =
             match
                 items
@@ -168,11 +163,11 @@ module Filter =
             | Some x -> itm, [| x |]
             | None -> None, items
 
-        let ind, inds = fresh.Indications |> pick String.equalsCapInsens held.Indication
-        let gen, gens = fresh.Generics |> pick String.equalsCapInsens held.Generic
-        let rte, rtes = fresh.Routes |> pick String.equalsCapInsens held.Route
-        let frm, frms = fresh.Forms |> pick String.equalsCapInsens held.Form
-        let dtp, dtps = fresh.DoseTypes |> pick DoseType.eqs held.DoseType
+        let ind, inds = fresh.Indications |> pick String.equalsCapInsens sent.Indication
+        let gen, gens = fresh.Generics |> pick String.equalsCapInsens sent.Generic
+        let rte, rtes = fresh.Routes |> pick String.equalsCapInsens sent.Route
+        let frm, frms = fresh.Forms |> pick String.equalsCapInsens sent.Form
+        let dtp, dtps = fresh.DoseTypes |> pick DoseType.eqs sent.DoseType
 
         { fresh with
             Indication = ind
@@ -184,24 +179,26 @@ module Filter =
             Form = frm
             Forms = frms
             DoseType = dtp
-            DoseTypes = if dtps |> Array.length = 1 then dtps else held.DoseTypes
-            Diluents = held.Diluents
-            Components = held.Components
-            Diluent = held.Diluent
-            SelectedComponents = held.SelectedComponents
+            DoseTypes = if dtps |> Array.length = 1 then dtps else sent.DoseTypes
+            Diluents = sent.Diluents
+            Components = sent.Components
+            DoseRuleComponents = sent.DoseRuleComponents
+            Diluent = sent.Diluent
+            SelectedComponents = sent.SelectedComponents
+            PickedProducts = sent.PickedProducts
         }
 
 
-    /// Whether the reconciliation let a pick go: the held filter chose what the reconciled one
-    /// no longer does, for any of the five picks.
-    let dropped (held: Filter) (reconciled: Filter) =
-        let gone (chosen: 'a option) (kept: 'a option) = chosen.IsSome && kept.IsNone
+    /// Returns true when the sent filter selects an indication, generic, route, form or dose type that the
+    /// reconciled filter no longer selects.
+    let dropped (sent: Filter) (reconciled: Filter) =
+        let gone (chosen: 'a option) (remaining: 'a option) = chosen.IsSome && remaining.IsNone
 
-        gone held.Indication reconciled.Indication
-        || gone held.Generic reconciled.Generic
-        || gone held.Route reconciled.Route
-        || gone held.Form reconciled.Form
-        || gone held.DoseType reconciled.DoseType
+        gone sent.Indication reconciled.Indication
+        || gone sent.Generic reconciled.Generic
+        || gone sent.Route reconciled.Route
+        || gone sent.Form reconciled.Form
+        || gone sent.DoseType reconciled.DoseType
 
 
     /// The serializable shape of a Filter: the same fields, dose types as strings.
@@ -216,14 +213,30 @@ module Filter =
                 DoseTypes: string[]
                 Diluents: string[]
                 Components: string[]
+                DoseRuleComponents: string[]
                 Indication: string option
                 Generic: string option
                 Route: string option
                 Form: string option
                 DoseType: string option
                 Diluent: string option
-                SelectedComponents: string[]
+                /// None selects all components; an empty array selects no optional component.
+                SelectedComponents: string[] option
+                PickedProducts: string[]
             }
+
+
+        /// Maps a component selection to the Dto field: None for all components, else the selected names.
+        let componentSelection =
+            function
+            | ComponentSelection.AllComponents -> None
+            | ComponentSelection.Selected cs -> cs |> List.toArray |> Some
+
+
+        let componentSelectionBack =
+            function
+            | None -> ComponentSelection.AllComponents
+            | Some cs -> cs |> Array.toList |> ComponentSelection.Selected
 
 
         let toDto (f: Filter) : Dto =
@@ -235,13 +248,15 @@ module Filter =
                 DoseTypes = f.DoseTypes |> Array.map DoseTypeDto.toString
                 Diluents = f.Diluents
                 Components = f.Components
+                DoseRuleComponents = f.DoseRuleComponents
                 Indication = f.Indication
                 Generic = f.Generic
                 Route = f.Route
                 Form = f.Form
                 DoseType = f.DoseType |> Option.map DoseTypeDto.toString
                 Diluent = f.Diluent
-                SelectedComponents = f.SelectedComponents
+                SelectedComponents = f.SelectedComponents |> componentSelection
+                PickedProducts = f.PickedProducts
             }
 
 
@@ -278,13 +293,15 @@ module Filter =
                                 DoseTypes = doseTypes |> List.toArray
                                 Diluents = dto.Diluents |> DtoResult.orEmpty
                                 Components = dto.Components |> DtoResult.orEmpty
+                                DoseRuleComponents = dto.DoseRuleComponents |> DtoResult.orEmpty
                                 Indication = dto.Indication
                                 Generic = dto.Generic
                                 Route = dto.Route
                                 Form = dto.Form
                                 DoseType = doseType
                                 Diluent = dto.Diluent
-                                SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
+                                SelectedComponents = dto.SelectedComponents |> componentSelectionBack
+                                PickedProducts = dto.PickedProducts |> DtoResult.orEmpty
                             }
                     | Error e1, Error e2 -> Error(e1 @ e2)
                     | Error e, _
@@ -292,9 +309,9 @@ module Filter =
                 )
 
 
-/// The one serialization of a Dto: the form the signing digest is computed over and the
-/// form the database stores. No whitespace, fields in declared order, arrays as held, a
-/// BigRational as "numerator/denominator" in lowest terms, an option as its value or null.
+/// The canonical JSON serialization of a Dto, used for a digest and for the database. It writes no
+/// whitespace, the fields in declared order, arrays in their own order, a BigRational as
+/// "numerator/denominator" in lowest terms, and an option as its value or null.
 module Canonical =
 
     type BigRationalConverter() =
@@ -340,10 +357,9 @@ module Canonical =
                 some.Invoke(null, [| v |])
 
 
-    /// The Dto classes of the libraries (Order.Dto.Dto, Orderable.Dto.Dto, ...) have no
-    /// parameterless constructor and every property settable, so on read they are created
-    /// uninitialized and populated from the JSON, property by property. Records and unions
-    /// keep Newtonsoft's own construction.
+    /// Reads a class without a parameterless constructor, such as Order.Dto.Dto, by creating it
+    /// uninitialized and setting its properties from the JSON. Records and unions use the Newtonsoft
+    /// construction.
     type PopulateResolver() =
         inherit Serialization.DefaultContractResolver()
 
@@ -388,14 +404,15 @@ module Canonical =
     let deserialize<'a> (s: string) = JsonConvert.DeserializeObject<'a>(s, settings)
 
 
-/// The string form of an order category, for the Dtos: drug, or nutrition: and the
-/// category's name.
+/// Writes an order category as a string for the Dtos, "medication" or "nutrition:" with the nutrition
+/// category, and reads it back.
 module OrderCategoryDto =
 
-    /// Every category matched, so that a category without a string form fails to compile.
+    /// Writes the string of an order category. The match has no wildcard, so a new category gives an
+    /// incomplete match warning.
     let toString =
         function
-        | OrderCategory.Drug -> "drug"
+        | OrderCategory.Medication -> "medication"
         | OrderCategory.Nutrition NutritionCategory.EnteralFeeding -> "nutrition:enteral-feeding"
         | OrderCategory.Nutrition NutritionCategory.EnteralSupplement -> "nutrition:enteral-supplement"
         | OrderCategory.Nutrition NutritionCategory.TPN -> "nutrition:tpn"
@@ -405,7 +422,7 @@ module OrderCategoryDto =
 
     let fromString (s: string) : Result<OrderCategory, DtoError> =
         match s |> DtoResult.orBlank |> String.toLower |> String.trim with
-        | "drug" -> Ok OrderCategory.Drug
+        | "medication" -> Ok OrderCategory.Medication
         | "nutrition:enteral-feeding" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
         | "nutrition:enteral-supplement" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
         | "nutrition:tpn" -> Ok(OrderCategory.Nutrition NutritionCategory.TPN)

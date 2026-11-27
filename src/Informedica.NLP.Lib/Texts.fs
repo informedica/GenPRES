@@ -363,7 +363,6 @@ Respond in JSON
         "quantityRange": {
           "minQty": "10 mg", // "The minimum dose quantity per dose"
           "maxQty": "15 mg", // "The maximum dose quantity per dose"
-          "normQtyAdj": "10 mg/kg", // "The normal adjusted quantity per dose"
           "minQtyAdj": "9 mg/kg", // "The minimum adjusted quantity per dose"
           "maxQtyAdj": "11 mg/kg", // "The maximum adjusted quantity per dose"
           "doseUnit": "mg", // "The dose unit of the substance"
@@ -372,7 +371,6 @@ Respond in JSON
         "frequencyRange": {
           "minPerTime": "40 mg/day", // "The minimum dose quantity per freq time unit"
           "maxPerTime": "60 mg/day", // "The maximum dose quantity per freq time unit"
-          "normPerTimeAdj": "40/kg/day", // "The normal adjusted dose quantity per frequency unit"
           "minPerTimeAdj": "36/kg/day", // "The minimum adjusted dose quantity per freq time unit"
           "maxPerTimeAdj": "44/kg/day" // "The maximum dose adjusted quantity per freq time unit"
           "doseUnit": "mg", // "The dose unit of the substance"
@@ -415,7 +413,6 @@ Respond in JSON
         "quantityRange": {
           "minQty": "", // "A Quantity. The minimum dose quantity per dose"
           "maxQty": "", // "A Quantity. The maximum dose quantity per dose"
-          "normQtyAdj": "", // "A Quantity. The normal adjusted quantity per dose"
           "minQtyAdj": "", // "A Quantity. The minimum adjusted quantity per dose"
           "maxQtyAdj": "", // "A Quantity. The maximum adjusted quantity per dose"
           "doseUnit": "", // "A Unit. The dose unit of the substance"
@@ -424,7 +421,6 @@ Respond in JSON
         "frequencyRange": {
           "minPerTime": "", // "A Quantity. The minimum dose quantity per freq time unit"
           "maxPerTime": "", // "A Quantity. The maximum dose quantity per freq time unit"
-          "normPerTimeAdj": "", // "A Quantity. The normal adjusted dose quantity per frequency unit"
           "minPerTimeAdj": "", // "A Quantity. The minimum adjusted dose quantity per freq time unit"
           "maxPerTimeAdj": "", // "A Quantity. The maximum dose adjusted quantity per freq time unit"
           "doseUnit": "", // "A Unit. The dose unit of the substance"
@@ -456,6 +452,9 @@ Respond in JSON
     - a quantity with a number and a unit, example: 40 mg/day
     - or a single unit: example: day
     - or a list of numbers: example: 1;2;3
+
+    A norm dose, a single normal dose, is given as a minimum equal to the maximum,
+    example: "minQtyAdj": "10 mg/kg" and "maxQtyAdj": "10 mg/kg"
     """
 
     let freqRange =
@@ -463,7 +462,6 @@ Respond in JSON
     "frequencyRange": {
       "minPerTime": ,
       "maxPerTime": ,
-      "normPerTimeAdj": ,
       "minPerTimeAdj": ,
       "maxPerTimeAdj": ,
       "doseUnit": ,

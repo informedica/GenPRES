@@ -10,16 +10,18 @@ open Informedica.GenOrder.Lib
 open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
+open Informedica.GenPRES.Server.Tests.TestDates
+open Informedica.GenPRES.Server.Tests.TestProviders
 
 
-let patient = StubPatientData.patient
+let patient = StubEhrPatient.contractPatient
 
 let ctx: OrderContext =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = "c-1"
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
-        Patient = patient
+        PatientData = patient
     }
 
 let plan: OrderPlan =
@@ -34,11 +36,15 @@ let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.Or
 let echoPort seen : OrderPlanPort =
     {
         recalculate = answering seen "recalculate"
-        navigate = fun p _ _ _ -> answering seen "navigate" p
-        addOrderContext = fun p _ -> answering seen "addOrderContext" p
-        newOrderContext = fun p _ -> answering seen "newOrderContext" p
+        followPatientData = answering seen "followPatientData"
+        evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
+        addOrderContexts = fun p _ _ -> answering seen "addOrderContexts" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
         openWith = fun pat cs -> answering seen "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
+        totals =
+            fun _ _ ->
+                seen.Value <- "totals" :: seen.Value
+                async { return Ok Informedica.GenOrder.Lib.Totals.empty }
     }
 
 
@@ -66,7 +72,7 @@ let tests =
 
                 let! _ =
                     run (
-                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                             plan,
                             "c-1",
                             Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
@@ -81,9 +87,7 @@ let tests =
                         )
                     )
 
-                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx))
-                let! _ =
-                    run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
+                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx, [||]))
                 let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
                 let! opened = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Open(patient, [| ctx |]))
 
@@ -93,9 +97,8 @@ let tests =
                     "each to its port"
                     [
                         "recalculate"
-                        "navigate"
-                        "addOrderContext"
-                        "newOrderContext"
+                        "evaluateContext"
+                        "addOrderContexts"
                         "removeOrderContexts"
                         "openWith"
                     ]
@@ -110,22 +113,131 @@ let tests =
                 | Error e -> failtest $"open refused: %A{e}"
             }
 
-            testAsync "a patient update recalculates the plan for that patient, each context keeping its own" {
+            testAsync "a patient update calculates the plan for that patient, each context keeping its own" {
                 let seen = ref []
                 let updated = { patient with Department = Some "NEO" }
 
                 let! answer =
                     OrderPlanCommand.processCmd
                         (envOver true (echoPort seen))
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatientData(updated, plan))
 
-                seen.Value |> Expect.equal "recalculated" [ "recalculate" ]
+                seen.Value |> Expect.equal "every order on the patient" [ "followPatientData" ]
 
                 answer
-                |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)
+                |> Result.map (fun p -> p.PatientData.Department, p.OrderContexts |> Array.map _.PatientData.Department)
                 |> Expect.equal
                     "the plan's patient updated, the context's kept"
                     (Ok(Some "NEO", [| patient.Department |]))
+            }
+
+            testAsync "the linked orders reach the port with the main order" {
+                let received = ref None
+
+                let port =
+                    { echoPort (ref []) with
+                        addOrderContexts =
+                            fun p main linked ->
+                                received.Value <- Some(main.Id, linked |> Array.map _.Id)
+                                async { return Ok p }
+                    }
+
+                let! _ =
+                    OrderPlanCommand.processCmd
+                        (envOver true port)
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Id = "l-1" }; { ctx with Id = "l-2" } |]
+                        ))
+
+                received.Value
+                |> Expect.equal "the main order and both linked orders" (Some("c-1", [| "l-1"; "l-2" |]))
+            }
+
+            testAsync "a linked order that is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [|
+                                { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                            |]
+                        ))
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "a linked order whose argumentation is too long is refused before the port" {
+                let seen = ref []
+                let tooLong = String.replicate (OrderContextService.Argumentation.maxLength + 1) "a"
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Argumentation = Some tooLong } |]
+                        ))
+
+                answer |> Expect.isError "too long"
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "the totals query reaches the plan port over the contexts asked for" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            PatientData = patient
+                            OrderContexts = [| ctx; { ctx with Id = "l-1" } |]
+                        }
+
+                seen.Value |> Expect.equal "the totals asked" [ "totals" ]
+
+                answer
+                |> Expect.equal "empty totals" (Ok Informedica.GenPRES.Shared.Models.Totals.empty)
+            }
+
+            testAsync "a totals query whose own patient is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty
+                            OrderContexts = [| ctx |]
+                        }
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "a totals query over a context that is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            PatientData = patient
+                            OrderContexts =
+                                [|
+                                    { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty }
+                                |]
+                        }
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
             }
 
             testAsync "a row filter recalculates the plan over the rows chosen" {
@@ -164,7 +276,7 @@ let tests =
 
                 let port =
                     { echoPort (ref []) with
-                        navigate =
+                        evaluateContext =
                             fun p id cmd pc ->
                                 seen.Value <- Some(p.Filtered, id, cmd pc.Context, pc.Category)
                                 async { return Ok p }
@@ -173,7 +285,7 @@ let tests =
                 let! _ =
                     OrderPlanCommand.processCmd
                         (envOver false port)
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                             plan,
                             "c-1",
                             Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0,
@@ -192,31 +304,6 @@ let tests =
                 | other -> failtest $"the port saw %A{other}"
             }
 
-            testAsync "the new context's category is the domain's" {
-                let seen = ref None
-
-                let port =
-                    { echoPort (ref []) with
-                        newOrderContext =
-                            fun p category ->
-                                seen.Value <- Some category
-                                async { return Ok p }
-                    }
-
-                let! _ =
-                    OrderPlanCommand.processCmd
-                        (envOver false port)
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(
-                            plan,
-                            NutritionCategory.EnteralSupplement
-                        ))
-
-                seen.Value
-                |> Expect.equal
-                    "the category mapped"
-                    (Some Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralSupplement)
-            }
-
             testAsync "a draft plan is refused before the port with the server's words" {
                 let seen = ref []
 
@@ -232,27 +319,60 @@ let tests =
                 seen.Value |> Expect.isEmpty "the port never asked"
             }
 
-            test "the refusals in the server's words, the category labelled from the rule sets" {
-                let words = OrderPlanMapper.words NutritionRuleSets.all
-
-                OrderPlanError.SupplementNeedsFeeding
-                |> words
-                |> Expect.equal "supplement" "A supplement needs a feeding in the plan"
-
-                OrderPlanError.CategoryHeld Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
-                |> words
-                |> Expect.equal "category" "The plan already holds a Enterale Voeding context"
+            test "the refusals in the server's words" {
+                let words = OrderPlanMapper.words
 
                 OrderPlanError.NotNarrowed 2
                 |> words
-                |> Expect.equal "not narrowed" "The workbench holds 2 candidates, not one order"
+                |> Expect.equal "not narrowed" "Choose one order first: 2 candidates remain"
 
                 OrderPlanError.OrderHeld "o"
                 |> words
                 |> Expect.equal "held" "The plan already holds this order"
 
+                OrderPlanError.BrokenLink(LinkError.NoSuchMainOrder "c-9")
+                |> words
+                |> Expect.equal "no main order" "The main order c-9 is not in the plan"
+
+                OrderPlanError.BrokenLink(LinkError.NotAllowed "paracetamol")
+                |> words
+                |> Expect.equal "not allowed" "No link rule links this order to the main order paracetamol"
+
+                OrderPlanError.OrderRefused("ataluren", OrderPlanError.BrokenLink LinkError.MainOrderRequired)
+                |> words
+                |> Expect.equal "an order of a group" "ataluren: This order is only prescribed with its main order"
+
+                OrderPlanError.BrokenLink LinkError.MainOrderRequired
+                |> words
+                |> Expect.equal "main order required" "This order is only prescribed with its main order"
+
+                DtoError.BrokenLink("c-2", LinkError.MainOrderLinked "c-1")
+                |> OrderContextMapper.words
+                |> Expect.equal "a stored link" "Context c-2: The main order c-1 is itself linked to another order"
+
                 OrderPlanError.NoSuchContext "c-9"
                 |> words
                 |> Expect.equal "no context" "The plan holds no context c-9"
+            }
+
+            testAsync "the port refuses a pick the rules no longer offer, in words" {
+                let picked =
+                    { ctx with
+                        Category = OrderCategory.Medication
+                        Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
+                    }
+
+                match
+                    OrderContextService.parse readAt picked,
+                    OrderPlanCommand.parsePlan readAt { plan with OrderContexts = [| picked |] }
+                with
+                | Ok pc, Ok p ->
+                    let sut = Adapters.makeAppEnv (SolutionRulesProvider([||], [||]))
+                    let! answer = sut.orderPlan.evaluateContext p "c-1" OrderContext.UpdateOrderContext pc
+
+                    match answer with
+                    | Error [| words |] -> words |> Expect.stringContains "says why" OrderContext.noDoseRulesMessage
+                    | other -> failtest $"expected the refusal, got %A{other}"
+                | parsed -> failtest $"expected a context and a plan, got %A{parsed}"
             }
         ]

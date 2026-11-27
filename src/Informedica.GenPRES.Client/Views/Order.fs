@@ -26,8 +26,7 @@ module Order =
     module private Elmish =
 
 
-        /// What the dialog holds of its own: the component and the item picked, never the
-        /// order, which is the one the context shown has.
+        /// The component and the item picked in the dialog. The order comes from the context shown.
         type State =
             {
                 SelectedComponent: string option
@@ -66,6 +65,8 @@ module Order =
             | SetMinDoseQuantityProperty
             | SetMaxDoseQuantityProperty
             | SetMedianDoseQuantityProperty
+            // the dose quantity as a share of the full intake, in percent
+            | SetDoseQuantityPercProperty of perc: int
             // Rate property commands
             | DecreaseDoseRateProperty of ntimes: int * useCalc: bool
             | IncreaseDoseRateProperty of ntimes: int * useCalc: bool
@@ -80,9 +81,8 @@ module Order =
             | SetMedianComponentQuantityProperty
 
 
-        /// The component and the item picked, seeded from the one scenario of the context shown:
-        /// those the dialog kept for the same order, else the scenario's own, else the first
-        /// component and its first substance.
+        /// Starts with the component and the item of the single scenario of the context shown: those of the
+        /// last render when it showed the same order, else the ones DialogTabPolicy.tab chooses.
         let init (kept: DialogTabPolicy.Tab option) (ctx: OrderContextView) =
             let tab =
                 match ctx with
@@ -90,7 +90,7 @@ module Order =
                 | OrderContextView.Refused(ctx, _)
                 | OrderContextView.Changing ctx ->
                     ctx.Scenarios |> Array.tryExactlyOne |> Option.map (DialogTabPolicy.tab kept)
-                | OrderContextView.NoPatient -> None
+                | OrderContextView.NoPatientData -> None
 
             {
                 SelectedComponent = tab |> Option.bind _.Component
@@ -121,6 +121,7 @@ module Order =
                     setDoseQtyMed: OrderLoader -> unit
                     setDoseQtyInc: int * bool -> OrderLoader -> unit
                     setDoseQtyMax: OrderLoader -> unit
+                    setDoseQtyPerc: int -> OrderLoader -> unit
 
                     setComponentQtyMin: OrderLoader -> unit
                     setComponentQtyDec: int * bool -> OrderLoader -> unit
@@ -134,16 +135,15 @@ module Order =
             (state: State)
             : State * Cmd<Msg>
             =
-            // every change and every step is over the order shown, the one the context sent
-            // has while a change is under way; the lane holds it, the dialog holds none
-            let handleNav nav =
+            // Runs a step on the order shown; does nothing when no order is shown.
+            let handleStep step =
                 match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
-                    OrderLoader.create state.SelectedComponent state.SelectedItem ord |> nav
+                    OrderLoader.create state.SelectedComponent state.SelectedItem ord |> step
                     state, Cmd.none
 
-            // a pick of a variable of the order shown, sent to the lane; nothing to pick without one
+            // Sends a pick of an order variable as UpdateOrderScenario; does nothing when no order is shown.
             let pick target s =
                 match shown with
                 | Some _ -> state, Cmd.ofMsg (UpdateOrderScenario(target, s))
@@ -154,7 +154,8 @@ module Order =
                 ord.Orderable.Components
                 |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name)
 
-            // the item the dialog shows: the item picked in the component shown, or its first substance
+            // The item the dialog shows: the item picked, else the first item of the component shown that
+            // is not an additional item.
             let item prop =
                 shown
                 |> Option.bind shownComponent
@@ -222,7 +223,7 @@ module Order =
             | ChangeSubstancePerTimeAdjust s -> pick (item ItemProperty.DosePerTimeAdjust) s
             | ChangeSubstanceRate s -> pick (item ItemProperty.DoseRate) s
             | ChangeSubstanceRateAdjust s -> pick (item ItemProperty.DoseRateAdjust) s
-            // the item named, in the first component and the one named
+            // The message names the component and the item itself.
             | ChangeSubstanceComponentConcentration(cname, iname, s) ->
                 pick (Some(Models.OrderContext.Target.Item(cname, iname, ItemProperty.ComponentConcentration))) s
             | ChangeSubstanceOrderableConcentration s -> pick (item ItemProperty.OrderableConcentration) s
@@ -232,42 +233,41 @@ module Order =
             | ChangeOrderableQuantity s -> pick (orderable OrderableProperty.Quantity) s
 
             // == Frequency ==
-            | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
-            | DecreaseFrequencyProperty -> handleNav stepper.setFreqDec
-            | SetMedianFrequencyProperty -> handleNav stepper.setFreqMed
-            | IncreaseFrequencyProperty -> handleNav stepper.setFreqInc
-            | SetMaxFrequencyProperty -> handleNav stepper.setFreqMax
+            | SetMinFrequencyProperty -> handleStep stepper.setFreqMin
+            | DecreaseFrequencyProperty -> handleStep stepper.setFreqDec
+            | SetMedianFrequencyProperty -> handleStep stepper.setFreqMed
+            | IncreaseFrequencyProperty -> handleStep stepper.setFreqInc
+            | SetMaxFrequencyProperty -> handleStep stepper.setFreqMax
             // == Rate ==
-            | SetMinDoseRateProperty -> handleNav stepper.setRateMin
-            | DecreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateDec (n, uc))
-            | SetMedianDoseRateProperty -> handleNav stepper.setRateMed
-            | IncreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateInc (n, uc))
-            | SetMaxDoseRateProperty -> handleNav stepper.setRateMax
+            | SetMinDoseRateProperty -> handleStep stepper.setRateMin
+            | DecreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateDec (n, uc))
+            | SetMedianDoseRateProperty -> handleStep stepper.setRateMed
+            | IncreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateInc (n, uc))
+            | SetMaxDoseRateProperty -> handleStep stepper.setRateMax
             // == DoseQty ==
-            | SetMinDoseQuantityProperty -> handleNav stepper.setDoseQtyMin
-            | DecreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyDec (n, uc))
-            | SetMedianDoseQuantityProperty -> handleNav stepper.setDoseQtyMed
-            | IncreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyInc (n, uc))
-            | SetMaxDoseQuantityProperty -> handleNav stepper.setDoseQtyMax
+            | SetMinDoseQuantityProperty -> handleStep stepper.setDoseQtyMin
+            | DecreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyDec (n, uc))
+            | SetMedianDoseQuantityProperty -> handleStep stepper.setDoseQtyMed
+            | IncreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyInc (n, uc))
+            | SetMaxDoseQuantityProperty -> handleStep stepper.setDoseQtyMax
+            | SetDoseQuantityPercProperty perc -> handleStep (stepper.setDoseQtyPerc perc)
             // == ComponentQty ==
-            | SetMinComponentQuantityProperty -> handleNav stepper.setComponentQtyMin
-            | DecreaseComponentQuantityProperty(n, uc) -> handleNav (stepper.setComponentQtyDec (n, uc))
-            | SetMedianComponentQuantityProperty -> handleNav stepper.setComponentQtyMed
-            | IncreaseComponentQuantityProperty(n, uc) -> handleNav (stepper.setComponentQtyInc (n, uc))
-            | SetMaxComponentQuantityProperty -> handleNav stepper.setComponentQtyMax
+            | SetMinComponentQuantityProperty -> handleStep stepper.setComponentQtyMin
+            | DecreaseComponentQuantityProperty(n, uc) -> handleStep (stepper.setComponentQtyDec (n, uc))
+            | SetMedianComponentQuantityProperty -> handleStep stepper.setComponentQtyMed
+            | IncreaseComponentQuantityProperty(n, uc) -> handleStep (stepper.setComponentQtyInc (n, uc))
+            | SetMaxComponentQuantityProperty -> handleStep stepper.setComponentQtyMax
 
 
-        let showOrderName (ord: Order option) =
-            match ord with
-            | Some ord ->
-                let form =
-                    ord.Orderable.Components
-                    |> Array.tryHead
-                    |> Option.map _.Form
-                    |> Option.defaultValue ""
+        /// The name of the order and the form of its first component.
+        let orderName (ord: Order) =
+            let form =
+                ord.Orderable.Components
+                |> Array.tryHead
+                |> Option.map _.Form
+                |> Option.defaultValue ""
 
-                $"{ord.Orderable.Name} {form}"
-            | None -> "order is loading ..."
+            $"{ord.Orderable.Name} {form}"
 
 
     open Elmish
@@ -303,7 +303,8 @@ module Order =
         | DecreaseDoseQuantityProperty _
         | SetMedianDoseQuantityProperty
         | IncreaseDoseQuantityProperty _
-        | SetMaxDoseQuantityProperty -> Some "ordDoseQty"
+        | SetMaxDoseQuantityProperty
+        | SetDoseQuantityPercProperty _ -> Some "ordDoseQty"
         | ChangeOrderableDoseRate _
         | SetMinDoseRateProperty
         | DecreaseDoseRateProperty _
@@ -313,7 +314,7 @@ module Order =
         | _ -> None
 
 
-    /// What a message does: change a value, step it, send or reset the order, or change the dialog alone.
+    /// The kind of a message: a change of the dialog alone, a value change, a step, an update or a reset.
     [<RequireQualifiedAccess>]
     type private Kind =
         | Local
@@ -349,6 +350,7 @@ module Order =
         | SetMaxDoseRateProperty
         | SetMaxDoseQuantityProperty
         | SetMaxComponentQuantityProperty -> Kind.Step "max"
+        | SetDoseQuantityPercProperty _ -> Kind.Step "perc"
         | _ -> Kind.Change
 
 
@@ -390,6 +392,7 @@ module Order =
             | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
             | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
             | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | SetDoseQuantityPercProperty perc -> $"SetDoseQuantityPercProperty %i{perc}"
             | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
             | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
             | SetMinDoseRateProperty -> "SetMinDoseRateProperty"
@@ -406,7 +409,7 @@ module Order =
         | None -> case
 
 
-    /// The call a message makes, given the order shown and the dialog's state.
+    /// Lists the calls a message makes for the trail, given the order shown and the dialog state.
     let private effectsOf (shown: Order option) (state: State) msg =
         let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
 
@@ -440,15 +443,16 @@ module Order =
         (props:
             {|
                 orderContext: OrderContextView
-                // a command from the dialog; the page sends it over the context it holds
+                // Sends a command from the dialog to the order context of the page.
                 command: Api.OrderViewCommand -> unit
-                // the list of a recalculation closed without a pick: the page puts back what it showed
+                // Called when a recalculation list closes without a pick; the page restores the order it showed.
                 restoreOrderScenario: unit -> unit
                 closeOrder: unit -> unit
-                // a request of the page out, or a field counting: the dialog does not close then
+                // True while a request of the page is out or a field counts clicks; the dialog does not close then.
                 busy: bool
                 localizationTerms: Deferred<string[][]>
-                // what the user can change: everything on the workbench, less in the plan
+                // What the user can change: everything on the workbench; in the plan, the fields the plan context
+                // policy allows and the dose share of a TPN when it can be set.
                 editing: PlanContextPolicy.Editing
             |})
         =
@@ -457,15 +461,18 @@ module Order =
         let isMobile = Mui.Hooks.useIsMobile ()
 
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
+        let productStrength = Terms.``Order Product Strength`` |> getTerm "product strength"
 
-        // the context shown: settled, or the one sent while a change is under way
+        // The context shown; while a change is under way, the context that was sent.
         let shownContext =
             match props.orderContext with
             | OrderContextView.Settled ctx
             | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx -> Some ctx
-            | OrderContextView.NoPatient -> None
+            | OrderContextView.NoPatientData -> None
 
+        // The order of the single scenario of the context shown. While a change is under way it is the order
+        // that was sent, so the dialog stays filled while the server answers.
         let shownOrder =
             shownContext
             |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
@@ -475,8 +482,8 @@ module Order =
             |> Option.bind (fun pr -> pr.Scenarios |> Array.tryExactlyOne |> Option.map _.UseAdjust)
             |> Option.defaultValue false
 
-        // a pick goes out as the index of its value over the order as it is. A value the order does
-        // not offer is a bug, written to the console and not sent
+        // Sends a pick as the index of the value in the order variable. A value the variable does not offer
+        // is a bug: it is logged as a warning and not sent.
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
             | OrderContextView.Settled _
@@ -501,13 +508,13 @@ module Order =
             | OrderContextView.Settled _
             | OrderContextView.Refused _
             | OrderContextView.Changing _ -> props.command Api.OrderViewCommand.ResetOrderScenario
-            | OrderContextView.NoPatient -> ()
+            | OrderContextView.NoPatientData -> ()
 
         let stepper =
-            // a step goes out as its command, while the dialog shows a context
+            // Sends a step command, unless there is no patient data.
             let send cmd =
                 match props.orderContext with
-                | OrderContextView.NoPatient -> ()
+                | OrderContextView.NoPatientData -> ()
                 | _ -> props.command cmd
 
             let create cmd = fun (_: OrderLoader) -> send cmd
@@ -542,6 +549,7 @@ module Order =
                 setDoseQtyMed = create Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
                 setDoseQtyInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
                 setDoseQtyMax = create Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyPerc = fun perc -> create (Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc)
                 // Component Quantity
                 setComponentQtyMin = createWithCmp Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
                 setComponentQtyDec = createWithCmpN Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
@@ -559,7 +567,7 @@ module Order =
 
             next, cmd
 
-        // the tab of the last render, so that an answer for the same order keeps it
+        // The component and the item of the last render, so an answer for the same order keeps them.
         let kept = React.useRef<DialogTabPolicy.Tab option> None
 
         let state, dispatch =
@@ -579,33 +587,23 @@ module Order =
         // the field whose change went out, and whether it shows that it is loading
         let changing, setChanging = React.useState<(string * bool) option> None
 
-        // the order a reopen started from, shown until its answer lands: the order sent has the
-        // reopened value cleared, and a field without values is not drawn, which would take the
-        // field and its open list away while the server answers
-        let reopenedFrom, setReopenedFrom = React.useState<Order option> None
-
         // Clear the field changing when parent finishes recalculating
         React.useEffect (
             (fun () ->
                 match props.orderContext with
                 | OrderContextView.Settled _
-                | OrderContextView.Refused _ ->
-                    setChanging None
-                    setReopenedFrom None
+                | OrderContextView.Refused _ -> setChanging None
                 | _ -> ()
             ),
             [| box props.orderContext |]
         )
 
-        // a reopen stays loading until its answer is shown: the order it started from is shown one
-        // render past the answer, until the effect above lets go of it
         let isOrderLoading =
-            reopenedFrom.IsSome
-            || match props.orderContext with
-               | OrderContextView.Changing _ -> true
-               | OrderContextView.NoPatient
-               | OrderContextView.Refused _
-               | OrderContextView.Settled _ -> false
+            match props.orderContext with
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatientData
+            | OrderContextView.Refused _
+            | OrderContextView.Settled _ -> false
 
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
@@ -635,15 +633,11 @@ module Order =
 
                 originalDispatch msg
 
-        // the order shown, the one sent while a change is under way, so that the dialog stays
-        // populated while the server is processing; during a reopen the one it started from
-        let displayOrder = reopenedFrom |> Option.orElse shownOrder
-
         let itms =
-            match displayOrder with
+            match shownOrder with
             | Some ord ->
                 ord.Orderable.Components
-                // only use the main component for dosing
+                // the component picked, or the first
                 |> Array.tryFind (fun cmp -> state.SelectedComponent.IsNone || state.SelectedComponent.Value = cmp.Name)
                 |> Option.map (fun cmp ->
                     // filter out additional items, they are not used for dosing
@@ -652,10 +646,10 @@ module Order =
                 |> Option.defaultValue [||]
             | _ -> [||]
 
-        // the target of an item property of the component shown, as the dialog's messages address it
+        // The target of a property of item i in the component shown.
         let itemTarget i prop =
             let cmp =
-                displayOrder
+                shownOrder
                 |> Option.bind (fun ord ->
                     ord.Orderable.Components
                     |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name)
@@ -673,12 +667,12 @@ module Order =
                 | Some i -> Some i
 
         let showDosingDivider =
-            match displayOrder with
+            match shownOrder with
             | None -> false
             | Some ord ->
                 let hasSubstIndx = substIndx.IsSome && itms |> Array.length > 0
 
-                // substance dose quantity: not continuous, substIndx, itms > 0, has vals
+                // Substance dose quantity: shown for a schedule that is not continuous when the item has values.
                 let hasSubstDoseQty =
                     hasSubstIndx
                     && ord.Schedule.IsContinuous |> not
@@ -690,7 +684,8 @@ module Order =
                        )
                        |> Option.defaultValue false
 
-                // substance dose quantity adjust: once/onceTimed, useAdjust, substIndx, itms > 0, has vals
+                // Adjusted substance dose quantity: shown for a once or once-timed schedule with an adjusted
+                // dose when the item has values.
                 let hasSubstDoseQtyAdj =
                     hasSubstIndx
                     && useAdjust
@@ -703,7 +698,7 @@ module Order =
                        )
                        |> Option.defaultValue false
 
-                // substance dose per time: not continuous, substIndx, itms > 0, has vals
+                // Substance dose per time: shown for a schedule that is not continuous when the item has values.
                 let hasSubstPerTime =
                     hasSubstIndx
                     && ord.Schedule.IsContinuous |> not
@@ -720,7 +715,7 @@ module Order =
                        )
                        |> Option.defaultValue false
 
-                // substance dose rate: continuous, substIndx, itms > 0, has vals
+                // Substance dose rate: shown for a continuous schedule when the item has values.
                 let hasSubstRate =
                     hasSubstIndx
                     && ord.Schedule.IsContinuous
@@ -739,11 +734,10 @@ module Order =
 
                 hasSubstDoseQty || hasSubstDoseQtyAdj || hasSubstPerTime || hasSubstRate
 
-        // the preparation variables the five preparation fields will show, under the conditions
-        // the fields apply themselves, so the heading shows exactly when a preparation field
-        // shows: a field without values and without steps renders nothing
+        // The variables the five preparation fields show, under the same conditions as the fields, so the
+        // heading shows exactly when a preparation field shows. A field without values and steps renders nothing.
         let preparationVariables: OrderVariable list =
-            match displayOrder with
+            match shownOrder with
             | None -> []
             | Some ord ->
                 let multiComponent = ord.Orderable.Components |> Array.length > 1
@@ -762,8 +756,8 @@ module Order =
                     | QuantityModePolicy.Mode.Selectable
                     | QuantityModePolicy.Mode.Fixed -> false
 
-                // component orderable quantity: more than one component, with values, a range shown
-                // as one, or steps; the field shows a range as one entry where the others show none
+                // Component orderable quantity: shown for more than one component when it has values or steps.
+                // This field counts a range as one value, where the other fields count none.
                 let compOrdQty =
                     if not multiComponent then
                         None
@@ -777,8 +771,8 @@ module Order =
                                |> hasSteps
                         )
 
-                // substance component concentration: the selected item, else the component's own
-                // item, when its defined values are more than one and it has values
+                // Substance component concentration of the selected item, else of the item with the name of the
+                // component: shown when it has values and more than one defined value.
                 let substCompConc =
                     let concOf (itm: Item) =
                         itm.ComponentConcentration
@@ -796,21 +790,23 @@ module Order =
                         |> Option.bind (fun cmp -> cmp.Items |> Array.tryFind (fun i -> i.Name = cmp.Name))
                         |> Option.bind concOf
 
-                // substance orderable quantity: continuous, more than one component, with values
+                // Substance orderable quantity: shown for a continuous schedule with more than one component
+                // when it has values.
                 let substOrbQty =
                     match substIndx with
                     | Some i when multiComponent && ord.Schedule.IsContinuous && itms |> Array.length > 0 ->
                         itms[i].OrderableQuantity |> Some |> Option.filter hasVals
                     | _ -> None
 
-                // substance orderable concentration: not continuous, more than one component, with values
+                // Substance orderable concentration: shown for a schedule that is not continuous with more than
+                // one component when it has values.
                 let substOrbConc =
                     match substIndx with
                     | Some i when multiComponent && ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                         itms[i].OrderableConcentration |> Some |> Option.filter hasVals
                     | _ -> None
 
-                // orderable quantity: more than one component, with values
+                // Orderable quantity: shown for more than one component when it has values.
                 let orbQty =
                     if multiComponent then
                         ord.Orderable.OrderableQuantity |> Some |> Option.filter hasVals
@@ -822,11 +818,11 @@ module Order =
 
         let showPrepDivider = preparationVariables |> List.isEmpty |> not
 
-        // the preparation section folds to its heading once every value it shows holds one value;
-        // the user opens and folds it in between, and an answer that changes the solved state puts
-        // it back under the rule. Another order shown by this component starts its fold anew.
+        // The preparation section folds to its heading when every value it shows is solved to one value.
+        // The user can open and fold it; an answer that changes the solved state applies the rule again.
+        // Another order starts with a new fold.
         let preparationSolved = preparationVariables |> SectionFoldPolicy.allSolved
-        let shownOrderId = displayOrder |> Option.map _.Id |> Option.defaultValue ""
+        let shownOrderId = shownOrder |> Option.map _.Id |> Option.defaultValue ""
         let fold, setFold = React.useState (SectionFoldPolicy.initial preparationSolved)
         let foldOrderIdRef = React.useRef shownOrderId
 
@@ -844,24 +840,24 @@ module Order =
         let toggleFold = fun () -> setFold (fold |> SectionFoldPolicy.toggle)
 
         let showAdminDivider =
-            match displayOrder with
+            match shownOrder with
             | None -> false
             | Some ord ->
-                // frequency: shown when has vals or single val (nav)
+                // Frequency: shown when it has values.
                 let hasFrequency =
                     ord.Schedule.Frequency.Variable.Vals
                     |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
                     |> Option.defaultValue false
-                // orderable dose quantity: shown when not continuous and has vals
+                // Orderable dose quantity: shown for a schedule that is not continuous when it has values.
                 let hasDoseQty =
                     ord.Schedule.IsContinuous |> not
                     && ord.Orderable.Dose.Quantity.Variable.Vals
                        |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
                        |> Option.defaultValue false
-                // orderable dose rate: shown when continuous/timed/onceTimed
-                // (stepper is always Some, so select renders even with empty vals)
+                // Orderable dose rate: shown for a continuous, timed or once-timed schedule. The field always
+                // has a stepper, so it renders even without values.
                 let hasDoseRate = ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed
-                // administration time: shown when has vals
+                // Administration time: shown when it has values.
                 let hasTime =
                     ord.Schedule.Time.Variable.Vals
                     |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
@@ -871,30 +867,25 @@ module Order =
 
         let markOf = ViewHelpers.markOf
 
-        // the component and the item selects are the dialog's own, never a request; the dialog
-        // always has one of each, so neither can be cleared
+        // The component and the item selects change the dialog alone and send no request. A component and
+        // an item are always picked, so neither select can be cleared.
         let texts = ViewHelpers.quantityFieldTexts getTerm
 
         let pick = ViewHelpers.orderFixed texts false false
 
-        // a field's select: rests while a field is changing, shows it while its own is; a
-        // field the editing does not let change shows its value, without steps or a dropdown
-        // a field with one value is recalculated when the intent policy allows it on the order
-        // shown, and shows that it is loading until the answer lands; a list closed without a pick
-        // puts back the order shown before
-        let reopenOf field target : ViewHelpers.Reopen =
+        // The select of a field. While a change is under way every select is disabled, and the field that
+        // changes shows that it is loading. A field the editing does not allow to change shows its value
+        // without steps or a dropdown. A field with one value can be recalculated when the intent policy
+        // allows it for the order shown; it shows that it is loading until the answer arrives. A list closed
+        // without a pick restores the order shown before.
+        let reCalcOf field target : ViewHelpers.ReCalc =
             {|
-                allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
+                allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc =
                     fun () ->
                         setChanging (Some(field, true))
-                        setReopenedFrom shownOrder
                         props.command (ViewHelpers.reCalcCommand target)
-                restore =
-                    fun () ->
-                        // the recalculation ends here: its order is no longer held, whatever the answer
-                        setReopenedFrom None
-                        props.restoreOrderScenario ()
+                restore = props.restoreOrderScenario
                 busy = isOrderLoading
             |}
 
@@ -903,7 +894,7 @@ module Order =
                 ViewHelpers.orderSelect
                     texts
                     false
-                    // no field changes while a change is under way: the next goes over its answer
+                    // disabled while a change is under way, so the next change applies to its answer
                     isOrderLoading
                     (isFieldLoading field)
                     lbl
@@ -911,12 +902,12 @@ module Order =
                     updateSelected
                     mode
                     mark
-                    (reopenOf field target)
+                    (reCalcOf field target)
                     minWidth
                     xs
             else
-                // several values and none picked would show blank in a field that cannot open:
-                // the values show as one range, from the first to the last
+                // Several values with none picked would show blank in a field that cannot open, so the values
+                // show as one range from the first to the last.
                 let shown =
                     if xs |> Array.length > 1 && selected |> Option.isNone then
                         [| "fixed", $"%s{xs |> Array.head |> snd} – %s{xs |> Array.last |> snd}" |]
@@ -936,13 +927,11 @@ module Order =
                     minWidth
                     shown
 
-        let argues = props.editing |> PlanContextPolicy.argues
-
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
-        // the argumentation: the text the context holds, typed here and sent as a command once, by
-        // the dialog's own close; the draft follows the context
+        // The argumentation text of the context. It is edited here and sent as one command when the dialog
+        // closes. The draft is reset when the text of the context changes.
         let heldArgumentation = shownContext |> Option.bind _.Argumentation |> Option.defaultValue ""
 
         let argumentation, setArgumentation = React.useState heldArgumentation
@@ -951,8 +940,10 @@ module Order =
 
         let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
 
-        // a text goes out only when it differs from the one the context holds, since in the plan
-        // every command counts as a change; a locked context sends nothing, its text is shown only
+        let argues = props.editing |> PlanContextPolicy.argues
+
+        // Sends the text only when it differs from the text of the context, because in the plan every
+        // command counts as a change. A locked context sends nothing and only shows its text.
         let argue (text: string) =
             if
                 argues
@@ -961,11 +952,10 @@ module Order =
             then
                 props.command (Api.OrderViewCommand.SetArgumentationProperty text)
 
-        // the dialog's own close, by Ok, Escape or a click beside it, sends a draft not yet sent
-        // first. A blur sends nothing: the press on Ok blurs the field, and a draft sent then
-        // would keep the page busy when the click lands. While the page is busy the dialog stays
-        // open and Ok rests, so the draft never meets a request out. A close from outside, the
-        // selection gone, discards it
+        // Closing the dialog with Ok, Escape or a click outside first sends a draft not yet sent. A blur
+        // sends nothing: pressing Ok blurs the field, and a draft sent then would keep the page busy when
+        // the click lands. While the page is busy the dialog stays open and Ok is disabled, so a draft is
+        // never sent during another request. A close from outside, when the selection is gone, discards it.
         let close () =
             if not props.busy then
                 argue argumentation
@@ -973,10 +963,10 @@ module Order =
 
         let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
-        // Ok completes the dialog and Reset discards the changes: the bar places them. Reset is
-        // the workbench's alone: it re-solves from the rules, which in the plan could change
-        // what the plan context rule keeps fixed. The reset clears the argumentation, so it
-        // discards a text not yet sent as well
+        // Ok completes the dialog and Reset discards the changes; the action bar places both. Reset is
+        // offered only on the workbench: it solves the order again from the rules, which in the plan could
+        // change what the plan context policy keeps fixed. Reset also clears the argumentation, including a
+        // text not yet sent.
         let reset () =
             setArgumentation ""
             ResetOrderScenario |> dispatch
@@ -1031,7 +1021,7 @@ module Order =
 
         let administrationDivider =
             if showAdminDivider then
-                Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
+                Terms.``Prescribe Administration`` |> getTerm "Administration" |> heading
             else
                 null
 
@@ -1045,7 +1035,7 @@ module Order =
                 |}
 
             let componentSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     if ord.Orderable.Components |> Array.length <= 1 then
                         null
@@ -1064,7 +1054,7 @@ module Order =
                 | _ -> null
 
             let itemSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     if ord.Orderable.Components |> Array.isEmpty || itms |> Array.length <= 1 then
                         null
@@ -1082,13 +1072,16 @@ module Order =
                             None
                 | _ -> null
 
+            // a select label followed by the unit of its values, as in "dose (mg)"
+            let withUnit unit label = $"%s{label} (%s{unit})"
+
             let substDoseQtySelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                     let label, vals =
                         itms[i].Dose.Quantity.Variable.Vals
                         |> Option.map (fun v ->
-                            (Terms.``Order Dose`` |> getTerm "keer dosis" |> (fun s -> $"{s} ({v.Unit})")),
+                            (Terms.``Order Dose`` |> getTerm "dose" |> withUnit v.Unit),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                             |> Array.distinctBy snd
@@ -1110,7 +1103,7 @@ module Order =
                 | _ -> null
 
             let substDoseQtyAdjSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     (ord.Schedule.IsOnce || ord.Schedule.IsOnceTimed)
                     && itms |> Array.length > 0
@@ -1119,9 +1112,7 @@ module Order =
                     let label, vals =
                         itms[i].Dose.QuantityAdjust.Variable.Vals
                         |> Option.map (fun v ->
-                            (Terms.``Order Adjusted dose``
-                             |> getTerm "keer dosis"
-                             |> fun s -> $"{s} ({v.Unit})"),
+                            (Terms.``Order Dose`` |> getTerm "dose" |> withUnit v.Unit),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                             |> Array.distinctBy snd
@@ -1143,7 +1134,7 @@ module Order =
                 | _ -> null
 
             let substPerTimeSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                     let dispatch =
                         if useAdjust then
@@ -1158,7 +1149,7 @@ module Order =
                             itms[i].Dose.PerTime.Variable.Vals
                         |> Option.map (fun v ->
                             (Terms.``Order Adjusted dose``
-                             |> getTerm "dosering"
+                             |> getTerm "adjusted dose"
                              |> fun s -> $"{s} ({v.Unit})"),
                             v.Value
                             |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
@@ -1192,7 +1183,7 @@ module Order =
             let substRateSelect =
                 let stepper = ViewHelpers.noSteps
 
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous && itms |> Array.length > 0 ->
                     let dispatch =
                         if useAdjust then
@@ -1223,7 +1214,7 @@ module Order =
                                  ItemProperty.DoseRateAdjust
                              else
                                  ItemProperty.DoseRate))
-                        (Terms.``Order Adjusted dose`` |> getTerm "dosering")
+                        (Terms.``Order Adjusted dose`` |> getTerm "adjusted dose")
                         None
                         dispatch
                         stepper
@@ -1232,7 +1223,7 @@ module Order =
                 | _ -> null
 
             let compOrdQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
                     let cmp =
                         ord.Orderable.Components
@@ -1276,7 +1267,7 @@ module Order =
                             cmp |> Option.map _.Name |> Option.defaultValue "",
                             ComponentProperty.OrderableQuantity
                         ))
-                        "bereiding hoeveelheid"
+                        (Terms.``Order Preparation Quantity`` |> getTerm "preparation quantity")
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
                         stepper
@@ -1285,7 +1276,7 @@ module Order =
                 | _ -> null
 
             let substCompConcSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord ->
                     match itms |> Array.tryItem i with
                     | Some itm ->
@@ -1308,7 +1299,7 @@ module Order =
                             |> selectFor
                                 "substCompConc"
                                 (Models.OrderContext.Target.Item(cname, iname, ItemProperty.ComponentConcentration))
-                                "product sterkte"
+                                productStrength
                                 None
                                 (change >> dispatch)
                                 ViewHelpers.noSteps
@@ -1342,7 +1333,7 @@ module Order =
                                             itm.Name,
                                             ItemProperty.ComponentConcentration
                                         ))
-                                        "product sterkte"
+                                        productStrength
                                         None
                                         (change >> dispatch)
                                         ViewHelpers.noSteps
@@ -1356,7 +1347,7 @@ module Order =
                 | _ -> null
 
             let substOrdQtySelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     ord.Schedule.IsContinuous
                     && itms |> Array.length > 0
@@ -1378,7 +1369,7 @@ module Order =
                 | _ -> null
 
             let substOrdConcSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     ord.Schedule.IsContinuous |> not
                     && itms |> Array.length > 0
@@ -1400,7 +1391,7 @@ module Order =
                 | _ -> null
 
             let ordQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
                     let severity = ord.Orderable.OrderableQuantity |> markOf
 
@@ -1409,7 +1400,7 @@ module Order =
                     |> selectFor
                         "ordQty"
                         (Models.OrderContext.Target.Orderable OrderableProperty.Quantity)
-                        "totale hoeveelheid"
+                        (Terms.``Order Total Quantity`` |> getTerm "total quantity")
                         None
                         (ChangeOrderableQuantity >> dispatch)
                         ViewHelpers.noSteps
@@ -1418,7 +1409,7 @@ module Order =
                 | _ -> null
 
             let frequencySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
                     let xs = ord.Schedule.Frequency |> ViewHelpers.ovarValsWithRange string 3
 
@@ -1441,7 +1432,7 @@ module Order =
                     selectFor
                         "frequency"
                         (Models.OrderContext.Target.Schedule ScheduleProperty.Frequency)
-                        (Terms.``Order Frequency`` |> getTerm "frequentie")
+                        (Terms.``Order Frequency`` |> getTerm "frequency")
                         None
                         (ChangeFrequency >> dispatch)
                         stepper
@@ -1451,7 +1442,7 @@ module Order =
                 | _ -> null
 
             let ordDoseQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsContinuous |> not ->
                     let stepper =
                         ViewHelpers.createDoseQtyStepper
@@ -1470,7 +1461,7 @@ module Order =
                     |> selectFor
                         "ordDoseQty"
                         (Models.OrderContext.Target.Orderable OrderableProperty.DoseQuantity)
-                        "toedien hoeveelheid"
+                        (Terms.``Order Dose Quantity`` |> getTerm "dose quantity")
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
                         stepper
@@ -1478,8 +1469,23 @@ module Order =
                         None
                 | _ -> null
 
+            // The share of the full intake that a TPN gives, set as on the nutrition page.
+            let intakeSlider =
+                match shownContext, shownOrder with
+                | Some ctx, Some ord when ctx.Category = OrderCategory.Nutrition NutritionCategory.TPN ->
+                    Components.IntakeSlider.View
+                        {|
+                            labelId = $"order-intake-label-%s{ctx.Id}"
+                            share = ord |> IntakePolicy.doseShare
+                            disabled = not (PlanContextPolicy.setsDoseShare props.editing) || props.busy
+                            onCommit = SetDoseQuantityPercProperty >> dispatch
+                            order = box ord
+                            texts = ViewHelpers.intakeSliderTexts getTerm
+                        |}
+                | _ -> null
+
             let ordDoseRateSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed ->
                     let stepper =
                         let mode =
@@ -1503,7 +1509,7 @@ module Order =
                     |> selectFor
                         "ordDoseRate"
                         (Models.OrderContext.Target.Orderable OrderableProperty.DoseRate)
-                        (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
+                        (Terms.``Order Drip rate`` |> getTerm "drip rate")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
                         stepper
@@ -1512,7 +1518,7 @@ module Order =
                 | _ -> null
 
             let timeSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     let severity = ord.Schedule.Time |> markOf
 
@@ -1522,7 +1528,7 @@ module Order =
                     |> selectFor
                         "time"
                         (Models.OrderContext.Target.Schedule ScheduleProperty.Time)
-                        (Terms.``Order Administration time`` |> getTerm "inloop tijd")
+                        (Terms.``Order Administration time`` |> getTerm "administration time")
                         None
                         (ChangeTime >> dispatch)
                         ViewHelpers.noSteps
@@ -1530,8 +1536,8 @@ module Order =
                         None
                 | _ -> null
 
-            // the preparation section: its heading like the other sections', with the button that
-            // opens or folds it beside the name, and its five fields below while it is open
+            // The preparation section: a heading like the other sections, with a button beside the name
+            // that opens or folds it, and its five fields below while it is open.
             let preparationOpen = showPrepDivider && (fold |> SectionFoldPolicy.isOpen)
 
             let preparationDivider =
@@ -1546,10 +1552,10 @@ module Order =
 
                     let onClick = fun _ -> toggleFold ()
 
-                    let label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+                    let label = Terms.``Prescribe Preparation`` |> getTerm "Preparation"
 
-                    // the button is named after the section it opens and folds, since its icon
-                    // says nothing to a screen reader and the name beside it is not linked to it
+                    // The button gets the section name as its label, because a screen reader cannot read the
+                    // icon and the name beside it is not linked to the button.
                     let foldButton =
                         JSX.jsx
                             $"""
@@ -1568,17 +1574,17 @@ module Order =
 
             let whileOpen field = if preparationOpen then field else null
 
-            // the argumentation, last: shown when the rules mark the order or a text is there,
-            // capped where the policy caps it
+            // The argumentation field, last: shown when the rules mark the order or a text is present, and
+            // limited to the maximum length of the policy.
             let argumentationField =
                 if not argumentationWanted then
                     null
                 else
-                    let label = Terms.``Order Argumentation`` |> getTerm "argumentatie"
+                    let label = Terms.``Order Argumentation`` |> getTerm "Argumentation"
 
                     let helper =
                         Terms.``Order Argumentation Helper``
-                        |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
+                        |> getTerm "why the dose differs from what the rules allow"
 
                     let inputProps =
                         {|
@@ -1608,11 +1614,9 @@ module Order =
                     />
                     """
 
-            // The fields the dialog shows, in the order it shows them: the case per dose type the
-            // client hard-codes today, as one literal at the call site. Each field decides for
-            // itself whether it applies to the order and renders nothing otherwise; none is the
-            // lead the user is pointed at first, since which field that is, and in what order
-            // they come, is the server's to send with the order and replaces this literal.
+            // The fields of the dialog in the order they are shown, hard-coded for every dose type. Each field
+            // renders nothing when it does not apply to the order. No field is marked as the first one for the
+            // user; the server is meant to send that and the order of the fields with the order.
             let fields =
                 [|
                     componentSelect
@@ -1631,6 +1635,7 @@ module Order =
                     administrationDivider
                     frequencySelect
                     ordDoseQtySelect
+                    intakeSlider
                     ordDoseRateSelect
                     timeSelect
                     argumentationField
@@ -1638,8 +1643,8 @@ module Order =
                 |> unbox<seq<ReactElement>>
                 |> React.Fragment
 
-            // the spinner lies over the fields and takes no room, so the dialog keeps its height
-            // and the fields stay where they are while the order reloads
+            // The spinner lies over the fields and takes no room, so the dialog keeps its height and the
+            // fields stay in place while the order reloads.
             let fieldsOverlay =
                 let stack =
                     JSX.jsx
@@ -1658,6 +1663,11 @@ module Order =
 
             let titleSlotProps = {| title = {| variant = "h6" |} |}
 
+            let orderTitle =
+                shownOrder
+                |> Option.map orderName
+                |> Option.defaultValue (Terms.``Order Loading`` |> getTerm "order is loading ...")
+
             JSX.jsx
                 $"""
             import CardHeader from '@mui/material/CardHeader';
@@ -1670,7 +1680,7 @@ module Order =
             <div>
             <CardHeader
                 sx = {headerSx}
-                title={displayOrder |> showOrderName}
+                title={orderTitle}
                 slotProps={titleSlotProps}
             ></CardHeader>
             <CardContent sx={contentSx}>
@@ -1697,8 +1707,7 @@ module Order =
             </Card>
             """
 
-        // the dialog frames itself, so its close is its own; the page mounts it while an order is
-        // selected
+        // The dialog has its own frame and close; the page mounts it while an order is selected.
         Components.DialogShell.View
             {|
                 isOpen = true

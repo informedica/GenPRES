@@ -20,8 +20,10 @@ module Autocomplete =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
-                // whether the cross that empties the box is offered
+                // whether the clear button is shown
                 canClear: bool
+                // the greyed text shown while no value is selected
+                placeholder: string option
             |})
         =
 
@@ -40,6 +42,13 @@ module Autocomplete =
             let parsCopy = emitJsExpr pars "Object.assign({}, $0)"
             parsCopy?label <- props.label
             parsCopy?name <- props.label
+
+            // a text field shows its placeholder only when the label is shrunk above the box
+            match props.placeholder with
+            | Some text when props.selected.IsNone ->
+                parsCopy?placeholder <- text
+                parsCopy?InputLabelProps <- emitJsExpr pars?InputLabelProps "Object.assign({}, $0, { shrink: true })"
+            | _ -> ()
 
             JSX.jsx
                 """

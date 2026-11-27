@@ -44,6 +44,28 @@
             ]
         },
         {
+            "name": "code-style-check",
+            "group": "pre-commit",
+            "command": "dotnet",
+            "args": [
+                "fsi",
+                "scripts/CheckCodeStyle.fsx",
+                "--",
+                "${staged}"
+            ],
+            "//include": "The projects in the project list of scripts/CheckCodeStyle.fsx, and the checker with its baseline. A library that joins the check is added here too. The staged paths are passed only so Husky skips the task when none match; the checker ignores them and checks the working tree.",
+            "include": [
+                "src/Informedica.GenUNITS.Lib/**",
+                "src/Informedica.GenSOLVER.Lib/**",
+                "scripts/CheckCodeStyle.fsx",
+                "scripts/CheckCodeStyle.baseline.tsv"
+            ],
+            "exclude": [
+                "**/obj/**",
+                "**/bin/**"
+            ]
+        },
+        {
             "name": "commit-message-linter",
             "group": "commit-msg",
             "command": "dotnet",

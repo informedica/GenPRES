@@ -11,21 +11,21 @@ module SectionFoldPolicy =
     open Informedica.GenPRES.Shared.Models
 
 
-    /// Whether a section is folded: what the last answer said, and the user's toggle since.
+    /// Whether a section is folded: the solved state at the last server answer, and the user's toggle since.
     type Fold =
         {
-            /// Whether every variable in the section held one value at the last answer.
+            /// Whether every variable in the section had a single value at the last server answer.
             Solved: bool
-            /// The user's last toggle since Solved changed; None follows the rule.
+            /// The user's last toggle since Solved changed; None uses the default, open until solved.
             Override: bool option
         }
 
 
-    /// Whether every variable holds one value. An empty section counts as solved.
+    /// Whether every variable has a single value. An empty section counts as solved.
     let allSolved (ovars: OrderVariable seq) = ovars |> Seq.forall OrderDisplay.OrderVariable.isSolved
 
 
-    /// The fold of a section as first shown, following the rule.
+    /// The fold of a section when first shown, without a user toggle.
     let initial solved =
         {
             Solved = solved
@@ -34,7 +34,7 @@ module SectionFoldPolicy =
 
 
     /// The fold after a server answer: when Solved changes, the user's toggle is dropped and the
-    /// rule applies again.
+    /// default applies again.
     let observe solved fold = if solved = fold.Solved then fold else initial solved
 
 

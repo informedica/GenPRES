@@ -18,11 +18,9 @@ module EmergencyList =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let envBolus = AppEnv.asEnv<AppEnv.IBolusMedication> props.appEnv
-        let interventions = envBolus.BolusMedication
-        let onSelectItem = envBolus.OnSelectBolusMedicationItem
-        let filterState = envBolus.BolusMedicationFilter
-        let onFilterChange = envBolus.OnBolusMedicationFilterChange
+        let envList = AppEnv.asEnv<AppEnv.IEmergencyList> props.appEnv
+        let filterState = envList.EmergencyListFilter
+        let onFilterChange = envList.OnEmergencyListFilterChange
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -30,7 +28,6 @@ module EmergencyList =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let hosp = context.Hospital
 
         let printOpen, setPrintOpen = React.useState false
         let printLabels = Global.printLabels ()
@@ -62,8 +59,8 @@ module EmergencyList =
                 // flex distributes available width proportionally; minWidth prevents collapse
                 createObj
                     [
-                        "field" ==> "catagory"
-                        "headerName" ==> (Terms.``Emergency List Catagory`` |> getTerm "Category")
+                        "field" ==> "category"
+                        "headerName" ==> (Terms.``Emergency List Category`` |> getTerm "Category")
                         "width" ==> 140
                         "minWidth" ==> 100
                         "flex" ==> 0.5
@@ -74,7 +71,7 @@ module EmergencyList =
                     [
                         "field" ==> "intervention"
                         "headerName"
-                        ==> (Terms.``Emergency List Intervention`` |> getTerm "Interventie")
+                        ==> (Terms.``Emergency List Intervention`` |> getTerm "Intervention")
                         "width" ==> 300
                         "minWidth" ==> 150
                         "flex" ==> 1
@@ -84,7 +81,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "calculated"
-                        "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Berekend")
+                        "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Calculation")
                         "width" ==> 180
                         "minWidth" ==> 120
                         "flex" ==> 0.8
@@ -95,7 +92,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "preparation"
-                        "headerName" ==> (Terms.``Emergency List Preparation`` |> getTerm "Bereiding")
+                        "headerName" ==> (Terms.``Emergency List Preparation`` |> getTerm "Preparation")
                         "width" ==> 180
                         "minWidth" ==> 120
                         "flex" ==> 0.8
@@ -106,7 +103,7 @@ module EmergencyList =
                 createObj
                     [
                         "field" ==> "advice"
-                        "headerName" ==> (Terms.``Emergency List Advice`` |> getTerm "Advies")
+                        "headerName" ==> (Terms.``Emergency List Advice`` |> getTerm "Advised")
                         "width" ==> 300
                         "minWidth" ==> 150
                         "flex" ==> 1
@@ -115,56 +112,66 @@ module EmergencyList =
                     ]
             |]
 
-        let rows =
-            match interventions with
-            | Resolved items ->
-                items
-                |> List.filter (fun item ->
-                    hosp |> String.isNullOrWhiteSpace
-                    || item.Hospital |> String.isNullOrWhiteSpace
-                    || hosp = item.Hospital
-                )
-                |> List.distinctBy (fun item -> item.Category, item.Name, item.InterventionDoseText)
-                |> List.toArray
-                |> Array.mapi (fun i m ->
-                    let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
+        // The rows the server calculated for the patient, also while they are calculated again.
+        let interventions = envList.EmergencyList |> Deferred.defaultValue [||]
 
-                    {|
-                        cells =
-                            [|
-                                {|
-                                    field = "id"
-                                    value = $"{i + 1}.{m.Hospital}.{m.Category}.{m.Name}"
-                                |}
-                                {|
-                                    field = "catagory"
-                                    value = $"{m.Category}"
-                                |}
-                                {|
-                                    field = "intervention"
-                                    value = $"**{m.Name}**"
-                                |}
-                                {|
-                                    field = "calculated"
-                                    value =
-                                        if b then
-                                            $"*{m.SubstanceDoseText}*"
-                                        else
-                                            m.SubstanceDoseText
-                                |}
-                                {|
-                                    field = "preparation"
-                                    value = if b then "" else $"*{m.InterventionDoseText}*"
-                                |}
-                                {|
-                                    field = "advice"
-                                    value = $"{m.Text}"
-                                |}
-                            |]
-                        actions = None
-                    |}
-                )
-            | _ -> [||]
+        // The table gives the id of the clicked row, which is its number in the list.
+        let handleRowClick (id: string) = id |> int |> envList.OnEmergencyListRowChosen
+
+        // The table gives the ids of the checked rows, which are their numbers in the list.
+        let handleSelectChange (ids: string[]) = ids |> Array.map int |> envList.OnEmergencyListRowsChecked
+
+        let selectedRows = envList.EmergencyListChecked |> Array.map string
+
+        // The button is disabled while no checked row has an order context.
+        let prescribeAction =
+            Components.ActionBar.prescribe
+                getTerm
+                envList.OnEmergencyListPrescribe
+                (envList.EmergencyListCheckedContexts |> Array.isEmpty)
+
+        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
+
+        let rows =
+            interventions
+            |> Array.mapi (fun i m ->
+                let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
+
+                {|
+                    cells =
+                        [|
+                            {|
+                                field = "id"
+                                value = $"%i{i + 1}"
+                            |}
+                            {|
+                                field = "category"
+                                value = $"{m.Category}"
+                            |}
+                            {|
+                                field = "intervention"
+                                value = $"**{m.Name}**"
+                            |}
+                            {|
+                                field = "calculated"
+                                value =
+                                    if b then
+                                        $"*{m.SubstanceDoseText}*"
+                                    else
+                                        m.SubstanceDoseText
+                            |}
+                            {|
+                                field = "preparation"
+                                value = if b then "" else $"*{m.InterventionDoseText}*"
+                            |}
+                            {|
+                                field = "advice"
+                                value = $"{m.Text}"
+                            |}
+                        |]
+                    actions = None
+                |}
+            )
 
         let rowCreate (cells: string[]) =
             if cells |> Array.length <> 6 then
@@ -172,7 +179,7 @@ module EmergencyList =
             else
                 {|
                     id = cells[0]
-                    catagory = cells[1].Replace("*", "")
+                    category = cells[1].Replace("*", "")
                     intervention = cells[2].Replace("*", "")
                     calculated = cells[3].Replace("*", "")
                     preparation = cells[4].Replace("*", "")
@@ -194,7 +201,7 @@ module EmergencyList =
         let printColumns =
             [|
                 {|
-                    field = "catagory"
+                    field = "category"
                     label = "Categorie"
                     width = "15%"
                 |}
@@ -257,10 +264,11 @@ module EmergencyList =
                 rows = rows
                 rowCreate = rowCreate
                 height = "100%"
-                onRowClick = onSelectItem
-                checkboxSelection = false
-                selectedRows = [||]
-                onSelectChange = ignore
+                onRowClick = handleRowClick
+                markedRow = None
+                checkboxSelection = true
+                selectedRows = selectedRows
+                onSelectChange = handleSelectChange
                 showToolbar = true
                 showFooter = true
                 onPrint =
@@ -278,7 +286,7 @@ module EmergencyList =
             {|
                 isOpen = printOpen
                 onClose = fun () -> setPrintOpen false
-                title = Terms.``Emergency List`` |> getTerm "Noodlijst"
+                title = Terms.``Emergency List`` |> getTerm "Emergency List"
                 children = printContent
             |}
 
@@ -289,6 +297,7 @@ module EmergencyList =
 
         <Box sx={boxSx}>
             {patientNotice}
+            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>

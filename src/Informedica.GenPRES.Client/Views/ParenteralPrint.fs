@@ -27,18 +27,22 @@ module ParenteralPrint =
     let private boldCellSx = {| fontWeight = "bold" |}
 
 
-    /// The parenteral orders on paper, for the central venous lines: per order its components
-    /// with their volume and dose per kg, the rate and the time, then the totals of the intake.
+    /// Shows the parenteral orders of the plan as a print sheet: per order the volume and the dose per kg
+    /// of each component, the total volume, the rate and the time, then the intake totals. An order
+    /// without a single scenario shows as not configured. The caller gives the title of the dialog and
+    /// the header of the section in the user's language.
     [<JSX.Component>]
     let View
         (props:
             {|
                 plan: OrderPlan
                 onClose: unit -> unit
+                title: string
+                header: string
             |})
         =
         let printLabels = Global.printLabels ()
-        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown (props.plan.Patient |> Some)
+        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown (props.plan.PatientData |> Some)
 
         let parenteralContexts = props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
@@ -254,7 +258,7 @@ module ParenteralPrint =
             let header =
                 ViewHelpers.PrintView.SectionHeader
                     {|
-                        label = "INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS"
+                        label = props.header
                         marginBottom = 2
                     |}
 
@@ -280,6 +284,6 @@ module ParenteralPrint =
             {|
                 isOpen = true
                 onClose = props.onClose
-                title = "Parenterale Voeding"
+                title = props.title
                 children = printContent
             |}

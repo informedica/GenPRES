@@ -14,8 +14,10 @@ open Microsoft.Data.Sqlite
 open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
+open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 open Informedica.GenPRES.Server.Tests.SqlRecordTests
+open Informedica.GenPRES.Server.Tests.TestDates
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 
@@ -29,6 +31,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            TimeZoneInfo.Utc
             Session.defaultIdleLifetime
             (fun () -> t0)
             (fun () -> $"id-{Guid.NewGuid()}")
@@ -38,7 +41,8 @@ let portOver (store: StubDatabase.SessionStore) =
             (fun launch -> LaunchSeal.verify t0 sealKey launch)
             directory.idp
             directory.registry
-            StubAdapterTests.StubAdapters.patientData
+            StubAdapterTests.StubAdapters.ehrPatients
+            (fun () -> None)
             outbox.port
             seeded
 
@@ -57,7 +61,7 @@ let versionOf writes =
 
 /// A store over the file that fails its loads while `failing` is set.
 let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
-    let inner = SqlSessions.store ignore cs (fun () -> t0)
+    let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
     { inner with
         load =
@@ -72,7 +76,8 @@ let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
 /// A port over the database of a connection string, seeded as the composition root seeds it:
 /// the machine reads a credential from the rows now, so a stub Prescriber without one in the
 /// file could not sign.
-let portOn (cs: string) = portOver (SqlSessions.store ignore cs (fun () -> t0))
+let portOn (cs: string) =
+    portOver (SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0))
 
 
 /// Presents a Launch for the stub patient and returns the callback for a login.
@@ -112,7 +117,7 @@ let plan = lazy Store.domainPlan.Value
 let challenged (port: SessionPort) sid (opened: OpenedSession) key =
     async {
         match! port.challenge sid (plan.Value, opened.OpenedToken.Value, None) with
-        | SigningOutcome.ChallengeIssued nonce ->
+        | SigningOutcome.ChallengeIssued(nonce, _) ->
             return
                 {
                     Plan = plan.Value
@@ -259,7 +264,7 @@ let tests =
                 "after a crash between the insert and the reply, the retry is refused and nothing more is written"
                 (fun cs ->
                     async {
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
                         let written = ref None
 
                         // the insert lands, the reply is lost: the port keeps its old state
@@ -296,12 +301,14 @@ let tests =
 
                         rows cs |> Expect.equal "one row" 1L
 
-                        match! port.openVersion sid written.Value.Value with
-                        | Some reopened ->
+                        let! token = tokenOf port sid
+
+                        match! port.openVersion sid written.Value.Value token with
+                        | OnOwnToken.Done(Some reopened) ->
                             reopened.Head
                             |> Option.map StoredVersion.id
                             |> Expect.equal "opens the row" written.Value
-                        | None -> failtest "openVersion should open the row"
+                        | _ -> failtest "openVersion should open the row"
                     }
                 )
 
@@ -313,14 +320,15 @@ let tests =
 
                         // everything lands but the signature, whose writes go to a database
                         // that refuses them
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
                         let store =
                             { inner with
                                 persist =
                                     fun writes ->
                                         match versionOf writes with
-                                        | Some _ -> SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                        | Some _ ->
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         | None -> inner.persist writes
                             }
 
@@ -452,7 +460,7 @@ let tests =
 
                                 let! before = port.find sid
                                 failing.Value <- true
-                                let! failed = fails (port.openVersion sid id)
+                                let! failed = fails (port.openVersion sid id opened.OpenedToken)
                                 failed |> Expect.isTrue "the call fails"
 
                                 // `find` reads the store too, so the store has to answer again
@@ -473,7 +481,7 @@ let tests =
 
                                 let! before = port.find sid
                                 failing.Value <- true
-                                let! failed = fails (port.seen sid opened.OpenedToken None)
+                                let! failed = fails (port.seen sid opened.OpenedToken)
                                 failed |> Expect.isTrue "the call fails"
 
                                 failing.Value <- false
@@ -489,17 +497,17 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist cs [ Session.WriteVersion(v1, None) ] |> ignore
+                        SqlDatabase.persist readAt cs [ Session.WriteVersion(v1, None) ] |> ignore
 
-                        let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.fixtureText ()
+                        let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.currentFixtureText ()
 
-                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 9 fixture
+                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 13 fixture
 
                         // a Session over that patient: loading it brings the record with it
                         let port, directory, _ = portOn cs
                         let! sid, _ = openAs port directory "n-1" "prescriber"
 
-                        let store = SqlSessions.store warnings.Add cs (fun () -> t0)
+                        let store = SqlSessions.store warnings.Add cs TimeZoneInfo.Utc (fun () -> t0)
                         let loaded = store.load (StubDatabase.Slice.Session sid) seeded
                         loaded.Records["stub-patient"] |> List.length |> Expect.equal "both versions" 2
                         warnings.Count |> Expect.equal "one unreadable version" 1
@@ -514,7 +522,7 @@ let tests =
                         Expect.throws
                             "the load throws"
                             (fun () ->
-                                (SqlSessions.store warnings.Add missing (fun () -> t0)).load
+                                (SqlSessions.store warnings.Add missing TimeZoneInfo.Utc (fun () -> t0)).load
                                     (StubDatabase.Slice.Session "s-1")
                                     seeded
                                 |> ignore
@@ -554,7 +562,10 @@ let tests =
                         let env =
                             Adapters.makeAppEnvWith
                                 true
+                                // no default location
+                                None
                                 (Some cs)
+                                TimeZoneInfo.Utc
                                 Session.defaultIdleLifetime
                                 key
                                 directory
@@ -611,7 +622,10 @@ let tests =
                 let env =
                     Adapters.makeAppEnvWith
                         true
+                        // no default location
                         None
+                        None
+                        TimeZoneInfo.Utc
                         Session.defaultIdleLifetime
                         key
                         directory
@@ -635,7 +649,7 @@ let tests =
                         let barrier = new Barrier(2)
 
                         let meeting () =
-                            let inner = SqlSessions.store ignore cs (fun () -> t0)
+                            let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
                             { inner with
                                 persist =
@@ -680,12 +694,14 @@ let tests =
 
                         let loserPort, loserSid = if noOf answers[0] = None then portA, sidA else portB, sidB
 
-                        match! loserPort.openVersion loserSid winner with
-                        | Some reopened ->
+                        let! token = tokenOf loserPort loserSid
+
+                        match! loserPort.openVersion loserSid winner token with
+                        | OnOwnToken.Done(Some reopened) ->
                             reopened.Head
                             |> Option.map StoredVersion.id
                             |> Expect.equal "opens the winner" (Some winner)
-                        | None -> failtest "the losing Session should open the winning row"
+                        | _ -> failtest "the losing Session should open the winning row"
                     }
                 )
 
@@ -780,7 +796,7 @@ let tests =
 
                         // the launch lands, so the hop reaches the PIN question; the writes of
                         // the callback that suspends into enrolment do not
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
                         let refusing = ref false
 
                         let store =
@@ -788,7 +804,7 @@ let tests =
                                 persist =
                                     fun writes ->
                                         if refusing.Value then
-                                            SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
+                                            SqlSessions.runWrites readOnly TimeZoneInfo.Utc (fun () -> Store.t0) writes
                                         else
                                             inner.persist writes
                             }
@@ -865,7 +881,7 @@ let newSqliteStore () =
     SqlSchema.apply cs |> ignore
     // the credentials the suites sign with, in the file the port reads them from
     SqlSessions.seed cs t0 (StubCredentials.seed salts) |> ignore
-    SqlSessions.store ignore cs (fun () -> t0)
+    SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
 
 /// The composition suites of the in-memory port, run again over SQLite, so that the two stores

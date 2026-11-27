@@ -124,9 +124,10 @@ let amfo =
                                             }
                                     }
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "amfotericine b liposomaal" |> SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (
+                                          DilutionTarget.Substance "amfotericine b liposomaal"
+                                      ) with
                                         Concentration =
                                             { MinMax.empty with
                                                 Min =
@@ -178,6 +179,10 @@ let amfo =
     }
 
 
+/// The amphotericin scenario without its diluent: a 4 mg/mL vial with a dilution limit of 0.2 to 2 mg/mL.
+let amfoUndiluted = { amfo with Components = [ amfo.Components |> List.head ] }
+
+
 let morfCont =
     let au = Units.Weight.kiloGram
     let fu = Units.Volume.milliLiter
@@ -214,9 +219,8 @@ let morfCont =
                                             }
                                     }
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "morfin" |> SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "morfin") with
                                         Quantity = 10N |> ValueUnit.singleWithUnit su |> MinMax.createExact
                                         Concentration =
                                             { MinMax.empty with
@@ -481,9 +485,8 @@ let tpnComplete =
                                         Units.Mass.gram |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "eiwit" |> SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "eiwit") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -505,9 +508,8 @@ let tpnComplete =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "natrium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -529,9 +531,8 @@ let tpnComplete =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "kalium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -622,9 +623,8 @@ let tpnComplete =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "natrium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -688,9 +688,8 @@ let tpnComplete =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "kalium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -823,9 +822,8 @@ let tpn =
                                         Units.Mass.gram |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "eiwit") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -847,9 +845,8 @@ let tpn =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "natrium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -871,9 +868,8 @@ let tpn =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "kalium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -928,9 +924,8 @@ let tpn =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "natrium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -985,9 +980,8 @@ let tpn =
                                         Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
                                     )
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "kalium") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -1100,7 +1094,7 @@ Components:
                 - "0.5"
               Unit: mmol/kg
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1136,6 +1130,16 @@ Components:
             - "0.05"
           Unit: g/ml
 """
+
+
+/// The order of the kaliumchloride once timed scenario, before any calculation.
+let kaliumchlorideOnceTimed () =
+    match kaliumchlorideOnceTimedText |> MedicationText.fromString with
+    | Ok med ->
+        match med |> Medication.toOrder testStart with
+        | Ok ord -> ord
+        | Error msg -> invalidOp $"kaliumchloride once timed order could not be created: %A{msg}"
+    | Error errs -> invalidOp $"kaliumchloride once timed medication could not be parsed: %A{errs}"
 
 
 /// Amoxicilline/clavulaanzuur powder diluted with NaCl 0,9%: two components, and two items in the
@@ -1239,7 +1243,7 @@ Components:
                 - "100"
               Unit: mg/kg/day
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1405,7 +1409,7 @@ Components:
                 - "100"
               Unit: mg/kg/day
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1585,7 +1589,7 @@ Components:
                 - "100"
               Unit: mg/kg/day
               Inclusive: true
-        Solution:
+        Dilution:
           Concentration:
             Min:
               Value:
@@ -1693,6 +1697,7 @@ let fullMedication =
     let weightUnit = Units.Weight.kiloGram
     let timeUnit = Units.Time.day
     let concUnit = massUnit |> ValueUnit.per volUnit
+    let volAdjUnit = volUnit |> ValueUnit.per weightUnit
     let molarConcUnit = Units.Molar.milliMole |> ValueUnit.per volUnit
 
     { Medication.template with
@@ -1702,6 +1707,11 @@ let fullMedication =
             { MinMax.empty with
                 Min = 10N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
                 Max = 100N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
+            }
+        QuantityAdjust =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
+                Max = 20N |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
             }
         Quantities = 50N |> ValueUnit.singleWithUnit volUnit |> Some
         Route = "INTRAVENEUS"
@@ -1726,10 +1736,11 @@ let fullMedication =
             }
             |> Some
         Div = Some 2N
+        // a 50 mL orderable in doses of 5 to 10 mL takes 5 to 10 doses
         DoseCount =
             { MinMax.empty with
-                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
-                Max = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Min = 5N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 10N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
             }
         Adjust = 15N |> ValueUnit.singleWithUnit weightUnit |> Some
         Components =
@@ -1744,24 +1755,18 @@ let fullMedication =
                         { DoseLimit.limit with
                             DoseLimitTarget = "Main Component" |> ComponentLimitTarget
                             AdjustUnit = weightUnit |> Some
+                            // the orderable holds 10 mL of this component in 50 mL, so a dose of 5 to
+                            // 10 mL holds 1 to 2 mL of it, 0.07 to 0.13 mL/kg for 15 kg, within the
+                            // limits of 0.05 to 0.2 mL/kg
                             QuantityAdjust =
                                 { MinMax.empty with
-                                    Min =
-                                        1N
-                                        |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
-                                        |> Limit.inclusive
-                                        |> Some
-                                    Max =
-                                        5N
-                                        |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
-                                        |> Limit.inclusive
-                                        |> Some
+                                    Min = (1N / 20N) |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
+                                    Max = (1N / 5N) |> ValueUnit.singleWithUnit volAdjUnit |> Limit.inclusive |> Some
                                 }
                         }
                         |> Some
-                    Solution =
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = "Main Component" |> ComponentLimitTarget
+                    Dilution =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Component "Main Component") with
                             Quantity =
                                 { MinMax.empty with
                                     Min = 10N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
@@ -1777,7 +1782,7 @@ let fullMedication =
                                 Dose =
                                     { DoseLimit.limit with
                                         DoseLimitTarget = "Active Substance" |> SubstanceLimitTarget
-                                        AdjustUnit = massUnit |> Some
+                                        AdjustUnit = weightUnit |> Some
                                         PerTimeAdjust =
                                             { MinMax.empty with
                                                 Min =
@@ -1797,9 +1802,8 @@ let fullMedication =
                                             }
                                     }
                                     |> Some
-                                Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "Active Substance" |> SubstanceLimitTarget
+                                Dilution =
+                                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "Active Substance") with
                                         Concentration =
                                             { MinMax.empty with
                                                 Min =
@@ -1823,7 +1827,7 @@ let fullMedication =
                     Substances =
                         [
                             { Medication.substanceItem with
-                                Name = "sodium"
+                                Name = "natrium"
                                 Concentrations = (154N / 1000N) |> ValueUnit.singleWithUnit molarConcUnit |> Some
                             }
                         ]
@@ -1832,18 +1836,27 @@ let fullMedication =
     }
 
 
-/// The medication with the substances of the named component changed by f.
-let mapSubstances cmpName f (med: Types.Medication) =
-    { med with
-        Components =
-            med.Components
-            |> List.map (fun c ->
-                if c.Name = cmpName then
-                    { c with Substances = c.Substances |> List.map f }
-                else
-                    c
-            )
+/// The fully populated medication with a dose count of 1 to 2, which a 50 mL orderable in doses of
+/// 5 to 10 mL cannot have: an order that cannot be solved.
+let overConstrained =
+    { fullMedication with
+        DoseCount =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+            }
     }
+
+
+/// The medication with the named component changed by f.
+let mapComponent cmpName f (med: Types.Medication) =
+    { med with Components = med.Components |> List.map (fun c -> if c.Name = cmpName then f c else c) }
+
+
+/// The medication with the substances of the named component changed by f.
+let mapSubstances cmpName f med =
+    med
+    |> mapComponent cmpName (fun c -> { c with Substances = c.Substances |> List.map f })
 
 
 /// The medication with a third component, NaCl 0,9%, a copy of its last component with only natrium
@@ -1880,10 +1893,10 @@ let tpnKaliumConcentrationBinding =
     |> mapSubstances
         "KCl 7,4%"
         (fun sub ->
-            match sub.Solution with
+            match sub.Dilution with
             | Some sl when sub.Name = "kalium" ->
                 { sub with
-                    Solution =
+                    Dilution =
                         { sl with
                             Concentration =
                                 { sl.Concentration with
@@ -1941,9 +1954,8 @@ let morfContWithNaCl =
         "NaCl 0,9%"
         (fun sub ->
             { sub with
-                Solution =
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = "natrium" |> SubstanceLimitTarget
+                Dilution =
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "natrium") with
                         Quantity =
                             (154N / 100N)
                             |> ValueUnit.singleWithUnit Units.Molar.milliMole
@@ -2172,7 +2184,7 @@ Components:
                 - "2"
               Unit: mg/kg
               Inclusive: true
-        Solution:
+        Dilution:
           Quantity:
             Max:
               Value:
@@ -2221,3 +2233,51 @@ Components:
             - "0.155"
           Unit: mmol/ml
 """
+
+
+/// The medication without any per kg or per m2 limit, so its order has no adjusted constraint.
+let absolute (med: Medication) =
+    let strip =
+        Option.map (fun (dl: DoseLimit) ->
+            { dl with
+                QuantityAdjust = MinMax.empty
+                PerTimeAdjust = MinMax.empty
+                RateAdjust = MinMax.empty
+            }
+        )
+
+    { med with
+        Dose = med.Dose |> strip
+        Components =
+            med.Components
+            |> List.map (fun c ->
+                { c with
+                    Dose = c.Dose |> strip
+                    Substances = c.Substances |> List.map (fun s -> { s with Dose = s.Dose |> strip })
+                }
+            )
+    }
+
+
+/// The FormRoute rows that mark the route and the form of every component of the orders for the totals, so
+/// that each of the orders counts in the totals.
+let totalsFormRoutes (ords: Order[]) : FormRoute[] =
+    [|
+        for o in ords do
+            for c in o.Orderable.Components do
+                {
+                    Route = o.Route
+                    Form = c.Form
+                    Unit = c |> Totals.formUnit
+                    DoseUnit = NoUnit
+                    MinDoseQty = None
+                    MaxDoseQty = None
+                    MinDoseQtyPerKg = None
+                    MaxDoseQtyPerKg = None
+                    Divisibility = None
+                    Timed = false
+                    Reconstitute = false
+                    IsSolution = false
+                    Totals = true
+                }
+    |]

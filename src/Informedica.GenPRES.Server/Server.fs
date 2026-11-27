@@ -21,13 +21,8 @@ open Microsoft.AspNetCore.RateLimiting
 open System.Threading.RateLimiting
 
 
-/// <summary>
-/// Everything the server reads from its environment, parsed once into a
-/// <c>Settings</c> record. Nothing in this module performs IO: <c>fromEnv</c>
-/// takes the getter, so <c>main</c> passes <c>Env.getItem</c> and tests pass
-/// a <c>Map</c>. Validation returns <c>Result</c>; deciding to abort is the
-/// entry point's job.
-/// </summary>
+/// Parses and validates the server settings from the environment. The functions take the environment
+/// getter and return a Result, so this module performs no IO and the entry point decides to stop.
 module Config =
 
     /// The GENPRES_* settings (and SERVER_PORT) as the server uses them.
@@ -35,17 +30,18 @@ module Config =
         {
             /// SERVER_PORT, default 8085
             Port: uint16
-            /// GENPRES_PROD = "1"
+            /// True when GENPRES_PROD is 1.
             IsProd: bool
             /// GENPRES_URL_ID; None when unset or blank
             UrlId: string option
             /// GENPRES_PASSWORD; None when unset or blank
             Password: string option
-            /// GENPRES_TRUSTED_PROXIES, parsed; loopback pair when unset
+            /// GENPRES_TRUSTED_PROXIES; the IPv4 and IPv6 loopback addresses when unset
             TrustedProxies: System.Net.IPAddress[]
-            /// GENPRES_LOG, raw, banner only (Logging.fs reads it itself)
+            /// GENPRES_LOG as given; checked for production and shown in the banner. Logging reads the
+            /// variable itself.
             Log: string
-            /// GENPRES_DEBUG, raw, banner only
+            /// GENPRES_DEBUG as given; checked for production and shown in the banner.
             Debug: string
             /// GENPRES_LANG, raw; None when unset or blank. Parsed by language.
             Lang: string option
@@ -54,14 +50,15 @@ module Config =
             /// GENPRES_SESSION_IDLE_MINUTES, raw; None when unset or blank. Parsed by
             /// parseSessionIdle.
             SessionIdle: string option
+            /// GENPRES_TIME_ZONE, raw; None when unset or blank. Parsed by parseTimeZone.
+            TimeZone: string option
+            /// GENPRES_LOCATION; None when unset or blank. Read by defaultLocation.
+            Location: string option
         }
 
 
-    // Empty/whitespace is treated as not-set so an empty
-    // `ENV GENPRES_PASSWORD=` / `ENV GENPRES_URL_ID=` from a Dockerfile is
-    // reported truthfully instead of looking injected, and so an empty
-    // Docker env never flows into getCachedProviderWithDataUrlId to
-    // surface much later as a confusing "cannot find column" error.
+    /// Treats a blank value as unset, so an empty ENV line in a Dockerfile shows as not set and never
+    /// reaches the resource loader, where it would fail later with a confusing "cannot find column" error.
     let nonBlank (raw: string option) = raw |> Option.filter String.notEmpty
 
 
@@ -73,9 +70,8 @@ module Config =
         |> Option.defaultValue "NOT SET (admin operations disabled)"
 
 
-    /// Banner display string for the Sheet ID: only the last 5 chars, so it
-    /// never lands in logs or screenshots intact. Built here, not in the
-    /// banner template, so the NOT SET path doesn't render as ***NOT SET.
+    /// Shows only the last 5 characters of the Sheet ID in the banner, so the full ID never appears in
+    /// logs or screenshots. Returns "NOT SET" when unset.
     let redactUrlId (raw: string option) =
         raw
         |> nonBlank
@@ -88,14 +84,9 @@ module Config =
         |> Option.defaultValue "NOT SET"
 
 
-    /// The reverse proxies whose X-Forwarded-For header is believed.
-    /// Default = loopback only, which matches the Plesk to Kestrel hop on the
-    /// public demo deployments and any local-dev setup. Override with
-    /// GENPRES_TRUSTED_PROXIES as a comma-separated list of IPs, e.g.
-    ///     GENPRES_TRUSTED_PROXIES="10.0.0.5, 10.0.0.6"
-    /// for a hospital LAN behind a known nginx fleet. Unparseable values
-    /// are silently dropped — fail-open on the parser, fail-closed on the
-    /// allow-list: no entry means no forwarded header is believed at all.
+    /// Parses GENPRES_TRUSTED_PROXIES, a comma-separated list of IP addresses, into the proxies whose
+    /// X-Forwarded-For header is trusted. Returns the loopback addresses when unset. An invalid entry is
+    /// dropped, so a list without a valid entry trusts no proxy.
     let parseTrustedProxies (raw: string option) =
         raw
         |> nonBlank
@@ -110,29 +101,19 @@ module Config =
         |> Option.defaultValue [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
-    /// The shortest admin password production accepts.
-    /// In production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter than this
-    /// refuses the start: a weak secret would otherwise stay live in the admin
-    /// commands, which read the variable themselves. A missing or blank password
-    /// does not refuse: the server starts on the configured data with admin
-    /// operations disabled, which those same commands enforce by failing closed
-    /// on the unset variable, and it prints a warning. Demo and dev mode accept
-    /// any value, or none.
+    /// The shortest admin password allowed in production. A shorter password refuses the start; a missing
+    /// password starts the server with admin operations disabled and a warning. Demo and development
+    /// accept any password or none.
     let minProductionPasswordLength = 16
 
 
-    /// <summary>
-    /// The production password policy. <c>Ok None</c>: nothing to warn about.
-    /// <c>Ok (Some warning)</c>: the server starts with admin operations
-    /// disabled and prints the warning. <c>Error</c>: the message the server
-    /// refuses to start with.
-    /// </summary>
+    /// Checks the admin password in production. Returns Ok None when all is well, Ok with a warning when
+    /// the password is missing, which disables admin operations, and an Error when it is too short.
     let validateProductionPassword (isProd: bool) (password: string option) : Result<string option, string> =
         if not isProd then
             Ok None
         else
-            // Blank = unset, so a forgotten Docker env hits the "not set"
-            // branch instead of "shorter than 16 characters".
+            // A blank password counts as unset, so it gets the warning instead of the error.
             match password |> nonBlank with
             | None ->
                 Ok(
@@ -151,8 +132,8 @@ module Config =
             | Some _ -> Ok None
 
 
-    /// What a start-up needs: the url id the host is built with, and the
-    /// warnings to print before hosting (today at most the password warning).
+    /// The result of the start-up checks: the Sheet ID to build the host with and the warnings to print
+    /// before hosting.
     type Startup =
         {
             UrlId: string
@@ -160,16 +141,12 @@ module Config =
         }
 
 
-    /// The default UI language: Dutch, the client's own default until now.
+    /// The UI language when GENPRES_LANG is unset: Dutch.
     let defaultLanguage = Informedica.GenPRES.Shared.Localization.Dutch
 
 
-    /// <summary>
-    /// The UI language from <c>GENPRES_LANG</c>: <c>defaultLanguage</c> when
-    /// unset, the parsed language when the value is one (an ISO 639-1 code,
-    /// any case), otherwise the start-up error naming
-    /// the setting and the value.
-    /// </summary>
+    /// Parses GENPRES_LANG, an ISO 639-1 code in any case, into the UI language. Returns defaultLanguage
+    /// when unset and an error naming the value when it is not a known language.
     let language (settings: Settings) : Result<Informedica.GenPRES.Shared.Localization.Locales, string> =
         match settings.Lang with
         | None -> Ok defaultLanguage
@@ -192,8 +169,8 @@ module Config =
                       Unset it for the default (%s{fallback})."
 
 
-    /// Banner display string for the language: the derived value, or the raw
-    /// one flagged when it is not a language (validateStartup then refuses).
+    /// Shows the language in the banner, or the given value marked NOT A LANGUAGE, which validateStartup
+    /// refuses.
     let displayLanguage (settings: Settings) =
         match language settings with
         | Ok l ->
@@ -203,11 +180,8 @@ module Config =
             $"%s{raw} (NOT A LANGUAGE)"
 
 
-    /// <summary>
-    /// The session store in production: the SQLite store is for test and development only, so
-    /// production refuses <c>GENPRES_DB_CONNECTION</c>. Until the scope switch (#580) decides
-    /// what production's store is, the refusal is of the setting itself.
-    /// </summary>
+    /// Refuses GENPRES_DB_CONNECTION in production, because the SQLite session store is for test and
+    /// development only. A stop-gap until #580 decides the session store of production.
     let validateStore (isProd: bool) (dbConnection: string option) : Result<unit, string> =
         match isProd, dbConnection with
         | true, Some _ ->
@@ -217,11 +191,9 @@ module Config =
         | _ -> Ok()
 
 
-    /// <summary>
-    /// Debugging never runs against production: GENPRES_PROD=1 refuses the start with GENPRES_LOG=d, whose
-    /// solver trace holds the patient data and slows every calculation, or with GENPRES_DEBUG=1. The levels
-    /// i, w and e stay allowed, because the log files are the only record of how a dose was calculated.
-    /// </summary>
+    /// Refuses a production start with GENPRES_LOG=d, whose solver trace holds patient data and slows every
+    /// calculation, or with GENPRES_DEBUG=1. The levels i, w and e are allowed, because the log files are the
+    /// only record of how a dose was calculated.
     let validateProductionDebug (isProd: bool) (log: string) (debug: string) : Result<unit, string> =
         let debugLevel = log.Trim().ToLowerInvariant() = "d"
         let debugMode = debug.Trim() = "1"
@@ -239,10 +211,8 @@ module Config =
         | _ -> Ok()
 
 
-    /// GENPRES_SESSION_IDLE_MINUTES as the idle lifetime of a Session: unset or blank is the
-    /// default of an hour, a positive whole number of minutes is taken, and anything else is
-    /// the message the server refuses to start with, so that a lifetime mistyped does not end
-    /// Sessions at a value nobody chose.
+    /// Parses GENPRES_SESSION_IDLE_MINUTES into the idle lifetime of a session. Returns one hour when unset
+    /// and an error for anything but a positive whole number, so a typo cannot set a lifetime nobody chose.
     let parseSessionIdle (raw: string option) : Result<System.TimeSpan, string> =
         match raw |> Option.map _.Trim() |> nonBlank with
         | None -> Ok ServerApi.Session.defaultIdleLifetime
@@ -255,16 +225,30 @@ module Config =
                       Leave it unset for the default of %i{int ServerApi.Session.defaultIdleLifetime.TotalMinutes} minutes."
 
 
-    /// <summary>
-    /// Every start-up guard in one place: the session store, debugging in production, the idle
-    /// lifetime, the production password policy, the language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
-    /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
+    /// Parses GENPRES_TIME_ZONE into the time zone ages are calculated in. Returns Europe/Amsterdam when
+    /// unset and an error for a zone id the system does not know, so a typo cannot shift every age.
+    let parseTimeZone (raw: string option) : Result<System.TimeZoneInfo, string> =
+        let id =
+            raw
+            |> Option.map _.Trim()
+            |> nonBlank
+            |> Option.defaultValue ServerApi.LocalDate.defaultZoneId
+
+        ServerApi.LocalDate.zoneOf id
+        |> Result.mapError (fun _ ->
+            $"GENPRES_TIME_ZONE is '%s{id}', not a time zone this system knows. \
+              Use an IANA id such as Europe/Amsterdam, or leave it unset for %s{ServerApi.LocalDate.defaultZoneId}."
+        )
+
+
+    /// Runs the start-up checks in order: session store, production debugging, idle lifetime, time zone,
+    /// password, language, then GENPRES_URL_ID. Returns the Sheet ID and the warnings to print, or the
     /// message the server exits with.
-    /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
         validateStore settings.IsProd settings.DbConnection
         |> Result.bind (fun () -> validateProductionDebug settings.IsProd settings.Log settings.Debug)
         |> Result.bind (fun () -> parseSessionIdle settings.SessionIdle)
+        |> Result.bind (fun _ -> parseTimeZone settings.TimeZone)
         |> Result.bind (fun _ -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
             language settings
@@ -281,22 +265,24 @@ module Config =
         )
 
 
-    /// <summary>
-    /// The settings the client learns, mapped here in the DMZ from the
-    /// env-shaped record, and the departments as the provider answers them
-    /// per request. Call after <c>validateStartup</c>: an invalid language
-    /// never reaches this point, so the fallback is dead.
-    /// </summary>
-    let toServerSettings
-        (settings: Settings)
-        (departments: Informedica.GenForm.Lib.Types.Departments)
-        : Informedica.GenPRES.Shared.Api.ServerSettings
-        =
+    /// Returns the location the server fills in for a patient without a Location: GENPRES_LOCATION, else UMCU
+    /// outside production and none in production.
+    let defaultLocation settings =
+        settings.Location
+        |> Option.orElse (if settings.IsProd then None else Some "UMCU")
+
+
+    /// Maps the settings, the departments and the locations to the settings sent to the client. The departments to
+    /// choose from are None first, for no department, then the departments the rules name. Call after
+    /// validateStartup, which refuses an invalid language, so the default language is never used as a fallback
+    /// here.
+    let toServerSettings (settings: Settings) departments locations : Informedica.GenPRES.Shared.Api.ServerSettings =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
             IsDemo = not settings.IsProd
-            Departments = departments.Names
-            DefaultDepartment = departments.Default
+            Departments = departments |> Array.map Some |> Array.append [| None |]
+            Locations = locations
+            DefaultLocation = defaultLocation settings
         }
 
 
@@ -313,10 +299,12 @@ module Config =
             Password = getEnv "GENPRES_PASSWORD" |> nonBlank
             TrustedProxies = getEnv "GENPRES_TRUSTED_PROXIES" |> parseTrustedProxies
             Log = getEnv "GENPRES_LOG" |> Option.defaultValue "0"
-            Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
+            Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "0"
             Lang = getEnv "GENPRES_LANG" |> nonBlank
             DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
             SessionIdle = getEnv "GENPRES_SESSION_IDLE_MINUTES" |> nonBlank
+            TimeZone = getEnv "GENPRES_TIME_ZONE" |> nonBlank
+            Location = getEnv "GENPRES_LOCATION" |> nonBlank
         }
 
 
@@ -337,6 +325,15 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
                          else
                              "unset (in-memory session store)"}
 GENPRES_SESSION_IDLE_MINUTES = {settings.SessionIdle |> Option.defaultValue "unset (an hour)"}
+GENPRES_TIME_ZONE = {settings.TimeZone
+                     |> Option.defaultValue $"unset ({ServerApi.LocalDate.defaultZoneId})"}
+GENPRES_LOCATION = {settings.Location
+                    |> Option.defaultValue (
+                        if settings.IsProd then
+                            "unset (no default location)"
+                        else
+                            "unset (UMCU)"
+                    )}
 
 === System Info ===
 
@@ -345,18 +342,13 @@ GENPRES_SESSION_IDLE_MINUTES = {settings.SessionIdle |> Option.defaultValue "uns
 """
 
 
-/// HTTP handlers, middleware and the hosted service: everything that runs
-/// per request or per host lifetime. Nothing here reads the environment;
-/// the values it needs arrive as parameters from Host.build.
+/// The HTTP handlers, the middleware and the hosted service. The settings they need arrive as
+/// parameters from Host.build.
 module Http =
 
-    /// Returns the immediate peer IP. After UseForwardedHeaders runs
-    /// (registered via app_config in Host.build) this is the real client IP
-    /// for requests that arrived through a known proxy, and the actual peer
-    /// for direct connections. An earlier version read X-Forwarded-For from
-    /// any source, so anyone could pick their own rate-limiter partition and
-    /// make the limiter hold an unbounded number of them; reading the peer
-    /// address after the middleware has substituted it closes both.
+    /// Returns the IP address of the peer, or "unknown". Behind a trusted proxy, UseForwardedHeaders has
+    /// replaced it with the client IP, so a client cannot pick its own rate-limiter partition by sending
+    /// an X-Forwarded-For header.
     let getClientIP (context: HttpContext) =
         match context.Connection.RemoteIpAddress with
         | null -> "unknown"
@@ -366,24 +358,21 @@ module Http =
     let sessionCookieName = "genpres_session"
 
 
-    /// The attributes of the session cookie, a bearer credential: HttpOnly, SameSite=Strict,
-    /// Path=/, Secure when the request came in over HTTPS. Behind the TLS-terminating proxy
-    /// that is Request.IsHttps as set by ForwardedHeadersMiddleware from X-Forwarded-Proto
-    /// (Host.build). Host-only on purpose: no Domain, so the Vite dev proxy passes it
-    /// unchanged and it never reaches a sibling host.
+    /// Returns the options of the session cookie, a bearer credential: HttpOnly, SameSite=Strict, Path=/,
+    /// and Secure over HTTPS, which behind a proxy comes from X-Forwarded-Proto. Without a Domain the cookie
+    /// stays on this host and passes the Vite development proxy unchanged.
     let sessionCookieOptions (isHttps: bool) =
         CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
 
 
-    /// One state cookie per hop, named by the state (base64url, so a cookie-name token), so
-    /// that two tabs can launch at once without the second erasing the first's proof.
+    /// Names the launch state cookie after the state, so two tabs can launch at once without overwriting
+    /// each other's cookie. The state is base64url, which is valid in a cookie name.
     let launchStateCookieName (state: string) = $"genpres_launch_state.{state}"
 
 
-    /// The state cookie of the identity hop: HttpOnly, SameSite=Lax so that the redirect back
-    /// from the IdentityProvider carries it, Path=/callback so that nothing else sees it,
-    /// Max-Age the Launch lifetime, Secure when the request came in
-    /// over HTTPS. Not a bearer for anything: it proves the browser that started the hop.
+    /// Returns the options of the launch state cookie: HttpOnly, SameSite=Lax so the redirect back from the
+    /// identity provider carries it, Path=/callback, Max-Age the launch lifetime and Secure over HTTPS.
+    /// The cookie grants nothing; it only proves which browser started the launch.
     let launchStateCookieOptions (isHttps: bool) =
         CookieOptions(
             HttpOnly = true,
@@ -394,8 +383,8 @@ module Http =
         )
 
 
-    /// The stub page's identity choice for the stub IdentityProvider: readable by /authorize
-    /// only for the Launch lifetime; HttpOnly and Lax, never a credential.
+    /// Returns the options of the cookie that carries the identity chosen on the stub launch page to the
+    /// stub /authorize: HttpOnly, SameSite=Lax, Path=/ and Max-Age the launch lifetime. It is not a credential.
     let stubIdentityCookieOptions (isHttps: bool) =
         CookieOptions(
             HttpOnly = true,
@@ -406,7 +395,7 @@ module Http =
         )
 
 
-    /// The state cookie of this request as the port the composition root uses.
+    /// Reads and writes the launch state cookies of this request.
     let launchStateCookie (ctx: HttpContext) : LaunchStateCookie =
         {
             read =
@@ -427,10 +416,9 @@ module Http =
     let enrolmentCookieName = "genpres_enrolment"
 
 
-    /// The enrolment cookie: the attempt a launch suspended at the PIN question left in this
-    /// browser. HttpOnly and Strict (only the app's own calls carry it), Path=/, Max-Age what
-    /// remains of the confirmation code's lifetime, Secure over HTTPS. Not a bearer for
-    /// anything without the mailed code.
+    /// Returns the options of the enrolment cookie, which holds the enrolment attempt of a launch waiting
+    /// for the PIN: HttpOnly, SameSite=Strict, Path=/, Max-Age the time from now to until, or zero, and
+    /// Secure over HTTPS. The cookie grants nothing without the mailed confirmation code.
     let enrolmentCookieOptions (isHttps: bool) (now: System.DateTime) (until: System.DateTime) =
         CookieOptions(
             HttpOnly = true,
@@ -441,7 +429,7 @@ module Http =
         )
 
 
-    /// The enrolment cookie of this request as the port the composition root uses.
+    /// Reads, writes and deletes the enrolment cookie of this request.
     let enrolmentCookie (ctx: HttpContext) : EnrolmentCookie =
         {
             read =
@@ -463,7 +451,7 @@ module Http =
         }
 
 
-    /// The session cookie of this request as the port the composition root uses.
+    /// Reads, writes and deletes the session cookie of this request.
     let sessionCookie (ctx: HttpContext) : SessionCookie =
         {
             read =
@@ -477,26 +465,11 @@ module Http =
         }
 
 
-    /// <summary>
-    /// Cache-Control value for a response. Vite emits the client as
-    /// content-hashed files under /assets/, so a successful response for one
-    /// of those can be cached forever; everything else — "/", index.html,
-    /// icons, the Fable.Remoting routes, and any error — is "no-cache": the
-    /// browser may keep a copy but must revalidate it on every load. The ETag
-    /// that StaticFileMiddleware already emits then answers with a 304 when
-    /// nothing changed and a full fetch after a deploy.
-    /// </summary>
-    /// <remarks>
-    /// Without a Cache-Control header browsers apply heuristic freshness
-    /// (RFC 9111 §4.2.2, typically 10 % of now − Last-Modified), which is how
-    /// a long-running container ends up with clients that never see a new
-    /// index.html and keep loading the previous hashed bundle.
-    ///
-    /// The status check matters: a 404 for an asset that this instance does
-    /// not have yet (a rolling deploy, a stale index.html) must never be
-    /// cached for a year, or the client stays broken after the asset arrives.
-    /// The path can be null for a request without one, such as OPTIONS *.
-    /// </remarks>
+    /// Returns the Cache-Control value for a response. A successful response for a content-hashed file under
+    /// /assets/ is cached for a year; any other response gets no-cache, so the browser revalidates it with
+    /// the ETag on every load. Without the header a browser guesses a lifetime and can keep an old index.html.
+    /// An error for an asset is never cached, because the asset may still arrive in a rolling deploy.
+    /// The path is null for a request without one, such as OPTIONS *.
     let cacheControlFor (statusCode: int) (path: string) =
         let isAsset =
             path |> String.notNullOrEmpty
@@ -508,26 +481,11 @@ module Http =
             "no-cache"
 
 
-    /// The security response headers, set on every response. ASP.NET middleware
-    /// (wired via app_config) using Response.OnStarting so headers land on every flushed
-    /// response: static files, Giraffe routes, the 404 fallback, and
-    /// Fable.Remoting error responses alike. Also owns the Cache-Control
-    /// policy (cacheControlFor above), because this is the one hook that
-    /// runs on static responses and Saturn's use_static does not expose
-    /// StaticFileOptions.OnPrepareResponse.
-    ///
-    /// CSP allow-list reflects the SPA's actual fetches: same-origin scripts
-    /// (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
-    /// docs.google.com for the runtime Sheet fetches. Drop docs.google.com
-    /// once Sheet access is proxied server-side. X-Powered-By is stripped in
-    /// case nginx/Plesk injects it.
-    ///
-    /// style-src includes 'unsafe-inline' because MUI's styling engine
-    /// (Emotion) injects per-component style tags at runtime. Without it
-    /// every MUI component renders unstyled. script-src remains strict
-    /// ('self' only) so XSS exposure is bounded to CSS injection, which
-    /// cannot execute code. Tightening this further would mean wiring an
-    /// Emotion CacheProvider with a per-request nonce.
+    /// Sets the security headers and Cache-Control on every response, static files and errors included,
+    /// through Response.OnStarting. Cache-Control is set here because Saturn's use_static offers no hook for it.
+    /// The content security policy allows styles and fonts from maxcdn and Google Fonts and the Sheet fetches
+    /// from docs.google.com. Inline styles are allowed because MUI injects style tags at run time; scripts
+    /// stay limited to the own origin, so an injection cannot run code. X-Powered-By is removed.
     let securityHeadersMiddleware (ctx: HttpContext) (next: System.Func<Task>) : Task =
         ctx.Response.OnStarting(fun () ->
             let h = ctx.Response.Headers
@@ -554,30 +512,10 @@ module Http =
         next.Invoke()
 
 
-    /// A per-IP fixed-window rate limiter applied to every HTTP request.
-    /// 60 requests per 10 s window per IP (6 r/s sustained, 60-request burst),
-    /// no queue: overflow is answered 429 instantly.
-    ///
-    /// Sized for actual SPA usage: a single Gender radio click fans out to
-    /// about 4 RPCs, and a clinician filling a form chains about 10 such
-    /// actions in a few seconds, which the 60-request burst absorbs. Sustained
-    /// 6 r/s still cuts scripted brute force on ValidatePassword by an order
-    /// of magnitude.
-    ///
-    /// The partition key is getClientIP, which returns the real client IP
-    /// resolved by ASP.NET's ForwardedHeadersMiddleware, configured with the
-    /// trusted-proxy allow-list. A forwarded header is believed only when the
-    /// immediate connection comes from a proxy on that list, so a spoofed one
-    /// can neither bypass the limiter nor make it hold an unbounded number of
-    /// partitions. The list defaults to loopback and is set for a hospital LAN
-    /// through GENPRES_TRUSTED_PROXIES.
-    ///
-    /// QueueLimit = 0 means no queue, so no QueueProcessingOrder is needed:
-    /// overflow is rejected with 429 immediately.
-    ///
-    /// A per-attempt lockout on the password path alone would need
-    /// Remoting.fromContext to lift the client IP into validatePassword, and
-    /// is still deferred.
+    /// Registers a rate limiter per client IP for every request: 60 requests per 10-second window, no queue,
+    /// and a 429 for each request over the limit. A form action fans out to a few calls, so normal use fits,
+    /// while scripted guessing of the admin password is slowed. The client IP comes from getClientIP, so a
+    /// forged forwarded header cannot bypass the limiter.
     let addRateLimiting (services: IServiceCollection) =
         services.AddRateLimiter(fun (opts: RateLimiterOptions) ->
             opts.RejectionStatusCode <- 429
@@ -611,28 +549,19 @@ module Http =
 
                 Logging.ServerLogging.logRequest logger method path clientIP
 
-                // Continue with the next handler
                 next ctx
 
 
-    /// A defence-in-depth wrapper that turns a reflection or ABI fault into a
-    /// clean 400. Fable.Remoting.Giraffe 5.24 drifted against Giraffe 7 and
-    /// above: Giraffe.Core.setBodyFromString raised MissingMethodException or
-    /// TypeLoadException, and the error path put the full .NET type signature
-    /// in the response body. That is fixed upstream in Fable.Remoting.Giraffe
-    /// 6.1.0, and this wrapper is kept so a future fault of the same shape
-    /// cannot leak one either.
+    /// Turns a MissingMethodException or TypeLoadException from the API into a plain 400 response, so a
+    /// library version mismatch never puts a .NET type signature in the response body.
     let safeWebApi (webApi: HttpHandler) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 try
                     return! webApi next ctx
                 with ex when (ex :? System.MissingMethodException || ex :? System.TypeLoadException) ->
-                    // Record the ABI fault so neither branch can fail silently.
-                    // Stderr fires unconditionally; logger fires only if
-                    // GENPRES_LOG is set. The mid-stream branch (HasStarted = true)
-                    // cannot rewrite the response, so this log is the only signal
-                    // the caller will ever get.
+                    // Writes the fault to stderr, and to the log when logging is on. A response that has
+                    // started cannot be changed, so then this is the only trace of the fault.
                     let msg =
                         $"safeWebApi caught %s{ex.GetType().Name} on %s{ctx.Request.Path.ToString()}: %s{ex.Message}"
 
@@ -670,48 +599,52 @@ module Http =
 module Host =
 
     /// The cached GenFORM resource provider for a Sheet ID, with the
-    /// resources logger attached when GENPRES_LOG is set.
+    /// resources logger attached when GENPRES_LOG is set. Logs a warning for
+    /// each category in the RuleSets sheet that is not a rule set category.
     let resourceProvider (urlId: string) =
         let logger = Logging.getLogger Logging.ResourcesLogger
-        urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
+        let provider = urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
+        provider |> ServerApi.Adapters.RuleSets.warnUnknownCategories logger
+        provider
 
 
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
-        // Built once per host: the session stub's state lives in it. Remoting.fromContext
-        // runs its function per request, so the env must not be built in there.
-        // the key the stub LaunchScript seals Launches under: per host start, so a
-        // token from an earlier run is "not sealed under the key"
+        // These values hold the stub session state, so they are built once per host and not inside
+        // Remoting.fromContext, which runs per request. A new launch key per start refuses a launch
+        // token from an earlier run.
         let launchKey = LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
 
-        // the stub IdentityProvider and UserRegistry: one-time codes and the active
-        // patient per identity choice, issued by /authorize and redeemed at the callback
+        // The stub identity provider and user registry: /authorize issues one-time codes for an identity
+        // and patient, and the callback redeems them.
         let directory = StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
-        // the stub MailService: an outbox the /stub/mail page shows, so the tester
-        // reads a confirmation code where a User would read their mail
+        // The stub mail service: an outbox shown on the stub mail page, where a tester reads the
+        // confirmation code.
         let mail = StubMail.make ()
 
         let env =
             let env =
                 Adapters.makeAppEnvWith
                     (not settings.IsProd)
+                    (Config.defaultLocation settings)
                     settings.DbConnection
-                    // validated at the start, so the fallback is dead
-                    (Config.parseSessionIdle settings.SessionIdle
-                     |> Result.defaultValue Session.defaultIdleLifetime)
+                    // validated at the start, so the error cannot happen
+                    (Config.parseTimeZone settings.TimeZone |> Result.defaultWith invalidOp)
+                    // validated at the start, so the error cannot happen
+                    (Config.parseSessionIdle settings.SessionIdle |> Result.defaultWith invalidOp)
                     launchKey
                     directory
                     mail.port
                     provider
 
-            // Stop-gap until the scope switch (#580): a production server never opens a
-            // stub Session. Drop this swap when #580 decides what production exposes.
+            // Stop-gap until #580 decides what production exposes: a production server never opens a
+            // stub session.
             if settings.IsProd then
                 { env with session = Adapters.sessionDisabled }
             else
                 env
 
-        // what the client learns: the settings once here, the departments per request
+        // The settings are mapped once here; the departments and the locations are added per request.
         let serverSettings = Config.toServerSettings settings
 
         let webApi =
@@ -727,19 +660,15 @@ module Host =
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 
-        // Security headers come from securityHeadersMiddleware (app_config
-        // below), so this stays handler-only. The 404 arm replaces a legacy
-        // "GenInteractions App. Use localhost: 8080 for the GUI" string that
-        // leaked an old app name and hinted at port 8080 (L2 / B5).
-        // the stub LaunchScript page, standing in for MainEHR's: full scope only, so a
-        // production server never mints a Launch. GET shows the form, POST mints and redirects.
+        // The stub launch routes, not mounted in production, so production never creates a launch.
+        // GET shows the launch form, POST creates a launch and redirects.
         let stubLaunch =
             if settings.IsProd then
                 []
             else
                 [
                     GET >=> route StubLaunch.path >=> htmlString StubLaunch.page
-                    // the stub MailService outbox, where the tester reads the mails a User would
+                    // The stub mail outbox page.
                     GET
                     >=> route StubMail.path
                     >=> fun next ctx -> htmlString (StubMail.page (mail.sent ())) next ctx
@@ -749,10 +678,13 @@ module Host =
                         task {
                             let! form = ctx.Request.ReadFormAsync()
 
-                            let pid =
-                                match form.TryGetValue "pid" with
+                            let field (name: string) =
+                                match form.TryGetValue name with
                                 | true, values -> values.ToString()
                                 | _ -> ""
+
+                            // The chosen stub patient, or the typed patient id when Other is chosen.
+                            let pid = StubLaunch.patientIdOf (field "patient") (field "pid")
 
                             let choice =
                                 match form.TryGetValue "identity" with
@@ -762,8 +694,7 @@ module Host =
 
                             let launch = StubLaunch.mint System.DateTime.UtcNow PublicKey.randomId launchKey pid
 
-                            // what the stub IdentityProvider will say at /authorize, and which
-                            // patient the stub UserRegistry has active for it
+                            // Stores the chosen identity and patient for the stub /authorize.
                             ctx.Response.Cookies.Append(
                                 StubLaunch.identityCookieName,
                                 StubLaunch.identityCookie choice pid,
@@ -772,9 +703,8 @@ module Host =
 
                             return! redirectTo false (StubLaunch.launchUrl launch) next ctx
                         }
-                    // the stub IdentityProvider: signs the browser on from the
-                    // identity chosen on the stub page, or reports no identity, and sends it back
-                    // with the state it received
+                    // The stub identity provider: redirects to the callback with the received state and a
+                    // one-time code for the chosen identity, or with error=no-identity.
                     GET
                     >=> route "/authorize"
                     >=> fun next ctx ->
@@ -797,8 +727,8 @@ module Host =
                         redirectTo false url next ctx
                 ]
 
-        // the browser is back from the IdentityProvider. Mounted always; with the
-        // session port disabled it refuses as invalid.
+        // The return from the identity provider, mounted in every mode. With the session disabled the
+        // callback is refused as invalid.
         let callback =
             GET
             >=> route "/callback"
@@ -825,8 +755,7 @@ module Host =
                     return! redirectTo false redirect next ctx
                 }
 
-        // one request log around the whole route selection: the stub page, the api and the
-        // 404 arm each leave exactly one trail
+        // Logs each request once, before the routes are tried.
         let webApp =
             Http.logClientIP
             >=> choose
@@ -840,18 +769,15 @@ module Host =
         application {
             url ("http://*:" + settings.Port.ToString() + "/")
             use_mime_types [ ".svg", "image/svg+xml"; ".png", "image/png" ]
-            use_static "public" //publicPath
+            use_static "public"
             use_router webApp
 
             service_config (fun services ->
                 services.AddHostedService<Http.LoggerShutdown>() |> ignore
 
-                // Configure ForwardedHeadersMiddleware so a forwarded header is
-                // only believed for connections from the trusted-proxy allow-list
-                // (loopback by default, overridable via GENPRES_TRUSTED_PROXIES).
-                // X-Forwarded-Proto from the same proxies sets Request.IsHttps,
-                // which is what makes the session cookie Secure behind a
-                // TLS-terminating proxy (Kestrel itself only listens on http).
+                // Trusts forwarded headers only from the trusted proxies. X-Forwarded-Proto sets
+                // Request.IsHttps, which makes the session cookie Secure behind a TLS-terminating proxy;
+                // Kestrel itself listens on http only.
                 services.Configure<ForwardedHeadersOptions>(fun (opts: ForwardedHeadersOptions) ->
                     opts.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
                     opts.KnownProxies.Clear()
@@ -865,12 +791,8 @@ module Host =
                 services
             )
 
-            // Forwarded headers, then the security headers, then the rate limiter.
-            // UseForwardedHeaders must run first so the rate limiter sees the
-            // real client IP via ctx.Connection.RemoteIpAddress.
-            // UseRateLimiter activates the limiter registered via
-            // addRateLimiting; without it the service is registered but
-            // never invoked.
+            // The forwarded headers run first, so the rate limiter sees the real client IP.
+            // UseRateLimiter activates the limiter that addRateLimiting registers.
             app_config (fun app ->
                 app
                     .UseForwardedHeaders()
@@ -885,29 +807,27 @@ module Host =
 
 [<EntryPoint>]
 let main _ =
-    // Surfaces Serilog's own internal failures (a sink erroring on disk-full,
-    // a permission error, ...) to stderr. Without this, such a failure is
-    // swallowed by design and the audit trail stops with no signal at all.
-    // Must run before any Logging.getLogger call constructs a Serilog logger.
+    // One culture on every host: a number parses and prints with a decimal point whatever locale the
+    // host or the container gives. This sets a default culture instead of switching on invariant
+    // globalization, because invariant globalization switches off ICU, and without ICU a Windows host
+    // cannot find a time zone by its IANA name.
+    System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- System.Globalization.CultureInfo.InvariantCulture
+
+    // Writes the internal failures of Serilog, such as a full disk, to stderr; otherwise Serilog swallows
+    // them and the log stops without a sign. Must run before the first Serilog logger is built.
     Serilog.Debugging.SelfLog.Enable(fun msg -> eprintfn $"[Serilog] {msg}")
 
-    // Load .env so GENPRES_* variables are available even when the server
-    // binary is launched directly (e.g. via Rider/VS Code) without first
-    // sourcing .env in the shell. loadDotEnv only sets variables that are
-    // not already present, preserving the shell/CI/Docker > .env > defaults
-    // override chain.
+    // Loads .env, so the GENPRES_* variables are set when the server starts from an IDE.
+    // A variable already set in the environment wins over .env.
     Env.loadDotEnv () |> ignore
 
     let settings = Config.fromEnv Env.getItem
 
     settings |> Config.banner (Env.getSystemInfo ()) |> writeInfoMessage
 
-    // Fail-closed, before any listener binds. A refused configuration is
-    // reported with an exit code, not an exception: in the Docker image the
-    // runtime used to be PID 1, and the SIGABRT it sends itself after an
-    // unhandled exception was dropped, leaving the container "running" with
-    // nothing listening. A genuine crash elsewhere is still an
-    // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
+    // Refuses a bad configuration before any listener binds, with an exit code and not an exception:
+    // a .NET runtime running as PID 1 in Docker can miss its own abort and leave the container up with
+    // nothing listening. Other crashes stay unhandled exceptions; tini as PID 1 turns them into exit 134.
     match
         Config.validateStartup settings
         // the store is made ready here, for the same reason: a file that cannot be migrated or

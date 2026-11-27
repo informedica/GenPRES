@@ -29,8 +29,8 @@ let formatDate (date: DateTime) =
 
 let formatTime (time: DateTime) = $"%02d{time.Hour}:%02d{time.Minute}:%02d{time.Second}"
 
-let formatWeight (patient: Patient) =
-    match patient.Weight with
+let formatWeight (patient: PatientData) =
+    match patient.Weight.Calculation with
     | None -> ""
     | Some value -> "TODO: weight"
 
@@ -97,7 +97,7 @@ let pharmacyReportFromOrderPlan (orderPlan: OrderPlan) (info: AdditionalOrderPla
         headerCell table "naam arts" ""
         headerCell table "tijd" (formatTime date)
         headerCell table "nummer" info.Number
-        headerCell table "gewicht" (formatWeight orderPlan.Patient)
+        headerCell table "gewicht" (formatWeight orderPlan.PatientData)
         headerCell table "pieper" ""
 
     let listItem (column: ColumnDescriptor) (fontSize: float32) (text: string) =

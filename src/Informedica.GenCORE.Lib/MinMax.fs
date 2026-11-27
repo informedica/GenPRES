@@ -4,14 +4,14 @@ namespace Informedica.GenCore.Lib.Ranges
 open Informedica.GenUnits.Lib
 
 
-/// Range with min, incr and/or max
+/// A range with an optional minimum and an optional maximum limit.
 type MinMax =
     {
         Min: Limit option
         Max: Limit option
     }
 
-/// Can be either Inclusive or Exclusive
+/// A limit of a range that either includes or excludes its value.
 and Limit =
     | Inclusive of ValueUnit
     | Exclusive of ValueUnit
@@ -100,8 +100,8 @@ module Limit =
         | Exclusive vu1, Exclusive vu2 -> vu1 |> fExclExcl <| vu2
 
 
-    /// Check whether v1 > v2 using
-    /// inclusive and exclusive logic
+    /// Returns a check whether the first limit is greater than the second limit. isMin1 and isMin2 tell whether
+    /// each limit is a minimum or a maximum; for equal values, inclusive or exclusive decides the result.
     let gt isMin1 isMin2 =
         match isMin1, isMin2 with
         // min > min
@@ -142,8 +142,8 @@ module Limit =
         |> fun (fInclIncl, fInclExcl, fExclIncl, fExclExcl) -> map2 fInclIncl fInclExcl fExclIncl fExclExcl
 
 
-    /// Check whether v1 < v2 using
-    /// inclusive and exclusive logic
+    /// Returns a check whether the first limit is smaller than the second limit. isMin1 and isMin2 tell whether
+    /// each limit is a minimum or a maximum; for equal values, inclusive or exclusive decides the result.
     let st isMin1 isMin2 =
         match isMin1, isMin2 with
         // min < min
@@ -185,8 +185,8 @@ module Limit =
 
 
     /// <summary>
-    /// Check whether v1 >= v2 using
-    /// inclusive and exclusive logic
+    /// Returns a check whether the first limit is greater than or equal to the second limit. isMin1 and isMin2
+    /// tell whether each limit is a minimum or a maximum.
     /// </summary>
     /// <example>
     /// <code>
@@ -237,8 +237,8 @@ module Limit =
         |> fun (fInclIncl, fInclExcl, fExclIncl, fExclExcl) -> map2 fInclIncl fInclExcl fExclIncl fExclExcl
 
 
-    /// Check whether v1 <= v2 using
-    /// inclusive and exclusive logic
+    /// Returns a check whether the first limit is smaller than or equal to the second limit. isMin1 and isMin2
+    /// tell whether each limit is a minimum or a maximum; for equal values, inclusive or exclusive decides the result.
     let ste isMin1 isMin2 =
         match isMin1, isMin2 with
         // min <= min
@@ -252,7 +252,7 @@ module Limit =
         // max <= min
         | false, true ->
             let fInclIncl = (<=?) // 1] <= [1 = true
-            let fInclExcl = (<?) // 1] <= <1 = true
+            let fInclExcl = (<?) // 1] <= <1 = false
             let fExclIncl = (<?) // 1> <= [1 = false
             let fExclExcl = (<?) // 1> <= <1 = false
 
@@ -284,8 +284,8 @@ module Limit =
         map2 (=?) returnFalse returnFalse returnFalse
 
 
-    /// Calculate the comparison of 2
-    /// optional Value types v1 and v2.
+    /// Compares two optional values with comp. Returns nn when both are None, sn when only v1 is given and ns when
+    /// only v2 is given.
     let compOpt comp nn sn ns v1 v2 =
         match v1, v2 with
         | None, None -> nn
@@ -306,7 +306,9 @@ module Limit =
     let optSTE isMin1 isMin2 = compOpt (ste isMin1 isMin2) false false true
 
 
-    let minGTmax min max = min |> gt false true max
+    /// Whether the minimum min lies above the maximum max, so no value fits between the two.
+    /// A minimum equal to the maximum lies above it when one of the two limits is exclusive.
+    let minGTmax max min = gt true false min max
 
 
     let cmpToStr cp =
@@ -363,12 +365,8 @@ module Limit =
         | Exclusive vu -> $"excl|{vu |> ValueUnit.toToken}"
 
 
-/// Functions to handle a MinMax type.
-/// The concept is that of a range definition with
-/// either a min value, a max value, none or both.
-/// The min and/or max value can be inclusive or exclusive
-/// to model the difference of something being >= or >.
-/// This in turns enables ranges to be be complementary.
+/// Functions for a range with an optional minimum and an optional maximum. Each limit is inclusive (>= or <=)
+/// or exclusive (> or <), so two ranges can be complementary.
 module MinMax =
 
     open Informedica.Utils.Lib.BCL
@@ -490,9 +488,8 @@ module MinMax =
     let createExact vu = createInclIncl vu vu
 
 
-    /// A MinMax range with value 1, can
-    /// be used in calculations as a "unit"
-    /// with multiplication and division
+    /// Returns the range from 1 to 1 in unit u, both limits inclusive. It is the neutral value for multiplication
+    /// and division.
     let one u =
         {
             Min = 1N |> ValueUnit.createSingle u |> Limit.inclusive |> Some
@@ -516,9 +513,8 @@ module MinMax =
             | Error _ -> mm
 
 
-    /// Set the min value to min only
-    /// when the condition cond appies
-    /// to the MinMax mm.
+    /// Sets the minimum of mm to min when mm has no minimum or when cond min holds for the current minimum.
+    /// Returns mm unchanged when the new range is invalid.
     let setMinCond cond min (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some m, Some max ->
@@ -531,9 +527,8 @@ module MinMax =
         | Some m, None -> if cond min m |> not then mm else mm |> setMin (Some min)
 
 
-    /// Set the max value to max only
-    /// when the condition cond applies
-    /// to the MinMax mm.
+    /// Sets the maximum of mm to max when mm has no maximum or when cond max holds for the current maximum.
+    /// Returns mm unchanged when the new range is invalid.
     let setMaxCond cond max (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some min, Some m ->
@@ -546,49 +541,31 @@ module MinMax =
         | None, Some m -> if cond max m |> not then mm else mm |> setMax (Some max)
 
 
-    /// Calculate the resulting MinMax value
-    /// based on a list of MinMax values according
-    /// to a conditioning rule cond.
-    let foldCond presMin presMax minCond maxCond (mms: MinMax list) =
+    /// Folds a list of ranges into one range, starting from the empty range. A minimum replaces the current
+    /// minimum when minCond holds, a maximum the current maximum when maxCond holds. A missing limit leaves
+    /// the current limit unchanged.
+    let foldCond minCond maxCond (mms: MinMax list) =
         mms
         |> List.fold
             (fun acc mm ->
                 match mm.Min, mm.Max with
-                | None, None ->
-                    match presMin, presMax with
-                    | true, true -> acc
-                    | true, false -> empty |> setMin acc.Min
-                    | false, true -> empty |> setMax acc.Max
-                    | false, false -> empty
-                | Some min, None ->
-                    if presMin then
-                        setMinCond minCond min acc
-                    else
-                        setMinCond minCond min acc |> setMax None
-                | None, Some max ->
-                    if presMax then
-                        setMaxCond maxCond max acc
-                    else
-                        setMaxCond maxCond max acc |> setMin None
+                | None, None -> acc
+                | Some min, None -> acc |> setMinCond minCond min
+                | None, Some max -> acc |> setMaxCond maxCond max
                 | Some min, Some max -> acc |> setMinCond minCond min |> setMaxCond maxCond max
             )
             empty
 
 
-    /// Calculate the smallest range from
-    /// a list of MinMax values.
-    let foldMinimize presMin presMax =
-        foldCond presMin presMax (Limit.gt true true) (Limit.st false false)
+    /// Folds a list of ranges into the narrowest range, with the largest minimum and the smallest maximum.
+    let foldMinimize = foldCond (Limit.gt true true) (Limit.st false false)
 
 
-    /// Calculate the largest range from
-    /// a list of MinMax values.
-    let foldMaximize presMin presMax =
-        foldCond presMin presMax (Limit.st true true) (Limit.gt false false)
+    /// Folds a list of ranges into the widest range, with the smallest minimum and the largest maximum.
+    let foldMaximize = foldCond (Limit.st true true) (Limit.gt false false)
 
 
-    /// Check whether a value v is in
-    /// the range of a MinMax mm.
+    /// Checks whether the value v lies in the range mm. An empty range contains every value.
     let inRange v (mm: MinMax) =
         match mm.Min, mm.Max with
         | None, None -> true
@@ -634,8 +611,12 @@ module MinMax =
             | Error _ -> empty
 
 
-    /// perform a calculation op to
-    /// 2 values v1 and v2.
+    /// Checks whether one value can lie in both ranges. An empty range restricts nothing. A range with its
+    /// minimum above its maximum holds no value, so it meets no range.
+    let canMeet a b = (a = empty && b = empty) || a |> intersect b <> empty
+
+
+    /// Applies op to two limits. The result is inclusive only when both limits are inclusive.
     let calcLimit op v1 v2 =
         match v1, v2 with
         | Inclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Inclusive
@@ -644,8 +625,8 @@ module MinMax =
         | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive
 
 
-    /// Perform a calculation for Value types
-    /// of the MinMax values mm1 and mm2.
+    /// Applies op to the minimums and to the maximums of two ranges. A limit that is missing in either range
+    /// is missing in the result.
     let calc op (mm1: MinMax) (mm2: MinMax) =
         let c m1 m2 =
             match m1, m2 with
@@ -677,8 +658,7 @@ module MinMax =
         }
 
 
-    /// Set the units of the ValueUnit values
-    /// in a MinMax mm to unit u.
+    /// Sets the unit of both limits of mm to u without converting the values.
     let withUnit u (mm: MinMax) =
         let f = fun vu -> vu |> ValueUnit.getValue |> ValueUnit.create u
 
@@ -711,8 +691,7 @@ module MinMax =
         |> Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
 
 
-    /// Extension methods for the Value type
-    /// to enable lenses.
+    /// Lenses for the value of an inclusive or an exclusive limit.
     type Limit with
 
         static member Inclusive_ =
@@ -741,8 +720,8 @@ module MinMax =
             )
 
 
-    /// Contains the lenses for the Value and
-    /// the MinMax type.
+    /// Lenses for the minimum and the maximum of a range. A setter returns the range unchanged when the result
+    /// is invalid.
     module Optics =
 
 
@@ -959,9 +938,9 @@ module MinMax =
                 dto
 
 
-    /// Turn a MinMax to a string with
-    /// mins and maxs as annotations
-    /// for resp. the min and max value.
+    /// Formats a range. A range with one limit starts with minInclStr, minExclStr, maxInclStr or maxExclStr.
+    /// A range with two limits shows as min - max, and two equal inclusive limits as one value.
+    /// An empty range gives an empty string.
     let toString
         vuToStr
         valToStr

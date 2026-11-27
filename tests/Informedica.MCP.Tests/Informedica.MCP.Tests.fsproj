@@ -11,12 +11,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Informedica.GenCORE.Tests/CalculationWeightsAndHeightsFixture.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.MCP.Lib\Informedica.MCP.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenORDER.Tests\Informedica.GenORDER.Tests.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 

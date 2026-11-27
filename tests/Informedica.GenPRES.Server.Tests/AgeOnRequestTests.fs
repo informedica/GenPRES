@@ -1,8 +1,6 @@
-/// The patients on each request. An identified Session holds the age its patient opened on; the
-/// patient change alone puts it on the patient, whatever age the client sent, and gives the
-/// patient the estimates of weight and height it lacks. Every other request, signing included,
-/// is computed with every patient as sent: no context's patient is ever rewritten. No clock is
-/// read.
+/// The patients on each request. The patient data update gives the patient the estimates of weight and
+/// height it lacks. Every other request, signing included, is computed with every patient as sent:
+/// no context's patient is ever rewritten. No clock is read.
 module Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 open System
@@ -13,27 +11,27 @@ open Informedica.GenPRES.Shared.Api
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
+open Informedica.GenCore.Tests.CalculationWeightsAndHeightsFixture
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
-/// The date of the open: a September day, half a year past the stub patient's tenth birthday.
+/// The date of the open: a September day, half a year past the day the stub patient is 3650 days old.
 let today = DateTime(2026, 9, 26)
 
 
-/// The Session's age at the open: ten years, six months, one week and four days.
-let sessionAge = Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 3841
+let ehr = StubEhrPatient.patient StubEhrPatient.measuredOn "p1"
 
 
-let ehr = StubPatientData.data "p1"
-
-
-/// EHR data with an age value in place of a birthdate: no identity.
+/// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
-    { ehr with Patient = { ehr.Patient with Age = CoreAgeValue.ten |> CorePatientAge.ageValue } }
+    { ehr with
+        Identity = None
+        Data.Age = Some CoreAgeValue.ten
+    }
 
 
 let prescriber: UserContext =
@@ -45,23 +43,17 @@ let prescriber: UserContext =
 
 
 /// A Session as the store holds it after an open, seen at the open.
-let record
-    (sid: string)
-    (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option)
-    (patient: Informedica.GenForm.Lib.Types.Patient option)
-    : Session.SessionRecord
-    =
+let record (sid: string) (ehr: Informedica.GenCore.Lib.Patients.Patient option) : Session.SessionRecord =
     {
         Opened =
             {
                 User = Some prescriber
                 PatientId = Some "p1"
-                EhrData = ehr
-                Patient = patient
-                Measured = Measurements.none
+                EhrPatient = ehr
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
+                Act = SessionAct.Opened
             }
         Login = Some prescriber.UserId
         OpenedWith = None
@@ -84,17 +76,16 @@ let state =
         Sessions =
             Map.ofList
                 [
-                    identified, record identified (Some ehr) (Some(StubPatientData.port.patient today ehr))
-                    anonymous,
-                    record anonymous (Some unidentified) (Some(StubPatientData.port.patient today unidentified))
-                    entered, record entered None (Patient.parse StubPatientData.patient |> Result.toOption)
+                    identified, record identified (Some ehr)
+                    anonymous, record anonymous (Some unidentified)
+                    entered, record entered None
                 ]
     }
 
 
-/// The session port of the tests over the state: seen through the machine at the clock given,
+/// The session port of the tests over the state: seen through the machine at today,
 /// the plan of a challenge or a submission captured.
-let portOver (clock: unit -> DateTime) (captured: ResizeArray<Informedica.GenOrder.Lib.Types.OrderPlan>) =
+let portOver (captured: ResizeArray<Informedica.GenOrder.Lib.Types.OrderPlan>) =
     let st = ref state
 
     { sessionNone with
@@ -102,7 +93,7 @@ let portOver (clock: unit -> DateTime) (captured: ResizeArray<Informedica.GenOrd
             fun _ (plan, _, _) ->
                 async {
                     captured.Add plan
-                    return SigningOutcome.ChallengeIssued "c-1"
+                    return SigningOutcome.ChallengeIssued("c-1", false)
                 }
         submit =
             fun _ signature ->
@@ -111,13 +102,12 @@ let portOver (clock: unit -> DateTime) (captured: ResizeArray<Informedica.GenOrd
                     return SigningOutcome.Refused SigningRefusal.PinLimit
                 }
         seen =
-            fun sid opened draft ->
+            fun sid opened ->
                 async {
-                    let next, told, _ = Session.seen (clock ()) sid opened draft st.Value
+                    let next, told, _ = Session.seen today sid opened st.Value
                     st.Value <- next
                     return told
                 }
-        age = fun sid -> async { return Ok(Session.age sid st.Value) }
     }
 
 
@@ -135,26 +125,26 @@ let cookieOf (sid: string option) : SessionCookie =
     }
 
 
-/// The stub's patient as a client would send it at the wrong age, with a weight it measured.
-let sent: Patient =
-    { StubPatientData.patient with
-        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays (5 * 365))
-        Weight = { StubPatientData.patient.Weight with Measured = Some 12000<gram> }
+/// The stub's patient as a client would send it at another age than the Session's, with a weight it measured.
+let sent: PatientData =
+    { StubEhrPatient.contractPatient with
+        Age = Some(Informedica.GenPRES.Shared.Models.PatientData.Age.create 5<year> None None None)
+        Weight = { StubEhrPatient.contractPatient.Weight with Measured = Some 12000<gram> }
     }
 
 
-let context = { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = sent }
+let context = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = sent }
 
 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create sent [| context; context |]
 
-let form = { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = Some sent }
+let form = { Informedica.GenPRES.Shared.Models.Formulary.empty with PatientData = Some sent }
 
 
 /// The command a computing request reaches its handler as, run through bound over the Session
-/// named, at the clock given.
-let boundOver (clock: unit -> DateTime) (sid: string option) (cmd: 'cmd) : 'cmd =
+/// named.
+let over (sid: string option) (cmd: 'cmd) : 'cmd =
     let seen: 'cmd option ref = ref None
-    let env = envOver (portOver clock (ResizeArray()))
+    let env = envOver (portOver (ResizeArray()))
 
     let request =
         {
@@ -168,7 +158,7 @@ let boundOver (clock: unit -> DateTime) (sid: string option) (cmd: 'cmd) : 'cmd 
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -176,18 +166,16 @@ let boundOver (clock: unit -> DateTime) (sid: string option) (cmd: 'cmd) : 'cmd 
     |> Option.defaultWith (fun () -> failtest "the handler was not reached")
 
 
-let over sid cmd = boundOver (fun () -> today) sid cmd
-
-
-let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
-    pat.Age
+let ageInDays pat =
+    pat
+    |> CorePatientData.ageInDays
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
 
 
 /// The plan the session port was asked over, for a signing command of the Session named.
 let signedOver (sid: string option) (cmd: SigningCommand) =
     let captured = ResizeArray()
-    let env = envOver (portOver (fun () -> today) captured)
+    let env = envOver (portOver captured)
 
     SigningCommand.processCmd env (cookieOf sid) cmd
     |> Async.RunSynchronously
@@ -197,33 +185,81 @@ let signedOver (sid: string option) (cmd: SigningCommand) =
 
 
 /// Normal values of both sexes at five and at ten years: 18 kg and 110 cm, 32 kg and 140 cm.
-let tables: NormalValues =
-    let row sex age p3 mean p97 =
-        Informedica.GenPRES.Shared.Models.NormalValues.create sex age p3 mean p97
+let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
+    let row gender age p3 mean p97 : Informedica.GenCore.Lib.Patients.NormalValue<_, _> =
+        {
+            Gender = gender
+            Age = age
+            P3 = p3
+            Mean = mean
+            P97 = p97
+        }
+
+    let genders =
+        [
+            Informedica.GenCore.Lib.Patients.Male
+            Informedica.GenCore.Lib.Patients.Female
+        ]
 
     {
         Weights =
             [
-                for sex in [ "M"; "F" ] do
-                    row sex 5. 15. 18. 22.
-                    row sex 10. 25. 32. 45.
+                for g in genders do
+                    row
+                        g
+                        5.<Informedica.GenCore.Lib.Measures.year>
+                        15.<Informedica.GenCore.Lib.Measures.kg>
+                        18.<Informedica.GenCore.Lib.Measures.kg>
+                        22.<Informedica.GenCore.Lib.Measures.kg>
+                    row
+                        g
+                        10.<Informedica.GenCore.Lib.Measures.year>
+                        25.<Informedica.GenCore.Lib.Measures.kg>
+                        32.<Informedica.GenCore.Lib.Measures.kg>
+                        45.<Informedica.GenCore.Lib.Measures.kg>
             ]
         Heights =
             [
-                for sex in [ "M"; "F" ] do
-                    row sex 5. 100. 110. 120.
-                    row sex 10. 130. 140. 150.
+                for g in genders do
+                    row
+                        g
+                        5.<Informedica.GenCore.Lib.Measures.year>
+                        100.<Informedica.GenCore.Lib.Measures.cm>
+                        110.<Informedica.GenCore.Lib.Measures.cm>
+                        120.<Informedica.GenCore.Lib.Measures.cm>
+                    row
+                        g
+                        10.<Informedica.GenCore.Lib.Measures.year>
+                        130.<Informedica.GenCore.Lib.Measures.cm>
+                        140.<Informedica.GenCore.Lib.Measures.cm>
+                        150.<Informedica.GenCore.Lib.Measures.cm>
             ]
         NeoWeights = []
         NeoHeights = []
     }
 
 
-let loaded () = Some tables
+/// The resources over the normal-value tables of an estimate.
+let resourcesOf normalValueTables : Informedica.GenCore.Lib.Patients.PatientDataResources =
+    {
+        NormalValueTables = normalValueTables
+        CalculationWeightsAndHeights = calc
+        EGFRBandOptions = []
+    }
 
 
-/// The normal values, counting how often they are asked.
-let counting (nv: NormalValues option) =
+let loaded () = Some(resourcesOf tables)
+
+
+/// The patient completed by GenCORE with the resources the function gives.
+let completedWith resources pat =
+    pat
+    |> Patient.complete today (resources ())
+    |> Result.defaultWith (fun errs -> failtest $"not completed: %A{errs}")
+
+
+/// The resources, counting how often they are asked.
+let counting nv =
     let count = ref 0
 
     let ask () =
@@ -234,22 +270,22 @@ let counting (nv: NormalValues option) =
 
 
 /// A patient with an age in years and nothing else.
-let ageOnly years : Patient =
-    { Informedica.GenPRES.Shared.Models.Patient.empty with
-        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays (years * 365))
+let ageOnly years : PatientData =
+    { Informedica.GenPRES.Shared.Models.PatientData.empty with
+        Age = Some(Informedica.GenPRES.Shared.Models.PatientData.Age.create (years * 1<year>) None None None)
     }
 
 
-let weightAndHeight (pat: Patient) =
-    pat |> Informedica.GenPRES.Shared.Models.Patient.getWeight,
-    pat |> Informedica.GenPRES.Shared.Models.Patient.getHeight
+let weightAndHeight (pat: PatientData) =
+    pat |> Informedica.GenPRES.Shared.Models.PatientData.getWeight,
+    pat |> Informedica.GenPRES.Shared.Models.PatientData.getHeight
 
 
-/// The command a computing request reaches its handler as, with the normal values given.
-let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
+/// The command a computing request reaches its handler as, with the resources given.
+let estimatedOver resources (sid: string option) (cmd: 'cmd) : 'cmd =
     let seen: 'cmd option ref = ref None
 
-    let env = { envOver (portOver (fun () -> today) (ResizeArray())) with normalValues = normalValues }
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     let request =
         {
@@ -263,7 +299,7 @@ let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -271,17 +307,16 @@ let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
     |> Option.defaultWith (fun () -> failtest "the handler was not reached")
 
 
-/// The answer of the order-context member over a context, without a Session, with the normal
-/// values given.
-let evaluatedWith normalValues (ctx: OrderContext) =
-    let env = { envOver (portOver (fun () -> today) (ResizeArray())) with normalValues = normalValues }
+/// The answer of the order-context member over a context, without a Session, with the resources
+/// given.
+let evaluatedWith resources (ctx: OrderContext) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     Compute.bound
         env
         (cookieOf None)
         (fun _ -> "test")
         (fun _ -> Gate.Open)
-        (fun _ -> None)
         (OrderContextCommand.processViewCmd env)
         {
             Opened = None
@@ -299,43 +334,19 @@ let evaluatedWith normalValues (ctx: OrderContext) =
     |> Async.RunSynchronously
 
 
-/// The patient the identified Session resumes on, as the client gets it, after the measured
-/// weight and height were cleared.
-let resumedAfterClearing () : Patient =
-    let cleared: Measured<_> =
-        {
-            Value = None
-            At = today
-        }
-
-    { (state.Sessions |> Map.find identified).Opened with
-        Measured =
-            { Measurements.none with
-                Weight = Some cleared
-                Height = Some cleared
-            }
-    }
-    |> SessionMapper.toOpened true
-    |> _.PatientContext
-    |> Option.bind _.Patient
-    |> Option.defaultWith (fun () -> failtest "the Session resumes without a patient")
-
-
-/// The patient a patient change answers in the Session named, at the clock given, with the
-/// normal values given.
-let changedAt (clock: unit -> DateTime) normalValues (sid: string option) (pat: Patient) =
-    let env = { envOver (portOver clock (ResizeArray())) with normalValues = normalValues }
+/// The patient a patient data update answers in the Session named, with the resources given.
+let changedIn resources (sid: string option) (pat: PatientData) =
+    let env = { envOver (portOver (ResizeArray())) with patientDataResources = resources }
 
     Compute.bound
         env
         (cookieOf sid)
-        PatientCommand.toString
+        PatientDataCommand.toString
         (fun _ -> Gate.Open)
-        PatientCommand.patientOf
-        (PatientCommand.processCmd env (cookieOf sid))
+        (PatientDataCommand.processCmd env)
         {
             Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
-            Command = PatientCommand.ChangePatient pat
+            Command = PatientDataCommand.ChangePatientData pat
         }
     |> Async.RunSynchronously
     |> Result.map _.Response
@@ -343,11 +354,11 @@ let changedAt (clock: unit -> DateTime) normalValues (sid: string option) (pat: 
 
 
 /// The answer to a signing command and the plan the session port was asked over, with the
-/// normal values given.
-let signedWith normalValues (sid: string option) (cmd: SigningCommand) =
+/// resources given.
+let signedWith resources (sid: string option) (cmd: SigningCommand) =
     let captured = ResizeArray()
 
-    let env = { envOver (portOver (fun () -> today) captured) with normalValues = normalValues }
+    let env = { envOver (portOver captured) with patientDataResources = resources }
 
     let response = SigningCommand.processCmd env (cookieOf sid) cmd |> Async.RunSynchronously
 
@@ -360,50 +371,14 @@ let tests =
         "the patients on each request"
         [
             testList
-                "the age a Session holds"
+                "what seen tells"
                 [
-                    test "an identified Session holds the age its patient opened on" {
-                        Session.age identified state
-                        |> Expect.equal "ten years, six months, one week and four days" (Some sessionAge)
-                    }
-
-                    test "no age without an identity, without EHR data, or without a Session" {
-                        [ anonymous; entered; "nobody" ]
-                        |> List.map (fun sid -> Session.age sid state)
-                        |> Expect.allEqual "none, every one" None
-                    }
-
-                    test "seen marks the Session and tells no age: only the patient change asks it" {
+                    test "seen marks the Session and tells nothing else" {
                         let _, told, writes =
-                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) None state
+                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) state
 
                         (told, writes |> List.length)
                         |> Expect.equal "no notice, and the one touch" (None, 1)
-                    }
-                ]
-
-            testList
-                "the patient change sets the age"
-                [
-                    test "an identified patient gets the Session's age, whatever age the client sent" {
-                        (changedAt (fun () -> today) loaded (Some identified) sent).Age
-                        |> Expect.equal "the Session's age" (Some sessionAge)
-                    }
-
-                    test "two changes of one Session use one age, whatever the clock does between them" {
-                        let clock = ref today
-                        let first = (changedAt (fun () -> clock.Value) loaded (Some identified) sent).Age
-                        clock.Value <- today.AddDays 400.0
-                        let second = (changedAt (fun () -> clock.Value) loaded (Some identified) sent).Age
-
-                        (first, second)
-                        |> Expect.equal "the age of the open, both times" (Some sessionAge, Some sessionAge)
-                    }
-
-                    test "without an identity the client's age stays" {
-                        for sid in [ None; Some anonymous; Some entered; Some "nobody" ] do
-                            (changedAt (fun () -> today) loaded sid sent).Age
-                            |> Expect.equal $"the client's age, %A{sid}" sent.Age
                     }
                 ]
 
@@ -439,7 +414,7 @@ let tests =
                     test "the plan's patient and that of every context, on every plan command" {
                         [
                             OrderPlanCommand.FilterRows(plan.Filtered, plan)
-                            OrderPlanCommand.Navigate(
+                            OrderPlanCommand.EvaluateContext(
                                 plan,
                                 "1",
                                 OrderViewCommand.SeedFilter(
@@ -452,8 +427,7 @@ let tests =
                                 ),
                                 context
                             )
-                            OrderPlanCommand.AddOrderContext(plan, context)
-                            OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN)
+                            OrderPlanCommand.AddOrderContext(plan, context, [||])
                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
                             OrderPlanCommand.Open(sent, [| context |])
                         ]
@@ -487,8 +461,8 @@ let tests =
                             match signedOver (Some identified) cmd with
                             | None -> failtest "the port was not asked"
                             | Some parsed ->
-                                parsed.Patient
-                                :: (parsed.Contexts |> Array.map _.Context.Patient |> Array.toList)
+                                parsed.PatientData
+                                :: (parsed.Contexts |> Array.map _.Context.PatientData |> Array.toList)
                                 |> List.map ageInDays
                                 |> List.distinct
                         )
@@ -501,44 +475,56 @@ let tests =
                 [
                     test "an age alone gets a weight and a height" {
                         ageOnly 10
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> weightAndHeight
                         |> Expect.equal "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a measured weight is kept, the height estimated" {
+                    test "a measured weight is kept, with the estimate next to it, and the height estimated" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Measured = Some 28000<gram> } }
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> fun pat -> pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated
                         |> Expect.equal
-                            "the measured weight, no weight estimate, the height estimated"
-                            (Some 28000<gram>, None, Some 140<cm>)
+                            "the measured weight, the weight estimate, the height estimate"
+                            (Some 28000<gram>, Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a client estimate of the weight is kept when only the height is filled in" {
+                    test "the estimate is the server's, whatever estimate the draft holds" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Estimated = Some 41000<gram> } }
-                        |> Patient.estimate loaded
+                        |> completedWith loaded
                         |> weightAndHeight
-                        |> Expect.equal "the client's 41 kg, the server's 140 cm" (Some 41000<gram>, Some 140<cm>)
+                        |> Expect.equal "the server's 32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a patient with a weight and a height is not changed, nor are the normal values asked" {
-                        let ask, count = counting (Some tables)
-                        let pat = StubPatientData.patient
+                    test
+                        "a measured patient keeps the measured values, the calculation reads them, and gets the estimate range" {
+                        let ask, count = counting (loaded ())
+                        let pat = StubEhrPatient.contractPatient |> completedWith ask
 
-                        (pat |> Patient.estimate ask = pat, count.Value)
-                        |> Expect.equal "the same patient, asked none" (true, 0)
+                        (pat.Weight.Measured,
+                         pat.Height.Measured,
+                         weightAndHeight pat,
+                         (pat.Weight.EstimatedP3, pat.Weight.EstimatedP97),
+                         count.Value)
+                        |> Expect.equal
+                            "measured 32 kg and 140 cm read, 25 to 45 kg estimated, asked once"
+                            (StubEhrPatient.contractPatient.Weight.Measured,
+                             StubEhrPatient.contractPatient.Height.Measured,
+                             (StubEhrPatient.contractPatient.Weight.Measured,
+                              StubEhrPatient.contractPatient.Height.Measured),
+                             (Some 25000<gram>, Some 45000<gram>),
+                             1)
                     }
 
-                    test "without the normal values the patient stays as it is and the gate refuses it" {
-                        let pat = ageOnly 10 |> Patient.estimate (fun () -> None)
+                    test "without the resources the patient gets no weight or height and the gate refuses it" {
+                        let pat = ageOnly 10 |> completedWith (fun () -> None)
 
-                        (pat = ageOnly 10, pat |> Patient.patient)
-                        |> Expect.equal "unchanged, refused" (true, Error [| Patient.noWeightAndHeight |])
+                        (weightAndHeight pat, pat |> Patient.patient)
+                        |> Expect.equal "no weight or height, refused" ((None, None), Error [| Patient.noWeight |])
                     }
 
                     test "empty tables leave the estimate out and the gate refuses" {
-                        let empty =
+                        let empty: Informedica.GenCore.Lib.Patients.NormalValueTables =
                             {
                                 Weights = []
                                 Heights = []
@@ -547,34 +533,30 @@ let tests =
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some empty)
+                        |> completedWith (fun () -> Some(resourcesOf empty))
                         |> Patient.patient
-                        |> Expect.equal "refused" (Error [| Patient.noWeightAndHeight |])
+                        |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
 
                     test "an unknown gender over tables with rows for one sex only is refused" {
                         let oneSex =
                             { tables with
-                                Weights = tables.Weights |> List.filter (fun r -> r.Sex = "M")
-                                Heights = tables.Heights |> List.filter (fun r -> r.Sex = "M")
+                                Weights =
+                                    tables.Weights
+                                    |> List.filter (fun r -> r.Gender = Informedica.GenCore.Lib.Patients.Male)
+                                Heights =
+                                    tables.Heights
+                                    |> List.filter (fun r -> r.Gender = Informedica.GenCore.Lib.Patients.Male)
                             }
 
                         ageOnly 10
-                        |> Patient.estimate (fun () -> Some oneSex)
+                        |> completedWith (fun () -> Some(resourcesOf oneSex))
                         |> Patient.patient
-                        |> Expect.equal "refused" (Error [| Patient.noWeightAndHeight |])
+                        |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
 
-                    test "the patient change estimates at the Session's age, not the client's" {
-                        changedAt (fun () -> today) loaded (Some identified) (ageOnly 5)
-                        |> fun pat -> pat.Age, pat |> weightAndHeight
-                        |> Expect.equal
-                            "the Session's age, the ten-year estimate"
-                            (Some sessionAge, (Some 32000<gram>, Some 140<cm>))
-                    }
-
-                    test "an age-only patient on another request is not estimated: the patient change is" {
-                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
+                    test "an age-only patient on another request is not estimated: the patient data update is" {
+                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = ageOnly 10 }
 
                         estimatedOver
                             loaded
@@ -601,9 +583,9 @@ let tests =
                              ctx)
                     }
 
-                    test "a request other than a patient change never asks the normal values" {
-                        let ask, count = counting (Some tables)
-                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
+                    test "a request other than a patient data update never asks the normal values" {
+                        let ask, count = counting (loaded ())
+                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = ageOnly 10 }
 
                         estimatedOver
                             ask
@@ -622,24 +604,10 @@ let tests =
                         count.Value |> Expect.equal "asked none: asking may load" 0
                     }
 
-                    test "a Session resumed after its weight and height were cleared gets them from the patient change" {
-                        changedAt (fun () -> today) loaded (Some identified) (resumedAfterClearing ())
-                        |> Patient.patient
-                        |> Result.isOk
-                        |> Expect.isTrue "a patient, its weight and height estimated"
-                    }
-
-                    test "a Session resumed after its weight and height were cleared is refused as sent" {
-                        { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = resumedAfterClearing () }
-                        |> evaluatedWith loaded
-                        |> Result.mapError List.ofArray
-                        |> Expect.equal "refused" (Error [ Patient.noWeightAndHeight ])
-                    }
-
                     test "signing takes no estimate: the plan is signed as sent, whatever the normal values" {
                         // the challenge is a digest of the plan as sent; an estimate from tables
                         // reloaded before the submission would change the plan under it
-                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
+                        let ctx = { Informedica.GenPRES.Shared.Models.OrderContext.empty with PatientData = ageOnly 10 }
 
                         let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create (ageOnly 10) [| ctx |]
 

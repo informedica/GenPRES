@@ -153,6 +153,8 @@
 # the FAKE build script's sources; Build.fsproj stays in the root so bare `dotnet run` finds it
 !/build/
 !/scripts/
+# the findings baseline of scripts/CheckCodeStyle.fsx
+!/scripts/CheckCodeStyle.baseline.tsv
 !/src/
 
 # Add data folders
@@ -339,9 +341,6 @@
 # Add Informedica.GenPRES.Shared
 !/tests/Informedica.GenPRES.Shared.Tests
 !/tests/Informedica.GenPRES.Shared.Tests/Scripts/
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.csv
-!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.tsv
 # Informedica.GenPRES.Client.Core.Tests
 !/tests/Informedica.GenPRES.Client.Core.Tests/
 !/tests/Informedica.GenPRES.Client.Core.Tests/Helpers/
@@ -349,9 +348,6 @@
 !/tests/Informedica.GenPRES.Client.Core.Tests/StateMachines/
 !/tests/Informedica.GenPRES.Client.Core.Tests/MachinePolicies/
 !/tests/Informedica.GenPRES.Client.Core.Tests/Models/
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.csv
-!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.tsv
 # Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/

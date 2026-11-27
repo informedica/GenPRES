@@ -1,0 +1,619 @@
+/// An order on new patient data: what the patient gets stays, the per kg or per m2 values and the
+/// calculated constraints follow.
+module RecalculationTests
+
+open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
+open Informedica.GenForm.Lib
+open Informedica.GenOrder.Lib
+
+open Expecto
+open Expecto.Flip
+
+
+module Fixture =
+
+    let logger = DataUpdateFixtures.logger
+
+    let processed = Tests.TestOrder.processed
+
+    let caps = Order.ValueCaps.defaults
+
+    let readjust adjust ord =
+        Readjust(ord, adjust) |> OrderProcessor.processPipelineWith caps logger
+
+    /// The order on the new adjust value; the test fails when there is no answer.
+    let readjusted adjust ord =
+        ord
+        |> readjust adjust
+        |> Result.defaultWith (fun (_, msgs) -> failtest $"no answer: %A{msgs}")
+
+    let adjustedNames ord =
+        ord
+        |> OrderProcessor.OrderVariableReference.adjusted
+        |> List.choose (OrderProcessor.OrderVariableReference.tryGet ord)
+        |> List.map OrderVariable.getName
+        |> Set.ofList
+
+    /// The calculated constraints of an order on its adjust value, None when none exist.
+    let recalculated ord =
+        ord
+        |> Order.withoutCalculatedConstraints
+        |> OrderProcessor.OrderAction.run caps logger OrderAction.CalcConstraints
+        |> Result.toOption
+
+    let unitOf ord =
+        ord
+        |> Order.adjustValue
+        |> Option.map ValueUnit.getUnit
+        |> Option.defaultValue Units.Weight.kiloGram
+
+    let adjustOf ord =
+        ord
+        |> Order.adjustValue
+        |> Option.map (ValueUnit.getValue >> Array.head)
+        |> Option.defaultValue 0N
+
+    let times (factor: BigRational) ord =
+        (ord |> adjustOf) * factor |> ValueUnit.singleWithUnit (ord |> unitOf)
+
+    /// The values of every variable that is not per kg or per m2, by name.
+    let givenValues ord =
+        let names = ord |> adjustedNames
+
+        ord
+        |> Order.toOrdVars
+        |> List.filter (fun ovar ->
+            let name = ovar |> OrderVariable.getName
+            names |> Set.contains name |> not
+            && name <> (ord.Adjust |> OrderVariable.Quantity.toOrdVar |> OrderVariable.getName)
+        )
+        |> List.map (fun ovar -> ovar |> OrderVariable.getName, ovar.Variable.Values)
+
+    let adjustedValues ord =
+        let names = ord |> adjustedNames
+
+        ord
+        |> Order.toOrdVars
+        |> List.filter (fun ovar -> names |> Set.contains (ovar |> OrderVariable.getName))
+        |> List.map (fun ovar -> ovar |> OrderVariable.getName, ovar.Variable.Values)
+
+    let scenario = DataUpdateFixtures.scenario
+
+    /// The order of the medication with the limit applied, solved for a child of 10 kg at its maximum component
+    /// quantity.
+    let solvedAtMaximum limit med =
+        med
+        |> Tests.TestOrder.toOrder
+        |> limit
+        |> Tests.OrderableQuantityAdjustTests.solve
+        |> Tests.TestOrder.solve (fun o -> ChangeProperty(o, SetMaxComponentOrderableQuantity "paracetamol"))
+
+    /// The quantity in the orderable and per adjust unit of the first component.
+    let componentQuantities (ord: Order) =
+        let cmp = ord.Orderable.Components |> List.head
+
+        cmp.OrderableQuantity |> OrderVariable.Quantity.toString,
+        cmp.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toString
+
+    /// The quantity of the orderable and its quantity per adjust unit.
+    let orderableQuantities (ord: Order) =
+        ord.Orderable.OrderableQuantity |> OrderVariable.Quantity.toString,
+        ord.Orderable.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toString
+
+    /// The quantity in the orderable and per adjust unit of the first item of the first component.
+    let itemQuantities (ord: Order) =
+        let itm = ord.Orderable.Components |> List.head |> _.Items |> List.head
+
+        itm.OrderableQuantity |> OrderVariable.Quantity.toString,
+        itm.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toString
+
+    /// One suppository of 240 mg at 10 to 20 mg/kg: from 25 kg no allowed dose exists.
+    let suppository240 =
+        let strength =
+            [| 240N |]
+            |> ValueUnit.withUnit (Units.Mass.milliGram |> ValueUnit.per (Units.General.general "stuk"))
+
+        { Scenarios.pcmSupp with
+            Components =
+                Scenarios.pcmSupp.Components
+                |> List.map (fun c ->
+                    { c with
+                        Substances = c.Substances |> List.map (fun s -> { s with Concentrations = Some strength })
+                    }
+                )
+        }
+
+    let kg = DataUpdateFixtures.kg
+
+    /// The dose of the first item.
+    let itemDose (ord: Order) = ord.Orderable.Components[0].Items[0].Dose
+
+    /// The level the client shows for the per kg dose quantity of the first item.
+    let perKgLevel ord =
+        (ord |> itemDose |> Order.Orderable.Dose.Dto.toDto).QuantityAdjust.Level
+
+    let perKg ord =
+        (ord |> itemDose).QuantityAdjust
+        |> OrderVariable.QuantityAdjust.toOrdVar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map (ValueUnit.getValue >> Array.head)
+
+    /// An order whose dose has no per kg or per m2 variable with a limit.
+    let withoutAdjust () =
+        { Scenarios.pcmSupp with
+            Components =
+                Scenarios.pcmSupp.Components
+                |> List.map (fun c ->
+                    { c with Substances = c.Substances |> List.map (fun s -> { s with Dose = None }) }
+                )
+        }
+        |> processed
+
+    let context scenarios : OrderContext =
+        {
+            Filter = OrderContext.emptyFilter
+            PatientData = PatientData.unknown
+            Scenarios = scenarios
+            Argumentation = None
+        }
+
+    /// One suppository of 240 mg at 200 to 400 mg/m2, on a body surface of 1 m2.
+    let perM2 =
+        let mgPerM2 = Units.Mass.milliGram |> ValueUnit.per Units.BSA.m2
+        let limit v = v |> ValueUnit.singleWithUnit mgPerM2
+
+        let dose (d: Informedica.GenForm.Lib.Types.DoseLimit) =
+            { d with QuantityAdjust = Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl (limit 200N) (limit 400N) }
+
+        { suppository240 with
+            Adjust = 1N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+            Components =
+                suppository240.Components
+                |> List.map (fun c ->
+                    { c with
+                        Substances = c.Substances |> List.map (fun s -> { s with Dose = s.Dose |> Option.map dose })
+                    }
+                )
+        }
+
+    /// Converts a value to a unit and returns the number as a decimal.
+    let decimalIn unit vu =
+        vu
+        |> ValueUnit.convertTo unit
+        |> ValueUnit.getValue
+        |> Array.head
+        |> BigRational.toDecimal
+
+    /// Sets a measured weight from a value with a weight unit.
+    let withWeightOf vu pat =
+        pat |> SamplePatients.withWeightInKg (vu |> decimalIn Units.Weight.kiloGram)
+
+    let provider = OrderPlanTests.RulesOf [||] :> Informedica.GenForm.Lib.Resources.IResourceProvider
+
+    let fixtures =
+        [
+            "pcmDrink", Scenarios.pcmDrink
+            "pcmSupp", Scenarios.pcmSupp
+            "cotrim", Scenarios.cotrim
+            "amfo", Scenarios.amfo
+            "morfCont", Scenarios.morfCont
+            "tpn", Scenarios.tpn
+        ]
+
+    let factors = [ 1N / 2N; 9N / 10N; 11N / 10N; 4N / 3N; 2N; 3N ]
+
+
+[<Tests>]
+let tests =
+    testList
+        "an order on new patient data"
+        [
+            for name, med in Fixture.fixtures do
+                testList
+                    name
+                    [
+                        for factor in Fixture.factors do
+                            test $"times %A{factor}: an answer, the given values stay, the order solved" {
+                                let ord = med |> Fixture.processed
+                                let adjust = ord |> Fixture.times factor
+
+                                let after = ord |> Fixture.readjusted adjust
+
+                                after
+                                |> Fixture.adjustOf
+                                |> Expect.equal "the new adjust" (ord |> Fixture.adjustOf |> (*) factor)
+                                after
+                                |> Fixture.givenValues
+                                |> Expect.equal "what the patient gets" (ord |> Fixture.givenValues)
+                            }
+
+                        test "a wrong value corrected back gives the same order values" {
+                            let ord = med |> Fixture.processed
+
+                            let back =
+                                ord
+                                |> Fixture.readjusted (ord |> Fixture.times 2N)
+                                |> Fixture.readjusted (ord |> Fixture.times 1N)
+
+                            back
+                            |> Fixture.givenValues
+                            |> Expect.equal "the given values" (ord |> Fixture.givenValues)
+
+                            back
+                            |> Fixture.adjustedValues
+                            |> Expect.equal "the per kg values" (ord |> Fixture.adjustedValues)
+                        }
+                    ]
+
+            test "a per kg dose follows the weight and leaves its constraints" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                let after = ord |> Fixture.readjusted (ord |> Fixture.times 2N)
+
+                after
+                |> Order.toOrdVars
+                |> List.filter (OrderVariable.isWithinConstraints true >> not)
+                |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
+                |> Expect.isNonEmpty "a variable outside its calculated constraints"
+            }
+
+            test "every weight from 1 to 150 kg gives an answer and the amounts given stay" {
+                [
+                    for name, med in Fixture.fixtures do
+                        let ord = med |> Fixture.processed
+
+                        for w in [ 1N; 2N; 5N; 8N; 10N; 15N; 20N; 25N; 30N; 40N; 60N; 80N; 100N; 150N ] do
+                            match ord |> Fixture.readjust (w |> ValueUnit.singleWithUnit (ord |> Fixture.unitOf)) with
+                            | Ok after when (after |> Fixture.givenValues) = (ord |> Fixture.givenValues) -> ()
+                            | Ok _ -> $"%s{name} at %A{w}: the amounts given moved"
+                            | Error _ -> $"%s{name} at %A{w}: no answer"
+                ]
+                |> Expect.isEmpty "every weight"
+            }
+
+            testList
+                "one 240 mg suppository, 10 to 20 mg/kg"
+                [
+                    test "at 24 kg the dose is 10 mg/kg, the limits can be calculated and there is no alert" {
+                        let ord = Fixture.suppository240 |> Fixture.processed
+                        let adjust = 24N |> Fixture.kg
+
+                        ord
+                        |> Order.withAdjustValue adjust
+                        |> Fixture.recalculated
+                        |> Expect.isSome "the limits"
+
+                        let after = ord |> Fixture.readjusted adjust
+
+                        after |> Fixture.perKg |> Expect.equal "per kg" (Some 10N)
+                        after |> Fixture.perKgLevel |> Expect.equal "normal" OrderVariable.Dto.IsNormal
+                    }
+
+                    test "at 25 kg no limits can be calculated, the order stays at 9.6 mg/kg with an alert" {
+                        let ord = Fixture.suppository240 |> Fixture.processed
+                        let adjust = 25N |> Fixture.kg
+
+                        ord
+                        |> Order.withAdjustValue adjust
+                        |> Fixture.recalculated
+                        |> Expect.isNone "no limits"
+
+                        let after = ord |> Fixture.readjusted adjust
+
+                        after
+                        |> Fixture.givenValues
+                        |> Expect.equal "the suppository stays" (ord |> Fixture.givenValues)
+                        after |> Fixture.perKg |> Expect.equal "per kg" (Some(48N / 5N))
+                        after |> Fixture.perKgLevel |> Expect.equal "alert" OrderVariable.Dto.IsAlert
+                    }
+
+                    test "a wrong weight corrected back has no alert" {
+                        let ord = Fixture.suppository240 |> Fixture.processed
+
+                        let back =
+                            ord
+                            |> Fixture.readjusted (25N |> Fixture.kg)
+                            |> Fixture.readjusted (14N |> Fixture.kg)
+
+                        back |> Fixture.perKgLevel |> Expect.equal "normal" OrderVariable.Dto.IsNormal
+
+                        back
+                        |> Fixture.adjustedValues
+                        |> Expect.equal "the per kg values" (ord |> Fixture.adjustedValues)
+                    }
+                ]
+
+            test "the action recalculates the limits, sets the per kg values free and solves" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                match ord |> OrderProcessor.OrderAction.effects OrderAction.Readjust with
+                | Ok(OrderEffect.RecalculateConstraints _ :: rest) ->
+                    rest
+                    |> List.last
+                    |> Expect.equal "solved" (OrderEffect.SolveOrder SolveMode.Values)
+
+                    rest
+                    |> List.take (rest.Length - 1)
+                    |> Expect.equal
+                        "every per kg variable"
+                        (ord
+                         |> OrderProcessor.OrderVariableReference.adjusted
+                         |> List.map (fun r -> OrderEffect.SetOrderVariableRangeBack(r, SetBackTo.PositiveOffIncrement)))
+                | other -> failtest $"other effects: %A{other}"
+            }
+
+            test "an order without a per kg or per m2 dose has no effects" {
+                let ord = Fixture.withoutAdjust ()
+                ord |> EquationMapping.usesAdjust |> Expect.isFalse "no per kg dose"
+                match ord |> OrderProcessor.OrderAction.effects OrderAction.Readjust with
+                | Ok effs -> effs |> Expect.isEmpty "no effects"
+                | Error f -> failtest $"refused: %A{f}"
+            }
+
+            test "the new adjust value is in the defined constraints of every fixture" {
+                [
+                    for name, med in Fixture.fixtures do
+                        let ord = med |> Fixture.processed
+                        let adjust = ord |> Fixture.times 2N
+
+                        match ord |> Fixture.readjust adjust with
+                        | Ok after ->
+                            let adj = after.Adjust |> OrderVariable.Quantity.toOrdVar
+
+                            if adj.DefinedConstraints.Values |> Option.isNone then
+                                $"%s{name}: no defined value"
+                            elif adj |> OrderVariable.isWithinConstraints false |> not then
+                                $"%s{name}: the adjust is outside its defined constraints"
+                        | Error _ -> $"%s{name}: no answer"
+                ]
+                |> Expect.isEmpty "every fixture"
+            }
+
+            test "the calculated dose quantity follows the weight" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                let calculatedMax (o: Order) =
+                    o.Orderable.Dose.Quantity
+                    |> OrderVariable.Quantity.toOrdVar
+                    |> fun ovar -> ovar.CalculatedConstraints.Max
+
+                let after = ord |> Fixture.readjusted (ord |> Fixture.times 2N)
+
+                after
+                |> calculatedMax
+                |> Expect.notEqual "another maximum" (ord |> calculatedMax)
+            }
+
+            test "the context keeps its patient and its order follows the weight" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+                let pat = PatientData.unknown |> Fixture.withWeightOf (ord |> Fixture.times 2N)
+
+                let ctx = [| Fixture.scenario ord |] |> Fixture.context
+
+                let after = ctx |> DataUpdateFixtures.onData Fixture.provider pat
+
+                after.PatientData |> Expect.equal "the patient of the rules" ctx.PatientData
+
+                after.Scenarios[0].Order
+                |> Fixture.adjustOf
+                |> Expect.equal "the weight" (ord |> Fixture.adjustOf |> (*) 2N)
+            }
+
+            test "a patient without the value leaves the order as it is" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                let ctx = [| Fixture.scenario ord |] |> Fixture.context
+
+                (ctx |> DataUpdateFixtures.onData Fixture.provider PatientData.unknown).Scenarios[0].Order
+                |> Fixture.adjustOf
+                |> Expect.equal "the weight" (ord |> Fixture.adjustOf)
+            }
+
+            test "the same weight does not calculate the order again" {
+                let ord = Scenarios.cotrim |> Fixture.processed |> Order.withoutCalculatedConstraints
+                let pat = PatientData.unknown |> Fixture.withWeightOf (ord |> Fixture.times 1N)
+
+                ([| Fixture.scenario ord |]
+                 |> Fixture.context
+                 |> DataUpdateFixtures.onData Fixture.provider pat)
+                    .Scenarios[0].Order
+                |> Order.toOrdVars
+                |> List.filter (_.CalculatedConstraints >> OrderVariable.Constraints.isEmpty >> not)
+                |> Expect.isEmpty "no calculated constraints made"
+            }
+
+            test "a weight in gram reaches the order in the unit of the order" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                let grams = ord |> Fixture.times 2N |> Fixture.decimalIn Units.Weight.gram
+
+                let pat = PatientData.unknown |> SamplePatients.withWeightInGram grams
+
+                OrderContext.adjustOfPatient pat ord
+                |> Expect.equal "in kg" (ord |> Fixture.times 2N |> Some)
+            }
+
+            test "the same weight leaves every calculated limit as it is" {
+                [
+                    for name, med in Fixture.fixtures do
+                        let ord = med |> Fixture.processed
+                        let after = ord |> Fixture.readjusted (ord |> Fixture.times 1N)
+
+                        for before, now in List.zip (ord |> Order.toOrdVars) (after |> Order.toOrdVars) do
+                            if before.CalculatedConstraints <> now.CalculatedConstraints then
+                                $"%s{name}: %A{before |> OrderVariable.getName}"
+                ]
+                |> Expect.isEmpty "every fixture"
+            }
+
+            test "a change of height moves the per m2 dose and the amount stays" {
+                let ord = Fixture.perM2 |> Fixture.processed
+                let patient h =
+                    PatientData.unknown
+                    |> SamplePatients.withWeightInKg 30m
+                    |> SamplePatients.withHeightInCm h
+                let update pat ctx = ctx |> DataUpdateFixtures.onData Fixture.provider pat
+                let order (ctx: OrderContext) = ctx.Scenarios[0].Order
+
+                let context = [| Fixture.scenario ord |] |> Fixture.context
+                let short = context |> update (patient 130m) |> order
+                let tall = context |> update (patient 150m) |> order
+
+                short |> Fixture.unitOf |> Expect.equal "per m2" Units.BSA.m2
+
+                short
+                |> Fixture.adjustOf
+                |> Expect.notEqual "the height moves the body surface" (tall |> Fixture.adjustOf)
+
+                tall
+                |> Fixture.givenValues
+                |> Expect.equal "the amount stays" (ord |> Fixture.givenValues)
+
+                tall
+                |> Fixture.perKg
+                |> Expect.equal "240 mg over the body surface" (Some(240N / (tall |> Fixture.adjustOf)))
+            }
+
+            test "10 mL of the paracetamol drink at 1 mL/kg readjusts to 20 kg as 10 mL at 0,5 mL/kg" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withComponentMaximum 1N)
+
+                // the order must have adjusted dose constraints for this test to say anything
+                ord |> EquationMapping.usesAdjust |> Expect.isTrue "adjusted dose constraints"
+
+                ord
+                |> Fixture.componentQuantities
+                |> Expect.equal
+                    "10 mL at 1 mL/kg"
+                    ("[paracetamol drank.paracetamol]_orb_qty [10 mL]",
+                     "[paracetamol drank.paracetamol]_orb_qty_adj [1 mL/kg]")
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.componentQuantities
+                |> Expect.equal
+                    "10 mL at 0,5 mL/kg"
+                    ("[paracetamol drank.paracetamol]_orb_qty [10 mL]",
+                     "[paracetamol drank.paracetamol]_orb_qty_adj [0,5 mL/kg]")
+            }
+
+            test "an order with only the component limit per kg is readjusted too" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Tests.OrderableQuantityAdjustTests.withoutAdjustedDose
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withComponentMaximum 1N)
+
+                // the order must have no adjusted dose constraints for this test to say anything
+                ord
+                |> EquationMapping.usesAdjust
+                |> Expect.isFalse "no adjusted dose constraints"
+
+                let readjusted = ord |> Fixture.readjusted (20N |> Fixture.kg)
+
+                readjusted
+                |> Fixture.componentQuantities
+                |> snd
+                |> Expect.equal "0,5 mL/kg" "[paracetamol drank.paracetamol]_orb_qty_adj [0,5 mL/kg]"
+
+                // the item equation is selected with the component equation, so the item value is calculated too
+                readjusted
+                |> Fixture.itemQuantities
+                |> snd
+                |> Expect.equal "12 mg/kg" "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]"
+            }
+
+            test "240 mg of paracetamol at 24 mg/kg readjusts to 20 kg as 240 mg at 12 mg/kg" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withItemMaximum 24N)
+
+                ord
+                |> Fixture.itemQuantities
+                |> Expect.equal
+                    "240 mg at 24 mg/kg"
+                    ("[paracetamol drank.paracetamol.paracetamol]_orb_qty [240 mg]",
+                     "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [24 mg/kg]")
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.itemQuantities
+                |> Expect.equal
+                    "240 mg at 12 mg/kg"
+                    ("[paracetamol drank.paracetamol.paracetamol]_orb_qty [240 mg]",
+                     "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]")
+            }
+
+            test "an order with only the item limit per kg is readjusted too" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Tests.OrderableQuantityAdjustTests.withoutAdjustedDose
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withItemMaximum 24N)
+
+                // the order must have no adjusted dose constraints for this test to say anything
+                ord
+                |> EquationMapping.usesAdjust
+                |> Expect.isFalse "no adjusted dose constraints"
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.itemQuantities
+                |> snd
+                |> Expect.equal "12 mg/kg" "[paracetamol drank.paracetamol.paracetamol]_orb_qty_adj [12 mg/kg]"
+            }
+
+            test "10 mL of paracetamol drink at 1 mL/kg readjusts to 20 kg as 10 mL at 0,5 mL/kg" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withOrderableMaximum 1N)
+
+                ord
+                |> Fixture.orderableQuantities
+                |> Expect.equal
+                    "10 mL at 1 mL/kg"
+                    ("[paracetamol drank]_orb_qty [10 mL]", "[paracetamol drank]_orb_qty_adj [1 mL/kg]")
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.orderableQuantities
+                |> Expect.equal
+                    "10 mL at 0,5 mL/kg"
+                    ("[paracetamol drank]_orb_qty [10 mL]", "[paracetamol drank]_orb_qty_adj [0,5 mL/kg]")
+            }
+
+            test "an order with only the orderable limit per kg is readjusted too" {
+                let ord =
+                    Scenarios.pcmDrink
+                    |> Tests.OrderableQuantityAdjustTests.withoutAdjustedDose
+                    |> Fixture.solvedAtMaximum (Tests.OrderableQuantityAdjustTests.withOrderableMaximum 1N)
+
+                // the order must have no adjusted dose constraints for this test to say anything
+                ord
+                |> EquationMapping.usesAdjust
+                |> Expect.isFalse "no adjusted dose constraints"
+
+                ord
+                |> Fixture.readjusted (20N |> Fixture.kg)
+                |> Fixture.orderableQuantities
+                |> snd
+                |> Expect.equal "0,5 mL/kg" "[paracetamol drank]_orb_qty_adj [0,5 mL/kg]"
+            }
+
+            test "after a change of weight the dose quantity can be stepped" {
+                let ord = Scenarios.cotrim |> Fixture.processed
+
+                let after = ord |> Fixture.readjusted (ord |> Fixture.times 2N)
+
+                after
+                |> OrderProcessor.OrderAction.run
+                    Fixture.caps
+                    Fixture.logger
+                    (OrderAction.Set(
+                        OrderVariableReference.OrderableDose DoseProperty.Quantity,
+                        Choice.Step(1, StepIncrement.Defined)
+                    ))
+                |> Result.isOk
+                |> Expect.isTrue "stepped"
+            }
+        ]

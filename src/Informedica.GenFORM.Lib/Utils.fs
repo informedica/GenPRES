@@ -57,26 +57,34 @@ module Utils =
 
     module Web =
 
-        /// <summary>
-        /// Get data from a web sheet
-        /// </summary>
-        /// <param name="urlId">The Url Id of the web sheet</param>
-        /// <param name="sheet">The specific sheet</param>
-        /// <returns>The data as a table of string array array</returns>
+        /// <summary>Downloads a sheet of a Google spreadsheet as rows of cells and logs the time it took.</summary>
+        /// <param name="urlId">The id of the spreadsheet.</param>
+        /// <param name="sheet">The name of the sheet.</param>
+        /// <returns>The rows of cells; an empty array when the download fails.</returns>
         let getDataFromSheet urlId sheet =
-            fun () -> Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet |> Result.defaultValue [||]
+            fun () -> Web.GoogleSheets.getRowsFromSheetSync urlId sheet |> Result.defaultValue [||]
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
+
+
+    module Tsv =
+
+        /// Returns the text of a TSV cell on one line: null gives an empty text, and a tab, a carriage return or a
+        /// newline becomes a space.
+        let cell (s: string) =
+            if isNull s then
+                ""
+            else
+                s
+                |> String.replace "\t" " "
+                |> String.replace "\r" " "
+                |> String.replace "\n" " "
 
 
     module BigRational =
 
 
-        /// <summary>
-        /// Parse an array of strings in float format to an array of BigRational
-        /// </summary>
-        /// <remarks>
-        /// Uses ; as separator. Filters out non-parsable strings.
-        /// </remarks>
+        /// <summary>Parses a text of numbers separated by ; into an array of BigRationals.</summary>
+        /// <remarks>A part that does not parse as a number is skipped.</remarks>
         /// <example>
         /// <code>
         /// let brs = toBrs "1.0;2.0;3.0"
@@ -92,10 +100,8 @@ module Utils =
             |> Array.choose BigRational.fromFloat
 
 
-        /// <summary>
-        /// Return 2 BigRational arrays as a tuple of optional first BigRational
-        /// of the first and second array. A None is returned for an empty array.
-        /// </summary>
+        /// <summary>Returns the first value of each of two arrays as a pair of options; None for an empty
+        /// array.</summary>
         /// <example>
         /// <code>
         /// let brs1 = [|1N|]
@@ -109,38 +115,6 @@ module Utils =
         /// </code>
         /// </example>
         let tupleBrOpt brs1 brs2 = brs1 |> Array.tryHead, brs2 |> Array.tryHead
-
-
-    module Calculations =
-
-        open Informedica.GenUnits.Lib
-
-        module Conversions = Informedica.GenCore.Lib.Conversions
-        module BSA = Informedica.GenCore.Lib.Calculations.BSA
-
-        let calcDuBois weight height =
-            let w =
-                weight
-                |> ValueUnit.convertTo Units.Mass.kiloGram
-                |> ValueUnit.getValue
-                |> Array.tryHead
-                |> Option.defaultValue 0N
-                |> BigRational.toDecimal
-                |> Conversions.kgFromDecimal
-
-            let h =
-                height
-                |> ValueUnit.convertTo Units.Height.centiMeter
-                |> ValueUnit.getValue
-                |> Array.tryHead
-                |> Option.defaultValue 0N
-                |> BigRational.toDecimal
-                |> Conversions.cmFromDecimal
-
-            BSA.calcDuBois (Some 2) w h
-            |> decimal
-            |> BigRational.fromDecimal
-            |> ValueUnit.singleWithUnit Units.BSA.m2
 
 
     module Units =
@@ -161,7 +135,7 @@ module Utils =
             if s |> String.isNullOrWhiteSpace then
                 None
             else
-                // TODO need better fix than this
+                // TODO: "keer" and "x" mean times; find a better fix than this special case.
                 if s = "keer" || s = "x" then
                     "times[Count]"
                 else
@@ -190,39 +164,18 @@ module Utils =
         open Informedica.GenCore.Lib.Patients
 
 
-        /// The full term age for a neonate
-        /// which is 37 weeks
-        let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
+        module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
 
 
-        /// The age from which a patient is an adult: the domain's eighteen years, stated once
-        /// in GenCORE.Lib and read here as the lower bound of the age range an adult rule
-        /// applies to. In days, and 365 to the year, because that is how a patient's age
-        /// reaches the matcher: the contract model and the order patient both write a year as
-        /// 365 days, and the sheet's own age bounds are days. The year unit counts a quarter
-        /// day more, and would leave a patient entered as eighteen four days short of adult.
-        let ageAdult =
-            AgeValue.eighteen
-            |> AgeValue.SetGet.getYearsDef0
-            |> int
-            |> (*) 365
-            |> BigRational.fromInt
-            |> ValueUnit.singleWithUnit Units.Time.day
+        /// The adult age of eighteen years, in days as GenCORE counts them, because the age limits in the sheets
+        /// are in days.
+        let ageAdult = AgeValue.eighteen |> AgeValue.getAgeInDays |> Measures.fromIntDay
 
 
         let withOptSingleAndOptUnit u v =
             match v, u with
             | Some v, Some u -> v |> ValueUnit.singleWithUnit u |> Some
             | _ -> None
-
-
-        let withArrayAndOptUnit u v =
-            if v |> Array.isEmpty then
-                None
-            else
-                match u with
-                | Some u -> v |> ValueUnit.withUnit u |> Some
-                | _ -> None
 
 
         let toString prec vu =
@@ -253,9 +206,8 @@ module Utils =
                 |> Option.defaultValue false
 
 
-        /// Turn a MinMax to a string with
-        /// mins and maxs as annotations
-        /// for resp. the min and max value.
+        /// Formats a MinMax as text, with the given labels for an inclusive or exclusive minimum and maximum.
+        /// A value of 10,000 mg or mg/day or more is shown in g or g/day.
         let toString
             minInclStr
             minExclStr
@@ -309,3 +261,16 @@ module Utils =
                     Min = min
                     Max = max
                 }
+
+
+        /// Returns a text for each named range whose minimum is above its maximum, with the name and both limits.
+        /// A range with only a minimum, only a maximum or neither is never inverted.
+        let invertedRanges named =
+            named
+            |> List.choose (fun (name, mm) ->
+                match mm |> MinMax.validate with
+                | Error(Errors.MinLargerThanMax(min, max)) ->
+                    $"%s{name} %s{min |> Limit.toString true} > %s{max |> Limit.toString false}"
+                    |> Some
+                | _ -> None
+            )

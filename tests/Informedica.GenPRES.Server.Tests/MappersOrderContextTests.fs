@@ -6,10 +6,12 @@ open Expecto
 open Expecto.Flip
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
+open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
 open Informedica.GenPRES.Shared.Types
 open ServerApi
+open Informedica.GenPRES.Server.Tests.TestDates
 
 
 module Domain = Informedica.GenOrder.Lib.OrderContext
@@ -43,6 +45,9 @@ let scenario: OrderScenario =
         true
         false
         None
+        false
+        false
+        false
         [| "gpk-1" |]
         None
 
@@ -61,16 +66,45 @@ let context: OrderContext =
                 Generic = Some "paracetamol"
                 DoseType = Some(Discontinuous "3-4 x/dag")
                 Diluents = [| "NaCl 0.9%" |]
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
+                PickedProducts = [||]
             }
-        Patient = StubPatientData.patient
+        PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario |]
-        Intake =
+        Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
-                Volume = [| Normal "100 ml" |]
-                Energy = [| Bold "50 kcal"; Normal "/dag" |]
+                Volume = Some(Valid [| Normal "100 ml" |])
+                Energy = Some(Valid [| Bold "50 kcal"; Normal "/dag" |])
             }
     }
+
+
+/// A main order and a supplement linked to it, as the contract model carries them, and a plan Dto
+/// built from contexts by the mapper.
+module LinkFixtures =
+
+    let main =
+        { context with
+            Id = "c-1"
+            Category = OrderCategory.Medication
+        }
+
+
+    let linked =
+        { context with
+            Id = "c-2"
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+            LinkedTo = Some "c-1"
+        }
+
+
+    let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
+        {
+            PatientData = context.PatientData |> ServerApi.Patient.ofModel
+            Filtered = [||]
+            Contexts = contexts |> Array.map OrderContextMapper.ofModel
+            Totals = Totals.empty |> Totals.Dto.toDto
+        }
 
 
 [<Tests>]
@@ -88,6 +122,43 @@ let tests =
                 |> Expect.isTrue "demo as the server says"
             }
 
+            for link in [ Some "c-0"; None ] do
+                test $"the link %A{link} goes to the Dto and back" {
+                    let linked = { context with LinkedTo = link }
+                    let dto = linked |> OrderContextMapper.ofModel
+
+                    dto.LinkedTo |> Expect.equal "the Dto carries the link" link
+
+                    dto
+                    |> OrderContextMapper.toModel false
+                    |> Expect.equal "the same context" linked
+                }
+
+            test "the domain reads the link the mapper writes in a context" {
+                LinkFixtures.linked
+                |> OrderContextMapper.ofModel
+                |> PlanContext.Dto.fromDto readAt
+                |> Result.map _.LinkedTo
+                |> Expect.equal "the main order's id" (Ok(Some "c-1"))
+            }
+
+            test "the domain reads the links the mapper writes in a plan" {
+                [| LinkFixtures.main; LinkFixtures.linked |]
+                |> LinkFixtures.planDto
+                |> OrderPlan.Dto.fromDto readAt
+                |> Result.map (_.Contexts >> Array.map (fun c -> c.Id, c.LinkedTo))
+                |> Expect.equal "the links" (Ok [| "c-1", None; "c-2", Some "c-1" |])
+            }
+
+            test "a plan from the wire with a link to a context not in it is refused" {
+                [| LinkFixtures.main; { LinkFixtures.linked with LinkedTo = Some "c-gone" } |]
+                |> LinkFixtures.planDto
+                |> OrderPlan.Dto.fromDto readAt
+                |> Expect.equal
+                    "the broken link"
+                    (Error [ DtoError.BrokenLink("c-2", LinkError.NoSuchMainOrder "c-gone") ])
+            }
+
             for access in [ Some CVL; Some PVL; Some EnteralTube; None ] do
                 test $"the scenario access %A{access} goes to the Dto and back" {
                     let sc = { scenario with Access = access }
@@ -98,6 +169,51 @@ let tests =
                     |> _.Access
                     |> Expect.equal "the same access" access
                 }
+
+            test "the mark of an order that fits only without the Divisible goes to the Dto and back" {
+                for fitsOnlyWithoutDivisible in [ true; false ] do
+                    { scenario with FitsOnlyWithoutDivisible = fitsOnlyWithoutDivisible }
+                    |> OrderContextMapper.scenario 0
+                    |> OrderContextMapper.scenarioBack
+                    |> _.FitsOnlyWithoutDivisible
+                    |> Expect.equal "the same mark" fitsOnlyWithoutDivisible
+            }
+
+            test "the component selection goes to the Dto and back, every component apart from none" {
+                for sel in
+                    [
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.AllComponents
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.Selected []
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
+                    ] do
+                    { context.Filter with SelectedComponents = sel }
+                    |> OrderContextMapper.filter
+                    |> OrderContextMapper.filterBack
+                    |> _.SelectedComponents
+                    |> Expect.equal $"%A{sel}" sel
+            }
+
+            test "the client selects none when no component is picked" {
+                context
+                |> Informedica.GenPRES.Shared.Models.OrderContext.componentsChange [||]
+                |> _.Filter.SelectedComponents
+                |> Expect.equal "none" (Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [])
+            }
+
+            test "the picked products go to the Dto and back, and a change of a choice clears them" {
+                let picked = { context.Filter with PickedProducts = [| "gpk-1" |] }
+
+                picked
+                |> OrderContextMapper.filter
+                |> OrderContextMapper.filterBack
+                |> _.PickedProducts
+                |> Expect.equal "the same products" [| "gpk-1" |]
+
+                { context with Filter = picked }
+                |> Informedica.GenPRES.Shared.Models.OrderContext.indicationChange (Some "pijn")
+                |> _.Filter.PickedProducts
+                |> Expect.isEmpty "cleared, as the domain does"
+            }
 
             test "a scenario Dto without an access reads as none" {
                 { (scenario |> OrderContextMapper.scenario 0) with Access = null }
@@ -150,22 +266,22 @@ let tests =
                 let refused = Error [| "De argumentatie is te lang: 1001 tekens, ten hoogste 1000" |]
 
                 over
-                |> OrderContextService.parse
+                |> OrderContextService.parse readAt
                 |> Result.map ignore
                 |> Expect.equal "the context" refused
 
                 { Informedica.GenPRES.Shared.Models.OrderPlan.empty with OrderContexts = [| context; over |] }
-                |> OrderPlanCommand.parsePlan
+                |> OrderPlanCommand.parsePlan readAt
                 |> Result.map ignore
                 |> Expect.equal "the plan, on any of its contexts" refused
 
-                match { context with Argumentation = Some "kort" } |> OrderContextService.parse with
+                match { context with Argumentation = Some "kort" } |> OrderContextService.parse readAt with
                 | Ok pc -> pc.Context.Argumentation |> Expect.equal "within the cap, parsed" (Some "kort")
                 | Error e -> failtest $"refused: %A{e}"
             }
 
-            test "outside L3: blank text items are dropped, and the scenario number is the Dto's" {
-                let blank =
+            test "outside L3: empty text items are dropped, blank ones kept, and the scenario number is the Dto's" {
+                let items =
                     { context with
                         Scenarios =
                             [|
@@ -175,10 +291,10 @@ let tests =
                             |]
                     }
 
-                let back = blank |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
+                let back = items |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false
 
                 back.Scenarios[0].Prescription
-                |> Expect.equal "the blank ones gone" [| [| Valid [| Bold "240 mg" |] |] |]
+                |> Expect.equal "the empty one gone" [| [| Valid [| Bold "240 mg"; Normal "  " |] |] |]
 
                 (context |> OrderContextMapper.ofModel).Context.Scenarios
                 |> Array.map _.No
@@ -186,7 +302,7 @@ let tests =
             }
 
             test "the Dto parses: the domain reads what the mapper writes" {
-                match context |> OrderContextMapper.ofModel |> PlanContext.Dto.fromDto with
+                match context |> OrderContextMapper.ofModel |> PlanContext.Dto.fromDto readAt with
                 | Ok pc ->
                     pc.Id |> Expect.equal "id" "c-1"
 
@@ -204,7 +320,8 @@ let tests =
                         "marked-up text"
                         [| [| Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag" |] |]
 
-                    pc.Intake.Energy |> Expect.equal "the intake" (Some "#50 kcal#/dag")
+                    pc.Totals.Energy
+                    |> Expect.equal "the totals" (Some(Informedica.GenOrder.Lib.Types.Valid "#50 kcal#/dag"))
                 | Error e -> failtest $"no plan context: %A{e}"
             }
 
@@ -227,7 +344,7 @@ let tests =
                 |> Expect.equal "the domain's text again" text
             }
 
-            test "text: rendering and parsing are inverse on items with text; a blank item is dropped" {
+            test "text: rendering and parsing are inverse on items with text; a blank item is kept" {
                 let items = [| Normal "a "; Bold "b"; Normal " and "; Italic "c"; Normal " d" |]
 
                 items
@@ -242,7 +359,7 @@ let tests =
                 [| Bold "b"; Normal " "; Italic "c" |]
                 |> OrderContextMapper.TextItem.render
                 |> Mappers.parseTextItem
-                |> Expect.equal "the blank item between gone" [| Bold "b"; Italic "c" |]
+                |> Expect.equal "the blank item between kept" [| Bold "b"; Normal " "; Italic "c" |]
             }
 
             test "every command verb becomes the domain command over the context given" {
@@ -253,7 +370,7 @@ let tests =
                             |> OrderContextMapper.filter
                             |> Filter.Dto.fromDto
                             |> Result.defaultWith (fun e -> failtest $"{e}")
-                        Patient = Informedica.GenForm.Lib.Patient.patient
+                        PatientData = PatientData.unknown
                         Scenarios = [||]
                         Argumentation = None
                     }
@@ -317,16 +434,16 @@ let tests =
                             Informedica.GenPRES.Shared.Models.OrderContext.Route,
                             1
                         ),
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Route, Some 1)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Route, Some 1)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearFilterProperty
                             Informedica.GenPRES.Shared.Models.OrderContext.Generic,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Generic, None)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Generic, None)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty,
                         Domain.ClearAllFilter ctx
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 0,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, Some 0)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Diluent, Some 0)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, None)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Diluent, None)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentsProperty [| 0; 2 |],
                         Domain.SetNthComponents(ctx, [| 0; 2 |])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 1,
@@ -395,14 +512,14 @@ let tests =
                 |> Expect.equal "every case of the wire's union but the argumentation" 38
 
                 for verb, expected in verbs do
-                    OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx
+                    OrderContextMapper.Command.toDomain OrderCategory.Medication verb ctx
                     |> Expect.equal $"{verb}" expected
             }
 
             test "the argumentation is no domain command" {
                 (fun () ->
                     OrderContextMapper.Command.toDomain
-                        OrderCategory.Drug
+                        OrderCategory.Medication
                         (Informedica.GenPRES.Shared.Api.OrderViewCommand.SetArgumentationProperty "text")
                     |> ignore
                 )
@@ -412,7 +529,7 @@ let tests =
 
 
 [<Tests>]
-let clearMarkTests =
+let variableTests =
     let vu =
         Informedica.GenPRES.Shared.Models.Order.ValueUnit.create [| "10", 10m |] "mg" "Mass" true "dutch" ""
 
@@ -427,17 +544,60 @@ let clearMarkTests =
             true
             None
 
+    // the orders of the test medications, as built and after each step the dose dialog takes
+    let orders =
+        lazy
+            [
+                for med in
+                    [
+                        Scenarios.pcmSupp
+                        Scenarios.pcmDrink
+                        Scenarios.morfCont
+                        Scenarios.amfo
+                        Scenarios.cotrim
+                        Scenarios.tpn
+                    ] do
+                    match med |> Medication.toOrder Scenarios.testStart with
+                    | Error _ -> ()
+                    | Ok ord ->
+                        yield!
+                            [ CalcMinMax; CalcValues; SolveOrder ]
+                            |> List.scan
+                                (fun ord cmd ->
+                                    ord
+                                    |> Result.bind (
+                                        cmd
+                                        >> OrderProcessor.processPipeline OrderLogging.noOp
+                                        >> Result.mapError ignore
+                                    )
+                                )
+                                (Ok ord)
+                            |> List.choose Result.toOption
+            ]
+
+    let fields (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) =
+        let vu (v: Informedica.GenUnits.Lib.ValueUnit.Dto.Dto option) = v |> Option.map (fun v -> v.Value, v.Unit)
+
+        dto.Name,
+        dto.IsNonZeroPositive,
+        vu dto.MinOpt,
+        dto.MinIncl,
+        vu dto.IncrOpt,
+        vu dto.MaxOpt,
+        dto.MaxIncl,
+        vu dto.ValsOpt
+
     testList
-        "the clear mark"
+        "a variable to the domain"
         [
-            test "a variable the client cleared goes as the mark alone, also with an increment" {
+            test "a marked variable goes with its mark and its bounds" {
                 let dto = variable true |> Mappers.Order.mapFromVariable
 
-                (dto.IsNonZeroPositive, dto.MinOpt, dto.IncrOpt, dto.MaxOpt, dto.ValsOpt)
-                |> Expect.equal "the mark, no bounds" (true, None, None, None, None)
+                (dto.IsNonZeroPositive, dto.MinOpt.IsSome, dto.IncrOpt.IsSome, dto.MaxOpt.IsSome)
+                |> Expect.equal "the mark and the bounds" (true, true, true, true)
             }
 
-            test "a range that was not cleared goes with its bounds" {
+            test "a range goes with its bounds" {
                 let dto = variable false |> Mappers.Order.mapFromVariable
 
                 dto.IsNonZeroPositive |> Expect.isFalse "no mark"
@@ -445,7 +605,88 @@ let clearMarkTests =
                 (dto.MinOpt.IsSome, dto.IncrOpt.IsSome, dto.MaxOpt.IsSome)
                 |> Expect.equal "the bounds" (true, true, true)
             }
+
+            test "every variable of an order goes back to the domain as the server sent it" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.collect (fun ovar ->
+                    let dto = ovar |> OrderVariable.Dto.toDto
+                    [ dto.Variable; dto.Constraints; dto.Calculated ]
+                )
+                |> List.filter (fun dto ->
+                    (dto |> Mappers.Order.mapToVariable |> Mappers.Order.mapFromVariable |> fields)
+                    <> fields dto
+                )
+                |> List.map _.Name
+                |> Expect.equal "no variable differs" []
+            }
+
+            test "every variable of an order carries the large increment the domain names" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.filter (fun ovar ->
+                    let expected =
+                        ovar
+                        |> OrderVariable.largeIncrement
+                        |> Option.map Informedica.GenSolver.Lib.Variable.ValueRange.Increment.toValueUnit
+
+                    let mapped =
+                        ovar
+                        |> OrderVariable.Dto.toDto
+                        |> Mappers.Order.mapToOrderVariable
+                        |> _.LargeIncr
+                        |> Option.bind (Mappers.Order.mapFromValueUnit >> ValueUnit.Dto.fromDto)
+
+                    mapped <> expected
+                )
+                |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
+                |> Expect.equal "no variable differs" []
+            }
+
+            test "the orders have variables with a large increment" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.exists (OrderVariable.largeIncrement >> Option.isSome)
+                |> Expect.isTrue "some variable has a large increment"
+            }
         ]
+
+
+/// The amoxicilline/clavulaanzuur medication with its 500/50 mg product reconstituted in 10 mL water and then
+/// 3 mL diluted with 7 mL gluc 5%.
+let preDilutedAmoxClavText =
+    let preparation =
+        [
+            "        Reconstitution:"
+            "          Solvent: water"
+            "          SolventVolume:"
+            "            Value:"
+            "              - \"10\""
+            "            Unit: ml"
+            "        Predilution:"
+            "          MedVolume:"
+            "            Value:"
+            "              - \"3\""
+            "            Unit: ml"
+            "          DiluentVolume:"
+            "            Value:"
+            "              - \"7\""
+            "            Unit: ml"
+            "          Diluent: gluc 5%"
+        ]
+        |> String.concat "\n"
+
+    Scenarios.amoxClavText
+    // a checkout with CRLF line endings holds \r\n in the text
+    |> String.replace "\r\n" "\n"
+    |> String.replace "      - Id: amox-clav-500-50\n" $"      - Id: amox-clav-500-50\n%s{preparation}\n"
+
+
+/// The medication of the text; a text that does not parse fails the test.
+let parseMedication text =
+    match text |> MedicationText.fromString with
+    | Ok med -> med
+    | Error errs -> failtest $"could not parse: %A{errs}"
 
 
 [<Tests>]
@@ -453,6 +694,57 @@ let productTests =
     testList
         "the products of a component"
         [
+            test "an order to the contract model and back keeps a reconstituted and pre-diluted product" {
+                let med = preDilutedAmoxClavText |> parseMedication
+
+                let products =
+                    med
+                    |> Medication.toOrderDto Scenarios.testStart
+                    |> Mappers.Order.mapFromOrderToShared [||]
+                    |> Mappers.Order.mapFromSharedToOrder
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun msgs -> failtest $"could not read: %A{msgs}")
+                    |> _.Orderable.Components
+                    |> List.collect _.Products
+
+                products
+                |> List.choose _.Predilution
+                |> Expect.equal
+                    "3 mL with 7 mL gluc 5%"
+                    [
+                        {
+                            MedVolume = 3N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            DiluentVolume = 7N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            Diluent = "gluc 5%"
+                        }
+                    ]
+
+                products
+                |> Expect.equal "the products" (med.Components |> List.collect _.Products)
+            }
+
+            test "the scenario from the Dto gets the predilution of its order as the caption text" {
+                // only the pre-diluted product, so that exactly one product applies
+                let med =
+                    preDilutedAmoxClavText
+                    |> fun s ->
+                        s[.. s.IndexOf "      - Id: amox-clav-1000-200" - 1]
+                        + s[s.IndexOf "    Substances:" ..]
+                    |> parseMedication
+
+                let ord =
+                    med
+                    |> Medication.toOrderDto Scenarios.testStart
+                    |> Mappers.Order.mapFromOrderToShared [||]
+
+                { scenario with Order = ord }
+                |> OrderContextMapper.scenario 0
+                |> OrderContextMapper.scenarioBack
+                |> fun sc -> sc.Reconstitution, sc.Predilution
+                |> Expect.equal "the texts" (Some "10 mL water", Some "3 mL verdund met 7 mL gluc 5%")
+            }
+
+
             test "an order to the contract model and back keeps the products of its components" {
                 match Scenarios.amoxClavText |> MedicationText.fromString with
                 | Error errs -> failtest $"could not parse: %A{errs}"
@@ -466,5 +758,71 @@ let productTests =
                     |> _.Orderable.Components
                     |> List.map _.Products
                     |> Expect.equal "the products" (med.Components |> List.map _.Products)
+            }
+        ]
+
+
+[<Tests>]
+let textBlockTests =
+    testList
+        "a text block from the Dto"
+        [
+            let items = [| Normal "paracetamol "; Bold "500 mg" |]
+
+            for block in [ Valid items; Caution items; Warning items; Alert items ] do
+                test $"%A{block} goes to the Dto and back" {
+                    block
+                    |> OrderContextMapper.textBlock
+                    |> OrderContextMapper.textBlockBack
+                    |> Expect.equal "the same block" block
+                }
+
+            for kind in [ "info"; "Valid"; "" ] do
+                test $"the unknown kind '%s{kind}' throws instead of showing as valid" {
+                    let dto: Informedica.GenOrder.Lib.TextBlock.Dto.Dto =
+                        {
+                            Kind = kind
+                            Text = "paracetamol"
+                        }
+
+                    fun () -> dto |> OrderContextMapper.textBlockBack |> ignore
+                    |> Expect.throwsT<System.InvalidOperationException> "an unknown kind"
+                }
+        ]
+
+
+[<Tests>]
+let totalsTests =
+    let empty = Informedica.GenPRES.Shared.Models.Totals.empty
+
+    testList
+        "the totals mapper"
+        [
+            test "a Warning block of GenORDER reaches the contract as a Warning block" {
+                { Totals.empty with Volume = Some(Types.Warning "#142# ml/kg/dag (120 - 150)") }
+                |> Totals.Dto.toDto
+                |> OrderContextMapper.totalsBack
+                |> _.Volume
+                |> Expect.equal "a warning" (Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]))
+            }
+
+            test "the totals round trip through the Dto with their kind" {
+                let t =
+                    { empty with
+                        Volume = Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |])
+                        Energy = Some(Valid [| Bold "80"; Normal " kCal/kg/dag" |])
+                    }
+
+                t
+                |> OrderContextMapper.totals
+                |> OrderContextMapper.totalsBack
+                |> Expect.equal "the same" t
+            }
+
+            test "a total that is not there stays None both ways" {
+                empty
+                |> OrderContextMapper.totals
+                |> OrderContextMapper.totalsBack
+                |> Expect.equal "empty" empty
             }
         ]

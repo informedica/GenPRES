@@ -19,19 +19,17 @@ module Patient =
     open Informedica.GenPRES.Shared.Models
     open OrderPlanMachine
     open OrderContextMachine
-    open PatientDraftPolicy
+    open PatientDataPolicy
 
 
     module private Elmish =
 
 
-        module Patient = Patient
+        module Patient = PatientData
 
 
-        /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
-        /// missing: an age, or a weight and a height. Nothing entered asks for the data. The name
-        /// and the birthdate stay in the title bar: the panel is about the data, and says only
-        /// the id under which it is held.
+        /// Shows the patient data and, while the draft is not yet a patient, what is missing: an age, or
+        /// a weight and a height. The id, the name and the birthdate are shown in the title bar instead.
         let show lang terms pat =
             let term fallback t =
                 terms
@@ -43,7 +41,7 @@ module Patient =
                 | Resolved terms -> PatientText.toString terms lang true
                 | _ -> fun _ -> ""
 
-            // what the draft misses to be a patient, in the words every page uses
+            // What the draft needs to be a patient, in the same text as on the other pages.
             let missing =
                 pat
                 |> PatientReadinessPolicy.readiness
@@ -66,20 +64,19 @@ module Patient =
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
         let patient = envPatient.Draft
-        // the summary shows the full estimates of the age, also for a weight or height that was
-        // entered or cleared; the fields show the draft
-        let estimated = envPatient.Estimated
-        let updatePatient = envPatient.UpdatePatient
+        // The summary shows the patient from the server answer, with estimates next to an entered or
+        // cleared weight or height. The fields show the draft.
+        let current = envPatient.Current
+        let clearPatient = envPatient.ClearPatient
         let editPatient = envPatient.EditPatient
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
         let envSession = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let session = envSession.Session
-        let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
-        // the patient is what every request reads: while anything is out the panel is greyed, so
-        // that the patient cannot change under it, and the next edit starts from the answer
+        // Every request reads the patient. While a request is under way the panel is disabled, so the
+        // patient cannot change during the request and the next edit starts from the answer.
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
 
         let context: Global.Context = React.useContext Global.context
@@ -89,79 +86,58 @@ module Patient =
 
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
-        // the panel shows the App's draft and keeps no copy of it: an edit is applied to that
-        // draft and sent to the App. A copy would go stale whenever the App's answer equals the
-        // draft it had, and show values the App no longer holds
+        // The panel edits the draft of the App and keeps no copy. A copy would go stale when the
+        // answer of the App equals the draft, and show values the App no longer has.
         let pat = patient
 
-        let dispatch msg =
-            let edited = pat |> update msg
+        // The edit of another patient while the user is asked whether to remove the orders. The draft
+        // is unchanged, so cancel keeps the previous data.
+        let newPatient, setNewPatient = React.useState (None: Api.PatientDataEdit option)
 
-            match estimates msg with
-            | Estimates.Renewed -> edited |> updatePatient
-            | Estimates.Kept -> edited |> keepEstimates msg pat |> editPatient
+        // The server applies each edit; the reset, which has its own confirmation dialog, clears the draft.
+        let dispatch msg =
+            match msg |> toEdit pat with
+            | None -> clearPatient ()
+            | Some edit when envPatient.AsksNewPatient -> Some edit |> setNewPatient
+            | Some edit -> edit |> editPatient
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        // whom the patient is when the EHR said: the panel is in identified mode by it, not by
-        // an open Session, since a launch without data opens a Session without one, and one
-        // with a signed head opens identified from the head. Identified, the age is the
-        // platform's, shown, not chosen, and the rest of the data is changed, never cleared
-        let patientContext = HeldPanelPolicy.patientContext session
+        // The panel is in identified mode when the EHR identified the patient, not when a Session is
+        // open: a launch without patient data opens a Session without a patient. For an identified
+        // patient the platform sets the age, and the other data can be changed but not cleared.
+        let identified = SessionPatientPolicy.identified session
 
-        let identity = patientContext |> Option.bind _.Identity
+        // When the first data of an identified patient arrives, the panel closes if nothing is missing
+        // and opens otherwise. Later data of the same patient does not change the panel. This does not
+        // apply to an anonymous patient.
+        let decidedFor = React.useRef (None: string option)
 
-        let identified = identity.IsSome
+        let identifiedId =
+            SessionPatientPolicy.patientContext session
+            |> Option.filter _.PatientIdentity.IsSome
+            |> Option.map _.PatientId
 
-        let held = HeldPanelPolicy.held session envPlan.Changed
+        let readiness = patient |> PatientReadinessPolicy.readiness
+        let hasData = readiness <> PatientReadinessPolicy.Readiness.NoData
+        let isComplete = readiness = PatientReadinessPolicy.Readiness.Patient []
 
-        // held, the fields stay as they are but take no change: an attempt asks instead, with the
-        // way out that removes the new and changed orders; signing is the plan's own button
-        let heldOpen, setHeldOpen = React.useState false
+        React.useEffect (
+            (fun () ->
+                match identifiedId with
+                | Some id when hasData && decidedFor.current <> Some id ->
+                    decidedFor.current <- Some id
+                    isComplete |> not |> setExpanded
+                | _ -> ()
+            ),
+            [| box identifiedId; box hasData; box isComplete |]
+        )
 
-        // not while a request is under way: the panel is greyed then, and the orders cannot be
-        // removed until the plan is settled
-        let onAttempt (e: Browser.Types.Event) =
-            if held then
-                e.preventDefault ()
-                e.stopPropagation ()
+        // The summary shows the data only; the id, the name and the birthdate are in the title bar.
+        let summary = current |> show lang localizationTerms |> toJsx
 
-                if not busy then
-                    setHeldOpen true
-
-        // every edit of the panel goes out here, so that one the pointer does not make, from the
-        // keyboard or assistive technology, is held too: it asks instead of changing the panel
-        let dispatch msg =
-            if held then
-                if not busy then
-                    setHeldOpen true
-            else
-                dispatch msg
-
-        // the summary: the data, and above it, identified, the id the data is held under; the
-        // name and the birthdate are the title bar's alone
-        let summary =
-            let data = estimated |> show lang localizationTerms |> toJsx
-
-            match identity, patientContext with
-            | Some _, Some context ->
-                let idLabel = Terms.``Patient Id`` |> getTerm "Patiënt-ID"
-                let idLine = $"{idLabel} {context.PatientId}"
-
-                JSX.jsx
-                    $"""
-                import Box from '@mui/material/Box';
-                import Typography from '@mui/material/Typography';
-
-                <Box>
-                    <Typography variant="caption" color="text.secondary" component="div">{idLine}</Typography>
-                    {data}
-                </Box>
-                """
-            | _ -> data
-
-        // the summary click opens or folds the panel; while the patient cannot be calculated
-        // the panel stays open, since there is nothing to fold it over
+        // A click on the summary opens or closes the panel. While the patient cannot be calculated
+        // the panel stays open.
         let toggle =
             fun _ ->
                 if patient |> canCalculate |> not then
@@ -169,14 +145,12 @@ module Patient =
                 else
                     isExpanded |> not |> setExpanded
 
-        // an edit of a field keeps the panel open, whatever it was: editing never takes the
-        // controls away from under the hand
+        // An edit of a field opens the panel, so the controls do not disappear while editing.
         let keepOpen = fun () -> true |> setExpanded
 
-        // the reset is asked first: the button opens the question, confirming discards the
-        // draft. An age, a weight and a height typed at the bedside are not rebuilt by picking
-        // again, which is why this reset asks where the prescribing page's does not. Only an
-        // anonymous patient has a reset: an identified patient's data is changed, never cleared
+        // The reset asks for confirmation, because an age, a weight and a height typed at the bedside
+        // cannot be restored by picking again; the reset on the prescribing page does not ask. Only an
+        // anonymous patient has a reset; the data of an identified patient cannot be cleared.
         let confirmResetOpen, setConfirmResetOpen = React.useState false
 
         let onReset = fun () -> setConfirmResetOpen true
@@ -193,207 +167,112 @@ module Patient =
                 Components.ConfirmDialog.View
                     {|
                         isOpen = confirmResetOpen
-                        title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
+                        title = Terms.``Patient Reset Dialog Title`` |> getTerm "Clear patient data"
                         text =
                             Terms.``Patient Reset Dialog Text``
                             |> getTerm
-                                "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
+                                "The age, the weight, the height and the other data of the patient are cleared. Do you want to continue?"
                         confirmLabel = Terms.Reset |> getTerm "Reset"
-                        cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                        cancelLabel = Terms.Cancel |> getTerm "Cancel"
                         onConfirm = onResetConfirmed
                         onCancel = fun () -> setConfirmResetOpen false
                     |}
 
-        // a launched patient's department is the platform's, as its age is: shown, not chosen
+        let onNewPatientConfirmed () =
+            newPatient |> Option.iter envPatient.NewPatient
+            setNewPatient None
+
+        let newPatientDialog =
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = newPatient.IsSome
+                    title = Terms.``Patient New Dialog Title`` |> getTerm "New patient"
+                    text =
+                        Terms.``Patient New Dialog Text``
+                        |> getTerm "This starts a new patient. All orders are removed."
+                    confirmLabel = Terms.Confirm |> getTerm "Confirm"
+                    cancelLabel = Terms.Cancel |> getTerm "Cancel"
+                    onConfirm = onNewPatientConfirmed
+                    onCancel = fun () -> setNewPatient None
+                |}
+
+        // While a session is open, the platform sets the department, like the age: shown, not chosen.
         let launched =
             match session with
             | SessionMachine.SessionView.Open _
             | SessionMachine.SessionView.Closing _ -> true
             | _ -> false
 
-        // the department chosen, or the server's default preselected while none is: the pick
-        // that filters the solution rules is on the panel, so it is never a hidden one
+        // Shows the chosen department. The department filters the rules, so it is always visible on the
+        // panel.
         let departmentField =
             let own = pat |> Option.bind _.Department
 
-            let names =
+            // The departments the server offers, None for no department.
+            let offered =
                 match settings with
                 | Resolved s -> s.Departments
                 | _ -> [||]
 
-            // the department in force is always among the options, so that the field can show
-            // it when the url or the launch named one the rules do not, and so that a field
-            // left with one option never picks that one over the one the patient has
-            let options =
-                match own with
-                | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
-                | _ -> names
-                |> Array.map (fun n -> n, n)
+            // The department of the patient is always among the departments, so the field can show a
+            // department from the url or the launch that the server does not offer.
+            let departments =
+                if offered |> Array.contains own then
+                    offered
+                else
+                    Array.append offered [| own |]
 
-            let selected =
-                match own, settings with
-                | Some d, _ -> Some d
-                | None, Resolved s -> Some s.DefaultDepartment
-                | None, _ -> None
+            let departmentLabel =
+                function
+                | Some d -> d
+                | None -> Terms.``Patient Department Option None`` |> getTerm "No department"
+
+            // An option is keyed by its position, because the option for no department has no name.
+            let options = departments |> Array.mapi (fun i d -> string i, departmentLabel d)
 
             let changeDepartment =
-                fun s ->
+                Option.iter (fun key ->
                     keepOpen ()
-                    s |> Msg.UpdateDepartment |> dispatch
-
-            // a list of one department picks it, once: no server answer picks a department
-            let only =
-                match options with
-                | [| (key, _) |] -> Some key
-                | _ -> None
-
-            let enabled = not busy && not launched
-
-            React.useEffect (
-                (fun () ->
-                    match only with
-                    | Some key when selected <> Some key && enabled -> changeDepartment (Some key)
-                    | _ -> ()
-                ),
-                [|
-                    box (only |> Option.defaultValue "")
-                    box (selected |> Option.defaultValue "")
-                    box enabled
-                |]
-            )
+                    departments[int key] |> Msg.UpdateDepartment |> dispatch
+                )
 
             Components.PickField.View
                 {|
-                    label = Terms.``Patient Department`` |> getTerm "Afdeling"
+                    label = Terms.``Patient Department`` |> getTerm "Department"
                     options = options
-                    selected = selected
+                    selected = departments |> Array.tryFindIndex ((=) own) |> Option.map string
                     onChange = changeDepartment
-                    // the cross returns to the default, so it is offered only while there is a
-                    // choice to take back; clearing a default already shown would change nothing
-                    clearable = own.IsSome
+                    // No department is one of the options, so the field needs no clear button.
+                    clearable = false
                     isLoading = settings |> Deferred.toOption |> Option.isNone
-                    enabled = enabled
+                    enabled = not busy && not launched
                     shape = Components.PickField.Shape.Scroll
                 |}
 
-        // where the department in force came from: the launch when a session is open, the
-        // panel or the url otherwise, or else the server's default, said so
+        // Says where the department comes from: the launch while a session is open, the panel or the
+        // url otherwise. Without a department it says that only the rules without a department apply.
         let departmentNotice =
-            let inForce =
-                match pat |> Option.bind _.Department, settings with
-                | Some d, _ -> Some(d, false)
-                | None, Resolved s -> Some(s.DefaultDepartment, true)
-                | None, _ -> None
+            let message =
+                match pat |> Option.bind _.Department with
+                | None ->
+                    Terms.``Patient Department None``
+                    |> getTerm "No department chosen: only the rules without a department apply"
+                | Some _ when launched ->
+                    Terms.``Patient Department Launched``
+                    |> getTerm "Passed on by the system that opened GenPRES"
+                | Some _ -> Terms.``Patient Department Chosen`` |> getTerm "Chosen for this patient"
 
-            match inForce with
-            | None -> null
-            | Some(_, isDefault) ->
-                Components.Notice.View
-                    {|
-                        kind = Components.Notice.Kind.Info
-                        title = None
-                        message =
-                            if isDefault then
-                                Terms.``Patient Department Default``
-                                |> getTerm "De standaardafdeling: er is geen afdeling gekozen"
-                            elif launched then
-                                Terms.``Patient Department Launched``
-                                |> getTerm "Meegegeven door het systeem dat GenPRES opende"
-                            else
-                                Terms.``Patient Department Chosen`` |> getTerm "Gekozen voor deze patiënt"
-                        action = None
-                        onClose = None
-                    |}
+            Components.Notice.View
+                {|
+                    kind = Components.Notice.Kind.Info
+                    title = None
+                    message = message
+                    action = None
+                    onClose = None
+                |}
 
-        // only over a settled plan; while a request is under way the question stays open, to be
-        // confirmed once it has landed
-        let onRemoveChanged () =
-            match envPlan.OrderPlan with
-            | OrderPlanView.Settled _ ->
-                setHeldOpen false
-                envPlan.Remove envPlan.Changed
-            | OrderPlanView.NoPatient -> setHeldOpen false
-            | OrderPlanView.Changing _ -> ()
-
-        // the new and changed orders go with the open
-        let onOpenLastSigned id =
-            setHeldOpen false
-            envSession.OpenSignedPlan id
-
-        // the patient read from the EHR again; held, it asks instead, as the fields do
-        let onRefresh () = if held then setHeldOpen true else envSession.Refresh()
-
-        let onHeldClose = fun _ -> setHeldOpen false
-
-        // the question, with the ways out that drop the new and changed orders; signing is the
-        // plan's own button
-        let heldDialog =
-            let title =
-                Terms.``Patient Context Held Title``
-                |> getTerm "Patiëntgegevens kunnen niet worden gewijzigd"
-
-            let text =
-                Terms.``Patient Context Held``
-                |> getTerm
-                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen."
-
-            let actions =
-                Components.ActionBar.View
-                    {|
-                        actions =
-                            [|
-                                {|
-                                    label = Terms.Cancel |> getTerm "Annuleren"
-                                    kind = Components.ActionBar.Kind.Secondary
-                                    onClick = fun () -> setHeldOpen false
-                                    disabled = false
-                                    icon = None
-                                |}
-                                for action in HeldPanelPolicy.heldActions session do
-                                    match action with
-                                    | HeldPanelPolicy.HeldAction.Remove ->
-                                        {|
-                                            label =
-                                                Terms.``Patient Context Held Remove``
-                                                |> getTerm "Verwijder nieuwe en gewijzigde orders"
-                                            kind = Components.ActionBar.Kind.Destructive
-                                            onClick = onRemoveChanged
-                                            disabled = false
-                                            icon = None
-                                        |}
-                                    | HeldPanelPolicy.HeldAction.OpenLastSigned id ->
-                                        {|
-                                            label =
-                                                Terms.``Session Open Last Signed``
-                                                |> getTerm "Open het laatst ondertekende orderplan"
-                                            kind = Components.ActionBar.Kind.Primary
-                                            onClick = fun () -> onOpenLastSigned id
-                                            disabled = false
-                                            icon = None
-                                        |}
-                            |]
-                    |}
-
-            JSX.jsx
-                $"""
-            import Dialog from '@mui/material/Dialog';
-            import DialogTitle from '@mui/material/DialogTitle';
-            import DialogContent from '@mui/material/DialogContent';
-            import DialogContentText from '@mui/material/DialogContentText';
-            import DialogActions from '@mui/material/DialogActions';
-
-            <Dialog open={heldOpen} onClose={onHeldClose} fullWidth={true} maxWidth="sm">
-                <DialogTitle>{title}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>{text}</DialogContentText>
-                </DialogContent>
-                <DialogActions>{actions}</DialogActions>
-            </Dialog>
-            """
-
-        // bounded and to the left, so the button is not as wide as the panel it sits in and is
-        // not where you click by default. The reset only for an anonymous patient; the refresh
-        // waits, as the panel does, for every request
+        // The action bar is narrow and on the left, so a button is not as wide as the panel. Only an
+        // anonymous patient has a reset. The buttons are disabled while a request is under way.
         let resetBar =
             let actions =
                 [|
@@ -405,11 +284,11 @@ module Patient =
                             disabled = busy
                             icon = Some Mui.Icons.Delete
                         |}
-                    if HeldPanelPolicy.canRefresh session then
+                    if SessionPatientPolicy.canRefresh session then
                         {|
-                            label = Terms.``Patient Refresh`` |> getTerm "Ververs uit het EPD"
+                            label = Terms.``Patient Refresh`` |> getTerm "Refresh from the EHR"
                             kind = Components.ActionBar.Kind.Secondary
-                            onClick = onRefresh
+                            onClick = fun () -> envSession.Refresh()
                             disabled = busy
                             icon = Some Mui.Icons.RefreshIcon
                         |}
@@ -420,9 +299,11 @@ module Patient =
             else
                 Components.ActionBar.View {| actions = actions |}
 
-        // a read-only field cannot be opened and has no cross: what it holds is not the user's;
-        // a field that is not clearable can be changed, but not emptied
-        let createField readOnly clearable label sel changeValue vs =
+        // A read-only field cannot be opened and has no clear button, because the user does not set
+        // its value. A field that is not clearable can be changed but not emptied. The placeholder is
+        // a key and an optional text: while the user has chosen no value, the list opens on the key
+        // and the box shows the text greyed.
+        let createField readOnly clearable placeholder label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
                     label = label
@@ -431,36 +312,50 @@ module Patient =
                     updateSelected = changeValue
                     isLoading = false
                     disabled = busy
-                    readOnly = readOnly || held
-                    hasClear = clearable && not (readOnly || held)
+                    readOnly = readOnly
+                    hasClear = clearable && not readOnly
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
                     description = None
-                    reopen = None
+                    reCalc = None
                     restore = ignore
                     busy = false
-                    placeholder = None
+                    placeholder = placeholder |> Option.bind snd
+                    placeholderValue = placeholder |> Option.map fst
                 |}
 
-        // renal function has no "unknown" among its options, so the cross is the only way back
-        // to none, for an identified patient too
-        let createSelect label sel changeValue vs = createField false true label sel changeValue vs
+        // Renal function has no unknown option, so the clear button is the only way back to no
+        // value, also for an identified patient.
+        let createSelect label sel changeValue vs = createField false true None label sel changeValue vs
 
-        // weight, height and gestational age: an identified patient's are changed, never
-        // cleared; an anonymous patient's are fictitious and may be
-        let createMeasureSelect label sel changeValue vs = createField false (not identified) label sel changeValue vs
+        // Weight, height and gestational age can be cleared only for an anonymous patient. The field
+        // holds only a measured value; an estimate is the placeholder, so picking the estimated value
+        // records it as measured.
+        let createMeasureSelect placeholder label sel changeValue vs =
+            createField false (not identified) placeholder label sel changeValue vs
 
         // the age fields: read-only for an identified patient, whose age the platform computes
-        let createAgeSelect label sel changeValue vs = createField identified true label sel changeValue vs
+        let createAgeSelect label sel changeValue vs = createField identified true None label sel changeValue vs
 
-        let wghts =
-            [| 21000..1000..100000 |]
-            |> Array.append [| 10500..500..20000 |]
-            |> Array.append [| 2000..100..10000 |]
-            |> Array.append [| 400..50..1950 |]
+        // The lists of the selects come from the options the server sends with the patient data; without
+        // patient data the lists are empty until the answer arrives.
+        let options = pat |> Option.bind _.Options
 
-        let hghts = [| 40..220 |]
+        // The option values of a field as whole numbers; none without options.
+        let optionValues get = options |> Option.map get |> Option.defaultValue []
+
+        let wghts = optionValues (_.Weights >> Array.map int >> Array.toList)
+
+        let hghts = optionValues (_.Heights >> Array.map int >> Array.toList)
+
+        // The select list of whole numbers, each value with its label.
+        let selectList label (values: int list) = values |> List.toArray |> Array.map (fun k -> $"%i{k}", label k)
+
+        let whole (k: int) = $"%i{k}"
+
+        // A 0 is not listed in a field that shows a cleared value, which is 0, as empty.
+        let withoutZero = List.filter ((<>) 0)
 
         let inline zeroToNone opt =
             match opt with
@@ -469,12 +364,47 @@ module Patient =
 
         let weightToNone =
             function
-            | Some v -> wghts |> Array.tryFind ((=) (int v))
+            | Some v -> wghts |> List.tryFind ((=) (int v))
             | None -> None
 
         let heightToNone =
             function
-            | Some v -> hghts |> Array.tryFind ((=) (int v))
+            | Some v -> hghts |> List.tryFind ((=) (int v))
+            | None -> None
+
+        // The option nearest to the value v, so a list can open on a value that is not one of its
+        // options. Returns None when there are no options.
+        let nearest options v =
+            match options with
+            | [] -> None
+            | _ -> options |> List.minBy (fun o -> abs (o - v)) |> Some
+
+        // The placeholder of a field from its estimate: the key of the option nearest to the estimate
+        // and the estimate as a text marked as estimated. Returns None when a value is measured.
+        let inline estimatePlaceholder options toText measured estimated =
+            let word = Terms.``Patient Estimated`` |> getTerm "estimated"
+
+            match measured with
+            | Some _ -> None
+            | None ->
+                estimated
+                |> Option.bind (fun v ->
+                    nearest options (int v)
+                    |> Option.map (fun k -> whole k, Some $"%s{toText v} (%s{word})")
+                )
+
+        // An adult, from 18 years or marked as one by the user, has no estimate, so the weight list
+        // opens on the option nearest to 50 kg. The box then stays empty, so no weight is suggested.
+        let weightPlaceholder p =
+            let isAdult = p |> PatientData.isAdult
+
+            match
+                p.Weight.Estimated
+                |> estimatePlaceholder wghts (fun g -> $"%g{float g / 1000.}") p.Weight.Measured
+            with
+            | Some placeholder -> Some placeholder
+            | None when p.Weight.Measured.IsNone && isAdult ->
+                nearest wghts 50000 |> Option.map (fun k -> whole k, None)
             | None -> None
 
         let checkBox (name: string) item ev =
@@ -520,12 +450,18 @@ module Patient =
                 fun ev ->
                     keepOpen ()
 
-                    ev?target?value |> string |> Msg.UpdateGender |> dispatch
+                    // the radio values written above: male and female
+                    match ev?target?value |> string with
+                    | "male" -> Male
+                    | "female" -> Female
+                    | _ -> UnknownGender
+                    |> Msg.UpdateGender
+                    |> dispatch
 
-            let genderLabel = Terms.``Patient Gender`` |> getTerm "Geslacht"
-            let maleLabel = Terms.``Patient Male`` |> getTerm "Man"
-            let femaleLabel = Terms.``Patient Female`` |> getTerm "Vrouw"
-            let unknownLabel = Terms.``Patient Unknown Gender`` |> getTerm "Onbekend"
+            let genderLabel = Terms.``Patient Gender`` |> getTerm "Gender"
+            let maleLabel = Terms.``Patient Male`` |> getTerm "Male"
+            let femaleLabel = Terms.``Patient Female`` |> getTerm "Female"
+            let unknownLabel = Terms.``Patient Unknown Gender`` |> getTerm "Unknown"
 
             JSX.jsx
                 $"""
@@ -550,88 +486,136 @@ module Patient =
             </FormControl>
             """
 
+        // The adult mark set by the server: no switch below 16 years, a choice of the user from 16 to
+        // 18 years and without an age, and checked and fixed from 18 years.
+        let adultMark =
+            pat
+            |> Option.map _.AdultMark
+            |> Option.defaultValue (AdultMark.MarkableAdult false)
+
+        let adultOffered = adultMark <> AdultMark.NotAdult
+
+        let adultSwitch =
+            let adultChecked = pat |> Option.exists PatientData.isAdult
+            let adultDisabled = adultMark = AdultMark.Adult
+
+            let changeMarkedAdult =
+                fun ev ->
+                    keepOpen ()
+                    ev?target?``checked`` |> unbox<bool> |> Msg.UpdateMarkedAdult |> dispatch
+
+            let adultLabel = Terms.``Patient Adult`` |> getTerm "Adult"
+            let disabled = busy || adultDisabled
+
+            let switch =
+                JSX.jsx
+                    $"""
+                import Switch from '@mui/material/Switch';
+
+                <Switch id="patient-adult" checked={adultChecked} disabled={disabled} onChange={changeMarkedAdult} />
+                """
+
+            JSX.jsx
+                $"""
+            import FormControl from '@mui/material/FormControl';
+            import FormControlLabel from '@mui/material/FormControlLabel';
+
+            <FormControl>
+                <FormControlLabel control={switch} label={adultLabel} />
+            </FormControl>
+            """
+
         let items1 =
             [|
-                [| 0..19 |]
-                |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
+                optionValues (_.Years >> List.map int)
+                |> selectList whole
                 |> createAgeSelect
-                    (Terms.``Patient Age years`` |> getTerm "jaren")
-                    (pat |> Option.bind Patient.getAgeYears)
+                    (Terms.``Patient Age years`` |> getTerm "years")
+                    (pat |> Option.bind PatientData.getAgeYears)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateYear |> dispatch
                     )
 
-                [| 1..11 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Months >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
-                    (Terms.``Patient Age months`` |> getTerm "maanden")
-                    (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
+                    (Terms.``Patient Age months`` |> getTerm "months")
+                    (pat |> Option.bind PatientData.getAgeMonths |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateMonth |> dispatch
                     )
 
-                [| 1..3 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Weeks >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
-                    (Terms.``Patient Age weeks`` |> getTerm "weken")
-                    (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
+                    (Terms.``Patient Age weeks`` |> getTerm "weeks")
+                    (pat |> Option.bind PatientData.getAgeWeeks |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateWeek |> dispatch
                     )
 
-                [| 1..6 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                optionValues (_.Days >> List.map int)
+                |> withoutZero
+                |> selectList whole
                 |> createAgeSelect
-                    (Terms.``Patient Age days`` |> getTerm "dagen")
-                    (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
+                    (Terms.``Patient Age days`` |> getTerm "days")
+                    (pat |> Option.bind PatientData.getAgeDays |> zeroToNone)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateDay |> dispatch
                     )
 
                 wghts
-                |> Array.map (fun k -> $"{k}", $"{(k |> float) / 1000.}")
+                |> selectList (fun g -> $"%g{float g / 1000.}")
                 |> createMeasureSelect
-                    (Terms.``Patient Weight`` |> getTerm "gewicht" |> (fun s -> $"{s} (kg)"))
-                    (pat |> Option.bind (Patient.getWeight >> weightToNone))
+                    (pat |> Option.bind weightPlaceholder)
+                    (Terms.``Patient Weight`` |> getTerm "Weight" |> (fun s -> $"{s} (kg)"))
+                    (pat |> Option.bind (_.Weight.Measured >> weightToNone))
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateWeight |> dispatch
                     )
 
-                [| 40..220 |]
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                hghts
+                |> selectList whole
                 |> createMeasureSelect
-                    (Terms.``Patient Length`` |> getTerm "lengte" |> (fun s -> $"{s} (cm)"))
-                    (pat |> Option.bind (Patient.getHeight >> heightToNone))
+                    (pat
+                     |> Option.bind (fun p ->
+                         p.Height.Estimated
+                         |> estimatePlaceholder hghts (fun c -> $"%i{int c}") p.Height.Measured
+                     ))
+                    (Terms.``Patient Length`` |> getTerm "Length" |> (fun s -> $"{s} (cm)"))
+                    (pat |> Option.bind (_.Height.Measured >> heightToNone))
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateHeight |> dispatch
                     )
 
-                if
-                    pat |> Option.isSome
-                    && pat
-                       |> Option.map (fun p -> p |> PatientRead.getAgeInYears |> Option.defaultValue 0. < 1)
-                       |> Option.defaultValue false
-                then
-                    [| 24..42 |]
-                    |> Array.map (fun k -> $"{k}", $"{k}")
+                // the server says from the age whether the gestational age may be given
+                if pat |> Option.exists (fun p -> p.GestationalAge |> GestationalAge.mayBeGiven) then
+                    optionValues (_.GestationalWeeks >> List.map int)
+                    |> withoutZero
+                    |> selectList whole
                     |> createMeasureSelect
-                        (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
+                        None
+                        (Terms.``Patient Age weeks`` |> getTerm "weeks" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGAWeeks |> zeroToNone)
                         (fun s ->
                             keepOpen ()
                             s |> Msg.UpdateGAWeek |> dispatch
                         )
 
-                    [| 1..6 |]
-                    |> Array.map (fun k -> $"{k}", $"{k}")
+                    optionValues (_.GestationalDays >> List.map int)
+                    |> withoutZero
+                    |> selectList whole
                     |> createMeasureSelect
-                        (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
+                        None
+                        (Terms.``Patient Age days`` |> getTerm "days" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGADays |> zeroToNone)
                         (fun s ->
                             keepOpen ()
@@ -655,8 +639,11 @@ module Patient =
             [|
                 gender
 
-                let accessLabel = Terms.``Patient Access`` |> getTerm "Toegangen"
-                let tubeLabel = Terms.``Patient Enteral Tube`` |> getTerm "Sonde"
+                if adultOffered then
+                    adultSwitch
+
+                let accessLabel = Terms.``Patient Access`` |> getTerm "Access"
+                let tubeLabel = Terms.``Patient Enteral Tube`` |> getTerm "Enteral tube"
 
                 JSX.jsx
                     $"""
@@ -686,10 +673,13 @@ module Patient =
                 </Box>
                 """
 
-                RenalFunctionText.options
-                |> Array.map (fun k -> $"{k}", $"{k}")
+                options
+                |> Option.map (
+                    RenalFunctionText.ofOptions (fun term -> term |> getTerm (RenalFunctionText.english term))
+                )
+                |> Option.defaultValue [||]
                 |> createSelect
-                    (Terms.``Patient Renal Function`` |> getTerm "Nierfunctie")
+                    (Terms.``Patient Renal Function`` |> getTerm "Renal function")
                     (pat |> Option.bind PatientRead.getRenalFunction)
                     (fun s ->
                         keepOpen ()
@@ -720,18 +710,16 @@ module Patient =
             import Grid from '@mui/material/Grid';
 
             <React.Fragment>
-                <Box onClickCapture={onAttempt} onMouseDownCapture={onAttempt}>
-                    <Grid container spacing={2}>
-                        {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
-                    </Grid>
-                    <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
-                        {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
-                    </Grid>
-                </Box>
+                <Grid container spacing={2}>
+                    {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
+                </Grid>
+                <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
+                    {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
+                </Grid>
                 {departmentNotice}
                 {resetBar}
                 {confirmResetDialog}
-                {heldDialog}
+                {newPatientDialog}
             </React.Fragment>
             """
 

@@ -66,6 +66,7 @@ module QuantityModePolicyTests =
             solvedVar
             solvedVar
             solvedVar
+            solvedVar
             (dose solvedVar)
             [||]
             [||]
@@ -76,6 +77,7 @@ module QuantityModePolicyTests =
         let orb =
             Order.Orderable.create
                 "o"
+                solvedVar
                 solvedVar
                 solvedVar
                 solvedVar

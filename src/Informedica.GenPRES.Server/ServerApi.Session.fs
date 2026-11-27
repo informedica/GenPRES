@@ -3,8 +3,8 @@ namespace ServerApi
 open System
 open Informedica.GenPRES.Shared.Types
 
-// The store's clinical records are the domain's; unqualified, the names below are the
-// contract model's, which the identity half of the session keeps.
+// GenOrder and GenForm name the domain types of the stored clinical records. Unqualified type names
+// are the contract types.
 module GenOrder = Informedica.GenOrder.Lib.Types
 module GenForm = Informedica.GenForm.Lib.Types
 
@@ -88,7 +88,7 @@ module LaunchSeal =
     type Key = | Key of byte[]
 
 
-    /// What a Launch says once the seal is verified.
+    /// The claims of a Launch whose seal is verified.
     type Claims =
         {
             PatientId: string
@@ -187,8 +187,8 @@ module LaunchSeal =
         | _ -> Error LaunchRefusal.LaunchInvalid
 
 
-/// A PIN as the Database keeps it: never the PIN, a PBKDF2-SHA256 derivation under a salt of
-/// its own, so that two Users with the same PIN have nothing in common on disk.
+/// A stored PIN: a PBKDF2-SHA256 hash with its own salt, never the PIN itself, so two users with the
+/// same PIN store different hashes.
 type PinHash =
     {
         Salt: byte[]
@@ -232,14 +232,13 @@ module PinHash =
         System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(derive hash.Salt pin, hash.Hash)
 
 
-/// The credential the store holds per person (keyed by UserId, not by login). No PIN yet is a
-/// credential without one; the wrong-PIN count is per credential, counted across Sessions and
-/// reset to zero when the PIN is set.
+/// The signing credential stored per user id, not per login. The wrong-PIN count spans sessions and
+/// is reset to zero when the PIN is set.
 type Credential =
     {
         PinHash: PinHash option
         WrongCount: int
-        /// signing is locked until this moment; a delay, not a state
+        /// The time until which signing is locked. None when no lock is set.
         LockedUntil: DateTime option
     }
 
@@ -258,7 +257,7 @@ module Credential =
     let pinSet (credential: Credential) = credential.PinHash.IsSome
 
 
-    /// A credential with this PIN, a count of zero and no lock: setting the PIN resets both.
+    /// Creates a credential with the PIN, a wrong-PIN count of zero and no lock.
     let withPin (newSalt: int -> byte[]) (pin: string) : Credential =
         {
             PinHash = Some(PinHash.make newSalt pin)
@@ -267,23 +266,22 @@ module Credential =
         }
 
 
-    /// Wrong PINs before the Session ends and signing locks.
+    /// The number of wrong PINs that ends the session and locks signing.
     let wrongPinLimit = 3
 
     /// The first lock: one minute.
     let lockBase = TimeSpan.FromMinutes 1.0
 
 
-    /// The longest lock. Rule 28's delay decays with time; the decay is not built, so the
-    /// stub caps the delay instead: an unbounded doubling overflows the arithmetic long before
-    /// it overflows anyone's patience.
+    /// The longest lock. The delay does not decay with time, so it is capped instead; an unbounded
+    /// doubling would overflow.
     let lockMax = TimeSpan.FromHours 24.0
 
 
     /// The delay after count wrong entries. The entry that reaches the limit locks for
     /// lockBase; each one after it doubles that, up to lockMax.
     let lockFor (count: int) =
-        // 2^11 minutes is already past a day; the bound keeps `pown` in range
+        // 2^11 minutes is already more than a day; the bound keeps pown in range.
         let doublings = min 11 (max 0 (count - wrongPinLimit))
         min lockMax (lockBase * float (pown 2 doublings))
 
@@ -295,12 +293,10 @@ module Credential =
         | None -> false
 
 
-    /// Whether the PIN is accepted, and the credential as it stands after the entry. The PIN
-    /// is verified here and nowhere else. A right PIN while unlocked zeroes the count and
-    /// clears the lock; a right PIN
-    /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
-    /// beyond it, locks for lockFor from now, so a wrong entry while locked pushes the
-    /// delay out and doubles it.
+    /// Verifies the PIN and returns whether it is accepted, with the updated credential. The PIN is
+    /// verified here and nowhere else. A right PIN while unlocked resets the count and the lock. A right
+    /// PIN while locked is refused and changes nothing. A wrong PIN adds one to the count and, from the
+    /// limit on, locks for lockFor from now, so a wrong PIN while locked extends and doubles the delay.
     let verify (now: DateTime) (pin: string) (credential: Credential) : bool * Credential =
         let locked = isLocked now credential
 
@@ -349,16 +345,16 @@ module Pin =
 
 module MailHint =
 
-    /// n***@stub.example: enough for the User to know which mailbox, not enough for a
-    /// shoulder to read the address.
+    /// Masks a mail address as n***@domain, so the user recognises the mailbox without showing the
+    /// address. Returns *** for an address without a name before the @.
     let ofAddress (address: string) =
         match address.IndexOf '@' with
         | i when i > 0 -> $"{address[0]}***{address.Substring i}"
         | _ -> "***"
 
 
-/// The mails the server sends a User: the confirmation code, the notice that a PIN was set,
-/// the notice at the wrong-PIN limit. English only; the mail language is a later concern.
+/// The mails the server sends a user: the confirmation code, the notice that a PIN was set and the
+/// notice at the wrong-PIN limit. English only.
 module Mails =
 
     let confirmationCode (displayName: string) (code: string) (minutes: int) : string * string =
@@ -371,23 +367,56 @@ module Mails =
         $"Hello {displayName},\n\nA PIN was set for your GenPRES account just now. If that was not you, tell your administrator."
 
 
-    /// The third wrong PIN ended a Session and locked signing.
+    /// The mail sent when wrong PINs ended the session and locked signing.
     let pinLimit (displayName: string) : string * string =
         "GenPRES: signing is locked",
         $"Hello {displayName},\n\nThe PIN was entered wrong three times at a signature just now. Your session was ended and signing is locked for a while. If that was not you, tell your administrator."
 
 
-/// The session lifecycle, from the presented Launch to the signed version: the LaunchRecord
-/// keyed by the nonce, the redirect to the IdentityProvider, the callback with its ladder of
-/// checks (identity, Role, active Patient, PIN), a reloaded callback answered as the first
-/// time, the open as one act that closes the User's other Sessions, the launch suspended at
-/// the PIN question and the enrolment that lifts it, the credential with its wrong-PIN lock,
-/// the signing challenge and the commit of a version, and what a Session is told when the
-/// record moved on. Pure over a State record: the clock, the ids, the codes and the ports
-/// are parameters. StubDatabase.makeSessionPort runs it over an in-memory store.
+/// The calendar date a patient's age is taken on: the date in the hospital's time zone, so that a
+/// patient is a day older at local midnight and not an hour or two later, when the UTC date turns.
+module LocalDate =
+
+    /// The id of the time zone an age is taken in when the site sets none: the Netherlands.
+    let defaultZoneId = "Europe/Amsterdam"
+
+
+    /// Finds the time zone of an id. Returns an error that names the id when the system does not know it.
+    let zoneOf (id: string) : Result<TimeZoneInfo, string> =
+        try
+            Ok(TimeZoneInfo.FindSystemTimeZoneById id)
+        with
+        | :? TimeZoneNotFoundException
+        | :? InvalidTimeZoneException -> Error $"'%s{id}' is not a time zone this system knows"
+
+
+    /// The time zone of the default id. Raises when the system does not know it, which a server
+    /// start refuses before this is reached.
+    let defaultZone () = zoneOf defaultZoneId |> Result.defaultWith invalidOp
+
+
+    /// The calendar date in a time zone of a moment in UTC. The moment is taken as UTC whatever
+    /// its Kind, since a value read back from the session store has no Kind.
+    let ofUtc (zone: TimeZoneInfo) (utc: DateTime) =
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).Date
+
+
+/// The session lifecycle, from a presented Launch to a signed order plan version: the launch record
+/// keyed by its nonce, the redirect to the identity provider, the callback with its checks (identity,
+/// role, active patient, PIN), the opening that closes the other sessions of the user, the enrolment of
+/// a PIN, the wrong-PIN lock, the signing challenge, the commit of a version and the notice of a newer
+/// version. The functions are pure over a State record; the clock, the ids, the codes and the ports are
+/// parameters. StubDatabase.makeSessionPort runs them over an in-memory store.
 module Session =
 
-    /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
+    module CoreHeight = Informedica.GenCore.Lib.Patients.Height
+
+
+    /// Returns the word for a refusal in the URL #/session?refused=word, which the client reads with
+    /// parseRefusal.
     let refusalWord refusal =
         match refusal with
         | LaunchRefusal.LaunchExpired -> "expired"
@@ -404,11 +433,10 @@ module Session =
     let refusedUrl refusal = $"/#/session?refused={refusalWord refusal}"
 
 
-    /// A Session as the store holds it: what it is open on, the login it belongs to (a User
-    /// has at most one open Session), the id of the version it opened with (None from
-    /// nothing, or from a head that cannot be read), which a Submission is checked against,
-    /// when it opened, the date its patient data is projected at, and when it was last seen,
-    /// which the idle lifetime is counted from (the absolute lifetime is not built).
+    /// A stored session: the opened session, the login it belongs to (a user has at most one open
+    /// session), the id of the version it opened with, the opening time and the time of the last
+    /// request. A submission is checked against the version id, which is None when there was no
+    /// version or the newest version cannot be read. The idle lifetime counts from the last request.
     type SessionRecord =
         {
             Opened: OpenedSession
@@ -419,8 +447,8 @@ module Session =
         }
 
 
-    /// A confirmation code as the store keeps it, as a mac and never as the digits: one per
-    /// credential, with the address it went to, its expiry and the wrong tries so far.
+    /// A stored confirmation code: a MAC of the code, never the digits, with the mail address it was
+    /// sent to, its expiry and the number of wrong tries. A user has at most one.
     type PendingCode =
         {
             UserId: string
@@ -431,9 +459,9 @@ module Session =
         }
 
 
-    /// One launch suspended at the PIN question: what the open needs once the PIN is set, and the public key
-    /// of the browser that made it, so the Session opens on the key the supplying browser holds.
-    /// No lifetime of its own: it lives as long as the code it is bound to.
+    /// A launch waiting for the user to set a PIN: what opening the session needs once the PIN is set,
+    /// and the public key of the browser that started it, so the session opens on that key. It expires
+    /// with its confirmation code.
     type Enrolment =
         {
             Attempt: string
@@ -445,70 +473,80 @@ module Session =
         }
 
 
-    /// A data notice as the store holds it: one per Session, the EHR data it was told over as
-    /// read and its projection (none: unreadable), for two minutes.
+    /// A stored data notice, which tells a session that the EHR data changed. A session has at most
+    /// one, and it expires after two minutes.
     type Notice =
         {
             Nonce: string
-            /// the EHR data as read when the notice was told; none when it could not be read
-            Ehr: GenForm.EhrPatientData option
-            /// its projection, what the client is shown
-            Data: GenForm.Patient option
+            /// The patient read from the EHR when the notice was given. None when the EHR could not
+            /// be read.
+            EhrPatient: CorePatient option
+            /// The patient data the client is shown.
+            PatientData: CorePatientData option
             Expiry: DateTime
         }
 
 
-    /// A signing challenge as the store holds it: one per Session, the digest of exactly the
-    /// plan shown over the store's canonical form, the EHR data as read when it was issued and
-    /// its projection at the date of the open, for two minutes. The plan itself is never held:
-    /// the submission carries it and is compared by digest.
+    /// A stored signing challenge: the digest of the order plan shown, in the canonical form of the
+    /// store, and the EHR reading at the time of the challenge. A session has at most one, and it
+    /// expires after two minutes. The plan itself is not stored; the submission carries the plan and
+    /// is compared by digest.
     type Challenge =
         {
             Nonce: string
             Digest: string
-            /// the EHR data as read at the challenge; none when it could not be read
-            Ehr: GenForm.EhrPatientData option
-            /// its projection at the date of the open, the patient the version is signed on
-            Reading: GenForm.Patient option
+            /// The patient read from the EHR at the challenge. None when the EHR could not be read; a
+            /// version signed on that challenge is then unverified.
+            EhrPatient: CorePatient option
             Expiry: DateTime
         }
 
 
-    /// What a challenge compares: the EHR data as read, never its projection, whose age moves
-    /// with the clock.
+    /// Compares EHR readings for a challenge. The age and the post-menstrual age are left out, so a
+    /// reading on another day than the opening is not a change by that alone.
     module Reads =
 
-        /// Whether a fresh read tells a change: none, or other than the EHR data the Session
-        /// opened on. A Session that opened on none is told on every read that answers.
-        let changed (opened: GenForm.EhrPatientData option) (current: GenForm.EhrPatientData option) =
-            current.IsNone || current <> opened
+        /// Whether two EHR reads hold the same data, leaving out the age and the post-menstrual age
+        /// each read calculated; the birthdate and the gestational age they come from are compared.
+        let sameDataApartFromAges (read: CorePatient option) (other: CorePatient option) =
+            let withoutAges (ehr: CorePatient) =
+                { ehr with
+                    Data =
+                        { ehr.Data with
+                            Age = None
+                            PostMenstrualAge = None
+                        }
+                }
+
+            (read |> Option.map withoutAges) = (other |> Option.map withoutAges)
 
 
-        /// The notice the token names, when the Session has one and it was told over exactly
-        /// the read at hand; a read that moved since is a fresh notice.
-        let accepted
-            (notices: Map<string, Notice>)
-            (sid: string)
-            (token: string option)
-            (current: GenForm.EhrPatientData option)
-            =
+        /// Whether a new EHR reading is a change: no reading, or other data than the reading the session
+        /// opened on. For a session that opened without a reading, every reading is a change.
+        let changed (opened: CorePatient option) (current: CorePatient option) =
+            current.IsNone || not (sameDataApartFromAges current opened)
+
+
+        /// Returns the notice of the session that the token names, when the notice was given for the
+        /// same EHR data as the current reading. None otherwise, so a changed reading needs a new notice.
+        let accepted (notices: Map<string, Notice>) (sid: string) (token: string option) (current: CorePatient option) =
             token
             |> Option.bind (fun token ->
                 notices
                 |> Map.tryFind sid
-                |> Option.filter (fun n -> n.Nonce = token && n.Ehr = current)
+                |> Option.filter (fun n -> n.Nonce = token && sameDataApartFromAges n.EhrPatient current)
             )
 
 
-        /// The EHR data a Session holds after a commit: the read the challenge was issued
-        /// over, so that the next challenge compares against the data just signed on; what it
-        /// opened on when the challenge had none.
-        let afterCommit (challenge: Challenge) (opened: GenForm.EhrPatientData option) =
-            challenge.Ehr |> Option.orElse opened
+        /// Returns the EHR reading of a session after a commit: the reading of the challenge, so the next
+        /// challenge compares against the signed data. Falls back on the opening reading when the
+        /// challenge has none.
+        let afterCommit (challenge: Challenge) (opened: CorePatient option) =
+            challenge.EhrPatient |> Option.orElse opened
 
 
-    /// What the adapter's write came to: landed; refused by the store because another server
-    /// signed first, with the version that won; or failed.
+    /// The result of a store write: written; a conflict because another server signed first, with the
+    /// version that was stored; or a failure with its reason.
     [<RequireQualifiedAccess>]
     type StoreOutcome =
         | Written
@@ -527,53 +565,57 @@ module Session =
         }
 
 
-    /// How a store records the end of a Session; a supersession is no row, since a newer
-    /// Session of the same login tells it.
+    /// How the store records the end of a session. A superseded session gets no record, because the
+    /// newer session of the same login shows it.
     [<RequireQualifiedAccess>]
     type StoredEnding =
         | Closed
         | Ended of SessionEnding
 
 
-    /// A write the machine asks for, as a value: one case per fact the store records. A member
-    /// returns the writes of its request next to the new state and its answer.
+    /// A write to the store as a value, one case per stored fact. A session function returns the writes
+    /// of its request with the new state and its answer.
     type Persist =
-        /// the order plan version of a commit; the Launch and what its callback came to
-        /// the version signed, with the identity of the patient it names
-        | WriteVersion of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+        /// Writes a signed order plan version with the identity of its patient.
+        | WriteVersion of OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
+        /// Writes a new launch record.
         | RecordLaunch of LaunchRecord
+        /// Writes the outcome of the callback of a launch.
         | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
-        /// the Session opened, what it opened with (at the open, at a version opened and at a
-        /// commit), and a request from it
+        /// Writes a newly opened session.
         | OpenSession of sessionId: string * SessionRecord
+        /// Writes the version and the act a session opened with, after an act changed them.
         | RecordOpenedWith of sessionId: string * SessionRecord * at: DateTime
+        /// Writes the time of the last request of a session.
         | RecordSeen of sessionId: string * at: DateTime
-        /// the end of a Session that is an act, and the acknowledgement of an ending
+        /// Ends a session by a close, idle time or the wrong-PIN limit.
         | EndSession of sessionId: string * StoredEnding * at: DateTime
+        /// Records that the user acknowledged the end of a session.
         | AcknowledgeEnding of sessionId: string * at: DateTime
-        /// the credential as it stands after the event that changed it: the PIN set, a wrong
-        /// entry counted, the lock reached, a right entry clearing the count
+        /// Writes the credential after the event that changed it: the PIN set, a wrong PIN, the lock
+        /// reached or a right PIN.
         | WriteCredential of userId: string * event: string * Credential * at: DateTime
-        /// the confirmation code mailed when a launch suspends, and what becomes of it
+        /// Writes the confirmation code mailed when a launch waits for a PIN.
         | WriteCode of PendingCode * at: DateTime
-        /// the code these name is the one the request read, named by its mac: another server
-        /// may have mailed a newer one meanwhile, and a try of the older must not void it
+        /// Counts a wrong try of the code with this MAC. The MAC names the code the request read,
+        /// because another server may have mailed a newer code that a try of the older code must not void.
         | CountCodeTry of userId: string * codeMac: byte[] * at: DateTime
+        /// Spends the code with this MAC, for the same reason as CountCodeTry.
         | SpendCode of userId: string * codeMac: byte[] * at: DateTime
-        /// the launch suspended at the PIN question, the attempt given up, and every attempt of
-        /// a person dropped at once when their PIN is set or their code is void
+        /// Writes a launch that waits for a PIN.
         | WriteEnrolment of Enrolment * at: DateTime
+        /// Drops the enrolment a browser gave up.
         | DropEnrolmentWrite of attempt: string * at: DateTime
+        /// Drops every enrolment of a user, when the PIN is set or the code is void.
         | DropEnrolmentsOf of userId: string * at: DateTime
-        /// what a Session holds in flight: the notice it was told, the challenge it answers,
-        /// the challenge a commit or an opened version used up, named by the nonce the request
-        /// read, and what a Submission was answered so that the same one is answered once
+        /// Writes the data notice of a session.
         | WriteNotice of sessionId: string * Notice * at: DateTime
+        /// Writes the signing challenge of a session.
         | WriteChallenge of sessionId: string * Challenge * at: DateTime
+        /// Spends the challenge with the nonce the request read, so it can no longer be signed.
         | SpendChallenge of sessionId: string * nonce: string * at: DateTime
+        /// Stores the answer to a submission, so a resent submission gets the same answer.
         | RememberAnswer of sessionId: string * idemKey: string * SigningOutcome * at: DateTime
-        /// what the user measured in the Session, one row per value that changed
-        | WriteMeasurement of sessionId: string * Measurement * at: DateTime
 
 
     type State =
@@ -584,7 +626,7 @@ module Session =
             Credentials: Map<string, Credential>
             /// the live confirmation code per person
             Codes: Map<string, PendingCode>
-            /// the launches suspended at the PIN question, by attempt
+            /// the launches waiting for a PIN, by attempt
             Enrolments: Map<string, Enrolment>
             /// every version of each patient's order plan, newest first, readable or not
             Records: Map<string, StoredVersion list>
@@ -616,15 +658,15 @@ module Session =
     let initialState (credentials: Map<string, Credential>) = { emptyState with Credentials = credentials }
 
 
-    /// How long a confirmation code lives: a mail round trip, not a Session's idle gap. Bounds
-    /// the half-finished launch too, which lives as long as its code.
+    /// How long a confirmation code is valid: long enough for a mail round trip. A launch waiting for a
+    /// PIN expires with its code.
     let codeLifetime = TimeSpan.FromMinutes 15.0
 
     /// Wrong codes before the code is void.
     let maxTries = 3
 
-    /// How long a challenge lives: the Launch's two minutes, the time to read the modal and
-    /// enter a PIN, so what is signed was checked against the platform moments ago.
+    /// How long a challenge is valid: two minutes, enough to read the plan and enter a PIN, so what is
+    /// signed was checked against the EHR shortly before.
     let challengeLifetime = TimeSpan.FromMinutes 2.0
 
     /// How long a Session lives without a request unless the site sets its own: an hour. A
@@ -637,8 +679,8 @@ module Session =
         state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
 
 
-    /// The newest version of a patient's record, readable or not: what a Session starts from
-    /// and what a sign is checked against.
+    /// The newest version of the record of a patient, readable or not. A session opens from it and a
+    /// signature is checked against it.
     let headOf (patientId: string) (state: State) =
         state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
 
@@ -649,7 +691,7 @@ module Session =
         { state with
             Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry)
             Codes = codes
-            // an attempt lives as long as its code
+            // An enrolment expires with its confirmation code.
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> codes |> Map.containsKey e.UserId)
             Notices = state.Notices |> Map.filter (fun _ n -> now <= n.Expiry)
             Challenges = state.Challenges |> Map.filter (fun _ c -> now <= c.Expiry)
@@ -696,41 +738,64 @@ module Session =
                 [ RecordLaunch record ]
 
 
-    /// The patient data a Session opens on: the EHR's data, the source of truth, projected at
-    /// the date of the open, when there is any (the adapter answers none for a reading that is
-    /// no patient); without any, the patient data the head of the record was signed on, the
-    /// last seen, when the head can be read; from nothing, none, so that the User enters it
-    /// and a data outage does not block prescribing.
-    let sessionPatient
-        (now: DateTime)
-        (patientData: PatientDataPort)
-        (ehr: GenForm.EhrPatientData option)
-        (head: StoredVersion option)
-        : GenForm.Patient option
-        =
-        ehr
-        |> Option.map (patientData.patient now)
-        |> Option.orElse (
-            head
-            |> Option.bind (fun h ->
-                match h with
-                | StoredVersion.Readable(v, _) -> Some v.Plan.Patient
-                | StoredVersion.Unreadable _ -> None
-            )
-        )
+    /// Returns the patient data with the age and the post-menstrual age that the birthdate gives at the
+    /// local date. Without an identity there is no birthdate, and the patient data is returned unchanged.
+    let atBirthDate date (whom: CorePatientIdentity option) (patientData: CorePatientData) =
+        match whom with
+        | None -> patientData
+        | Some identity -> (patientData |> CorePatient.create (Some identity) |> CorePatient.atDate date).Data
 
 
-    /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
-    /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
-    /// record, held whatever its case, on the platform's reading, else the head's patient
-    /// data; the login's other Sessions are closed and marked, so that a User has at most one
-    /// open Session. A head this release cannot read is nothing to open with: the Session
-    /// opens from nothing, so the next request tells that the record has a newer version, and
-    /// a sign is refused against it.
+    /// The patient data of a signed version, aged to the local date. When the age changed, the
+    /// estimated weight and height are removed, because an estimate is valid only for the age it was
+    /// made for. GenCORE then estimates them again for the new age with the resources. A measured value
+    /// stays. Raises an InvalidOperationException when GenCORE refuses the Dto.
+    let signedPatientDataAt date resources whom (patientData: CorePatientData) =
+        let aged = patientData |> atBirthDate date whom
+
+        // Compare the ages in days. Two age values with different parts can be the same age.
+        if aged |> CorePatientData.ageInDays = (patientData |> CorePatientData.ageInDays) then
+            aged
+        else
+            let dto = aged |> CorePatientData.Dto.toDto
+
+            if not (aged.Weight |> CoreWeight.isMeasured) then
+                dto.Weight.Calculation <- None
+
+            if not (aged.Height |> CoreHeight.isMeasured) then
+                dto.Height.Calculation <- None
+
+            dto |> Patient.fromOwnDto date (resources ())
+
+
+    /// The patient data a Session shows on the local date. After a signing, the data of the signed
+    /// version; after any other act, the data from the EHR. Each falls back on the other. None
+    /// when neither exists; the user then enters the data.
+    let sessionPatientData date resources (ehrPatients: EhrPatientPort) (opened: OpenedSession) =
+        let ofEhrPatient = opened.EhrPatient |> Option.map ehrPatients.patientData
+
+        let ofHead =
+            match opened.Head with
+            | Some(StoredVersion.Readable(v, whom)) ->
+                Some(v.Plan.PatientData |> signedPatientDataAt date resources whom)
+            | _ -> None
+
+        match opened.Act with
+        | SessionAct.Signed -> ofHead |> Option.orElse ofEhrPatient
+        | SessionAct.Opened
+        | SessionAct.VersionOpened
+        | SessionAct.Refreshed -> ofEhrPatient |> Option.orElse ofHead
+
+
+    /// Opens a session for a launch record at the callback, or for an enrolment once the PIN is set.
+    /// The session opens on the newest version of the record and the EHR reading. The other sessions
+    /// of the login are ended as superseded, so a user has at most one open session. When this release
+    /// cannot read the newest version, the session opens without a version, so the next request
+    /// reports a newer version and a signature is refused.
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -738,18 +803,17 @@ module Session =
         =
         let id = newId ()
         let head = headOf patientId state
-        let ehr = patientData.read patientId
+        let ehr = ehrPatients.read patientId
 
         let opened: OpenedSession =
             {
                 User = Some user
                 PatientId = Some patientId
-                EhrData = ehr
-                Patient = sessionPatient now patientData ehr head
-                Measured = Measurements.none
+                EhrPatient = ehr
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head
+                Act = SessionAct.Opened
             }
 
         let login = Some user.UserId
@@ -779,7 +843,7 @@ module Session =
                 |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
         (id, opened),
-        // the superseded Sessions need no write: the newer Session of their login tells it
+        // The superseded sessions need no write: the newer session of the same login shows them.
         [ OpenSession(id, session); RecordOpenedWith(id, session, now) ]
 
 
@@ -788,9 +852,13 @@ module Session =
         RecordLaunchOutcome(record.Nonce, outcome, now)
 
 
-    let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
+    /// Whether the registry has this patient as the active patient in the EHR.
+    let isActive (patientId: string) (standing: UserStanding) = standing.ActivePatientId = Some patientId
+
+
+    let private openSession now newId ehrPatients (record: LaunchRecord) (standing: UserStanding) (state: State) =
         let state, (id, session), writes =
-            openWith now newId patientData record.PatientId record.PublicKey standing.User state
+            openWith now newId ehrPatients record.PatientId record.PublicKey standing.User state
 
         let state, outcome = recordOutcome now record (LaunchResult.Opened(id, session)) state
 
@@ -802,10 +870,9 @@ module Session =
         state, CallbackResult.Refused(refusal, refusedUrl refusal), [ outcome ]
 
 
-    /// The launch suspends at the PIN question. One live code per credential: a code that
-    /// still stands is reused and nothing is mailed; else a fresh code is mailed to the
-    /// address the registry gave on this request. The attempt is this launch's own, with its
-    /// browser's key.
+    /// Makes the launch wait for the user to set a PIN. A valid confirmation code of the user is reused
+    /// without a mail; otherwise a new code is mailed to the address the registry gave for this request.
+    /// The enrolment gets a new attempt id and the public key of the browser of the launch.
     let private suspend
         (now: DateTime)
         (newId: unit -> string)
@@ -821,7 +888,7 @@ module Session =
 
         let state, codeWrites =
             match state.Codes |> Map.tryFind userId with
-            // a code already stands for this person: no second mail, no second row
+            // The user has a valid code: no second mail and no second record.
             | Some _ -> state, []
             | None ->
                 let code = newCode ()
@@ -869,8 +936,8 @@ module Session =
         codeWrites @ [ WriteEnrolment(enrolment, now); outcome ]
 
 
-    /// What the first half of a callback came to: an answer with its writes, or the identity
-    /// and the standing a launch goes on to the open with.
+    /// The result of the first half of a callback: an answer with its writes, or the identity and the
+    /// user standing to open the session with.
     [<RequireQualifiedAccess>]
     type Redeemed =
         | Answered of State * CallbackResult * Persist list
@@ -878,11 +945,10 @@ module Session =
 
 
     /// <summary>
-    /// The first half of the callback: the state against the cookie, a reloaded callback
-    /// answered from the launch's outcome, else the code redeemed once for the identity and
-    /// the registry asked once for the Role and the active Patient. Needs the launch record
-    /// and the Session its outcome names, nothing keyed by the login: a store loads those
-    /// first, and the login's rows after, for <c>openAfterRedeem</c>.
+    /// The first half of the callback. Checks the state against the cookie, answers a reloaded callback
+    /// from the outcome of the launch, and otherwise redeems the code for the identity and asks the
+    /// registry for the role and the active patient. Reads only the launch record and the session its
+    /// outcome names, so a store can load the records of the login afterwards, for <c>openAfterRedeem</c>.
     /// </summary>
     let redeem
         (now: DateTime)
@@ -940,16 +1006,15 @@ module Session =
 
 
     /// <summary>
-    /// The second half of the callback, over the login's Sessions, the credential and the
-    /// patient's record: the active Patient checked, the launch suspended at the PIN question
-    /// when a Prescriber's credential has no PIN, else the open.
+    /// The second half of the callback. Checks the active patient, makes the launch wait for a PIN when
+    /// the credential of a prescriber has no PIN, and otherwise opens the session.
     /// </summary>
     let openAfterRedeem
         (now: DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
         (codeMac: string -> byte[])
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (record: LaunchRecord, identity: BrowserIdentity, standing: UserStanding)
         (state: State)
@@ -957,7 +1022,7 @@ module Session =
         =
         let state = dropExpired now state
 
-        if standing.ActivePatientId <> Some record.PatientId then
+        if standing |> isActive record.PatientId |> not then
             refuse now record LaunchRefusal.WrongActivePatient state
         elif
             standing.User.Role = UserRole.Prescriber
@@ -965,15 +1030,13 @@ module Session =
         then
             suspend now newId newCode codeMac send record identity standing state
         else
-            openSession now newId patientData record standing state
+            openSession now newId ehrPatients record standing state
 
 
-    /// The callback from the IdentityProvider and the checks that follow it, the two halves
-    /// over one state: the state against the cookie, the code redeemed for the identity, the
-    /// registry asked for the Role and the active Patient, the credential read. A Prescriber
-    /// whose credential has no PIN is not refused: the launch suspends until the PIN is set. A
-    /// callback reload while the attempt stands is answered with it again; once it is gone, a
-    /// relaunch is asked for.
+    /// Handles the callback from the identity provider: runs redeem and then openAfterRedeem on one
+    /// state. A prescriber without a PIN is not refused; the launch waits until the PIN is set. A
+    /// reloaded callback gets the same answer while the enrolment exists; after that, a relaunch is
+    /// asked for.
     let callback
         (now: DateTime)
         (newId: unit -> string)
@@ -981,7 +1044,7 @@ module Session =
         (codeMac: string -> byte[])
         (redeemCode: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -990,11 +1053,11 @@ module Session =
         match redeem now redeemCode standing state cb with
         | Redeemed.Answered(state, result, writes) -> state, result, writes
         | Redeemed.Identified(record, identity, standing) ->
-            openAfterRedeem now newId newCode codeMac patientData send (record, identity, standing) state
+            openAfterRedeem now newId newCode codeMac ehrPatients send (record, identity, standing) state
 
 
-    /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
-    /// the code went, while the attempt (that is, its code) stands; nothing once it is gone.
+    /// Returns the enrolment of an attempt for GetSession: the name of the user and the masked mail
+    /// address the code was sent to. None when the enrolment has expired or is gone.
     let findEnrolment (now: DateTime) (attempt: string) (state: State) : State * EnrolmentPending option =
         let state = dropExpired now state
 
@@ -1009,10 +1072,10 @@ module Session =
         | None -> state, None
 
 
-    /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
-    /// the browser gave up).
+    /// Removes the confirmation code of a user and every enrolment bound to it, when the PIN is set, the
+    /// code is void or the last browser gave up.
     let private dropCode (now: DateTime) (userId: string) (state: State) =
-        // the code as this request read it; there is none to spend when it has already gone
+        // Spends the code this request read; there is nothing to spend when the code is already gone.
         let spent =
             state.Codes
             |> Map.tryFind userId
@@ -1026,9 +1089,9 @@ module Session =
         spent @ [ DropEnrolmentsOf(userId, now) ]
 
 
-    /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
-    /// any other attempt bound to it; when this was the last one it goes too, so that the next
-    /// launch mails a fresh code.
+    /// Drops an enrolment the browser gave up, by CloseSession while enrolling. The code stays for the
+    /// other enrolments of the user; with the last enrolment the code goes too, so the next launch mails
+    /// a new code.
     let dropEnrolment (now: DateTime) (attempt: string) (state: State) : State * Persist list =
         match state.Enrolments |> Map.tryFind attempt with
         | None -> state, []
@@ -1037,27 +1100,27 @@ module Session =
             let dropped = DropEnrolmentWrite(attempt, now)
 
             if state.Enrolments |> Map.exists (fun _ o -> o.UserId = e.UserId) then
-                // another browser is still enrolling on this code: it stands for that one
+                // Another browser is still enrolling with this code, so the code stays.
                 state, [ dropped ]
             else
                 let state, writes = dropCode now e.UserId state
                 state, dropped :: writes
 
 
-    /// The PIN comes back with the code. In order: the attempt (and its code) must stand; the
-    /// PIN must have the format, else no try is spent; a wrong code counts, and the third voids
-    /// the code for every attempt; else one act: the PIN is set with a count of zero, the code
-    /// and its attempts are dropped, the User is told (at the address the registry answers
-    /// now, else the one the code went to), and the launch continues to the open on the
-    /// supplying attempt's key, with the Role the registry answers now and only if the
-    /// launch's Patient is still the active one.
+    /// Sets the PIN with the confirmation code, checked in order. The enrolment and its code must exist.
+    /// The PIN must have a valid format; a wrong format costs no try. A wrong code counts a try, and the
+    /// third wrong code voids the code for every enrolment. A right code sets the PIN with a wrong-PIN
+    /// count of zero, drops the code and its enrolments, and mails the user at the address the registry
+    /// gives now, or else the address of the code. The session then opens on the public key of this
+    /// enrolment, with the role the registry gives now, but only when the patient of the launch is
+    /// still the active patient.
     let supplyPin
         (now: DateTime)
         (newId: unit -> string)
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1082,7 +1145,7 @@ module Session =
                 let tries = pending.Tries + 1
 
                 if tries >= maxTries then
-                    // the third wrong code voids it for every attempt bound to it
+                    // The third wrong code voids the code for every enrolment bound to it.
                     let state, writes = dropCode now e.UserId state
 
                     state,
@@ -1099,10 +1162,10 @@ module Session =
                         DisplayName = e.DisplayName
                     }
 
-                // the registry asked again, fresh: the address for the mail, the Role re-taken
-                // and the active Patient, because the registry may have moved on during the
-                // wait. When it cannot answer, the code has already proved the mailbox, so it
-                // settles the PIN and the launch continues on what it had.
+                // Asks the registry again for the mail address, the role and the active patient,
+                // because they may have changed during the wait. When the registry does not answer,
+                // the code has already proved the mailbox, so the PIN is set and the launch continues
+                // with the enrolment data.
                 let fresh = standing identity
 
                 let address = fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
@@ -1135,27 +1198,24 @@ module Session =
                 let settled = WriteCredential(e.UserId, "pin-set", credential, now) :: dropped
 
                 match fresh with
-                | Some s when s.ActivePatientId <> Some e.PatientId ->
-                    // the PIN is set and told; no Session opens for a Patient that is no longer
-                    // the active one: a relaunch is asked for. The PIN stands all the same, so
-                    // its writes go whatever the launch comes to
+                | Some s when s |> isActive e.PatientId |> not ->
+                    // The PIN is set and mailed, but no session opens for a patient that is no
+                    // longer active, and a relaunch is asked for. The PIN writes are stored either way.
                     state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, settled
                 | _ ->
-                    let state, (id, session), writes = openWith now newId patientData e.PatientId e.PublicKey user state
+                    let state, (id, session), writes = openWith now newId ehrPatients e.PatientId e.PublicKey user state
 
                     state, SupplyPinResult.Opened(id, session), settled @ writes
 
 
-    /// Whether a Session has gone the idle lifetime without a request: at the lifetime itself
-    /// it has.
+    /// Whether a session has had no request for the idle lifetime or longer.
     let isIdle (idle: TimeSpan) (now: DateTime) (record: SessionRecord) = now - record.Seen >= idle
 
 
-    /// A Session left idle ends before the request that names it runs: it leaves the open
-    /// Sessions and its ending is recorded, so the request finds the ending and tells it, as a
-    /// supersession or the PIN limit is told, and a relaunch reads the patient data again. An
-    /// open Session seen within the lifetime, an ended one and an unknown id are left as they
-    /// are. No timer and no sweep: a Session nobody asks for again ends at no cost.
+    /// Ends an idle session before the request that names it runs. The session leaves the open
+    /// sessions and its ending is recorded, so the request reports the ending and a relaunch reads the
+    /// patient data again. An open session seen within the lifetime, an ended session and an unknown id
+    /// are left as they are. There is no timer: a session that gets no further request costs nothing.
     let endIdle (idle: TimeSpan) (now: DateTime) (sid: string) (state: State) : State * Persist list =
         match state.Sessions |> Map.tryFind sid with
         | Some record when isIdle idle now record ->
@@ -1167,9 +1227,8 @@ module Session =
         | _ -> state, []
 
 
-    /// A request from the Session refreshes its idle clock. Applied by every member that takes
-    /// the session cookie's id, close excepted: a close ends the Session, it does not keep
-    /// it alive. Nothing to refresh when there is no such Session.
+    /// Records a request of a session, which restarts its idle time. Every function that takes the
+    /// session id calls it, except close, which ends the session. Does nothing for an unknown session.
     let touch (now: DateTime) (sid: string) (state: State) : State * Persist list =
         match state.Sessions |> Map.tryFind sid with
         | Some r ->
@@ -1188,8 +1247,8 @@ module Session =
             | None -> state, SessionLookup.NotFound, []
 
 
-    /// The User closes the Session, or acknowledges its ending: an open Session ends as closed
-    /// and is acknowledged at once, an ended one is acknowledged; neither is told again.
+    /// Closes a session or acknowledges its ending. An open session ends as closed and is acknowledged
+    /// at once; an ended session is acknowledged. Neither is reported again.
     let close (now: DateTime) (id: string) (state: State) : State * Persist list =
         let writes =
             if state.Sessions |> Map.containsKey id then
@@ -1206,56 +1265,31 @@ module Session =
         writes
 
 
-    /// The head of the record, when it is not the version the Session opened with: a
-    /// Submission is refused as long as such a newer version exists.
+    /// Returns the newest version of the record when it is not the version the session opened with. A
+    /// submission is refused while such a newer version exists.
     let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
         match headOf patientId state with
         | Some head when Some(StoredVersion.id head) <> record.OpenedWith -> Some(StoredVersion.head head)
         | _ -> None
 
 
-    /// The head is a row this release cannot read: a sign is refused against it whatever base
-    /// the client names, since a sign is only ever accepted against the head. Named by its
-    /// identity, as a version that blocks.
+    /// Returns the newest version when this release cannot read it. A signature is then refused
+    /// whatever base the client names, because a signature is only accepted against the newest version.
     let unreadableHead (patientId: string) (state: State) =
         match headOf patientId state with
         | Some(StoredVersion.Unreadable _ as head) -> Some(StoredVersion.head head)
         | _ -> None
 
 
-    /// The order plan of the head of the record, when it can be read.
-    let headPlan (patientId: string) (state: State) =
-        match headOf patientId state with
-        | Some(StoredVersion.Readable(v, _)) -> Some v.Plan
-        | _ -> None
-
-
-    /// The age a Session holds for an identified patient, as the contract carries it: the age
-    /// in days of the patient it opened on, split as the contract splits a number of days.
-    /// None without a Session, in a Session whose EHR data names no patient, or when its
-    /// patient has no age. No clock: the age is the one the Session opened on, up to and
-    /// including the next sign.
-    let age (sid: string) (state: State) : Age option =
-        state.Sessions
-        |> Map.tryFind sid
-        |> Option.filter (fun r -> r.Opened |> OpenedSession.identity |> Option.isSome)
-        |> Option.bind _.Opened.Patient
-        |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel >> _.Age)
-
-
-    /// For every computing request that names a Session: no Session under this id and an
-    /// ending recorded for it, the ending; a Session, touched, and, when the token is the
-    /// Session's own, the head compared against the version it opened with: a newer version,
-    /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
-    /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
-    /// is not the Session's: nothing to say. What a patient change measures is recorded for a
-    /// Session with a Patient: a row per value that differs from the one the Session stood on,
-    /// held from here on; a challenge standing over the data before is spent.
+    /// Checks a computing request against its session. For an unknown session, returns its recorded
+    /// ending, if any. For an open session, records the request and, when the request has the token of
+    /// the session, reports a newer version than the session opened with. The notice blocks nothing;
+    /// the refusal at submission is the only guard. An anonymous session, a session without a patient
+    /// or a request without a token gets no notice. A request with another token gets InactiveTab.
     let seen
         (now: DateTime)
         (sid: string)
         (opened: OpenedToken option)
-        (draft: Patient option)
         (state: State)
         : State * RecordNotice option * Persist list
         =
@@ -1265,54 +1299,34 @@ module Session =
             let state, writes = touch now sid state
 
             let told =
-                match record.Opened.User, record.Opened.PatientId with
-                | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
-                    blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
-                | _ -> None
+                if opened.IsSome && opened <> record.Opened.OpenedToken then
+                    Some(RecordNotice.Ended SessionEnding.InactiveTab)
+                else
+                    match record.Opened.User, record.Opened.PatientId with
+                    | Some _, Some patientId when opened.IsSome ->
+                        blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
+                    | _ -> None
 
-            let measured, rows =
-                match record.Opened.PatientId, draft with
-                | Some _, Some draft ->
-                    // the EHR's value as shown is what the Session stood on before any row
-                    let shown =
-                        record.Opened.Patient
-                        |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
-
-                    Measurements.record now shown record.Opened.Measured draft
-                | _ -> record.Opened.Measured, []
-
-            // a challenge over the data before a measurement changed must not be signed: it
-            // is spent, as a data notice spends it, and the next request asks for a fresh one
-            let spent =
-                match rows, state.Challenges |> Map.tryFind sid with
-                | _ :: _, Some c -> [ SpendChallenge(sid, c.Nonce, now) ]
-                | _ -> []
-
-            let state =
-                { state with
-                    Sessions =
-                        state.Sessions
-                        |> Map.change
-                            sid
-                            (Option.map (fun r -> { r with Opened = { r.Opened with Measured = measured } }))
-                    Challenges =
-                        if rows.IsEmpty then
-                            state.Challenges
-                        else
-                            state.Challenges |> Map.remove sid
-                }
-
-            state, told, writes @ spent @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
+            state, told, writes
 
 
-    /// Version id becomes what the Session opened with. No Session, an anonymous one or one
-    /// without a Patient: nothing to open. An id the record does not hold for the Session's
-    /// Patient (a stale button, a restart), and a version the release cannot read: nothing
-    /// opens, the Session as it is; the next request tells what the head is. The version
-    /// already open: the token stands. Another version: the OpenedToken is re-minted over it
-    /// and the standing challenge and notice of this Session are dropped (a challenge over the
-    /// old baseline must not be answerable). Any readable version may be opened; one that is
-    /// not the head leaves Submission blocked.
+    /// Runs a command that changes a session only with the token of that session; a missing token
+    /// counts as another token. For an unknown session the command runs, so a close still acknowledges
+    /// an ending.
+    let whenOwnToken sid opened run (state: State) =
+        match state.Sessions |> Map.tryFind sid with
+        | Some record when opened <> record.Opened.OpenedToken -> state, OnOwnToken.InactiveTab, []
+        | _ ->
+            let state, answer, writes = run state
+            state, OnOwnToken.Done answer, writes
+
+
+    /// Opens the version with id in the session. Returns None for an unknown session, an anonymous
+    /// session or a session without a patient. An id the record of the patient does not hold, or a
+    /// version this release cannot read, opens nothing and returns the session unchanged. The version
+    /// that is already open keeps its token. Another version gets a new OpenedToken, and the challenge
+    /// and the notice of the session are dropped, so a challenge for the previous version cannot be
+    /// answered. Any readable version can be opened; a version that is not the newest blocks submission.
     let openVersion
         (now: DateTime)
         (newId: unit -> string)
@@ -1344,7 +1358,12 @@ module Session =
                 match version with
                 | None -> state, Some record.Opened, seen
                 | Some version when record.OpenedWith = Some id ->
-                    let opened = { record.Opened with Head = Some version }
+                    let opened =
+                        { record.Opened with
+                            Head = Some version
+                            Act = SessionAct.VersionOpened
+                        }
+
                     let session = { state.Sessions[sid] with Opened = opened }
 
                     { state with Sessions = state.Sessions |> Map.add sid session },
@@ -1355,6 +1374,7 @@ module Session =
                         { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
                             Head = Some version
+                            Act = SessionAct.VersionOpened
                         }
 
                     let session =
@@ -1378,7 +1398,7 @@ module Session =
                     seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
-    /// An order appears once in a plan.
+    /// Whether an order appears more than once in a plan.
     let duplicateOrders (plan: GenOrder.OrderPlan) =
         plan
         |> Informedica.GenOrder.Lib.OrderPlan.orders
@@ -1386,68 +1406,15 @@ module Session =
         |> Array.exists (fun (_, n) -> n > 1)
 
 
-    /// An order context as it is compared with the head's: less the age, which no rule of the
-    /// comparison reads, and the intake, which the totals recompute.
-    let contextContent (pc: GenOrder.PlanContext) =
-        pc.Id, pc.Category, { pc.Context with Patient = { pc.Context.Patient with Age = None } }
-
-
-    /// The contexts of the plan that the head does not hold as it is: new, or changed since.
-    /// Every context is new without a head.
-    let changedContexts (head: GenOrder.OrderPlan option) (plan: GenOrder.OrderPlan) =
-        let held = head |> Option.map _.Contexts |> Option.defaultValue [||]
-
-        plan.Contexts
-        |> Array.filter (fun pc ->
-            held
-            |> Array.tryFind (fun h -> h.Id = pc.Id)
-            |> Option.forall (fun h -> contextContent h <> contextContent pc)
-        )
-
-
-    /// The patient data the rules read, the age left out: an identified patient's age is the
-    /// Session's, the same on the plan and on every context evaluated in it.
-    let ruleData (p: GenForm.Patient) =
-        p.Location, p.Department, p.Gender, p.Weight, p.Height, p.GestAge, p.PMAge, p.Access, p.RenalFunction
-
-
-    /// The ids of the new or changed contexts that state another patient context than the plan;
-    /// none when every one agrees. The contexts the head holds unchanged are exempt: they were
-    /// signed on the data of their sign. What the contexts state is compared, nothing computed
-    /// again.
-    let differingContexts (head: GenOrder.OrderPlan option) (plan: GenOrder.OrderPlan) =
-        changedContexts head plan
-        |> Array.filter (fun pc -> ruleData pc.Context.Patient <> ruleData plan.Patient)
-        |> Array.map _.Id
-
-
-    /// The Session's patient from EHR data, at a date: the user's measurements on the core
-    /// patient, projected there and estimated, the age the birthdate gives at that date.
-    let merged (at: DateTime) (patientData: PatientDataPort) (measured: Measurements) (ehr: GenForm.EhrPatientData) =
-        { ehr with Patient = Measurements.onCore measured ehr.Patient }
-        |> patientData.patient at
-
-
-    /// The data a notice is told over: the fresh read merged at the date of the open, so that
-    /// the notice never moves the age and keeps what the user measured; none for no read.
-    let noticeData
-        (openedAt: DateTime)
-        (patientData: PatientDataPort)
-        (measured: Measurements)
-        (current: GenForm.EhrPatientData option)
-        =
-        current |> Option.map (merged openedAt patientData measured)
-
-
-    /// The Session refreshed: the EHR read again and projected at the time of the refresh with the user's
-    /// measurements over it, under a fresh OpenedToken, the standing challenge spent and the
-    /// notice dropped. The order plan version the Session opened with stays: opening the last
-    /// signed one is a separate action. None for no Session, an anonymous one or one without a
-    /// Patient. No reading: the patient and the EHR data as they were.
+    /// Refreshes a session: reads the EHR again, gives a new OpenedToken, spends the challenge and drops
+    /// the notice. The order plan version the session opened with stays; opening the last signed version
+    /// is a separate action. Returns None for an unknown session, an anonymous session or a session
+    /// without a patient. Without an EHR reading the session stays as it was, including its token and
+    /// its act, and only the request time is written, so the act of the newest stored session stays true.
     let refresh
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
         (sid: string)
         (state: State)
         : State * OpenedSession option * Persist list
@@ -1461,53 +1428,63 @@ module Session =
             | None, _
             | _, None -> state, None, seen
             | Some _, Some patientId ->
-                let read = patientData.read patientId
+                match ehrPatients.read patientId with
+                | None -> state, Some record.Opened, seen
+                | Some read ->
+                    let opened =
+                        { record.Opened with
+                            OpenedToken = Some(OpenedToken $"opened-{newId ()}")
+                            EhrPatient = Some read
+                            Act = SessionAct.Refreshed
+                        }
 
-                let patient =
-                    read
-                    |> Option.map (merged now patientData record.Opened.Measured)
-                    |> Option.orElse record.Opened.Patient
+                    let session = { state.Sessions[sid] with Opened = opened }
 
-                let opened =
-                    { record.Opened with
-                        OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                        EhrData = read |> Option.orElse record.Opened.EhrData
-                        Patient = patient
-                    }
+                    let spent =
+                        state.Challenges
+                        |> Map.tryFind sid
+                        |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                        |> Option.defaultValue []
 
-                let session = { state.Sessions[sid] with Opened = opened }
-
-                let spent =
-                    state.Challenges
-                    |> Map.tryFind sid
-                    |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
-                    |> Option.defaultValue []
-
-                { state with
-                    Sessions = state.Sessions |> Map.add sid session
-                    Challenges = state.Challenges |> Map.remove sid
-                    Notices = state.Notices |> Map.remove sid
-                },
-                Some opened,
-                seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
+                    { state with
+                        Sessions = state.Sessions |> Map.add sid session
+                        Challenges = state.Challenges |> Map.remove sid
+                        Notices = state.Notices |> Map.remove sid
+                    },
+                    Some opened,
+                    seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
-    /// The challenge request, checked in order: the Session with a User and a Patient; the
-    /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
-    /// is not what the Session opened with and no notice over this reading was accepted, no
-    /// challenge yet but a data notice, replacing any earlier notice and dropping any earlier
-    /// challenge (it was over the data before the change); the head readable and not moved
-    /// on; every order new or changed since the head stating the plan's patient context. Then a
-    /// challenge over the digest of exactly this plan, replacing the Session's
-    /// earlier one and spending the notice. The plan is the domain's, parsed at the boundary;
-    /// its own patient data is what the User saw, entered or read, and is recorded as such;
-    /// the Patient is the Session's, never the request's. The PIN is not involved: a refusal
-    /// here costs no attempt.
+    /// Who the registry is asked about for a Session: its login, or the user id without one.
+    let identityOf (record: SessionRecord) (user: UserContext) =
+        {
+            Login = record.Login |> Option.defaultValue user.UserId
+            DisplayName = user.DisplayName
+        }
+
+
+    /// Whether the patient of the session is no longer the active patient in the EHR: another patient or
+    /// no patient is active, the same check as at a launch. A registry that does not answer gives no
+    /// warning.
+    let ehrMovedOn (patientId: string) (standing: UserStanding option) =
+        standing |> Option.exists (isActive patientId >> not)
+
+
+    /// Issues a signing challenge, checked in order: a session with a user and a patient; the role
+    /// prescriber; the OpenedToken of the session; then a new EHR reading. When the reading differs from
+    /// the opening reading and no notice for this reading was accepted, returns a data notice instead,
+    /// which replaces an earlier notice and drops an earlier challenge. A plan with an order twice is
+    /// refused. The newest version must be readable and be the version the session opened with. Then
+    /// issues a challenge over the digest of this plan, which replaces the earlier challenge and drops
+    /// the notice. The patient data of the plan is what the user saw, entered or read; the patient is
+    /// the patient of the session, never of the request. The PIN is not checked, so a refusal here
+    /// costs no attempt.
     let challenge
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (patientData: PatientDataPort)
+        (ehrPatients: EhrPatientPort)
+        (standing: BrowserIdentity -> UserStanding option)
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
@@ -1529,22 +1506,22 @@ module Session =
                 elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again and compared as read, so that only the EHR data tells a change;
-                    // projected at the date of the open, so that the age the Session opened on
-                    // holds; the adapter answers none for a reading that is no patient
-                    let currentEhr = patientData.read patientId
-                    let current = noticeData record.OpenedAt patientData record.Opened.Measured currentEhr
-                    let accepted = Reads.accepted state.Notices sid notice currentEhr
+                    // Reads the EHR again and compares the readings, so only a change in the EHR data gives a notice.
+                    let currentEhrPatient = ehrPatients.read patientId
+                    let accepted = Reads.accepted state.Notices sid notice currentEhrPatient
 
-                    // no reading, or another than the Session opened on: told before the challenge
-                    if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
+                    // No reading, or a reading other than at the opening, gives a data notice before the challenge.
+                    if Reads.changed record.Opened.EhrPatient currentEhrPatient && accepted.IsNone then
                         let nonce = newId ()
+
+                        // None when the EHR could not be read.
+                        let current = currentEhrPatient |> Option.map ehrPatients.patientData
 
                         let notice =
                             {
                                 Nonce = nonce
-                                Ehr = currentEhr
-                                Data = current
+                                EhrPatient = currentEhrPatient
+                                PatientData = current
                                 Expiry = now + challengeLifetime
                             }
 
@@ -1568,18 +1545,15 @@ module Session =
                         match unreadableHead patientId state, blockedBy record patientId state with
                         | Some head, _
                         | None, Some head -> refuse (SigningRefusal.Blocked head)
-                        // every order new or changed since the head on the plan's patient context
-                        | None, None when differingContexts (headPlan patientId state) plan |> Array.isEmpty |> not ->
-                            refuse SigningRefusal.ContextDiffers
                         | None, None ->
                             let nonce = newId ()
+                            let moved = identityOf record user |> standing |> ehrMovedOn patientId
 
                             let challenge =
                                 {
                                     Nonce = nonce
                                     Digest = digest plan
-                                    Ehr = currentEhr
-                                    Reading = current
+                                    EhrPatient = currentEhrPatient
                                     Expiry = now + challengeLifetime
                                 }
 
@@ -1587,29 +1561,26 @@ module Session =
                                 Notices = state.Notices |> Map.remove sid
                                 Challenges = state.Challenges |> Map.add sid challenge
                             },
-                            SigningOutcome.ChallengeIssued nonce,
+                            SigningOutcome.ChallengeIssued(nonce, moved),
                             seen @ [ WriteChallenge(sid, challenge, now) ]
 
 
-    /// The commit of a signature, one act, checked in order: the Session with a User and a
-    /// Patient; the answer already given to this Session's key; the Role re-taken from the
-    /// registry (fails closed when it cannot answer; Rule 38's bounded grace is not built);
-    /// the OpenedToken this Session holds; the head readable and not moved on; the challenge
-    /// this Session was issued, over exactly this plan by digest; and last the PIN, so that a
-    /// Submission that was never going to land costs no attempt. A pure function: on an
-    /// accepted sign the returned state already holds the new head, which carries the
-    /// Session's identity, with the challenge spent, the OpenedToken re-minted over it and the
-    /// Session's patient set to the merge at the time of the sign (the identity from the EHR data, the age
-    /// computed again, what the user measured), else the data signed, and the third value is
-    /// the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
-    /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
-    /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
+    /// Commits a signature, checked in order: a session with a user and a patient; an answer already
+    /// given for this idempotency key of the session; the role prescriber from the registry, refused when
+    /// the registry does not answer; the OpenedToken of the session; a readable newest version that is
+    /// the version the session opened with; the challenge of the session, matching this plan by digest;
+    /// and last the PIN, so a submission that fails anyway costs no attempt. On a right PIN the returned
+    /// state holds the new version with the identity of the session, the challenge is spent and the
+    /// OpenedToken is new, and the answer carries the signed patient at the age on the local date of
+    /// signing. The returned writes are for the adapter to run, also on a refusal. Every answer, refusals
+    /// included, is stored under the key. The third wrong PIN ends the session, locks signing and mails
+    /// the user; a wrong PIN while locked extends the lock; a right PIN while locked is refused and
     /// counts nothing.
     let commit
+        (zone: TimeZoneInfo)
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (patientData: PatientDataPort)
         (standing: BrowserIdentity -> UserStanding option)
         (send: Mail -> unit)
         (sid: string)
@@ -1631,8 +1602,8 @@ module Session =
                 match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
                 | Some(answer, _) -> state, answer, seen
                 | None ->
-                    // the answer is remembered from here on, under this Session and the key, so
-                    // that the same Submission sent again is answered once and the same way
+                    // From here on every answer is stored under the session and the key, so a resent
+                    // submission gets the same answer.
                     let remember (state: State) answer writes =
                         { state with Answered = state.Answered |> Map.add (sid, signature.IdemKey) (answer, now) },
                         answer,
@@ -1640,13 +1611,7 @@ module Session =
 
                     let refuse refusal = remember state (SigningOutcome.Refused refusal) []
 
-                    let identity =
-                        {
-                            Login = record.Login |> Option.defaultValue user.UserId
-                            DisplayName = user.DisplayName
-                        }
-
-                    match standing identity with
+                    match identityOf record user |> standing with
                     | Some fresh when fresh.User.Role = UserRole.Prescriber ->
                         if record.Opened.OpenedToken <> Some signature.Opened then
                             refuse SigningRefusal.StaleToken
@@ -1671,8 +1636,8 @@ module Session =
                                     let state =
                                         { state with Credentials = state.Credentials |> Map.add user.UserId credential }
 
-                                    // the credential moved whatever the PIN was: a right entry
-                                    // clears the count, a wrong one raises it, the third locks
+                                    // The credential is written on every entry: a right PIN clears the
+                                    // count, a wrong PIN raises it and the limit locks signing.
                                     let credentialWrite =
                                         WriteCredential(
                                             user.UserId,
@@ -1686,7 +1651,7 @@ module Session =
                                     if right then
                                         let id = newId ()
 
-                                        let version: GenOrder.OrderPlanVersion =
+                                        let version: OrderPlanVersion =
                                             {
                                                 Id = id
                                                 No =
@@ -1703,22 +1668,21 @@ module Session =
                                                     }
                                                 SignedAt = now
                                                 Plan = signature.Plan
-                                                Verified = challenge.Reading.IsSome
+                                                Verified = challenge.EhrPatient.IsSome
+                                                EhrPatient = challenge.EhrPatient
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
-                                        // the EHR data is the read just signed on, and the identity the
-                                        // version names is that read's; the Session's patient is its
-                                        // merge at the time of the sign, the age computed again, else the data just
-                                        // signed; the version keeps the age it was signed at
-                                        let ehr = Reads.afterCommit challenge record.Opened.EhrData
-                                        let whom = OpenedSession.identity { record.Opened with EhrData = ehr }
+                                        // The session uses the EHR reading just signed on, and the version
+                                        // names the identity of that reading. The answer returns the signed
+                                        // patient at the age on the date of signing; the version keeps the
+                                        // age it was signed at.
+                                        let ehr = Reads.afterCommit challenge record.Opened.EhrPatient
+                                        let whom = OpenedSession.identity { record.Opened with EhrPatient = ehr }
 
                                         let patient =
-                                            ehr
-                                            |> Option.map (merged now patientData record.Opened.Measured)
-                                            |> Option.defaultValue version.Plan.Patient
+                                            version.Plan.PatientData |> atBirthDate (LocalDate.ofUtc zone now) whom
 
                                         let opened =
                                             { record with
@@ -1726,8 +1690,8 @@ module Session =
                                                     { record.Opened with
                                                         OpenedToken = Some token
                                                         Head = Some(StoredVersion.Readable(version, whom))
-                                                        EhrData = ehr
-                                                        Patient = Some patient
+                                                        EhrPatient = ehr
+                                                        Act = SessionAct.Signed
                                                     }
                                                 OpenedWith = Some id
                                             }
@@ -1752,21 +1716,21 @@ module Session =
                                                 credentialWrite
                                                 WriteVersion(version, whom)
                                                 RecordOpenedWith(sid, opened, now)
-                                                // the challenge this signature answered, used up
+                                                // Spends the challenge this signature answered.
                                                 SpendChallenge(sid, challenge.Nonce, now)
                                             ]
                                     elif wasLocked then
-                                        // this Session did nothing wrong; the lock is the credential's
+                                        // The lock belongs to the credential, so the session stays open.
                                         remember
                                             state
                                             (SigningOutcome.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
                                             [ credentialWrite ]
                                     elif credential |> Credential.attemptsLeft = 0 then
-                                        // the wrong-PIN limit is reached now; the Session ends
+                                        // The wrong-PIN limit is reached, so the session ends.
                                         let subject, body = Mails.pinLimit user.DisplayName
 
-                                        // best effort (MailPort: fire and forget): the ending and the lock
-                                        // land whatever the mail does
+                                        // The mail is best effort: the ending and the lock are stored even
+                                        // when sending fails.
                                         try
                                             send
                                                 {

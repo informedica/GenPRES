@@ -345,7 +345,7 @@ The DSL has one `Set` action, with a variable and a choice, and one `ReCalc` act
 | none today; `ComponentInStock` is a case of the shipped `ChangePropertyCommand` that no wire command reaches and the processor does not implement | `NarrowProducts` |
 | Clear of a property, to be renamed ReCalc; the list of selected names it carries today goes, only the variable name to be recalculated remains | `ReCalc v`; refused for a variable that no kind recalculates (Table 13) |
 | ResetOrderScenario | `Reset` |
-| UpdatePatient; SetNthFilter, ClearFilter, ClearAllFilter; SetNthDiluent, ClearDiluent; SetNthComponents; SelectNthOrderScenario | the context is evaluated again and its orders created from the medication and the patient: creation, outside the DSL, then CalcConstraints |
+| SetNthFilter, ClearFilter, ClearAllFilter; SetNthDiluent, ClearDiluent; SetNthComponents; SelectNthOrderScenario | the context is evaluated again and its orders created from the medication and the patient: creation, outside the DSL, then CalcConstraints |
 | SetArgumentation | text on the context; outside the DSL |
 
 The state of section 5 is the contract's context, with the order inside. The client holds it between requests and sends it back, so a request on the state the client returns equals the request on the state the server last sent.
@@ -538,7 +538,7 @@ The values of the cells:
 | `itm_cmp_cnc` | invariant | all | nth only, selects a product (business rule) | no | no | none, refused | the product |
 | `orb_dos_cnt` | derived; invariant 1 on C | all | no | no | no | none | set to a floor by a dose step (Table 13a); the user never sets it |
 | `ord_sch_tme` | derived | C, T, OT | yes | no | no | Time | |
-| `ord_sch_cnt` | derived | T | no | no | no | none | equation 60 not shipped |
+| `ord_sch_cnt` | derived | T | no | no | no | none | only the equations hold it, not the order |
 | `orb_orb_qty` | derived | all | yes | no | no | none today, refused; Preparation planned | |
 | `cmp_orb_cnt` | derived | all | yes | no | no | none | |
 | `cmp_orb_cnc` | derived | all | yes | no | no | none | 1 with one component |
@@ -581,7 +581,7 @@ The state holds:
 
 The variables without an equation (section 1.3) are not in the state.
 
-A program never changes the dose type, the equations, the defined constraints or the products; it moves the current ranges and the calculated constraints.
+A program never changes the dose type, the equations, the defined constraints or the products; it moves the current ranges and the calculated constraints. Only a patient data update replaces defined constraints after creation: the order takes the defined constraints of the order built again from the current rule, and the new adjust value.
 
 ### 5.2 The values
 
@@ -748,7 +748,6 @@ The shipped equations are the list in `src/Informedica.GenORDER.Lib/EquationMapp
 | 47 | `[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme` | Discontinuous, Continuous, Timed | Discontinuous, Timed | As for 29, at the orderable |
 | 48 | `[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme` | Discontinuous, Continuous, Timed | Continuous | With 47 it makes the orderable rate equal to the orderable per time. On Timed, with 49 and 51, that forces administration time × frequency = 1: the infusion would have to run the whole interval. On Discontinuous it creates a rate that has no meaning |
 | 59 | `[cmp]_ord_qty = [cmp]_orb_qty * [orb]_ord_cnt` | not shipped | all | Without it 28 is one equation in two unknowns: the component order quantity and count are never determined |
-| 60 | `[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq` | not shipped | Timed | Carries administration time × frequency ≤ 1 through a new count with max 1; without it an infusion may outlast its interval |
 
 ### Operations and state
 
@@ -764,7 +763,6 @@ What the code does today and what the DSL needs instead.
 | A recalculated variable is left unrestricted: the server looks for an unrestricted variable to learn which variable a command recalculated, and the client reads the same unrestricted range to show the field reopened | recalculation, server and client | a recalculation sets the variable, and every variable its kept variables do not determine, back to its calculated constraints; which variable was recalculated comes from the command |
 | A variable counts as solved when it holds one value, or when it is unrestricted or merely positive | the solved check | an order is solved when every basic variable of the dose type holds one value, every invariant but the adjust quantity is narrowed to one value of its list, and every variable the rules constrain holds one value; an unrestricted or merely positive variable is never solved |
 | The order count has no increment, no minimum, no maximum and no tie to the duration | the order count | min 1, increment 1; equations 45 and 46; the maximum follows from the rule's longest duration |
-| No schedule count; an infusion may outlast its interval | the schedule of a timed order | `ord_sch_cnt` on Timed with max 1 and equation 60 |
 | The counts are bounded by steps of the calculation itself: the dose count at minimum 1 or exactly 1, the other counts positive | creation | creation writes these bounds as defined constraints; the calculation no longer sets them |
 | Creation calculates the order with a dose count the rules leave free, such as 1 or more; the preparation and the dose quantities are each narrowed through a dose count that is still a range, and offer values that no complete order reaches | creation | the dose count takes the defined constraints the rules give, as they give them, and the value 1 when the rules give none; creation does not fix a dose count the rules leave free |
 | Coarsening is one fixed operation: the variables it acts on and its two limits are built in | coarsening | coarsening narrows the increment of each variable under a stated rule, with one limit as a parameter |

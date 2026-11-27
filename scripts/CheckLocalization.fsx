@@ -10,7 +10,10 @@
 //   - every case of Terms has a row, else it fails, naming the cases without one;
 //   - a row whose term is no case is reported as stale;
 //   - every locale of Locales has a column, and every cell is filled, else reported;
-//   - a cell may not hold a tab or a line break.
+//   - a cell may not hold a tab or a line break;
+//   - every English fallback in the client code equals the English cell of its term, else it fails,
+//     naming the file and line of each fallback that differs. A fallback is the text a page shows
+//     when the sheet has no row for the term or has not loaded.
 //
 // Run from the repository root:
 //
@@ -32,6 +35,7 @@
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 open Microsoft.FSharp.Reflection
 open Informedica.GenPRES.Shared
 open Informedica.GenPRES.Client.Core.Models
@@ -171,6 +175,77 @@ let toLines (file: Localization) : string list =
     :: (file.Rows |> List.map (fun r -> r.Term :: r.Cells |> String.concat "\t"))
 
 
+/// An English fallback in the client code: the term and the text written for it, and where.
+type Fallback =
+    {
+        File: string
+        /// The line of the fallback text, counted from 1.
+        Line: int
+        Term: string
+        Text: string
+    }
+
+
+/// The name of a term in the code: X, or ``X y`` for a name with spaces.
+let termName = @"(?<term>``[^`]+``|\b[A-Z][A-Za-z]*\b)"
+
+
+/// A string literal, with its escaped quotes.
+let textLiteral = "\"(?<text>(?:[^\"\\\\]|\\\\.)*)\""
+
+
+/// The three ways the client code writes a fallback:
+///   - a view or component: Terms.X |> getTerm "text", also over several lines, and without the
+///     Terms prefix when the module opens Terms;
+///   - a function with the English of its terms: | Terms.X -> "text";
+///   - a call that takes the fallback first: terms "text" Terms.X.
+let fallbackPatterns =
+    [
+        Regex(@"(?:Terms\.)?" + termName + @"\s*\|>\s*getTerm\s*" + textLiteral)
+        Regex(@"\|\s*Terms\." + termName + @"\s*->\s*" + textLiteral)
+        Regex(textLiteral + @"\s*\(?Terms\." + termName)
+    ]
+
+
+/// The fallbacks in the source text of one file. A match whose name is no term key, such as a
+/// module or a union case of another type, is left out.
+let fallbacks (terms: string list) (file: string) (source: string) : Fallback list =
+    let termSet = Set.ofList terms
+
+    fallbackPatterns
+    |> List.collect (fun re -> re.Matches source |> Seq.toList)
+    |> List.map (fun m ->
+        let text = m.Groups["text"]
+
+        {
+            File = file
+            Line = source[.. text.Index - 1] |> Seq.filter ((=) '\n') |> Seq.length |> (+) 1
+            Term = m.Groups["term"].Value.Trim('`').Trim()
+            Text = text.Value.Replace("\\\"", "\"")
+        }
+    )
+    |> List.filter (fun f -> termSet.Contains f.Term)
+    |> List.distinct
+    |> List.sortBy (fun f -> f.File, f.Line)
+
+
+/// The fallbacks whose text differs from the English cell of their term, each with that cell.
+/// A term without a row is left out: the scan reports it as missing.
+let wrongFallbacks (file: Localization) (fallbacks: Fallback list) : (Fallback * string) list =
+    let english = file.Header.Tail |> List.findIndex ((=) "English")
+
+    let rows =
+        file.Rows |> List.map (fun r -> r.Term, r.Cells[english]) |> Map.ofList
+
+    fallbacks
+    |> List.choose (fun f ->
+        rows
+        |> Map.tryFind f.Term
+        |> Option.filter ((<>) f.Text)
+        |> Option.map (fun e -> f, e)
+    )
+
+
 /// The repository root: the first directory upward from `start` holding GenPRES.sln.
 let repoRoot (start: string) =
     let rec go (dir: DirectoryInfo) =
@@ -193,6 +268,30 @@ let readLocalization (path: string) =
     File.ReadAllLines path |> Array.toList |> parse
 
 
+/// The F# files of the client and its core, as paths relative to the repository root, without
+/// the build output.
+let clientSources () =
+    let root = repoRoot __SOURCE_DIRECTORY__
+    let skip = set [ "bin"; "obj"; "output"; "node_modules"; "Scripts" ]
+
+    [ "Informedica.GenPRES.Client"; "Informedica.GenPRES.Client.Core" ]
+    |> List.collect (fun project ->
+        Directory.EnumerateFiles(Path.Combine(root, "src", project), "*.fs", SearchOption.AllDirectories)
+        |> Seq.map (fun path -> Path.GetRelativePath(root, path))
+        |> Seq.filter (fun path -> path.Split Path.DirectorySeparatorChar |> Array.exists skip.Contains |> not)
+        |> Seq.toList
+    )
+    |> List.sort
+
+
+/// The fallbacks of every client source file.
+let clientFallbacks (terms: string list) =
+    let root = repoRoot __SOURCE_DIRECTORY__
+
+    clientSources ()
+    |> List.collect (fun path -> File.ReadAllText(Path.Combine(root, path)) |> fallbacks terms path)
+
+
 /// Where the summary goes: stdout, or stderr when stdout carries the rows.
 [<RequireQualifiedAccess>]
 type Output =
@@ -200,8 +299,8 @@ type Output =
     | Rows
 
 
-/// Reads the file, scans it, prints the summary and, with Output.Rows, the file's rows on
-/// stdout with the summary on stderr. Returns the report.
+/// Reads the file, scans it and the client's fallbacks, prints the summary and, with Output.Rows,
+/// the file's rows on stdout with the summary on stderr. Returns whether the check passes.
 let run (output: Output) =
     let path = localizationPath ()
     let terms = termKeys ()
@@ -241,7 +340,17 @@ let run (output: Output) =
     for t in report.Unwritable do
         say $"tab or line break in the row: %s{t}"
 
-    say (if passes report then "localization: ok" else "localization: FAILED")
+    let found = clientFallbacks terms
+    let wrong = wrongFallbacks file found
+
+    say $"fallbacks in the client: %i{found.Length}, different from the English cell: %i{wrong.Length}"
+
+    for f, english in wrong do
+        say $"  %s{f.File}:%i{f.Line} %s{f.Term}: \"%s{f.Text}\", the English cell is \"%s{english}\""
+
+    let ok = passes report && wrong.IsEmpty
+
+    say (if ok then "localization: ok" else "localization: FAILED")
 
     match output with
     | Output.Summary -> ()
@@ -249,7 +358,7 @@ let run (output: Output) =
         for line in toLines file do
             printfn $"%s{line}"
 
-    report
+    ok
 
 
 // ── Main ──────────────────────────────────────────────────────────────────────────────────────
@@ -269,5 +378,5 @@ if isEntry then
         else
             Output.Summary
 
-    if run output |> passes |> not then
+    if run output |> not then
         exit 1

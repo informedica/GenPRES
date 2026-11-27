@@ -16,10 +16,36 @@ let named (term: Terms) = $"<{term}>"
 
 /// A patient the rules can match: a weight and a height.
 let measured =
-    { Models.Patient.empty with
-        Weight = { Models.Patient.empty.Weight with Measured = Some 12000<gram> }
-        Height = { Models.Patient.empty.Height with Measured = Some 90<cm> }
+    { Models.PatientData.empty with
+        Weight = { Models.PatientData.empty.Weight with Measured = Some 12000<gram> }
+        Height = { Models.PatientData.empty.Height with Measured = Some 90<cm> }
     }
+
+
+/// The term column and the English column of the localization file, read when a test first asks.
+let englishRows =
+    lazy
+        System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../data/localization/localization.tsv")
+        |> System.IO.File.ReadAllLines
+        |> Array.map (fun line -> line.Split '\t')
+        |> Array.filter (fun cells -> cells.Length > 1)
+        |> Array.map (fun cells -> cells[0], cells[1])
+        |> Map.ofArray
+
+
+/// Every term the refusal's English covers.
+let refusalTerms =
+    [
+        Terms.``Prescribe Refusal``
+        Terms.``Prescribe Refusal No dose rules``
+        Terms.``Prescribe Refusal Patient``
+        Terms.``Prescribe Refusal No products``
+        Terms.``Prescribe Refusal Measurement``
+        Terms.``Prescribe Refusal No diluent``
+        Terms.``Prescribe Refusal Not solved``
+        Terms.``Prescribe Refusal No adjusted dose``
+        Terms.``Prescribe Refusal Contact``
+    ]
 
 
 let salbutamol =
@@ -29,7 +55,7 @@ let salbutamol =
                 Generic = Some "salbutamol"
                 Route = Some "intraveneus"
             }
-        Patient = measured
+        PatientData = measured
     }
 
 
@@ -39,15 +65,7 @@ let tests =
         "the refusal's notice"
         [
             test "the English of every refusal term is a sentence, the bodies take the picks" {
-                for term in
-                    [
-                        Terms.``Prescribe Refusal``
-                        Terms.``Prescribe Refusal No dose rules``
-                        Terms.``Prescribe Refusal Patient``
-                        Terms.``Prescribe Refusal No products``
-                        Terms.``Prescribe Refusal Not solved``
-                        Terms.``Prescribe Refusal Contact``
-                    ] do
+                for term in refusalTerms do
                     english term |> Expect.notEqual $"{term} has English" $"{term}"
 
                 for refusal in
@@ -55,6 +73,8 @@ let tests =
                         OrderContextRefusal.NoDoseRules
                         OrderContextRefusal.NoDoseRulesForPatient
                         OrderContextRefusal.NoProducts
+                        OrderContextRefusal.MeasurementMissing
+                        OrderContextRefusal.NoDiluent
                     ] do
                     (english (bodyTerm refusal)).Contains "{0}"
                     |> Expect.isTrue $"{refusal} names the picks"
@@ -105,34 +125,73 @@ let tests =
                     OrderContextRefusal.NoDoseRules
                     OrderContextRefusal.NoDoseRulesForPatient
                     OrderContextRefusal.NoProducts
+                    OrderContextRefusal.NoDiluent
                 ]
                 |> List.map (fun r -> (notice named salbutamol r |> Expect.wantSome "a notice").Body)
                 |> Expect.equal
-                    "the three bodies"
+                    "the four bodies"
                     [
                         "<Prescribe Refusal No dose rules>"
                         "<Prescribe Refusal Patient>"
                         "<Prescribe Refusal No products>"
+                        "<Prescribe Refusal No diluent>"
                     ]
             }
 
-            test "a value that cannot be applied gets no notice; the snackbar says it without picks" {
-                notice english salbutamol OrderContextRefusal.NotSolved
-                |> Expect.isNone "the order stays, no notice"
+            test "the undiluted refusal says the medication is given undiluted, not that a diluent is missing" {
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDiluent
+                    |> Expect.wantSome "a notice"
 
-                bodyTerm OrderContextRefusal.NotSolved
-                |> Expect.equal "its own term" Terms.``Prescribe Refusal Not solved``
+                n.Body
+                |> Expect.equal
+                    "the body"
+                    "For salbutamol, intraveneus, each medication is given undiluted, and its concentration limit allows none of its product concentrations"
 
-                (english Terms.``Prescribe Refusal Not solved``).Contains "{0}"
-                |> Expect.isFalse "takes no picks"
+                [ "diluent"; "formulary"; "solution rule" ]
+                |> List.filter n.Body.Contains
+                |> Expect.isEmpty "no missing-diluent framing"
             }
 
-            test "a patient without a weight or a height gets no notice for the patient case" {
+            test "the English of every refusal term is the English of the localization file" {
+                refusalTerms
+                |> List.filter (fun term -> englishRows.Value |> Map.tryFind $"{term}" <> Some(english term))
+                |> Expect.isEmpty "the same English"
+            }
+
+            for refusal, term in
+                [
+                    OrderContextRefusal.NotSolved, Terms.``Prescribe Refusal Not solved``
+                    OrderContextRefusal.NoAdjustedDose, Terms.``Prescribe Refusal No adjusted dose``
+                ] do
+                test $"a value that cannot be applied gets no notice; the snackbar says it without picks: %A{refusal}" {
+                    notice english salbutamol refusal |> Expect.isNone "the order stays, no notice"
+
+                    bodyTerm refusal |> Expect.equal "its own term" term
+
+                    (english term).Contains "{0}" |> Expect.isFalse "takes no picks"
+                }
+
+            test "a missing measurement names the picks and no one to tell" {
+                let n =
+                    notice english salbutamol OrderContextRefusal.MeasurementMissing
+                    |> Expect.wantSome "a notice"
+
+                n.Body
+                |> Expect.equal
+                    "the body"
+                    "The dose rules for salbutamol, intraveneus need a weight, or a weight and a height, that this patient does not have. Enter them to see a dose"
+
+                n.Contact |> Expect.equal "no one to tell" ""
+                n |> message |> Expect.equal "the message is the body alone" n.Body
+            }
+
+            test "a patient the rules are not looked up for gets no notice for the patient case" {
                 // the page's own notice above the picks already says what to enter
-                let incomplete = { salbutamol with Patient = Models.Patient.empty }
+                let incomplete = { salbutamol with PatientData = Models.PatientData.empty }
 
                 notice english incomplete OrderContextRefusal.NoDoseRulesForPatient
-                |> Expect.isNone "nothing to add to the missing weight and height"
+                |> Expect.isNone "nothing to add to the missing weight"
 
                 notice english incomplete OrderContextRefusal.NoDoseRules
                 |> Expect.isSome "no rule at all is said whatever the patient"
@@ -140,10 +199,10 @@ let tests =
                 notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
                 |> Expect.isSome "with a weight and a height the patient case is said"
 
-                let noHeight = { measured with Height = Models.Patient.empty.Height }
+                let noHeight = { measured with Height = Models.PatientData.empty.Height }
 
-                notice english { salbutamol with Patient = noHeight } OrderContextRefusal.NoDoseRulesForPatient
-                |> Expect.isNone "a height alone missing"
+                notice english { salbutamol with PatientData = noHeight } OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isSome "a height alone missing: the rules are looked up, so the patient case is said"
             }
 
             test "the message is the body then the contact, an empty contact adding nothing" {

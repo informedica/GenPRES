@@ -29,6 +29,9 @@
     "Quantity": {
       "$ref": "#/definitions/MinMaxDto"
     },
+    "QuantityAdjust": {
+      "$ref": "#/definitions/MinMaxDto"
+    },
     "Quantities": {
       "$ref": "#/definitions/ValueDto"
     },
@@ -120,7 +123,7 @@
     },
     "DoseLimitDto": {
       "type": "object",
-      "description": "A dose limit; its target is where it sits.",
+      "description": "A dose limit. Its target follows from where it is placed: the medication, a component or a substance.",
       "additionalProperties": false,
       "properties": {
         "DoseUnit": {
@@ -173,8 +176,8 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "Solution": {
-          "$ref": "#/definitions/SolutionLimitDto"
+        "Dilution": {
+          "$ref": "#/definitions/DilutionLimitDto"
         },
         "Products": {
           "type": "array",
@@ -190,15 +193,15 @@
         }
       }
     },
-    "SolutionLimitDto": {
+    "DilutionLimitDto": {
       "type": "object",
-      "description": "A solution limit; its target is where it sits, its products are the solution rule's.",
+      "description": "A dilution limit. Its target follows from where it is placed; it reads back without products.",
       "additionalProperties": false,
       "properties": {
         "Quantity": {
           "$ref": "#/definitions/MinMaxDto"
         },
-        "QuantityAdj": {
+        "QuantityAdjust": {
           "$ref": "#/definitions/MinMaxDto"
         },
         "Quantities": {
@@ -225,6 +228,12 @@
           "items": {
             "$ref": "#/definitions/StrengthDto"
           }
+        },
+        "Reconstitution": {
+          "$ref": "#/definitions/ReconstitutionDto"
+        },
+        "Predilution": {
+          "$ref": "#/definitions/PredilutionDto"
         }
       }
     },
@@ -238,6 +247,38 @@
         },
         "Strength": {
           "$ref": "#/definitions/ValueDto"
+        }
+      }
+    },
+    "ReconstitutionDto": {
+      "type": "object",
+      "description": "The reconstitution a product was made with.",
+      "additionalProperties": false,
+      "properties": {
+        "Solvent": {
+          "type": "string"
+        },
+        "SolventVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "ExpansionVolume": {
+          "$ref": "#/definitions/ValueDto"
+        }
+      }
+    },
+    "PredilutionDto": {
+      "type": "object",
+      "description": "The predilution a product was made with.",
+      "additionalProperties": false,
+      "properties": {
+        "MedVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "DiluentVolume": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Diluent": {
+          "type": "string"
         }
       }
     },
@@ -258,8 +299,8 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "Solution": {
-          "$ref": "#/definitions/SolutionLimitDto"
+        "Dilution": {
+          "$ref": "#/definitions/DilutionLimitDto"
         }
       }
     }

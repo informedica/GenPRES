@@ -11,21 +11,19 @@ open OrderPlanMachine
 open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
 
-let noPatient = OrderPlanState.noPatient
+let noPatientData = OrderPlanState.noPatientData
 
-let held = OrderPlanState.held patient
+let settled = OrderPlanState.settled patient
 
 /// The patient machine with no change under way, and with one under way.
 let noPatientChange = PatientMachine.PatientState.init (Some draft)
 
 let patientChanging =
     noPatientChange
-    |> PatientMachine.PatientState.transition (
-        PatientMachine.PatientMsg.Changed(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
-    )
+    |> PatientMachine.PatientState.transition (PatientMachine.PatientMsg.Changed(Some otherDraft, "p-1"))
     |> fst
 
-/// A change under way over the plan held for the patient, the one a failed change goes back to.
+/// A change under way over the plan in the cart for the patient, the one a failed change goes back to.
 let recalculatingFor pat (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
     OrderPlanState.changing pat tp selected sent request
 
@@ -33,7 +31,7 @@ let recalculating = recalculatingFor patient
 
 let loading = OrderPlanState.opening
 
-let shown = held one None
+let shown = settled one None
 
 let transition = OrderPlanState.transition
 
@@ -42,12 +40,12 @@ let transition = OrderPlanState.transition
 let pageMsg (cmd: OrderPlanCommand, request) =
     let change =
         match cmd with
-        | OrderPlanCommand.AddOrderContext(_, ctx) -> OrderPlanChange.Add ctx
-        | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanChange.NewNutrition category
+        | OrderPlanCommand.AddOrderContext(_, ctx, linked) -> OrderPlanChange.Add(ctx, linked)
+        | OrderPlanCommand.AddOrderContexts(_, contexts) -> OrderPlanChange.AddMany contexts
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanChange.Remove ids
         | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanChange.FilterRows ids
-        | OrderPlanCommand.Navigate(_, id, ctxCmd, _) -> OrderPlanChange.OrderDialogCommand(id, ctxCmd)
-        | OrderPlanCommand.UpdatePatient _
+        | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, _) -> OrderPlanChange.OrderDialogCommand(id, ctxCmd)
+        | OrderPlanCommand.UpdatePatientData _
         | OrderPlanCommand.Open _ -> invalidArg (nameof cmd) "no page sends this command"
 
     OrderPlanMsg.Change(change, request)

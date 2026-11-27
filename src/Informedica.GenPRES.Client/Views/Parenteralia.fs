@@ -5,7 +5,6 @@ module Parenteralia =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Helpers
-    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.StateMachines
 
 
@@ -29,8 +28,9 @@ module Parenteralia =
             | RouteChange of string option
 
 
-        /// The parenteralia filter with one choice applied, sent to the App: the selects read the
-        /// filter the App holds, never a copy of their own, so what they show is what is filtered on.
+        /// Applies one choice to the parenteralia filter and sends the filter to the App; an emptied select
+        /// clears the whole filter. The selects read the filter of the App, not a copy, so they show what is
+        /// filtered on.
         let update (parentaralia: Deferred<Parenteralia>) updateParenteralia (msg: Msg) : unit =
 
             match msg with
@@ -89,13 +89,6 @@ module Parenteralia =
 
         let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
-        let patientNotice =
-            Components.PatientNotice.View
-                {|
-                    appEnv = props.appEnv
-                    needs = PatientReadinessPolicy.Needs.DoseCheck
-                |}
-
         let stackDirection = if isMobile then "column" else "row"
 
         let content =
@@ -103,6 +96,52 @@ module Parenteralia =
                 {|
                     fontSize = 14
                     pb = 2
+                |}
+
+            // The preparation instruction has three heading levels, each a step smaller: the medication in the
+            // colour of the body text, the sections in the primary colour and the conditions in the secondary
+            // text colour.
+            let markdownSx =
+                {|
+                    color = "text.primary"
+                    ``& h1`` =
+                        {|
+                            fontSize = "1.5rem"
+                            fontWeight = 500
+                            mt = 3
+                            mb = 1
+                        |}
+                    ``& h2`` =
+                        {|
+                            fontSize = "1.15rem"
+                            fontWeight = 500
+                            color = "primary.main"
+                            mt = 3
+                            mb = 1
+                            pb = 0.5
+                            borderBottom = 1
+                            borderColor = "divider"
+                        |}
+                    ``& h3`` =
+                        {|
+                            fontSize = "1rem"
+                            fontWeight = 500
+                            color = "text.secondary"
+                            mt = 2
+                            mb = 0.5
+                        |}
+                    ``& ul`` =
+                        {|
+                            mt = 0.5
+                            mb = 0.5
+                            pl = 3
+                        |}
+                    ``& li`` = {| mb = 0.25 |}
+                    ``& p`` =
+                        {|
+                            mt = 0.5
+                            mb = 0.5
+                        |}
                 |}
 
             JSX.jsx
@@ -114,7 +153,7 @@ module Parenteralia =
 
             <CardContent>
                 <Typography sx={subtitleSx} color="text.secondary" gutterBottom>
-                    {Terms.Formulary |> getTerm "Parenteralia"}
+                    {Terms.Parenteralia |> getTerm "Parenteralia"}
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {match parenteralia with
@@ -123,7 +162,7 @@ module Parenteralia =
                      | _ -> None, [||]
                      |> fun (sel, items) ->
                          items
-                         |> responsiveFilter (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
+                         |> responsiveFilter (Terms.``Formulary Medications`` |> getTerm "Medications") sel (GenericChange >> dispatch)
 
                 }
                     {match parenteralia with
@@ -135,7 +174,7 @@ module Parenteralia =
                              null
                          else
                              items
-                             |> responsiveFilter (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
+                             |> responsiveFilter (Terms.Form |> getTerm "Form") sel (FormChange >> dispatch)}
                     {match parenteralia with
                      | Resolved par
                      | Refreshing par -> par.Route, par.Routes
@@ -148,12 +187,12 @@ module Parenteralia =
 
                     <Box sx={ {| marginTop = 2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
-                            {Terms.Delete |> getTerm "Verwijder"}
+                            {Terms.Delete |> getTerm "Delete"}
                         </Button>
                         </Box>
 
                 </Stack>
-                <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
+                <Box sx={markdownSx} >
                     {match parenteralia with
                      | Resolved par
                      | Refreshing par ->
@@ -178,7 +217,6 @@ module Parenteralia =
         import Typography from '@mui/material/Typography';
 
         <Box sx={ {| height = "100%" |} }>
-                {patientNotice}
                 {content}
         </Box>
         """

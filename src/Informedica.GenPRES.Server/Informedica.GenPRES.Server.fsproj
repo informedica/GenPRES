@@ -15,13 +15,10 @@
     <Compile Include="Logging.fs" />
     <Compile Include="LogAnalyzer.fs" />
     <Compile Include="PdfGeneration.fs" />
-    <Compile Include="ServerApi.Mappers.Order.fs" />
     <Compile Include="ServerApi.Ports.fs" />
-    <Compile Include="ServerApi.NutritionRuleSets.fs" />
     <Compile Include="ServerApi.Mappers.Patient.fs" />
-    <Compile Include="ServerApi.Mappers.Measurements.fs" />
+    <Compile Include="ServerApi.Mappers.Order.fs" />
     <Compile Include="ServerApi.Mappers.OrderContext.fs" />
-    <Compile Include="ServerApi.Mappers.OrderPlan.fs" />
     <Compile Include="ServerApi.Mappers.Session.fs" />
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Session.fs" />
@@ -29,17 +26,8 @@
     <Compile Include="ServerApi.SqlAdapters.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
-    <Compile Include="ServerApi.FormularyCommand.fs" />
-    <Compile Include="ServerApi.PatientCommand.fs" />
-    <Compile Include="ServerApi.InteractionCommand.fs" />
-    <Compile Include="ServerApi.OrderPlanCommand.fs" />
-    <Compile Include="ServerApi.AdminCommand.fs" />
-    <Compile Include="ServerApi.OrderContextCommand.fs" />
-    <Compile Include="ServerApi.LaunchCommand.fs" />
-    <Compile Include="ServerApi.SessionCommand.fs" />
-    <Compile Include="ServerApi.SigningCommand.fs" />
+    <Compile Include="ServerApi.Commands.fs" />
     <Compile Include="ServerApi.CompositionRoot.fs" />
-    <Compile Include="ServerApi.ApiImpl.fs" />
     <Compile Include="Server.fs" />
     <EmbeddedResource Include="Sql\*.sql" LogicalName="Sql/%(Filename)%(Extension)" />
     <None Include="Scripts\load.fsx" />
@@ -48,7 +36,6 @@
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
     <ProjectReference Include="..\Informedica.GenORDER.Lib\Informedica.GenORDER.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenINTERACT.Lib\Informedica.GenINTERACT.Lib.fsproj" />
-    <ProjectReference Include="..\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -5,19 +5,15 @@ module DoseRuleData =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
 
     open Utils
 
 
     /// <summary>
-    /// The canonical column order of the "DoseRules" sheet, and the emit order of
-    /// <c>dataToCsv</c>. The column semantics live on <c>DoseRuleData</c> in
-    /// Types.fs; which of these may be absent from a sheet is fixed by the tolerant
-    /// readers in <c>parseDoseRuleData</c> and pinned by the column-contract tests.
+    /// The header line of the DoseRules sheet, with the columns in the order that <c>dataToCsv</c> writes them.
     /// </summary>
-    // TODO: "Loc" is read by parseDoseRuleData (into PatientCategoryData.Location)
-    // but missing here, so a dataToCsv round-trip silently drops the location.
-    // Either add it in the position the sheet uses, or stop reading it.
+    // TODO: parseDoseRuleData reads the Loc column, but Loc is missing here, so dataToCsv drops the location.
     let headers =
         [
             "RowId"
@@ -105,10 +101,8 @@ module DoseRuleData =
         d.ScheduleData.DoseLimitData.MaxRateAdj.IsSome
 
 
-    /// Reduce a row's product narrowing to a single mechanism by precedence
-    /// HPKs > GPKs > Brand > Form: keep the highest-precedence field that is
-    /// present and clear every lower-precedence one. Rows with no narrowing are
-    /// left unchanged (they remain generic-wide rules).
+    /// Keeps one product restriction of a generic, in the order HPKs, GPKs, Brand, Form, and clears the
+    /// fields after it. A generic without a restriction is returned unchanged.
     let withSingleNarrowing (g: GenericData) =
         let hasHpks = g.HPKs |> Array.isEmpty |> not
         let hasGpks = g.GPKs |> Array.isEmpty |> not
@@ -141,11 +135,8 @@ module DoseRuleData =
                 |> Array.tail
                 |> Array.distinctBy (fun row -> row |> Array.tail)
                 |> Array.map (fun r ->
-                    // `get` raises when the column is absent from the header row, so
-                    // every column read through it is REQUIRED. The three readers
-                    // below are the deliberate exceptions: they swallow that failure,
-                    // so the columns they read may be missing from a sheet. Which
-                    // reader a column uses is the whole of its optionality contract.
+                    // get raises an exception when the sheet has no such column, so a column read with get is
+                    // required. A column read with getIfNull, getOpt or getInt may be missing from the sheet.
                     let get = getColumn r
 
                     let getIfNull col =
@@ -161,8 +152,7 @@ module DoseRuleData =
                     let getInt = getIfNull >> Int32.tryParse
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                    // required column; "x" is the sheet convention, the rest are
-                    // tolerated spellings
+                    // A required column. The sheet uses "x" for true; "true", "1" and "yes" are also accepted.
                     let getBool =
                         get
                         >> fun s ->
@@ -170,9 +160,9 @@ module DoseRuleData =
                             v = "true" || v = "x" || v = "1" || v = "yes"
 
                     {
-                        RowId = getIfNull "RowId"
-                        RuleId = getIfNull "RuleId"
-                        GrpId = getIfNull "GrpId"
+                        RowId = getIfNull "RowId" |> HashId.create
+                        RuleId = getIfNull "RuleId" |> HashId.create
+                        GrpId = getIfNull "GrpId" |> HashId.create
                         SortNo = getInt "SortNo" |> Option.defaultValue 1
                         Source = get "Source"
                         Generic =
@@ -180,18 +170,8 @@ module DoseRuleData =
                                 Name = get "Generic"
                                 Form = get "Form"
                                 Brand = get "Brand"
-                                GPKs =
-                                    get "GPKs"
-                                    |> String.splitAt ';'
-                                    |> Array.map String.trim
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
-                                HPKs =
-                                    get "HPKs"
-                                    |> String.splitAt ';'
-                                    |> Array.map String.trim
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
+                                GPKs = get "GPKs" |> ProductId.parseCodes
+                                HPKs = get "HPKs" |> ProductId.parseCodes
                             }
                         Route = get "Route"
                         Indication = get "Indication"
@@ -257,8 +237,7 @@ module DoseRuleData =
                         DoseCheck = getOpt "DoseCheck"
                     }
                 )
-            // Keep one product-selection narrowing per row, by precedence
-            // HPKs > GPKs > Brand > Form, then dedupe.
+            // Keeps one product restriction per row, then removes duplicate rows.
             |> Array.map (fun d -> { d with Generic = d.Generic |> withSingleNarrowing })
             |> Array.distinct
             |> Ok
@@ -267,27 +246,13 @@ module DoseRuleData =
 
 
     /// <summary>
-    /// Serialize <c>DoseRuleData</c> rows to TSV lines. Pure inverse of
-    /// <c>parseDoseRuleData</c>: emits one tab-separated line per row in the exact
-    /// column order of <c>headers</c>, prepended with the header line. BigRationals
-    /// are written as doubles to match the original source number format.
+    /// Writes dose rule rows as tab-separated lines in the column order of <c>headers</c>, after the header line.
+    /// Numbers are written as doubles, as in the sheet.
     /// </summary>
     let dataToCsv (data: DoseRuleData[]) =
         let brsToString = Array.map (BigRational.toDouble >> string) >> String.concat ";"
 
         let brOptToString = Option.map (BigRational.toDouble >> string) >> Option.defaultValue ""
-
-        // A cell must never contain the TSV delimiters. Free-text fields (and the
-        // generated Check message, which is itself tab-formatted) can carry tabs and
-        // newlines; collapse them to spaces so every row stays one line of cells.
-        let clean (s: string) =
-            if isNull s then
-                ""
-            else
-                s
-                |> String.replace "\t" " "
-                |> String.replace "\r" " "
-                |> String.replace "\n" " "
 
         data
         |> Array.toList
@@ -298,9 +263,9 @@ module DoseRuleData =
             let dl = s.DoseLimitData
 
             [
-                d.RowId
-                d.RuleId
-                d.GrpId
+                d.RowId |> HashId.toString
+                d.RuleId |> HashId.toString
+                d.GrpId |> HashId.toString
                 string d.SortNo
                 d.Source
                 g.Name
@@ -361,19 +326,16 @@ module DoseRuleData =
                 d.FreqCheck |> Option.defaultValue ""
                 d.DoseCheck |> Option.defaultValue ""
             ]
-            |> List.map clean
+            |> List.map Tsv.cell
             |> String.concat "\t"
         )
         |> List.append headers
 
 
     /// <summary>
-    /// Canonical group-identity fields: the single definition of "rows that
-    /// belong to the same dose-rule group" (they differ only in dose type/text
-    /// and component/substance). Shared by <c>DoseRuleLoader.fromData</c>, which
-    /// groups raw rows by this, and by <c>setDataHashIds</c>, which hashes it
-    /// into <c>GrpId</c> — so the runtime grouping and the surfaced GroupId
-    /// cannot drift when <c>GenericData</c>/<c>PatientCategoryData</c> gain a field.
+    /// Returns the fields that identify a dose rule group: rows in one group differ only in dose type, dose text,
+    /// component and substance. The loader groups rows by these fields and <c>setDataHashIds</c> hashes them into
+    /// the GrpId, so both use the same definition.
     /// </summary>
     let groupKeyFields (dd: DoseRuleData) =
         let optBrToStr = Option.map BigRational.toString >> Option.defaultValue ""
@@ -408,21 +370,17 @@ module DoseRuleData =
     let setDataHashIds (dd: DoseRuleData) =
         let sch = dd.ScheduleData
         let dos = dd.ScheduleData.DoseLimitData
-        // identifies a group of rules that belong together and
-        // only differ in dose type/dose text
+        // The rules of one group differ only in dose type and dose text.
         let groupFields = groupKeyFields dd
-        // a rule within a rule group is only identified
-        // by the dose type/dose text
+        // Within a group, the dose type and dose text identify a rule.
         let ruleFields = groupFields @ [ sch.DoseType; sch.DoseText ]
-        // rows should only have unique component/substance combinations
-        // multiple rows with the same substance in the same component are
-        // not allowed
+        // Within a rule, the component and substance identify a row. A substance occurs once per component.
         let rowFields = ruleFields @ [ dos.Component; dos.Substance ]
 
         { dd with
-            GrpId = groupFields |> String.sha1Short // group of related rules where only the dose type differs
-            RuleId = ruleFields |> String.sha1Short // identity of a rule (selection + dose type + dose text); rows sharing it form one rule
-            RowId = rowFields |> String.sha1Short // complete row id: rule + component + substance (a substance is unique within a component)
+            GrpId = groupFields |> HashId.ofFields
+            RuleId = ruleFields |> HashId.ofFields
+            RowId = rowFields |> HashId.ofFields
         }
 
 
@@ -436,10 +394,8 @@ module DoseRuleData =
         }
 
 
-    /// Determine whether a raw DoseRuleData row is valid.
-    /// Can only determine validity up to schedule data as
-    /// Component and Substance related data has to be aggregated
-    /// into a single dose rule
+    /// Returns the warnings for a dose rule row with a missing dose type or a missing schedule unit or frequency.
+    /// Checks only the schedule; the component and substance data are checked once the rows form a dose rule.
     let validateData dd =
         let doseType, _ = DoseType.parse dd.ScheduleData.DoseType dd.ScheduleData.DoseText
 
@@ -479,12 +435,8 @@ module DoseRuleData =
 
 
     /// <summary>
-    /// Deduplicate DoseRuleData rows by RowId. Intended to run on the rows of a
-    /// single rule (i.e. after <c>Array.groupBy _.RuleId</c>). Equal RowId means
-    /// the same (component, substance) within the rule. Keeps the first
-    /// occurrence; when the collapsed rows differ in their dose-limit values,
-    /// a warning is returned because the "no duplicate substance within a
-    /// component" invariant is violated and one value set is silently dropped.
+    /// Removes rows of one dose rule with the same RowId, that is the same component and substance, and keeps the
+    /// first row. Returns a warning for each RowId whose rows have different dose limits.
     /// </summary>
     let dedupRowsByRowId (rows: DoseRuleData[]) : DoseRuleData[] * string list =
         let warns = ResizeArray<string>()
@@ -493,9 +445,8 @@ module DoseRuleData =
             rows
             |> Array.groupBy _.RowId
             |> Array.map (fun (_, grp) ->
-                // Component/Substance are equal across the group by construction
-                // (both are part of RowId), so a non-singleton distinct here
-                // means the dose-limit VALUES differ — the invariant is violated.
+                // The rows share the component and substance, so more than one distinct limit means
+                // the dose limits differ.
                 let distinctLimits = grp |> Array.map _.ScheduleData.DoseLimitData |> Array.distinct
 
                 if distinctLimits.Length > 1 then
@@ -503,7 +454,7 @@ module DoseRuleData =
                     let d = r.ScheduleData.DoseLimitData
 
                     warns.Add
-                        $"duplicate dose rule row for rule %s{r.RuleId} component '%s{d.Component}' substance '%s{d.Substance}': %i{distinctLimits.Length} differing dose-limit value sets — keeping first, dropping %i{distinctLimits.Length - 1}"
+                        $"duplicate dose rule row for rule %s{r.RuleId |> HashId.toString} component '%s{d.Component}' substance '%s{d.Substance}': %i{distinctLimits.Length} differing dose-limit value sets — keeping first, dropping %i{distinctLimits.Length - 1}"
 
                 grp[0]
             )
@@ -511,7 +462,190 @@ module DoseRuleData =
         deduped, warns |> List.ofSeq
 
 
-    /// Pretty print dose rule data for  logging
+    /// The adjust unit of a row: kg, m2, or none.
+    let adjustUnitOf (d: DoseRuleData) = d.ScheduleData.AdjustUnit |> Units.adjustUnit
+
+
+    /// Checks whether a row has a value in one of the given dose limit columns.
+    let hasValueIn columns (d: DoseRuleData) =
+        d.ScheduleData.DoseLimitData |> columns |> List.exists Option.isSome
+
+
+    /// Returns the per kg and per m2 columns, which use the adjust unit.
+    let adjustUnitColumns (l: DoseLimitData) =
+        [
+            l.MinQtyAdj
+            l.MaxQtyAdj
+            l.MinPerTimeAdj
+            l.MaxPerTimeAdj
+            l.MinRateAdj
+            l.MaxRateAdj
+        ]
+
+
+    /// Returns all dose limit columns, which all use the dose unit.
+    let doseUnitColumns (l: DoseLimitData) =
+        [
+            l.MinQty
+            l.MaxQty
+            l.MinQtyAdj
+            l.MaxQtyAdj
+            l.MinPerTime
+            l.MaxPerTime
+            l.MinPerTimeAdj
+            l.MaxPerTimeAdj
+            l.MinRate
+            l.MaxRate
+            l.MinRateAdj
+            l.MaxRateAdj
+        ]
+
+
+    /// Returns the per time columns, which use the frequency unit.
+    let freqUnitColumns (l: DoseLimitData) = [ l.MinPerTime; l.MaxPerTime; l.MinPerTimeAdj; l.MaxPerTimeAdj ]
+
+
+    /// Returns the rate columns, which use the rate unit.
+    let rateUnitColumns (l: DoseLimitData) = [ l.MinRate; l.MaxRate; l.MinRateAdj; l.MaxRateAdj ]
+
+
+    /// Checks whether a row has a value in a per kg or per m2 column.
+    let hasAdjustedValue (d: DoseRuleData) = d |> hasValueIn adjustUnitColumns
+
+
+    /// Describes the dose rule of a row by generic, route, indication, source, patient and dose type,
+    /// so a sheet author can find it.
+    let describe (d: DoseRuleData) =
+        $"the dose rule %s{d.Generic.Name} %s{d.Route} %s{d.Indication} (%s{d.Source}, %s{d.PatientText}, %s{d.ScheduleData.DoseType} %s{d.ScheduleData.DoseText})"
+
+
+    /// Returns a warning for each dose rule with a row that has IsAdult and an age, with the age in days; the rule
+    /// gets the age range.
+    let adultRowsWithAge (data: DoseRuleData[]) =
+        let days = Option.map (fun d -> $"%s{d |> BigRational.toString} days")
+
+        data
+        |> Array.filter (fun d -> d.Patient.IsAdult && d.Patient |> DoseRule.marksAdults |> not)
+        |> Array.distinctBy _.RuleId
+        |> Array.map (fun d ->
+            let age =
+                [
+                    d.Patient.MinAge |> days |> Option.map (fun a -> $"the minimum age %s{a}")
+                    d.Patient.MaxAge |> days |> Option.map (fun a -> $"the maximum age %s{a}")
+                ]
+                |> List.choose id
+                |> String.concat " and "
+
+            $"%s{d |> describe} has IsAdult and %s{age}; the age range is used"
+        )
+
+
+    /// Returns the substance of a row, or the component when the row has no substance.
+    let rowName (l: DoseLimitData) =
+        if l.Substance |> String.isNullOrWhiteSpace then
+            l.Component
+        else
+            l.Substance
+
+
+    /// Returns a reason for each row with a limit value but no dose unit, a per time value but no frequency unit,
+    /// or a rate value but no rate unit. Such a value would be lost. An unknown unit text still gives a general
+    /// unit, so only an empty unit loses the value.
+    let missingUnitRefusals (rows: DoseRuleData[]) =
+        [
+            for r in rows do
+                let name = r.ScheduleData.DoseLimitData |> rowName
+
+                if
+                    r |> hasValueIn doseUnitColumns
+                    && r.ScheduleData.DoseLimitData.DoseUnit |> UnitsParse.fromString |> Option.isNone
+                then
+                    $"the row for %s{name} has a value without a dose unit"
+
+                if
+                    r |> hasValueIn freqUnitColumns
+                    && r.ScheduleData.FreqUnit |> Units.timeUnit |> Option.isNone
+                then
+                    $"the row for %s{name} has a per time value without a frequency unit"
+
+                if
+                    r |> hasValueIn rateUnitColumns
+                    && r.ScheduleData.RateUnit |> UnitsParse.fromString |> Option.isNone
+                then
+                    $"the row for %s{name} has a rate value without a rate unit"
+        ]
+
+
+    /// Returns the reasons to refuse a dose rule, given as its rows: rows with different adjust units (an empty
+    /// unit counts as one), a per kg or per m2 value without an adjust unit, or a value without its dose,
+    /// frequency or rate unit. The rule takes its adjust unit from its first row, so mixed adjust units can give
+    /// a wrong dose. A value without its unit is lost, so the rule could lose a maximum.
+    let unitRefusals (rows: DoseRuleData[]) =
+        [
+            let units = rows |> Array.map adjustUnitOf |> Array.distinct
+
+            if units |> Array.length > 1 then
+                let names =
+                    units
+                    |> Array.map (DoseRule.adjStr >> fun s -> if s = "" then "none" else s)
+                    |> String.concat ", "
+
+                $"its rows have different adjust units (%s{names}); give every row of the rule the rule's adjust unit"
+
+            for r in
+                rows
+                |> Array.filter (fun r -> r |> hasAdjustedValue && r |> adjustUnitOf |> Option.isNone) do
+                let name = r.ScheduleData.DoseLimitData |> rowName
+                $"the row for %s{name} has a per kg or per m2 value without an adjust unit"
+
+            yield! rows |> missingUnitRefusals
+        ]
+
+
+    /// Returns a warning for a dose rule with one adjust unit and dose limit values, but no per kg or per m2
+    /// value in any row. Returns None for a rule without dose limit values.
+    let unitWarning (rows: DoseRuleData[]) =
+        match rows |> Array.map adjustUnitOf |> Array.distinct with
+        | [| Some _ as u |] when
+            rows |> Array.exists (hasValueIn doseUnitColumns)
+            && rows |> Array.exists hasAdjustedValue |> not
+            ->
+            let u = u |> DoseRule.adjStr
+
+            $"%s{rows |> Array.head |> describe} has the adjust unit %s{u} but no per %s{u} value"
+            |> Some
+        | _ -> None
+
+
+    /// Returns the rows of the dose rules that pass the unit checks, with a message for each refused rule and
+    /// each rule with an adjust unit but no per kg or per m2 value. The rows of a rule share a RuleId.
+    let checkUnits (data: DoseRuleData[]) =
+        let data = data |> Array.map setDataHashIds
+        let rules = data |> Array.groupBy _.RuleId
+
+        let refused =
+            rules
+            |> Array.choose (fun (id, rows) ->
+                match rows |> unitRefusals with
+                | [] -> None
+                | reasons ->
+                    let reasons = reasons |> String.concat "; "
+                    Some(id, $"%s{rows |> Array.head |> describe} is left out: %s{reasons}")
+            )
+
+        let ids = refused |> Array.map fst |> Set.ofArray
+
+        data |> Array.filter (_.RuleId >> ids.Contains >> not),
+        [|
+            yield! refused |> Array.map snd
+            yield!
+                rules
+                |> Array.filter (fst >> ids.Contains >> not)
+                |> Array.choose (snd >> unitWarning)
+        |]
+
+
+    /// Formats a dose rule row as text for the log.
     let doseRuleDataToString dd =
         let showOpt = Option.map string >> Option.defaultValue "-"
 
@@ -523,9 +657,6 @@ module DoseRuleData =
             else
                 xs |> Array.map toStr |> String.concat ","
 
-        // Bind the deeply nested schedule and dose-limit fields to short locals
-        // so the interpolated strings below stay readable (and Fantomas does not
-        // wrap the long member-access chains into unreadable indentation).
         let sd = dd.ScheduleData
         let dl = sd.DoseLimitData
 

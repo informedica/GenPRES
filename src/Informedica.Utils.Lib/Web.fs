@@ -7,80 +7,139 @@ module Web =
     module GoogleSheets =
 
         open System
+        open System.Collections.Concurrent
+        open System.Collections.Generic
         open System.Net.Http
+        open System.Threading.Tasks
+        open Informedica.Utils.Lib.BCL
 
 
         let private client = new HttpClient()
 
 
-        /// Create a url to download a sheet from a Google spreadsheet
-        /// The id is the unique id of the spreadsheet and sheet is the name of the sheet
-        let createUrl sheet id =
-            $"https://docs.google.com/spreadsheets/d/%s{id}/gviz/tq?tqx=out:csv&sheet=%s{sheet}"
+        /// The hint for a spreadsheet that cannot be downloaded because it is not shared.
+        let sharingHint = "The spreadsheet is shared publicly (Anyone with the link can view)"
 
 
-        /// Download a sheet from a Google spreadsheet, returning an error string
-        /// if the HTTP response is not successful (e.g. 404, 403, or redirect to
-        /// Google sign-in when the spreadsheet is private or the ID is stale).
-        let downloadResult url : Async<Result<string, string>> =
+        /// Creates the url that downloads the whole spreadsheet with the given id as an xlsx workbook.
+        let createWorkbookUrl id =
+            $"https://docs.google.com/spreadsheets/d/%s{id}/export?format=xlsx"
+
+
+        /// Downloads the bytes at the url. Returns an error when the response is not successful, for example
+        /// 404 or 403, or when the network fails.
+        let downloadResult url =
             async {
                 try
                     use! resp = client.GetAsync(Uri(url)) |> Async.AwaitTask
 
                     if not resp.IsSuccessStatusCode then
-                        let status = int resp.StatusCode
-
                         return
                             Error
-                                $"HTTP {status} ({resp.StatusCode}) downloading sheet.\n\
-                                  URL: {url}\n\
-                                  Hint: if this is a Google Sheets URL, check that:\n\
-                                  - The spreadsheet is shared publicly (Anyone with the link can view)\n\
+                                $"HTTP %i{int resp.StatusCode} (%A{resp.StatusCode}) downloading the workbook.\n\
+                                  URL: %s{url}\n\
+                                  Hint: check that:\n\
+                                  - %s{sharingHint}\n\
                                   - The GENPRES_URL_ID environment variable is set correctly\n\
                                   - The URL ID has not expired or been rotated"
                     else
-                        let! content = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
-                        return Ok(content)
+                        let! bytes = resp.Content.ReadAsByteArrayAsync() |> Async.AwaitTask
+                        return Ok bytes
                 with ex ->
                     return
                         Error
-                            $"Network error downloading sheet from {url}.\n\
-                              Exception: {ex.GetType().Name}: {ex.Message}"
+                            $"Network error downloading the workbook from %s{url}.\n\
+                              Exception: %s{ex.GetType().Name}: %s{ex.Message}"
             }
 
 
-        /// Load a sheet and parse it, returning a descriptive error when loading fails.
-        let getDataFromSheet parser dataUrlId sheet : Async<Result<'T, string>> =
+        /// Downloads and reads the workbook of the spreadsheet with the given id.
+        let downloadWorkbook dataUrlId =
             async {
-                let url = createUrl sheet dataUrlId
-
-                let! result = downloadResult url
+                let! bytes = dataUrlId |> createWorkbookUrl |> downloadResult
 
                 return
-                    result
-                    |> Result.mapError (fun err -> $"Failed to load sheet '{sheet}' using URL ID '{dataUrlId}'.\n{err}")
-                    |> Result.bind (fun data ->
-                        try
-                            Ok(parser data)
-                        with ex ->
-                            Error
-                                $"Sheet '{sheet}' (URL ID: '{dataUrlId}') downloaded successfully \
-                                  but could not be parsed.\n\
-                                  Exception: {ex.GetType().Name}: {ex.Message}\n\
-                                  Hint: verify that the sheet name is correct and the spreadsheet \
-                                  has the expected column structure."
+                    bytes
+                    // Google answers a request for a private spreadsheet with its sign-in page.
+                    |> Result.bind (
+                        Xlsx.read
+                        >> Result.mapError (fun err -> $"%s{err}\nHint: check that:\n- %s{sharingHint}")
                     )
             }
 
 
-        let getCsvDataFromSheet = getDataFromSheet Csv.parseCSV
+        // The workbooks read since the last clear, by spreadsheet id. Callers that ask at the same time share
+        // one download.
+        let private workbooks =
+            ConcurrentDictionary<string, Lazy<Task<Result<Map<string, Xlsx.Sheet>, string>>>>()
 
 
-        let getCsvDataFromSheetSync dataUrlId sheet =
-            getCsvDataFromSheet dataUrlId sheet
+        /// Forgets the workbooks read so far, so the next sheet read downloads the workbook again.
+        let clearWorkbookCache () = workbooks.Clear()
+
+
+        /// Returns the workbook of the spreadsheet with the given id, loaded with load on the first call after
+        /// a clear. A failed load is not kept, so the next call tries again.
+        let getWorkbookWith load dataUrlId =
+            async {
+                let entry = workbooks.GetOrAdd(dataUrlId, fun id -> lazy (load id |> Async.StartAsTask))
+
+                let! result = entry.Value |> Async.AwaitTask
+
+                if Result.isError result then
+                    workbooks.TryRemove(KeyValuePair(dataUrlId, entry)) |> ignore
+
+                return result
+            }
+
+
+        /// Removes every double quote from the cells of a sheet, as the CSV download did, because the sheet
+        /// readers expect that.
+        let sheetRows rows = rows |> Array.map (Array.map (String.replace "\"" ""))
+
+
+        /// Returns a sheet of the workbook of the spreadsheet with the given id. Returns an error when the
+        /// workbook cannot be loaded or has no sheet with that name.
+        let getSheet dataUrlId name =
+            async {
+                let! workbook = getWorkbookWith downloadWorkbook dataUrlId
+
+                return
+                    workbook
+                    |> Result.bind (fun sheets ->
+                        match sheets |> Map.tryFind name with
+                        | Some sheet -> Ok sheet
+                        | None ->
+                            let names = sheets |> Map.keys |> String.concat ", "
+                            Error $"The workbook has no sheet '%s{name}'. The sheets are: %s{names}."
+                    )
+                    |> Result.mapError (fun err ->
+                        $"Failed to load sheet '%s{name}' using URL ID '%s{dataUrlId}'.\n%s{err}"
+                    )
+            }
+
+
+        /// Returns the warning for the sheet with the given name when it has hidden rows, or None when no row
+        /// is hidden.
+        let hiddenRowsWarning name (sheet: Xlsx.Sheet) =
+            if sheet.HiddenRows = 0 then
+                None
+            else
+                Some $"Sheet '%s{name}': %i{sheet.HiddenRows} rows are hidden, so those rows are not loaded."
+
+
+        /// Returns the rows of a sheet as text, the header row first, waiting for the result. Returns an error
+        /// when the workbook cannot be loaded or has no sheet with that name. Writes an error to the console, and
+        /// a warning when the sheet has hidden rows.
+        let getRowsFromSheetSync dataUrlId name =
+            getSheet dataUrlId name
             |> Async.RunSynchronously
             |> function
-                | Ok result -> result |> Ok
+                | Ok sheet ->
+                    hiddenRowsWarning name sheet
+                    |> Option.iter (fun msg -> ConsoleWriter.writeWarningMessage msg true false)
+
+                    sheet.Rows |> sheetRows |> Ok
                 | Error msg ->
                     ConsoleWriter.writeErrorMessage msg true false
                     msg |> Error

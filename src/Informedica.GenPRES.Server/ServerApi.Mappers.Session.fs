@@ -1,56 +1,96 @@
 namespace ServerApi
 
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// The session mapper: a signed order plan as the record's version and back, a data notice's
-/// patient, and what the client keeps of an open Session from the parts the state will hold.
+/// Maps an order plan of the contract to the order plan Dto of GenORDER and back.
+module OrderPlanMapper =
+
+    /// Maps an order plan to the Dto.
+    let ofModel (plan: OrderPlan) : OrderPlan.Dto.Dto =
+        {
+            PatientData = plan.PatientData |> Patient.ofModel
+            Filtered = plan.Filtered
+            Contexts = plan.OrderContexts |> Array.map OrderContextMapper.ofModel
+            Totals = plan.Totals |> OrderContextMapper.totals
+        }
+
+
+    /// Maps an order plan Dto to an order plan with the demo flag of the server.
+    let toModel (demo: bool) (dto: OrderPlan.Dto.Dto) : OrderPlan =
+        {
+            PatientData = dto.PatientData |> Patient.toModel
+            Filtered = dto.Filtered
+            OrderContexts = dto.Contexts |> Array.map (OrderContextMapper.toModel demo)
+            Totals = dto.Totals |> OrderContextMapper.totalsBack
+        }
+
+
+    /// Returns the message for an order plan error.
+    let rec words =
+        function
+        | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"
+        | OrderPlanError.NotNarrowed n -> $"Choose one order first: %i{n} candidates remain"
+        | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
+        | OrderPlanError.NoRuleSet category ->
+            $"RuleSets: no rule set for %s{RuleSetKind.Nutrition category |> RuleSet.kindName}"
+        | OrderPlanError.BrokenLink e -> e |> OrderContextMapper.linkWords
+        | OrderPlanError.OrderRefused(generic, e) -> $"%s{generic}: %s{words e}"
+
+
+/// Maps signed order plans, data notices and open sessions between the contract and the server.
 module SessionMapper =
 
-    /// Who signed, as the version records it. The role is not recorded: only a Prescriber
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
+    /// Maps a user to the signer of a version. The role is not stored, because only a prescriber
     /// signs.
-    let signer (user: UserContext) : Signer.Dto.Dto =
+    let signer (user: UserContext) : Signer =
         {
             UserId = user.UserId
             DisplayName = user.DisplayName
         }
 
 
-    let signerBack (dto: Signer.Dto.Dto) : UserContext =
+    let signerBack (signer: Signer) : UserContext =
         {
-            UserId = dto.UserId
-            DisplayName = dto.DisplayName
+            UserId = signer.UserId
+            DisplayName = signer.DisplayName
             Role = UserRole.Prescriber
         }
 
 
-    /// Total: a signed order plan from the wire as the version's Dto. The contract model
-    /// carries the contexts and the patient; the version stores an order plan, so the filter
-    /// is empty and the totals are none.
-    let ofSigned (signed: SignedOrderPlan) : OrderPlanVersion.Dto.Dto =
-        {
-            Id = signed.Head.Id
-            No = signed.Head.No
-            PatientId = signed.PatientId
-            Base = signed.Base
-            SignedBy = signed.Head.By |> signer
-            SignedAt = signed.Head.SignedAt
-            Plan =
-                {
-                    Patient = signed.Patient |> Patient.ofModel
-                    Filtered = [||]
-                    Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
-                    Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
-                }
-            Verified = signed.Verified
+    /// Maps a signed order plan to a version on the date today. Returns the errors of an invalid
+    /// order plan.
+    let ofSigned today (signed: SignedOrderPlan) : Result<OrderPlanVersion, Types.DtoError list> =
+        ({
+            PatientData = signed.PatientData |> Patient.ofModel
+            Filtered = [||]
+            Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
+            Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
         }
+        : OrderPlan.Dto.Dto)
+        |> OrderPlan.Dto.fromDto today
+        |> Result.map (fun plan ->
+            {
+                Id = signed.Head.Id
+                No = signed.Head.No
+                PatientId = signed.PatientId
+                Base = signed.Base
+                SignedBy = signed.Head.By |> signer
+                SignedAt = signed.Head.SignedAt
+                Plan = plan
+                Verified = signed.Verified
+                EhrPatient = None
+            }
+        )
 
 
-    /// The identity on the wire, beside the id the context carries: the name and the birthdate
-    /// as three integers.
-    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
+    /// Maps a patient identity to the contract: the name and the birth date.
+    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : PatientIdentity =
         {
             Name = id.Name
             BirthYear = int id.BirthDate.Year
@@ -59,47 +99,41 @@ module SessionMapper =
         }
 
 
-    /// The version's Dto as the signed order plan the wire carries, with whom it names.
+    /// Maps a version to a signed order plan with the patient identity.
     let toSigned
         (demo: bool)
         (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
-        (dto: OrderPlanVersion.Dto.Dto)
+        (v: OrderPlanVersion)
         : SignedOrderPlan
         =
+        let plan = v.Plan |> OrderPlan.Dto.toDto
+
         {
             Head =
                 {
-                    Id = dto.Id
-                    No = dto.No
-                    By = dto.SignedBy |> signerBack
-                    SignedAt = dto.SignedAt
+                    Id = v.Id
+                    No = v.No
+                    By = v.SignedBy |> signerBack
+                    SignedAt = v.SignedAt
                 }
-            PatientId = dto.PatientId
-            Base = dto.Base
-            OrderContexts = dto.Plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
-            Patient = dto.Plan.Patient |> Patient.toModel
-            Identity = whom |> Option.map identity
-            Verified = dto.Verified
+            PatientId = v.PatientId
+            Base = v.Base
+            OrderContexts = plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
+            PatientData = plan.PatientData |> Patient.toModel
+            PatientIdentity = whom |> Option.map identity
+            Verified = v.Verified
         }
 
 
-    /// The patient data a notice is about, as the Dto; none when the reading could not be
-    /// read.
-    let noticeData (notice: DataNotice) = notice.Data |> Option.map Patient.ofModel
-
-
-    let notice (token: string) (data: Informedica.GenForm.Lib.Patient.Dto.Dto option) : DataNotice =
+    let notice (token: string) (data: CorePatientData.Dto.Dto option) : DataNotice =
         {
-            Data = data |> Option.map Patient.toModel
+            PatientData = data |> Option.map Patient.toModel
             Token = token
         }
 
 
-    /// What the client keeps of an open Session, from what the store holds: the head as the
-    /// signed order plan on the wire when it can be read, none when it cannot, whom the
-    /// Session is for, the patient data as the contract model with what the user measured on
-    /// it; the demo flag on every context.
-    let toOpened (demo: bool) (opened: OpenedSession) : SessionOpened =
+    /// Maps an open session to the session the client opens. The patient data gets the options of the resources.
+    let toOpened (demo: bool) resources sessionPatientData (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User
             PatientContext =
@@ -107,14 +141,11 @@ module SessionMapper =
                 |> Option.map (fun id ->
                     {
                         PatientId = id
-                        Identity = opened |> OpenedSession.identity |> Option.map identity
-                        Patient =
-                            opened.Patient
-                            |> Option.map (
-                                Informedica.GenForm.Lib.Patient.Dto.toDto
-                                >> Patient.toModel
-                                >> Measurements.apply opened.Measured
-                            )
+                        PatientIdentity = opened |> OpenedSession.identity |> Option.map identity
+                        PatientData =
+                            opened
+                            |> sessionPatientData
+                            |> Option.map (Patient.ofPatientData >> Patient.withOptions resources)
                     }
                 )
             OpenedToken = opened.OpenedToken
@@ -123,7 +154,7 @@ module SessionMapper =
                 opened.Head
                 |> Option.bind (fun head ->
                     match head with
-                    | StoredVersion.Readable(v, whom) -> v |> OrderPlanVersion.Dto.toDto |> toSigned demo whom |> Some
+                    | StoredVersion.Readable(v, whom) -> v |> toSigned demo whom |> Some
                     | StoredVersion.Unreadable _ -> None
                 )
         }

@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  # Issue #1539: the macOS leg loses about one job in 27 to a dotnet CLI process killed with
+  # exit code 137 within seconds of starting (dotnet paket restore, dotnet fsi, dotnet husky install,
+  # setup-dotnet's dotnet nuget locals). A probe on macos-15 runners (embedio-neo PR #518) traced the
+  # same signature to a fork-handler crash in the CLI's child process while the telemetry threads
+  # run, and measured 71 kills in 4,956 invocations with telemetry on against none in 5,382 with it
+  # off. Remove this only with a macOS run history that shows the kills gone without it.
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
   build:
     strategy:
@@ -68,6 +77,19 @@ jobs:
       # source files only, so it needs no build and runs before the tests for fast feedback.
       run: dotnet fsi scripts/CheckDependencyRule.fsx
 
+    - name: Check code style
+      # Static analysis of the layout and comment rules Fantomas does not enforce (issue #1665):
+      # blank lines between declarations, /// on public symbols, plain or XML doc blocks, comment
+      # width, over GenUNITS and GenSOLVER. Parses the source only, so it needs no build. Findings present
+      # at adoption are in scripts/CheckCodeStyle.baseline.tsv; a new finding or a stale baseline entry
+      # fails the step.
+      run: dotnet fsi scripts/CheckCodeStyle.fsx
+
+    - name: Check localization
+      # Every term of the client has a row in data/localization/localization.tsv, and every English
+      # fallback in the client code equals the English cell of its term. Reads the files only.
+      run: dotnet fsi scripts/CheckLocalization.fsx
+
     - name: Check project graph is current
       # The dependency diagram in ARCHITECTURE.md is generated from the .fsproj files and the ring
       # map; fails when a project or reference changed without `dotnet fsi scripts/ProjectGraph.fsx --write`.
@@ -93,8 +115,8 @@ jobs:
       run: dotnet fsi scripts/CheckPackaging.fsx
 
     - name: Check solution version provenance
-      # Calls the script directly rather than `dotnet run CheckVersions` so the FAKE target that depends 
-      # on Build, which transitively depends on Clean/RestoreClient, so it would redo the full restore/build 
+      # Calls the script directly rather than `dotnet run CheckVersions` so the FAKE target that depends
+      # on Build, which transitively depends on Clean/RestoreClient, so it would redo the full restore/build
       # which the "Test execution" just did. The DLLs are already fresh from build at this point.
       run: dotnet fsi scripts/CheckSolutionVersions.fsx
 
@@ -122,6 +144,50 @@ jobs:
       uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
       with:
         files: '**/TestResults/**/*.trx'
+
+  coverage:
+    # Line and branch coverage per GenPRES assembly. No criteria is decided yet, so nothing here fails on a low figure.
+    # This runs as a separate ubuntu job, like benchmark.
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - name: Use .NET Core 10.0 SDK
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: |
+          global.json
+          .config/dotnet-tools.json
+          **/paket.dependencies
+          **/paket.references
+          **/paket.lock
+          Build.fsproj
+          GenPRES.sln
+
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Measure coverage
+      env:
+        CI: true
+      run: dotnet run Coverage
+
+    - name: Coverage summary
+      # The table on the run's summary page, so the figures need no artifact download.
+      run: cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: coverage
+        path: |
+          coverage/summary.md
+          coverage/**/*.cobertura.xml
+        retention-days: 7
+        # A re-run of the job is the same workflow run; without this the upload fails on the name.
+        overwrite: true
 
   benchmark:
     # The benchmark projects are deliberately outside GenPRES.sln, so nothing in the matrix above

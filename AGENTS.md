@@ -53,7 +53,7 @@ Toolchain, the full targets table, Docker, release automation and the environmen
 
 ## Configuration and Resources
 
-- Medication rules and constraints live in Google Spreadsheets, downloaded as CSV and parsed at runtime. `GENPRES_URL_ID` selects the spreadsheet; local cache files give offline access
+- Medication rules and constraints live in Google Spreadsheets. The server downloads a spreadsheet as one xlsx workbook per resource load and parses the sheets at runtime. `GENPRES_URL_ID` selects the spreadsheet; local cache files give offline access
 - Sheets are read with `Web.getDataFromSheet dataUrlId "SheetName"`; mappers read columns by name through the `get` delegate (`let get = getColumn row in get "Generic"`) and parse with `BigRational.toBrs` / `getFloat`. Optional numeric columns use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`
 - Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`), a map from `ResourceKey` to `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`; derive one resource from others with `derive` / `deriveWith` (dependencies declared with `r.Get Keys.x`, resolved lazily, once). Callers reach the result through `IResourceProvider` (`Api.fs`)
 - To change a sheet mapping: adjust the mapper (`Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`, ...), the `///` field comments on the matching `Data` record, and the column list in the column-contract test
@@ -82,6 +82,20 @@ Every project belongs to one ring and references only its own ring or a ring fur
 Only Infrastructure and Presentation touch the network, filesystem, environment, clock and entropy, read a `GENPRES_*` setting or declare an entry point. Effects enter the core as parameters: a `Logger` record, a `now` value, a `newId` function, a function-valued resource such as `GStandProvider`. Only the composition roots construct loggers, providers and caches.
 
 `scripts/CheckDependencyRule.fsx` enforces this in CI. Existing violations are listed in it as allowances, and an allowance that no longer matches fails the run, so deleting code can fail it too. Run the script after any change to project references or IO.
+
+## Code Style Check
+
+`scripts/CheckCodeStyle.fsx` checks the comment and layout rules of the F# coding instructions that Fantomas does not enforce, for the libraries in its project list (GenUNITS and GenSOLVER for now). It parses the source only and needs no build. CI runs it on every build, and the pre-commit hook runs it when a commit stages a file of a checked library or of the checker.
+
+Findings present when a library joined the check are listed in `scripts/CheckCodeStyle.baseline.tsv`. A new finding fails the run, and so does a baseline entry that no longer matches a finding, so fixing or deleting code can fail it too.
+
+```bash
+dotnet fsi scripts/CheckCodeStyle.fsx                    # check against the baseline
+dotnet fsi scripts/CheckCodeStyle.fsx --prune-baseline   # delete the entries that match no finding
+dotnet fsi scripts/CheckCodeStyle.fsx --report           # list every finding
+```
+
+Fix a new finding in the code; never add it to the baseline. After a fix removes a listed finding, run `--prune-baseline` and commit the changed baseline with the fix.
 
 ## BigRational & ValueUnit Semantics
 
@@ -163,6 +177,7 @@ A change that affects dosing, rules, parsing or resource mapping comes with unit
 - [ ] At most 200 changed lines of shipped code under `src/` (`.fs`, `.sql`, project files); `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md
 - [ ] Unit tests added or updated; in a migration, moved from the script
 - [ ] `dotnet run servertests` passes for the affected projects
+- [ ] `dotnet fsi scripts/CheckCodeStyle.fsx` passes when the change touches a checked library
 - [ ] The pull request that completes a migration deletes the script
 - [ ] `Data` record `///` comments and the column-contract test updated when sheet columns or semantics change
 - [ ] Conventional commit message with scope and short description
@@ -171,6 +186,7 @@ A change that affects dosing, rules, parsing or resource mapping comes with unit
 
 - **At the start of a session**, check whether the FSI MCP server runs (`mcp__fsi-mcp__get_fsi_status`). If it does, use its tools for all F# interactive work instead of `dotnet fsi`
 - **One pull request at a time.** While a pull request is open, do not open, push, stack or prepare a second one, also not for a fix the user asks for; say that the open pull request blocks the work and wait. A second pull request is allowed only when the user says so explicitly
+- **An issue title is a commit heading.** File an issue on the upstream repository with a title in the form `type(scope): description`, with the types and scopes of the commit message instructions; the UX / Design template is no exception for an agent
 - **Never commit before review.** Changes stay uncommitted (`git add -N` for new files) until the user has reviewed them and says to commit. A clean merge of upstream master is the exception. Push only when the user asks, as a separate step
 
 ## Required Reading

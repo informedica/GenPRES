@@ -83,8 +83,9 @@ support but excluded from the solution build, so `dotnet build GenPRES.sln` neve
 | `dotnet run ServerTests` | Run all Expecto tests with quiet logging |
 | `dotnet run DebugTests` | Run every test project one at a time with per-test output and no parallelism; stops at the first failing assembly. Set `CI=true` without the G-Standaard files under `data/zindex` |
 | `dotnet run TestHeadless` | Run the suite through plain `dotnet test` |
+| `dotnet run Coverage` | Run the suite with the Code Coverage collector and print line and branch coverage per GenPRES assembly, plus the projects no test loads; writes `coverage/summary.md` and the cobertura report. A failing test ends it without a table. |
 | `dotnet run CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
-| `dotnet run Localization` | Check `data/localization/localization.tsv` against the `Terms` union (every case has a row, every locale a column, every cell filled), then print its rows to paste over the Localization sheet |
+| `dotnet run Localization` | Check `data/localization/localization.tsv` against the `Terms` union (every case has a row, every locale a column, every cell filled) and every English fallback in the client code against its English cell, then print its rows to paste over the Localization sheet |
 | `dotnet run Format` | Format all F# source with Fantomas |
 | `dotnet run MarkdownLint` | Lint the Markdown files |
 | `dotnet run ApiDocs` | Build the fsdocs API reference into `./output/`. Set `FSDOCS_ROOT` to the site base URL |
@@ -104,6 +105,7 @@ Build ──► Run
 RestoreClient ──► Run
 
 Build ──► TestHeadless
+Build ──► Coverage
 Build ──► ServerTests
 Build ──► CheckVersions
 ```
@@ -256,7 +258,9 @@ macOS:
 2. Install the .NET SDK from `global.json`
 3. `dotnet tool restore`
 4. `dotnet fantomas --check .` (fails on unformatted code)
-5. `dotnet run ServerTests`
+5. `dotnet fsi scripts/CheckCodeStyle.fsx` (fails on a new code style finding, see
+   [CONTRIBUTING.md](CONTRIBUTING.md#code-style-check))
+6. `dotnet run ServerTests`
 
 CI sets `CI: true` and `GENPRES_DEBUG: 1`. It does not set `GENPRES_URL_ID`, so tests run against
 demo and cached data only. A separate `benchmark` job runs `dotnet run BenchmarkBuild`, because the
@@ -285,7 +289,10 @@ Actions to create and approve pull requests"**.
 2. Runs `scripts/ReleaseNotes.fsx`, which reads `<Version>` from `Directory.Build.props` and extracts
    that version's `CHANGELOG.md` section.
 3. Creates an annotated tag `v<version>` on that commit.
-4. Creates a GitHub Release with the section as body, flagged pre-release when the version is one.
+4. Creates a draft GitHub Release with the section as body, flagged pre-release when the version is one.
+5. In the `publish-sbom` job, attaches the SBOM and its sha256 file to the draft and then publishes the
+   release. The repository has immutable releases, so the SBOM must be attached before publishing. When
+   this job fails, the release stays a draft.
 
 Both steps are idempotent, so re-running is safe. The trigger is the merged PR's head ref, which
 holds for every merge method.
@@ -307,10 +314,20 @@ dotnet fsi scripts/ReleaseNotes.fsx 0.1.2-alpha.2 --out notes.md   # any shipped
 
 #### Publishing the Docker image
 
-A `publish-docker-image` job in `tag-release.yml` runs after tagging succeeded. It builds the
-`Dockerfile` for `linux/amd64` with `APP_VERSION=<version>`, smoke-tests the image with the demo
-sheet ID and a random password (`/` must return 200 within 60 seconds), and pushes
-`docker.io/informedica/genpres:<version>`, plus `:latest` for a stable release.
+The image is published for `linux/amd64` and `linux/arm64`. Two jobs in `tag-release.yml` run
+after tagging succeeded:
+
+1. `build-docker-image` builds the `Dockerfile` with `APP_VERSION=<version>` once for each
+   architecture, on a GitHub-hosted runner of that architecture (`ubuntu-latest`,
+   `ubuntu-24.04-arm`). Each build is smoke-tested with the demo sheet ID and a random password
+   (`/` must return 200 within 60 seconds) and checked to exit with code 1 when the server refuses
+   to start. The tested image is handed on as a workflow artifact; this job pushes nothing.
+2. `publish-docker-image` starts only when both architectures passed. It pushes each tested image
+   as `docker.io/informedica/genpres:<version>-amd64` and `:<version>-arm64`, then joins them in
+   one manifest list under `:<version>`, plus `:latest` for a stable release. A `docker pull` of
+   `:<version>` gets the image for the host's architecture; the `-<arch>` tags pin one.
+
+A failed check on either architecture publishes no tag at all.
 
 Authentication is Docker Hub OIDC; there is no stored registry credential. One-time setup:
 
@@ -522,6 +539,8 @@ GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
 GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory
 GENPRES_SESSION_IDLE_MINUTES=60 # A Session with no request this long ends; unset = 60, not a positive whole number refuses the start
+GENPRES_TIME_ZONE=Europe/Amsterdam # Time zone a patient's age is taken in; unset = Europe/Amsterdam, an unknown id refuses the start
+GENPRES_LOCATION=UMCU          # Location a patient without one gets; unset = UMCU, in production no default
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
@@ -532,6 +551,22 @@ SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the
 and falls back to Dutch until then. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
 `es`, `it` in any case; a display name such as `Nederlands` is not. Unset means `nl`; any other value
 makes the server refuse to start. An `lan=` URL parameter and a language the user picks both override it.
+
+#### Time zone
+
+`GENPRES_TIME_ZONE` is the time zone whose calendar date a patient's age is taken on, an IANA id
+such as `Europe/Amsterdam`. A patient is a day older at local midnight, so on the 18th birthday the
+patient is 18 from 00:00 local time, not from 01:00 (CET) or 02:00 (CEST) when the UTC date turns.
+Unset means `Europe/Amsterdam`; an id the system does not know makes the server refuse to start.
+Session lifetimes and the stored timestamps stay in UTC. The server reads the zone from the
+system's time zone database, which the Debian-based `aspnet` runtime image ships.
+
+#### Default location
+
+`GENPRES_LOCATION` is the location, the hospital, that the server fills in for a patient without a
+location, before it completes the patient data. The rules with a location then apply to that patient.
+Unset means `UMCU` outside production; in production unset means no default, so a patient without a
+location gets only the rules without a location.
 
 #### Password policy
 
@@ -622,13 +657,13 @@ context and order plan machines as one line, with the message, the effects it pr
 it reached, logged to the console and kept as the last 500 lines.
 
 ```text
-#21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
+#21 13:33:18.498 OrderContext Command ReCalcItemProperty cmp=paracetamol itm=paracetamol DoseQuantity 4cfe91b6 -> CallContext ReCalcItemProperty cmp=paracetamol itm=paracetamol DoseQuantity workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
 ```
 
 The dose dialog and the nutrition slot each run an Elmish program of their own, and each of their
 steps is a line of machine `Order` or `Nutrition`: the message with the field it moves and the
-value or the step it carries, the call it makes (`CallUpdate`, `CallReopen`, `CallReset`,
-`CallStep`, or the `UpdateOrderScenario` message it queues), and the component and item selected.
+value or the step it carries, the call it makes (`CallUpdate`, `CallReset`, `CallStep`, or the
+`UpdateOrderScenario` message it queues), and the component and item selected.
 The dialog calls the App from inside its step, so the machine line that call produces is numbered
 before the dialog's own line.
 
@@ -639,14 +674,15 @@ before the dialog's own line.
 
 A pick field records what happened when the user acted on it, as a line of machine `Field` named by
 the field's label: a pick or a clear with `onChange` or `dropped`, an auto-pick of a single option,
-an arrow `open` that reopens, an open `blocked loading` or `blocked busy`, a `close` that restores,
-and the `reopened` decision, `NoList` or `ShowList`. The state says whether the field holds a value
-and what it lists, `picked of 5`, `none of range`, and `reopening` while a reopen is under way; it
-never shows the value, since a field can hold the department.
+an `open` that recalculates the field (`reCalc`), an open `blocked loading` or `blocked busy`, a
+`close` that restores, and the `recalculated` decision, `NoList` or `ShowList`. The state says
+whether the field holds a value and what it lists, `picked of 5`, `none of range`, and
+`recalculating` while a recalculation is under way; it never shows the value, since a field can hold
+the department.
 
 ```text
-#25 13:33:24.002 Field open dosering -> reopen | picked of 4
-#28 13:33:24.310 Field reopened dosering -> ShowList | none of 4 reopening
+#25 13:33:24.002 Field open dosering -> reCalc | picked of 4
+#28 13:33:24.310 Field recalculated dosering -> ShowList | none of 4 recalculating
 ```
 
 A context with one scenario shows that scenario: its short order id, its component and its picks,

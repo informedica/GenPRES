@@ -66,7 +66,7 @@ let callbackCounting (d: StubDirectory.Directory) newId (count: int ref) state c
         codeMac
         redeem
         d.registry.standing
-        StubAdapterTests.StubAdapters.patientData
+        StubAdapterTests.StubAdapters.ehrPatients
         ignore
         state
         cb
@@ -93,7 +93,6 @@ let caseName (w: Session.Persist) =
     | Session.WriteChallenge _ -> "WriteChallenge"
     | Session.SpendChallenge _ -> "SpendChallenge"
     | Session.RememberAnswer _ -> "RememberAnswer"
-    | Session.WriteMeasurement _ -> "WriteMeasurement"
 
 
 let names writes = writes |> List.map caseName
@@ -180,7 +179,7 @@ let machineTests =
                         codeMac
                         redeem
                         Store.registry
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         state
                         cb
@@ -193,7 +192,7 @@ let machineTests =
                             (ids ())
                             (codes ())
                             codeMac
-                            StubAdapterTests.StubAdapters.patientData
+                            StubAdapterTests.StubAdapters.ehrPatients
                             ignore
                             (record, identity, standing)
                             state
@@ -293,14 +292,15 @@ let machineTests =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature pin key : Signature =
@@ -314,10 +314,10 @@ let machineTests =
 
                 let _, answer, writes =
                     Session.commit
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
                         Store.registry
                         ignore
                         sid
@@ -344,10 +344,10 @@ let machineTests =
                 // three wrong PINs: the last ends the Session
                 let wrong (state, _, _) key =
                     Session.commit
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
                         Store.registry
                         ignore
                         sid
@@ -388,6 +388,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            TimeZoneInfo.Utc
             Session.defaultIdleLifetime
             (fun () -> t0)
             (ids ())
@@ -397,7 +398,8 @@ let portOver (store: StubDatabase.SessionStore) =
             verify
             d.idp
             d.registry
-            StubAdapterTests.StubAdapters.patientData
+            StubAdapterTests.StubAdapters.ehrPatients
+            (fun () -> None)
             (StubMail.make ()).port
             seeded
 
@@ -484,7 +486,7 @@ let portTests =
                     }
 
                 match! port.challenge sid (Store.domainPlan.Value, opened.OpenedToken.Value, None) with
-                | SigningOutcome.ChallengeIssued nonce ->
+                | SigningOutcome.ChallengeIssued(nonce, _) ->
                     let! answer =
                         port.submit
                             sid
@@ -554,7 +556,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         attempt
                         code
@@ -587,7 +589,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
                         ignore
                         attempt
                         code
@@ -630,17 +632,12 @@ let credentialWrites =
 
 /// The stub port with the EHR now saying another ward than the Session opened on.
 let moved =
-    { StubAdapterTests.StubAdapters.patientData with
+    { StubAdapterTests.StubAdapters.ehrPatients with
         read =
             fun pid ->
-                StubAdapterTests.StubAdapters.patientData.read pid
+                StubAdapterTests.StubAdapters.ehrPatients.read pid
                 |> Option.map (fun ehr ->
-                    { ehr with
-                        Patient =
-                            { ehr.Patient with
-                                Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
-                            }
-                    }
+                    { ehr with Data.Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU" }
                 )
     }
 
@@ -650,6 +647,64 @@ let flightWrites =
     testList
         "the writes of what a Session holds in flight"
         [
+            testList
+                "a challenge tells whether the EHR moved on"
+                [
+                    let answer active =
+                        Some
+                            {
+                                User =
+                                    {
+                                        UserId = "u"
+                                        DisplayName = "A"
+                                        Role = UserRole.Prescriber
+                                    }
+                                ActivePatientId = active
+                                MailAddress = "a@b"
+                            }
+
+                    /// Whether the challenge in the state tells that the EHR moved on, for the answer of
+                    /// the registry about the patient id of the Session.
+                    let told standing (state: Session.State, sid: string, newId) =
+                        let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                        match
+                            Session.challenge
+                                t0
+                                newId
+                                StubDatabase.digest
+                                StubAdapterTests.StubAdapters.ehrPatients
+                                (fun _ -> state.Sessions[sid].Opened.PatientId |> standing)
+                                sid
+                                (Store.domainPlan.Value, token, None)
+                                state
+                        with
+                        | _, SigningOutcome.ChallengeIssued(_, moved), _ -> moved
+                        | _, other, _ -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                    for name, standing, moved in
+                        [
+                            "another active patient", (fun _ -> answer (Some "another")), true
+                            "no active patient", (fun _ -> answer None), true
+                            "the patient of the Session active", answer, false
+                            "no answer of the registry", (fun _ -> None), false
+                        ] do
+                        test $"%s{name}: moved on is %b{moved}" {
+                            opened () |> told standing |> Expect.equal "told" moved
+                        }
+
+                    test "a Session without a login is asked about by its user id" {
+                        let state, sid, newId = opened ()
+                        let record = state.Sessions[sid]
+
+                        let state = { state with Sessions = state.Sessions |> Map.add sid { record with Login = None } }
+
+                        (state, sid, newId)
+                        |> told (fun _ -> answer None)
+                        |> Expect.isTrue "the registry is asked all the same"
+                    }
+                ]
+
             test "a challenge is written, and the one it replaces is spent" {
                 let state, sid, newId = opened ()
 
@@ -660,7 +715,8 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
@@ -671,7 +727,7 @@ let flightWrites =
                 |> Expect.equal "the heartbeat and the challenge" [ "RecordSeen"; "WriteChallenge" ]
 
                 match first with
-                | SigningOutcome.ChallengeIssued _ -> ()
+                | SigningOutcome.ChallengeIssued(_, _) -> ()
                 | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 // a second challenge in the same Session: the one it replaces is not spent by
@@ -692,14 +748,23 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 // the EHR now says another ward
                 let _, answer, writes =
-                    Session.challenge t0 newId StubDatabase.digest moved sid (Store.domainPlan.Value, token, None) state
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        moved
+                        (fun _ -> None)
+                        sid
+                        (Store.domainPlan.Value, token, None)
+                        state
 
                 match answer with
                 | SigningOutcome.DataNotice _ ->
@@ -722,6 +787,7 @@ let flightWrites =
                         newId
                         StubDatabase.digest
                         port
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, notice)
                         state
@@ -738,7 +804,7 @@ let flightWrites =
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature: Signature =
@@ -752,10 +818,10 @@ let flightWrites =
 
                 let state, answer, _ =
                     Session.commit
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
                         Store.registry
                         ignore
                         sid
@@ -766,7 +832,7 @@ let flightWrites =
                 | SigningOutcome.Submitted _ -> ()
                 | other -> failtest $"expected Submitted, got %A{other}"
 
-                state.Sessions[sid].Opened.EhrData
+                state.Sessions[sid].Opened.EhrPatient
                 |> Expect.equal "the read just signed on" (moved.read "stub-patient")
 
                 // the read just signed on is no change: a challenge, not another notice
@@ -775,7 +841,7 @@ let flightWrites =
                 | _, other, _ -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 // the read of the open now is a change from what was signed on
-                match issue StubAdapterTests.StubAdapters.patientData None state with
+                match issue StubAdapterTests.StubAdapters.ehrPatients None state with
                 | _, SigningOutcome.DataNotice _, _ -> ()
                 | _, other, _ -> failtest $"expected DataNotice, got %A{other}"
             }
@@ -789,14 +855,15 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
+                        StubAdapterTests.StubAdapters.ehrPatients
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature: Signature =
@@ -810,10 +877,10 @@ let flightWrites =
 
                 let state, answer, writes =
                     Session.commit
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
                         Store.registry
                         ignore
                         sid
@@ -831,10 +898,10 @@ let flightWrites =
                 // the same Submission again: the answer it already has, and only the heartbeat
                 let _, again, writes =
                     Session.commit
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
-                        StubAdapterTests.StubAdapters.patientData
                         Store.registry
                         ignore
                         sid

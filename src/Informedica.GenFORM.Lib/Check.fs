@@ -14,6 +14,8 @@ module Check =
     module GStand = Informedica.ZForm.Lib.GStand
     module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
+    module Age = Informedica.GenCore.Lib.Calculations.Age
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     type Dosage = Informedica.ZForm.Lib.Types.Dosage
     type DoseRange = Informedica.ZForm.Lib.Types.DoseRange
@@ -22,24 +24,31 @@ module Check =
     let unitToString = Units.toStringDutchShort >> String.removeBrackets
 
 
-    /// Graded outcome of a dose-check signal (IR Doseringscontrole 4.6.2).
-    /// Within is a pass; the others are signals of decreasing/typed concern.
+    /// The grade of a dose-check signal, after the G-Standaard dose-check guideline.
+    /// Within is a pass; every other case is a signal.
     type Severity =
+        /// The dose passes the check.
         | Within
-        | AdvisoryOverNorm // > norm max, <= absolute max (IR tekst 1)
-        | OverAbsolute // > absolute max (IR tekst 3)
-        | UnderNorm // < norm min (IR tekst 2)
-        | UnitMismatch // kg vs m2 — cannot compare
-        | IncomparableUnits // unit groups differ (e.g. Count/kg/day vs IU/kg/week, droplet vs mg) — cannot compare
-        | NotComparable // missing dose type / both ranges empty
-        | FrequencyMismatch // entered frequency not in the rule (IR 4.5.2)
-        | NoMonitoring // no G-Standaard rule exists for the selection (info only)
+        /// The dose is above the norm maximum but not above the absolute maximum.
+        | AdvisoryOverNorm
+        /// The dose is above the absolute maximum.
+        | OverAbsolute
+        /// The dose is below the norm minimum.
+        | UnderNorm
+        /// One rule doses per kg and the other per m2, so the doses cannot be compared.
+        | UnitMismatch
+        /// The unit groups differ, such as IU and mg, so the dose cannot be checked.
+        | IncomparableUnits
+        /// The dose rule has no dose type, so it cannot be compared.
+        | NotComparable
+        /// A frequency of the dose rule is not in the G-Standaard rule.
+        | FrequencyMismatch
+        /// No G-Standaard rule exists for the dose rule; information only.
+        | NoMonitoring
 
 
-    /// Scalar IR 4.6.2 flow. The absolute max is the hard ceiling and is checked
-    /// first, so a breach is caught even when no norm max is present (norm <= abs
-    /// in valid G-Standaard data, so this matches the IR "norm exceeded then abs"
-    /// flow while also being safe when normMax = None).
+    /// Grades a dose against the norm maximum, the absolute maximum and the norm minimum. The absolute maximum
+    /// is checked first, so a dose above it is OverAbsolute also when there is no norm maximum.
     let classify (dose: BigRational) normMax absMax normMin : Severity =
         match absMax with
         | Some a when dose > a -> OverAbsolute
@@ -52,9 +61,8 @@ module Check =
                 | _ -> Within
 
 
-    /// IR 4.6.1 limit-selection priority: m2 (BSA) -> per kg -> absolute. Prefer
-    /// the BSA range when present, else weight, else empty. convWeight/convBSA
-    /// stamp the adjust (and optional time) unit.
+    /// Picks the per m2 range when present, else the per kg range, else an empty range. The picked range
+    /// gets its units from convBSA or convWeight.
     let pickAdjust
         (weightMM: MinMax)
         (bsaMM: MinMax)
@@ -67,26 +75,18 @@ module Check =
         else MinMax.empty
 
 
-    /// Convert a months-based age MinMax to days at the IR 3.3 rate of
-    /// 30 days/month, so a ZForm (month) age can be intersected with a GenFORM
-    /// (day) age.
-    let monthsMinMaxToDays (mm: MinMax) : MinMax =
-        let toDays lim =
-            lim
-            |> Limit.getValueUnit
-            |> ValueUnit.convertTo Units.Time.month
-            |> ValueUnit.applyToValue (Array.map ((*) 30N))
-            |> ValueUnit.setUnit Units.Time.day
-            |> Limit.inclusive
-
-        {
-            Min = mm.Min |> Option.map toDays
-            Max = mm.Max |> Option.map toDays
-        }
+    /// Converts an age MinMax in months to days with fractionalMonthsToDays, so a ZForm age in months
+    /// can be intersected with a GenFORM age in days. Each limit stays inclusive or exclusive.
+    let monthsMinMaxToDays =
+        MinMax.apply (
+            ValueUnit.convertTo Units.Time.month
+            >> ValueUnit.applyToValue (Array.map Age.fractionalMonthsToDays)
+            >> ValueUnit.setUnit Units.Time.day
+        )
 
 
-    /// IR 3.4 interchangeable frequency time-unit groups. per-12-weken vs
-    /// per-3-maanden are deliberately NOT interchangeable.
+    /// The groups of frequency time units that count as equal, such as per 4 weken and per maand.
+    /// Per 12 weken and per 3 maanden are not equal on purpose.
     let interchangeGroups =
         [
             set [ "per 2 dagen"; "om de dag" ]
@@ -104,8 +104,8 @@ module Check =
     let interchangeable a b = canonTimeUnit a = canonTimeUnit b
 
 
-    /// IR 4.5.2 frequency message granularity. The G-Standaard IR text number
-    /// (24 / 25 / 8) is intentionally NOT surfaced — only the human description.
+    /// Describes how a frequency differs from the G-Standaard frequency: the count, the time unit, or both.
+    /// The G-Standaard text number is left out on purpose.
     let freqMsg (aantalDiff: bool) (eenheidDiff: bool) =
         match aantalDiff, eenheidDiff with
         | true, false -> "aantal verschilt"
@@ -113,19 +113,18 @@ module Check =
         | _ -> "aantal en/of tijdseenheid verschilt"
 
 
-    /// IR 4.5.2: the rule's frequency set genform is acceptable
-    /// when it is a SUBSET of the G-Standaard reference set gstand
-    /// (i.e. every prescribed frequency is allowed), or the time units are
-    /// interchangeable and the counts are equal. Extracted so the subset direction
-    /// (genform ⊆ gstand) is unit-testable — see CheckTests.
+    /// Returns true when every frequency in genform is in the G-Standaard frequencies gstand, or when the time
+    /// units are interchangeable and the counts are equal. Only this direction is checked, not gstand in genform.
     let freqWithinReference unitsInterchangeable aantalDiff (genform: ValueUnit) (gstand: ValueUnit) =
         (ValueUnit.isSubset genform gstand) || (unitsInterchangeable && not aantalDiff)
 
 
-    /// IR 1.3.2 (5,6): toedieningssnelheid/-duur are out of the dose-check scope.
+    /// How the rate checks are handled. The G-Standaard dose check does not cover the administration rate.
     type RateCheckMode =
-        | DropRateChecks // strict IR conformance
-        | LabelRateChecksOutOfScope // keep the signal, but tag it (recommended)
+        /// Drops the rate checks.
+        | DropRateChecks
+        /// Keeps the rate signals and labels each one that is not Within as outside the G-Standaard dose check.
+        | LabelRateChecksOutOfScope
 
     let rateScopeLabel (mode: RateCheckMode) (msg: string) =
         match mode with
@@ -133,9 +132,8 @@ module Check =
         | LabelRateChecksOutOfScope -> Some $"[buiten G-Standaard doseringscontrole] {msg}"
 
 
-    /// IR 4.6.1.3/4.6.1.4 replacement for the old symmetric +-10% band.
-    /// isRisk = true (GPRISC = "*") => exact, no margin. Otherwise the margin is
-    /// one-sided on the max (marginUpper, e.g. 12/10 for 120%).
+    /// Makes the range a dose is tested with: from the dose to the dose times marginUpper, or the dose alone
+    /// when isRisk is true for a high-risk substance (GPRISC "*"). No dose gives an empty range.
     let marginedTestRange (isRisk: bool) (marginUpper: BigRational) (vuOpt: ValueUnit option) : MinMax =
         match vuOpt with
         | None -> MinMax.empty
@@ -153,13 +151,13 @@ module Check =
             }
 
 
-    /// Configuration for checkDoseRuleWith: the (provider-configurable) upper
-    /// margin and how infusion-rate checks are handled.
+    /// The settings of checkDoseRuleWith: the upper margin and the handling of the rate checks.
     type CheckConfig =
         {
-            /// Upper margin multiplier on the G-Standaard max for non-risk substances
+            /// The factor the dose is multiplied by for the top of the tested range, for a substance that is not
+            /// high risk.
             MarginUpper: BigRational
-            /// Whether infusion-rate rows are dropped or kept-but-labelled (HIGH-2)
+            /// Whether the rate checks are dropped or labelled as outside the G-Standaard dose check.
             RateCheckMode: RateCheckMode
         }
 
@@ -204,20 +202,27 @@ module Check =
         |> Option.defaultValue ""
 
 
-    let createDoseRulesWithMapping routeMapping (pat: Patient) gen frm rte =
-        let a =
-            pat.Age
-            |> Option.bind (fun vu ->
-                vu
-                |> ValueUnit.convertTo Units.Time.month
-                |> ValueUnit.getValue
-                |> function
-                    | [| v |] -> v |> BigRational.toDouble |> Some
-                    | _ -> None
-            )
+    /// The age of the patient in months that the G-Standaard dose rules are looked up with. Returns None for
+    /// patient data without an age.
+    let ageInMonths (patientData: PatientData) =
+        patientData
+        |> CorePatientData.ageInDays
+        |> Option.bind (fun vu ->
+            vu
+            |> ValueUnit.convertTo Units.Time.day
+            |> ValueUnit.getValue
+            |> function
+                | [| v |] -> v |> Age.daysToFractionalMonths |> BigRational.toDouble |> Some
+                | _ -> None
+        )
+
+
+    let createDoseRulesWithMapping routeMapping (patientData: PatientData) gen frm rte =
+        let a = patientData |> ageInMonths
 
         let w =
-            pat.Weight
+            patientData
+            |> CorePatientData.weightInKg
             |> Option.bind (fun vu ->
                 vu
                 |> ValueUnit.convertTo Units.Mass.kiloGram
@@ -236,12 +241,11 @@ module Check =
     type private frm = string
     type private rte = string
 
-    /// Provider of raw G-Standaard (ZForm) dose rules for a generic/form/route and
-    /// patient.
-    type GStandProvider = Patient -> gen -> frm -> rte -> Informedica.ZForm.Lib.Types.DoseRule seq
+    /// Returns the G-Standaard dose rules for the patient data, the generic, the form and the route.
+    type GStandProvider = PatientData -> gen -> frm -> rte -> Informedica.ZForm.Lib.Types.DoseRule seq
 
 
-    /// The live (side-effecting) GStandProvider backed by GStand.createDoseRules.
+    /// Makes a GStandProvider that maps the route with routeMapping and reads the G-Standaard dose rules.
     let gStandProvider routeMapping : GStandProvider = createDoseRulesWithMapping routeMapping
 
 
@@ -271,7 +275,8 @@ module Check =
         }
 
 
-    /// Full unit (incl. combi units) of a MinMax, taken from its min or max limit.
+    /// Returns the full unit, a combined unit included, of the minimum or else the maximum of a range.
+    /// Returns None for an empty range.
     let rangeUnit (mm: MinMax) =
         match mm.Min |> Option.map Limit.getValueUnit, mm.Max |> Option.map Limit.getValueUnit with
         | Some vu, _
@@ -279,9 +284,8 @@ module Check =
         | _ -> None
 
 
-    /// IR safety: two ranges are comparable only when their unit groups match
-    /// (e.g. mg/kg/day vs mg/kg/day). Empty / unit-less ranges are treated as
-    /// comparable so the existing empty-range short-circuits still apply.
+    /// Returns true when the unit groups of the two ranges match, such as mg/kg/day and mg/kg/day. An empty
+    /// range counts as comparable, so the checks for an empty range still apply.
     let rangesComparable (refRange: MinMax) (testRange: MinMax) =
         match rangeUnit refRange, rangeUnit testRange with
         | Some ru, Some tu -> ru |> ValueUnit.Group.eqsGroup tu
@@ -332,8 +336,54 @@ module Check =
                 |> String.replace "<TIMEUNIT>" (testRange |> getTimeUnit)
 
 
+    /// The outcome of comparing a test range with a reference range.
+    [<RequireQualifiedAccess>]
+    type Comparison =
+        /// The comparison does not apply, since one of the ranges is empty.
+        | NotApplicable
+        /// The test range is in the reference range, with the message that says so.
+        | InRange of string
+        /// The test range is not in the reference range, with the message that says so.
+        | OutOfRange of string
+        /// The units of the two ranges cannot be compared, so the test range cannot be checked.
+        | CannotCheck
+
+
+    /// Compares a test range with a reference range. Ranges whose units cannot be compared give
+    /// CannotCheck; any other exception is a defect and is not caught.
+    let compareRanges sn refRange testRange =
+        // Both the guard and the catch are needed: ValueUnit compares a value without a unit by its number
+        // alone, and the guard reads only one limit of each range.
+        if rangesComparable refRange testRange |> not then
+            Comparison.CannotCheck
+        else
+            try
+                match checkInRangeOf sn refRange testRange with
+                | None, _ -> Comparison.NotApplicable
+                | Some true, msg -> Comparison.InRange msg
+                | Some false, msg -> Comparison.OutOfRange msg
+            // ValueUnit raises an ArgumentException for values whose units cannot be compared
+            with :? System.ArgumentException ->
+                Comparison.CannotCheck
+
+
+    /// Grades a test range from its comparison with the norm range and with the absolute range. A
+    /// breach of the absolute range is OverAbsolute even when the norm range cannot be checked;
+    /// otherwise a comparison that cannot be checked gives IncomparableUnits with the message
+    /// cannotCheck, so that a check that was not done never shows as Within.
+    let gradeComparisons cannotCheck norm abs =
+        match norm, abs with
+        | _, Comparison.OutOfRange amsg -> Some OverAbsolute, amsg
+        | Comparison.CannotCheck, _
+        | _, Comparison.CannotCheck -> Some IncomparableUnits, cannotCheck
+        | Comparison.NotApplicable, Comparison.NotApplicable -> None, ""
+        | Comparison.InRange nmsg, _ -> Some Within, nmsg
+        | Comparison.NotApplicable, Comparison.InRange amsg -> Some Within, amsg
+        | Comparison.OutOfRange nmsg, _ -> Some AdvisoryOverNorm, nmsg
+
+
     let maximizeDosages (dosages: Dosage list) =
-        let maximize = MinMax.foldMaximize true true
+        let maximize = MinMax.foldMaximize
 
         let maxRange (first: DoseRange) (rest: DoseRange list) =
             rest
@@ -406,9 +456,8 @@ module Check =
                                     |> List.distinct
                             }
                     Rules = rest |> List.collect _.Rules |> List.append dosage.Rules
-                    // OR the GPRISC high-risk flag across all merged dosages: if any
-                    // overlapping patient-band dosage is narrow-TI, the merged result
-                    // must stay high risk so marginedTestRange suppresses the margin.
+                    // The merged dosage is high risk when any of the dosages is, so marginedTestRange
+                    // adds no margin.
                     HighRisk = dosage.HighRisk || (rest |> List.exists _.HighRisk)
                 }
                 |> Some
@@ -416,9 +465,8 @@ module Check =
 
     let filterPatient (pat: PatientCategory) (pdsg: Informedica.ZForm.Lib.Types.PatientDosage) =
         let patAge = pat |> PatientCategory.getAge
-        // IR 3.3: the ZForm/G-Standaard age is in months; the GenFORM patient
-        // category age is in days. Normalise to days (30 days/month) before
-        // intersecting so the two are comparable on the same unit.
+        // The ZForm age is in months and the GenFORM patient category age in days; both are
+        // brought to days before they are intersected.
         let zformAge = pdsg.Patient.Age |> monthsMinMaxToDays
 
         let age =
@@ -432,16 +480,16 @@ module Check =
         age && weight
 
 
-    let matchWithZIndex (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
+    let matchWithZIndex (getDosageRules: GStandProvider) (patientData: PatientData) (dr: DoseRule) =
         {|
             doseRule = dr
             zindex =
                 {|
                     dosages =
                         getDosageRules
-                            pat
-                            // G-Standaard keys on the base substance name only;
-                            // the brand/form label would never match.
+                            patientData
+                            // The G-Standaard is searched by the generic name only; a name with a brand or a
+                            // form never matches.
                             (dr.Generic |> Generic.genericName)
                             (dr.Generic.Form |> PharmaceuticalForm.toString)
                             dr.Route
@@ -457,10 +505,12 @@ module Check =
                             {|
                                 target = n
                                 dosage =
-                                    // TODO: hack avoid cmp err with diff dose units (filgrastim)
+                                    // G-Standaard dosages in units that cannot be compared, such as
+                                    // filgrastim in microgram and in units, cannot be merged. A group
+                                    // is never empty, so no dosage means the limit cannot be checked.
                                     try
                                         dsgs |> maximizeDosages
-                                    with _ ->
+                                    with :? System.ArgumentException ->
                                         None
                             |}
                         )
@@ -569,15 +619,13 @@ module Check =
                                                     x.StartDosage.Abs
                                                 else
                                                     x.SingleDosage.Abs
-                                            // IR 4.6.1 priority: BSA (m2) before kg.
+                                            // A per m2 range comes before a per kg range.
                                             quantityAdjustNorm =
                                                 pickAdjust
                                                     (x.SingleDosage.NormWeight |> fst)
                                                     (x.SingleDosage.NormBSA |> fst)
                                                     (setAdjustAndOrTimeUnit (Some Units.Weight.kiloGram) None)
                                                     (setAdjustAndOrTimeUnit (Some Units.BSA.m2) None)
-                                            // BUG-A fix: both ranges read from SingleDosage
-                                            // (the m2 branch previously read StartDosage.AbsBSA).
                                             quantityAdjustAbs =
                                                 pickAdjust
                                                     (x.SingleDosage.AbsWeight |> fst)
@@ -607,13 +655,18 @@ module Check =
         |}
 
 
-    let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
-        let m = dr |> matchWithZIndex getDosageRules pat |> createMapping
+    let checkDoseRuleWith
+        (cfg: CheckConfig)
+        (getDosageRules: GStandProvider)
+        (patientData: PatientData)
+        (dr: DoseRule)
+        =
+        let m = dr |> matchWithZIndex getDosageRules patientData |> createMapping
 
         let eqsAny (candidates: DoseType list) (dt: DoseType) = candidates |> List.exists (DoseType.eqsType dt)
 
-        // Derive rate fields for a given dose-limit target from m.zindex.dosages,
-        // mirroring the perTimeAdjust* pattern in createMapping.
+        // Returns the rate ranges of the G-Standaard dosage for a dose-limit target, or empty ranges when the
+        // dosage has no rate.
         let rateFieldsFor (target: string) =
             let empty =
                 {|
@@ -635,7 +688,7 @@ module Check =
                     {|
                         rateNorm = dr.Norm |> setAdjustAndOrTimeUnit None (Some rateUnit)
                         rateAbs = dr.Abs |> setAdjustAndOrTimeUnit None (Some rateUnit)
-                        // IR 4.6.1 priority: BSA (m2) before kg.
+                        // A per m2 range comes before a per kg range.
                         rateAdjustNorm =
                             pickAdjust
                                 (dr.NormWeight |> fst)
@@ -652,7 +705,7 @@ module Check =
             )
             |> Option.defaultValue empty
 
-        // Extract adjust unit from a MinMax (mirrors getAdj inside checkAdjustUnit).
+        // Returns the adjust unit of a range: kg, g or m2.
         let getAdjUnit (mm: MinMax) =
             match mm.Min |> Option.map Limit.getValueUnit, mm.Max |> Option.map Limit.getValueUnit with
             | Some vu, _
@@ -668,57 +721,41 @@ module Check =
         m.mapping.doseLimits
         |> Array.collect (fun dl ->
             match dl.gstand with
-            | None -> [| (None: Severity option), "" |]
+            | None ->
+                let target = dl.genForm.DoseLimitTarget |> LimitTarget.toString
+
+                let notMerged =
+                    m.zindex.dosages
+                    |> List.exists (fun g -> target |> String.equalsCapInsens g.target && g.dosage |> Option.isNone)
+
+                if notMerged then
+                    [|
+                        Some IncomparableUnits,
+                        $"{target}\t{m.doseRule.Route}\t{m.doseRule.PatientCategory |> PatientCategory.toString}\tG-Standaard eenheden niet vergelijkbaar (kan niet worden gecontroleerd)"
+                    |]
+                else
+                    [| (None: Severity option), "" |]
             | Some gstand ->
                 let dt = m.doseRule.DoseType
                 let p = m.doseRule.PatientCategory |> PatientCategory.toString
                 let r = m.doseRule.Route
 
                 let inRangeOf msg refRange testRange =
-                    try
-                        checkInRangeOf $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: " refRange testRange
-                    with _ ->
-                        // Defensive backstop: the rangesComparable guard in `grade`
-                        // already prevents incomparable-unit cmp throws, so reaching
-                        // here is exceptional. Drop the row (never report a crash as a
-                        // PASS); kept pure — no console IO in the check pipeline.
-                        None, ""
+                    compareRanges $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: " refRange testRange
 
-                // HIGH-1: one-sided, risk-aware margin on the norm dose. Risk
-                // substances (GPRISC = "*") get no margin.
+                // A high-risk substance (GPRISC "*") gets no margin on the norm dose.
                 let toMinMax vuOpt = vuOpt |> marginedTestRange gstand.highRisk cfg.MarginUpper
 
-                // MEDIUM-2: grade a test range against the advisory (norm) and the
-                // absolute reference ranges (IR 4.6.2): a norm breach is advisory,
-                // an absolute breach is serious, and absolute is only decisive once
-                // norm is exceeded.
+                // Grades a test range against the norm range and the absolute range. Above the norm range is
+                // advisory; above the absolute range is OverAbsolute, whatever the norm result.
                 let grade msg (normRef: MinMax) (absRef: MinMax) (test: MinMax) : Severity option * string =
-                    // IR safety guard: never feed incomparable unit groups to cmp
-                    // (e.g. Count/kg/day vs IU/kg/week, droplet vs mg) — that throws.
-                    // Emit a typed warning instead of crashing or (previously) a fake pass.
-                    let incomparable ref = ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
-
-                    if (test |> MinMax.isEmpty |> not) && (incomparable normRef || incomparable absRef) then
-                        Some IncomparableUnits,
+                    let cannotCheck =
                         $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: eenheden niet vergelijkbaar (kan niet worden gecontroleerd)"
-                    else
 
-                        let nb, nmsg = inRangeOf msg normRef test
-                        let ab, amsg = inRangeOf msg absRef test
+                    gradeComparisons cannotCheck (inRangeOf msg normRef test) (inRangeOf msg absRef test)
 
-                        // The absolute ceiling breach is checked first so that even
-                        // inconsistent G-Standaard data (normRef.Max > absRef.Max) can
-                        // never silently downgrade an over-absolute dose to Within.
-                        // For valid data (norm ⊆ abs) this is equivalent to norm-first.
-                        match nb, ab with
-                        | None, None -> None, ""
-                        | _, Some false -> Some OverAbsolute, amsg
-                        | Some true, _ -> Some Within, nmsg
-                        | None, Some true -> Some Within, amsg
-                        | Some false, _ -> Some AdvisoryOverNorm, nmsg
-
-                // Adjust-unit-gated grade: only compares ranges whose adjust unit
-                // matches the test's, and substitutes the unit into the message.
+                // Grades only against the ranges with the adjust unit of the test range, and puts that unit in
+                // the message.
                 let gradeAdjust (msgFor: string -> string) normRef absRef test : Severity option * string =
                     let na = test |> checkAdjustUnit normRef
                     let aa = test |> checkAdjustUnit absRef
@@ -754,7 +791,7 @@ module Check =
                             let s1 = vuG |> ValueUnit.toStringDecimalDutchShortWithPrec -1
                             let s2 = vuS |> ValueUnit.toStringDecimalDutchShortWithPrec -1
 
-                            // LOW-3 (IR 3.4): treat interchangeable time units as equal.
+                            // Interchangeable time units count as equal.
                             let tokenOf vu =
                                 match vu |> ValueUnit.getUnit |> ValueUnit.getUnits with
                                 | [ _; tu ]
@@ -764,22 +801,21 @@ module Check =
                             let unitsInterchangeable = interchangeable (tokenOf vuG) (tokenOf vuS)
                             let aantalDiff = (vuG |> ValueUnit.getValue) <> (vuS |> ValueUnit.getValue)
 
-                            // genform ⊆ gstand: the rule's frequencies must all be
-                            // allowed by the G-Standaard reference (NOT the reverse).
+                            // Every frequency of the dose rule must be in the G-Standaard frequencies, not the
+                            // reverse.
                             let b = freqWithinReference unitsInterchangeable aantalDiff vuG vuS
 
                             if b then
                                 Some Within,
                                 $"{m.doseRule.Generic |> Generic.toString}\t{r}\t{p}\tfrequenties {s1} is subset van {s2}"
                             else
-                                // LOW-4 (IR 4.5.2): granular description (no IR text code).
                                 let eenheidDiff = tokenOf vuG <> tokenOf vuS && not unitsInterchangeable
 
                                 Some FrequencyMismatch,
                                 $"{m.doseRule.Generic |> Generic.toString}\t{r}\t{p}\tfrequenties {s1} t.o.v. {s2}: %s{freqMsg aantalDiff eenheidDiff}"
 
-                    // Each gradeable quantity yields ONE graded row (norm+abs
-                    // combined). The margined row applies the HIGH-1 risk-aware band.
+                    // Each row combines the norm and the absolute check. The last row tests the norm dose
+                    // with the margin.
                     let quantityChecks () =
                         let adjMsg adj = $"keer dosering per %s{adj}"
 
@@ -816,8 +852,8 @@ module Check =
                             |> gradeAdjust adjMsg gstand.perTimeAdjustNorm gstand.perTimeAdjustAbs
                         |]
 
-                    // HIGH-2: rate is out of IR scope. Drop the rows, or keep the
-                    // signal but tag the message as out-of-scope (default).
+                    // The G-Standaard dose check does not cover the rate, so cfg.RateCheckMode drops the rows
+                    // or labels them.
                     let rateChecks () =
                         let adjMsg adj = $"dosering per %s{adj} per <TIMEUNIT>"
 
@@ -846,10 +882,8 @@ module Check =
                                 | _ -> sev, msg
                             )
 
-                    // "non matching adjust units" detection. Only fires when both
-                    // sides of the (DoseType-applicable) adjust ranges carry a
-                    // detectable unit AND no pair of them is in the same unit
-                    // group. Emits at most one row per DoseLimit.
+                    // Gives one UnitMismatch row when the G-Standaard and the dose rule both have adjust units
+                    // for the dose type, and no pair of them is in the same unit group.
                     let mismatchRow () =
                         let gstandSides =
                             [
@@ -912,7 +946,7 @@ module Check =
                     |]
         )
         |> fun xs ->
-            // Graded signals (skip the non-applicable None rows).
+            // The graded signals, without the rows that do not apply.
             let signals =
                 xs
                 |> Array.choose (
@@ -921,8 +955,7 @@ module Check =
                     | None, _ -> None
                 )
 
-            // didPass/didNotPass kept as string[] projections for back-compat:
-            // Within -> pass, every other graded signal -> did-not-pass.
+            // didPass has the messages of the Within signals, didNotPass those of all other signals.
             let didPass =
                 signals
                 |> Array.choose (fun (sev, s) -> if sev = Within then Some s else None)
@@ -940,17 +973,19 @@ module Check =
             |}
 
 
-    /// Pure dose-check over a single rule given an injected data provider.
-    /// In production the provider comes from the Resources layer
-    /// (Api.getGStandProvider), not built ad hoc from a route mapping.
-    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
-        checkDoseRuleWith checkConfigDef getDosageRules pat dr
+    /// Checks a dose rule against the G-Standaard dose rules from getDosageRules, with the default settings.
+    let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (patientData: PatientData) (dr: DoseRule) =
+        checkDoseRuleWith checkConfigDef getDosageRules patientData dr
 
 
-    /// Dose-check over many rules. log and the data provider are injected so the
-    /// orchestration is pure given its dependencies; callers wire the live ones
-    /// (e.g. the server passes Api.getGStandProvider provider).
-    let checkAllWith (log: int -> DoseRule -> unit) (getDosageRules: GStandProvider) (pat: Patient) (drs: DoseRule[]) =
+    /// Checks all dose rules and returns the distinct messages of the failed checks. Calls log with the
+    /// index and the dose rule before each check.
+    let checkAllWith
+        (log: int -> DoseRule -> unit)
+        (getDosageRules: GStandProvider)
+        (pat: PatientData)
+        (drs: DoseRule[])
+        =
         drs
         |> Array.mapi (fun i dr ->
             log i dr

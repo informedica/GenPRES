@@ -47,16 +47,16 @@ module EquationMapping =
         let tme = OrderVariable.Time.name
 
         [<Literal>]
-        let itm = "itm" //Orderable.Literals.item
+        let itm = "itm"
 
         [<Literal>]
-        let cmp = "cmp" //Orderable.Literals.comp
+        let cmp = "cmp"
 
         [<Literal>]
-        let orb = "orb" //Orderable.Literals.orderable
+        let orb = "orb"
 
         [<Literal>]
-        let dos = "dos" //Orderable.Literals.dose
+        let dos = "dos"
 
         [<Literal>]
         let sch = "sch" // Schedule
@@ -83,9 +83,39 @@ module EquationMapping =
         let onceTimed = 7
 
 
-    // Order equations are an invariant of GenORDER and are embedded here instead
-    // of being fetched from the "Equations" Google sheet. Each equation is paired
-    // with the dose types it applies to (Literals: discontinuous=3 .. onceTimed=7).
+    /// A mark of an equation in the equations table, one per mark column of the Equations sheet.
+    [<RequireQualifiedAccess>]
+    type Mark =
+        /// The equation applies only when the order has an adjusted dose constraint.
+        | DoseAdjust
+        /// The equation applies only when the orderable, a component or an item has a constraint on its
+        /// orderable quantity per adjust.
+        | OrderableQuantityAdjust
+        /// The equation applies only when the order has more than one component.
+        | Tie
+        /// The equation applies only when the order uses the item concentration products.
+        | ItemConcentration
+        /// The equation is added for a timed order that leaves out the item concentration products.
+        | NoItemConcentrationTimed
+        /// The equation is added for a once timed order that leaves out the item concentration products.
+        | NoItemConcentrationOnceTimed
+        /// The equation is a sum equation; an equation without this mark is a product equation.
+        | Sum
+
+
+    /// An equation with the dose types it applies to and its marks.
+    type EquationRow =
+        {
+            /// The equation, with the placeholders [ord], [orb], [cmp] and [itm].
+            Equation: string
+            /// The dose types the equation applies to.
+            DoseTypes: int list
+            /// The marks of the equation.
+            Marks: Mark list
+        }
+
+
+    /// The five dose types: discontinuous (3), continuous (4), timed (5), once (6) and once timed (7).
     let allDoseTypes =
         [
             Literals.discontinuous
@@ -95,8 +125,7 @@ module EquationMapping =
             Literals.onceTimed
         ]
 
-    // Recurring dose-type membership sets, named so equal sets read equal
-    // (and Fantomas keeps them on one line at every use site).
+    // Sets of dose types that several equations share.
     let discTimed = [ Literals.discontinuous; Literals.timed ]
 
     let discContTimed = [ Literals.discontinuous; Literals.continuous; Literals.timed ]
@@ -105,156 +134,229 @@ module EquationMapping =
 
     let contOnly = [ Literals.continuous ]
 
+    let timedOnly = [ Literals.timed ]
 
-    /// An item's concentration in the orderable is its concentration in the component times the
-    /// component's share, and the shares add up to one. Only mapped for an order with more than one
-    /// component: with one, the share is 1 x and the other equations already tie the items.
-    let tieEquations =
+
+    /// Creates an equation row from an equation, its dose types and its marks.
+    let row eq doseTypes marks =
+        {
+            Equation = eq
+            DoseTypes = doseTypes
+            Marks = marks
+        }
+
+
+    /// The order equations, each with the dose types it applies to and its marks. The equations are fixed in
+    /// code; the Equations sheet documents them.
+    let equations =
         [
-            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc"
-            "[orb]_orb_cnc = sum([cmp]_orb_cnc)"
-        ]
-
-
-    /// A component's rate is its share of the orderable rate. Mapped for a continuous order, and for
-    /// a timed or once timed order that leaves out its item concentration products.
-    let componentRateEquation = "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
-
-
-    let equations: (string * int list) list =
-        [
-            "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", allDoseTypes
-            "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty", allDoseTypes
-            "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty", allDoseTypes
-            "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty", allDoseTypes
-            "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty", allDoseTypes
-            "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
-            "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm", discTimed
-            "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm", discTimed
-            "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq", discTimed
-            "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte", contTimedOnceTimed
-            "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte", contTimedOnceTimed
-            "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty", contTimedOnceTimed
-            "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme", discTimed
-            "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme", contOnly
-            "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj", allDoseTypes
-            "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj", allDoseTypes
-            "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj", discContTimed
-            "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj", discContTimed
-            "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq", discTimed
-            "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj", contOnly
-            "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj", contOnly
-            "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme", discTimed
-            "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme", contOnly
-            "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty", allDoseTypes
-            "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", allDoseTypes
-            "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", allDoseTypes
-            "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", allDoseTypes
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", discTimed
-            "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", contOnly
-            "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", allDoseTypes
-            "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
-            "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", discTimed
-            "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", discTimed
-            "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            componentRateEquation, contOnly
-            "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", contOnly
-            "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", allDoseTypes
-            "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", contOnly
-            "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj", discTimed
-            "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq", discTimed
-            "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", contOnly
-            "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", allDoseTypes
-            "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", allDoseTypes
-            // the total by per time needs a frequency and the total by rate a continuous order:
-            // with both on a timed order, the administration time times the frequency has to be 1
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discTimed
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", contOnly
-            "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", contTimedOnceTimed
-            "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
-            "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", discTimed
-            "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", contTimedOnceTimed
-            "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", contOnly
-            "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", discTimed
-            "[orb]_orb_qty = sum([cmp]_orb_qty)", allDoseTypes
-            yield! tieEquations |> List.map (fun e -> e, allDoseTypes)
+            row "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty" allDoseTypes []
+            row "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty" allDoseTypes [ Mark.ItemConcentration ]
+            row "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty" allDoseTypes []
+            row "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty" allDoseTypes []
+            row "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty" allDoseTypes [ Mark.ItemConcentration ]
+            row "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.DoseAdjust ]
+            row "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm" discTimed []
+            row "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm" discTimed [ Mark.ItemConcentration ]
+            row "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq" discTimed []
+            row "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty" discTimed [ Mark.DoseAdjust ]
+            row "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte" contTimedOnceTimed []
+            row "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte" contTimedOnceTimed [ Mark.ItemConcentration ]
+            row "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty" contTimedOnceTimed [ Mark.DoseAdjust ]
+            row "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme" discTimed []
+            row "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme" contOnly []
+            row "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj" allDoseTypes [ Mark.DoseAdjust ]
+            row
+                "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj"
+                allDoseTypes
+                [ Mark.DoseAdjust; Mark.ItemConcentration ]
+            row "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj" discContTimed [ Mark.DoseAdjust ]
+            row
+                "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj"
+                discContTimed
+                [ Mark.DoseAdjust; Mark.ItemConcentration ]
+            row "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq" discTimed [ Mark.DoseAdjust ]
+            row "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj" contOnly [ Mark.DoseAdjust ]
+            row
+                "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj"
+                contOnly
+                [ Mark.DoseAdjust; Mark.ItemConcentration ]
+            row "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme" discTimed [ Mark.DoseAdjust ]
+            row "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme" contOnly [ Mark.DoseAdjust ]
+            row "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty" allDoseTypes []
+            row "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty" allDoseTypes []
+            row "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt" allDoseTypes []
+            row "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt" allDoseTypes []
+            row "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme" discTimed []
+            row "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme" contOnly []
+            row "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty" allDoseTypes []
+            row "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.DoseAdjust ]
+            row "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm" discTimed []
+            row "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq" discTimed []
+            row "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty" discTimed [ Mark.DoseAdjust ]
+            row
+                "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
+                contOnly
+                [ Mark.NoItemConcentrationTimed; Mark.NoItemConcentrationOnceTimed ]
+            row "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty" contOnly [ Mark.DoseAdjust ]
+            row "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj" allDoseTypes [ Mark.DoseAdjust ]
+            row "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme" contOnly [ Mark.DoseAdjust ]
+            row "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj" discTimed [ Mark.DoseAdjust ]
+            row "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq" discTimed [ Mark.DoseAdjust ]
+            row "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj" contOnly [ Mark.DoseAdjust ]
+            row "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty" allDoseTypes []
+            row "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty" allDoseTypes []
+            // The total from the dose per time applies to discontinuous and timed orders, the total from the dose
+            // rate only to continuous orders. Both on a timed order would force the administration time times the
+            // frequency to be 1.
+            row "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme" discTimed []
+            row "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme" contOnly []
+            row "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme" contTimedOnceTimed []
+            row "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.DoseAdjust ]
+            row "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq" discTimed []
+            row "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty" discTimed [ Mark.DoseAdjust ]
+            row "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty" contTimedOnceTimed [ Mark.DoseAdjust ]
+            row "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme" contOnly [ Mark.DoseAdjust ]
+            row "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq" discTimed [ Mark.DoseAdjust ]
+            // The schedule count is at most 1, so one administration ends before the next starts.
+            row "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq" timedOnly []
+            row "[orb]_orb_qty = sum([cmp]_orb_qty)" allDoseTypes [ Mark.Sum ]
+            // The tie equations need more than one component; with one component the other equations already relate
+            // the items.
+            row "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc" allDoseTypes [ Mark.Tie ]
+            row "[orb]_orb_cnc = sum([cmp]_orb_cnc)" allDoseTypes [ Mark.Tie; Mark.Sum ]
+            row "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.OrderableQuantityAdjust ]
+            row "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.OrderableQuantityAdjust ]
+            row "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty" allDoseTypes [ Mark.OrderableQuantityAdjust ]
         ]
 
 
     let private getEquations_ indx =
-        equations
-        |> List.filter (fun (_, dts) -> dts |> List.contains indx)
-        |> List.map fst
+        equations |> List.filter (fun r -> r.DoseTypes |> List.contains indx)
 
 
-    // Memoised once at module init. Kept private and wrapped below so the
-    // public binding stays an argument-taking function: a function value compiles to a
-    // property returning FSharpFunc, a different .NET shape.
+    // Wrapped by getEquations so that the public function compiles to a .NET method,
+    // not to a property that returns an FSharpFunc.
     let private memoizedGetEquations = Memoization.memoize getEquations_
 
 
-    /// <summary>
-    /// Get a string list of Equations and
-    /// use an index to filter out the relevant equations
-    /// </summary>
-    /// <param name="indx">The index to filter the equations</param>
-    /// <remarks>
-    /// The indx can be 3 for discontinuous equations, 4 for continuous
-    /// and 5 for timed equations.
-    /// </remarks>
+    /// Returns the equation rows for the dose type indx: 3 discontinuous, 4 continuous, 5 timed, 6 once or 7 once
+    /// timed. The result is memoized.
     let getEquations indx = memoizedGetEquations indx
 
 
-    /// Whether an item comes in exactly one strength: its defined component concentration holds
-    /// one value. An item without a concentration does not count as one.
+    /// Returns true when the defined values of the item component concentration hold exactly one value.
+    /// Returns false for an item without defined values.
     let hasOneStrength (itm: Item) =
         (itm.ComponentConcentration |> OrderVariable.Concentration.toOrdVar).DefinedConstraints.Values
         |> Option.exists (ValueSet.count >> (=) 1)
 
 
-    /// Whether an order can solve its item orderable concentrations through the component share
-    /// alone: more than two components and every item in exactly one strength. With several
-    /// strengths the share alone loses the exact item concentration.
+    /// Returns true when the order has more than two components and every item has one component concentration.
+    /// The item concentrations in the orderable then follow from the tie equations alone; with more concentrations
+    /// per item they would not be exact.
     let leavesOutItemConcentrationProducts (ord: Order) =
         ord.Orderable.Components |> List.length > 2
         && ord.Orderable.Components |> List.collect _.Items |> List.forall hasOneStrength
 
 
-    /// <summary>
-    /// Create an Equations mapping for an <c>Order</c>
-    /// </summary>
-    /// <param name="ord">The Order to Map</param>
-    /// <param name="eqs">The equations as a string list</param>
-    /// <returns>
-    /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
-    /// </returns>
-    let getEqsMapping (ord: Order) (eqs: string list) =
-        let eqs =
+    /// Returns true when an adjusted dose quantity, per time, rate or total of the orderable, a component or an item
+    /// has constraints. Without such constraints the adjusted dose equations do not change the other variables.
+    let usesAdjust (ord: Order) =
+        let adjusted (dos: Dose) =
+            [
+                dos.QuantityAdjust |> OrderVariable.QuantityAdjust.toOrdVar
+                dos.PerTimeAdjust |> OrderVariable.PerTimeAdjust.toOrdVar
+                dos.RateAdjust |> OrderVariable.RateAdjust.toOrdVar
+                dos.TotalAdjust |> OrderVariable.TotalAdjust.toOrdVar
+            ]
+
+        [
+            ord.Orderable.Dose
+            for c in ord.Orderable.Components do
+                c.Dose
+
+                for i in c.Items do
+                    i.Dose
+        ]
+        |> List.collect adjusted
+        |> List.exists OrderVariable.hasConstraints
+
+
+    /// Returns true when the quantity in the orderable per adjust unit has constraints for the orderable, a
+    /// component or an item of the order.
+    let usesOrderableQuantityAdjust (ord: Order) =
+        [
+            ord.Orderable.OrderableQuantityAdjust
+
+            for c in ord.Orderable.Components do
+                c.OrderableQuantityAdjust
+
+                for i in c.Items do
+                    i.OrderableQuantityAdjust
+        ]
+        |> List.exists (OrderVariable.QuantityAdjust.toOrdVar >> OrderVariable.hasConstraints)
+
+
+    /// Returns true when a mark holds or not depending on the order. The other marks do not filter the equations.
+    let isCondition mark =
+        match mark with
+        | Mark.DoseAdjust
+        | Mark.OrderableQuantityAdjust
+        | Mark.Tie
+        | Mark.ItemConcentration -> true
+        | Mark.NoItemConcentrationTimed
+        | Mark.NoItemConcentrationOnceTimed
+        | Mark.Sum -> false
+
+
+    /// Returns the condition marks that hold for the order ord.
+    let orderMarks ord =
+        [
+            if ord |> usesAdjust then
+                Mark.DoseAdjust
+            if ord |> usesOrderableQuantityAdjust then
+                Mark.OrderableQuantityAdjust
             if ord.Orderable.Components |> List.length > 1 then
-                eqs
-            else
-                eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
-
-        // The products of an item orderable concentration with an orderable total only list cross
-        // products; the tie to the component share gives the same values. A timed order then needs
-        // the component rate, so an item rate limit still bounds the orderable rate.
-        let eqs =
+                Mark.Tie
             if ord |> leavesOutItemConcentrationProducts |> not then
-                eqs
-            else
-                eqs
-                |> List.filter (fun e -> e.Contains "[itm]_orb_cnc" |> not || tieEquations |> List.contains e)
-                |> fun eqs ->
-                    match ord.Schedule with
-                    | Timed _
-                    | OnceTimed _ -> eqs @ [ componentRateEquation ]
-                    | _ -> eqs
+                Mark.ItemConcentration
+        ]
 
-        let sumEqs = eqs |> List.filter (String.contains "sum")
 
-        let prodEqs = eqs |> List.filter (String.contains "sum" >> not)
+    /// Returns the sum equations and the product equations for the dose type indx, given the condition marks that
+    /// hold for an order. A row is selected when each of its condition marks is in marks.
+    let selectEquations indx marks =
+        let holds r =
+            r.Marks
+            |> List.forall (fun m -> not (isCondition m) || marks |> List.contains m)
+
+        // An order that does not use the item concentration products gets the equations marked for its dose type,
+        // after the other equations, so that an item rate limit still bounds the orderable rate.
+        let added =
+            let mark =
+                match indx with
+                | Literals.timed -> Some Mark.NoItemConcentrationTimed
+                | Literals.onceTimed -> Some Mark.NoItemConcentrationOnceTimed
+                | _ -> None
+
+            match mark with
+            | Some m when marks |> List.contains Mark.ItemConcentration |> not ->
+                equations |> List.filter (_.Marks >> List.contains m)
+            | _ -> []
+
+        let sumEqs, prodEqs =
+            (getEquations indx @ added)
+            |> List.filter holds
+            |> List.partition (_.Marks >> List.contains Mark.Sum)
+
+        sumEqs |> List.map _.Equation, prodEqs |> List.map _.Equation
+
+
+    /// Returns the sum mapping and the product mapping of the order for the dose type indx, with the placeholders
+    /// in the equations replaced by the order, orderable, component and item names.
+    let getEqsMapping ord indx =
+        let sumEqs, prodEqs = ord |> orderMarks |> selectEquations indx
 
         let itmEqs = prodEqs |> List.filter (String.contains "[itm]")
 

@@ -1,10 +1,10 @@
 namespace Informedica.GenPRES.Client.Core
 
-/// The client as one transition: the lanes, the loads, the admin and the shell. A message runs the
-/// part it is for, or is turned into a message for a part over what the parts hold; an effect of one
-/// part that another acts on is passed on to that part in the same transition, one way. Every
-/// effect still comes out, in the order the parts emitted it, and the App carries out what leaves
-/// the client.
+/// Combines the lanes, the loader, the admin and the shell into one transition. A message runs the part it is
+/// for, or is translated into messages for the parts using the current state. An effect of one part that
+/// another part acts on is routed to that part in the same transition, in one direction only. Every effect is
+/// also returned, in the order the parts emitted them, and the App carries out the effects that leave the
+/// client.
 module Client =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -12,6 +12,7 @@ module Client =
     open Informedica.GenPRES.Client.Core.StateMachines
     open Informedica.GenPRES.Client.Core.MachinePolicies
     open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Api
     open Page
     open Loads
     open Lanes
@@ -24,47 +25,72 @@ module Client =
     open AdminMachine
     open ShellMachine
 
+    module Models = Informedica.GenPRES.Shared.Models
 
-    /// The four parts' states.
+
+    /// The states of the four parts.
     type ClientState =
         {
             /// The patient, the workbench, the plan, the Session and the signing.
             Lanes: LanesState
-            /// The start-up loads and the pages that follow the workbench.
+            /// The start-up loads and the pages that follow the workbench filter.
             Loader: LoaderState
-            /// The admin login and what it fetches.
+            /// The admin login and the admin loads.
             Admin: AdminState
-            /// The url, the page, the language, the snackbar, the error banner and the rest around the
-            /// pages.
+            /// The url, the page, the language, the snackbar, the error banner and the other state around
+            /// the pages.
             Shell: ShellState
         }
 
 
-    /// What reaches the client: a message for one part, or what the user wants that needs what the
-    /// parts hold.
+    /// A nutrition slot as the nutrition page shows it.
+    type SlotView =
+        {
+            /// The slot id the client created when the slot started.
+            Id: string
+            /// The view of the slot context from the order context machine.
+            Context: OrderContextView
+            /// The linked orders the link rules offer with the order of the slot, each turned on or off.
+            Offers: LinkedOffer[]
+            /// The id of the order that prescribing adds. Set when the slot is settled and narrowed to one
+            /// scenario and every linked order turned on is narrowed to one scenario too; None otherwise.
+            PrescribeOrderId: string option
+            /// Whether the order of this slot is being added to the plan; the slot accepts no input meanwhile.
+            Prescribing: bool
+        }
+
+
+    /// A message to the client: a message for one part, or a user action that needs the state of several
+    /// parts.
     [<RequireQualifiedAccess>]
     type ClientMsg =
         | Lanes of LanesMsg
         | Loader of LoaderMsg
         | Admin of AdminMsg
         | Shell of ShellMsg
-        /// The user chose a page; the settings page only shows to a user logged in.
+        /// The user chose a page; the settings page shows only to a logged-in admin.
         | PageChosen of Page
-        /// The patient panel changed the patient data, with what becomes of the estimates.
-        | PanelChanged of Patient option * PatientDraftPolicy.Estimates * request: string
-        /// The url changed in the address bar, as segments and as read.
+        /// The patient panel was reset, so the patient data is cleared.
+        | PanelCleared of request: string
+        /// The patient panel made an edit to the patient data it shows.
+        | PanelEdited of PatientDataEdit * request: string
+        /// Another patient from the panel, after the prescriber agreed. Unlike a patient data update, which
+        /// recalculates the orders, this clears everything first and then sends the edit for the patient data
+        /// the panel showed.
+        | NewPatient of PatientDataEdit * request: string
+        /// The url changed in the address bar, as path segments and as parsed parts.
         | UrlChanged of string list * Url.UrlParts
-        /// An item chosen on the emergency list.
-        | EmergencyListItemChosen of item: string
-        /// An item chosen on the continuous medication list.
-        | ContinuousMedicationChosen of item: string
-        /// Sign the plan, under this request id.
+        /// The order context of a row chosen on the emergency list.
+        | EmergencyListRowChosen of OrderContext
+        /// The order context of a row chosen on the continuous medication list.
+        | ContinuousListRowChosen of OrderContext
+        /// Signs the plan with this request id.
         | Sign of OrderPlan * request: string
-        /// The patient data change accepted in the sign dialog.
-        | AcceptDataChange
+        /// Takes the EHR data in the sign dialog.
+        | TakeEhrData
 
 
-    /// The parts' effects, each as its part emitted it.
+    /// An effect of one of the parts, as the part emitted it.
     [<RequireQualifiedAccess>]
     type ClientEffect =
         | Lanes of LanesEffect
@@ -73,19 +99,19 @@ module Client =
         | Shell of ShellEffect
 
 
-    /// A step the transition took, for the trail: a part's message with its new state and effects.
+    /// A step of the transition, for the trail: a message to a part with the new state and the effects.
     [<RequireQualifiedAccess>]
     type ClientStep =
         | Lanes of LanesStep
         | Loader of LoaderMsg * LoaderState * LoaderEffect list
         | Admin of AdminMsg * AdminState * AdminEffect list
         | Shell of ShellMsg * ShellState * ShellEffect list
-        /// A client message that became no message for any part: it fell to a closing arm.
+        /// A client message that produced no message for any part.
         | Dropped of ClientMsg
 
 
-    /// What one message did: the state it left, the effects its part emitted, the steps it took and the
-    /// messages for the parts it became.
+    /// The result of one message: the new state, the emitted effects, the steps taken and the follow-up
+    /// messages for the parts.
     type Stepped =
         {
             State: ClientState
@@ -95,7 +121,7 @@ module Client =
         }
 
 
-    /// The client at a page load: the url's patient in the lanes, every other part empty.
+    /// Creates the client state at a page load, with the patient data from the url in the lanes.
     let initial (url: Url.UrlParts) =
         {
             Lanes = Lanes.initial url.Patient
@@ -105,11 +131,60 @@ module Client =
         }
 
 
-    /// The patient the workbench and the plan are for: the draft, once it is a patient.
+    /// Returns the draft when it is valid patient data, the patient the workbench and the plan are for.
     let patient (state: ClientState) = state.Lanes.Patient |> PatientState.patient
 
 
-    /// Whether a launched Session is open, which a url with a patient, a medication or a launch leaves.
+    /// Builds the combined totals query of the nutrition page: the patient data, the filtered orders of the
+    /// plan, and each nutrition slot narrowed to a single order with its linked orders turned on. None when no
+    /// slot is narrowed to a single order, because the plan totals then apply. A slot uses the context of its
+    /// last response, not the context shown during a request.
+    let totalsQuery (state: ClientState) =
+        let slotOrders =
+            state.Lanes.Slots
+            |> Seq.map snd
+            |> Seq.collect (fun slot ->
+                match slot |> OrderContextState.workbenchContext with
+                | Some ctx when ctx |> Models.OrderContext.contribution |> Option.isSome ->
+                    Array.append [| ctx |] (slot |> OrderContextState.linkedTurnedOn)
+                | _ -> [||]
+            )
+            |> Seq.toArray
+
+        match state.Lanes.OrderPlan |> OrderPlanState.plan with
+        | Some plan when slotOrders |> Array.isEmpty |> not ->
+            // The annotation selects the TotalsQuery record, which has the same field names as the plan.
+            let query: Informedica.GenPRES.Shared.Api.TotalsQuery =
+                {
+                    PatientData = plan.PatientData
+                    OrderContexts = Array.append (plan |> Models.OrderPlan.filtered) slotOrders
+                }
+
+            Some query
+        | _ -> None
+
+
+    /// The patient data the emergency list is queried for: the patient from the last server answer, while the
+    /// emergency list page is shown and the patient data are enough for the server to calculate with: an adult
+    /// mark, an age, or a measured weight with a measured height. None otherwise, which clears the rows.
+    let emergencyListQuery (state: ClientState) =
+        match state.Shell.Page, state.Loader.Patient with
+        | Page.LifeSupport, Some pat when pat |> Models.PatientData.validate |> Result.isOk -> Some pat
+        | _ -> None
+
+
+    /// The patient data the continuous medication list is queried for: the patient from the last server answer,
+    /// while the continuous medication list page is shown, the patient has a Location and the patient data are
+    /// enough for the server to calculate with: an adult mark, an age, or a measured weight with a measured height.
+    /// None otherwise, which clears the rows.
+    let continuousListQuery (state: ClientState) =
+        match state.Shell.Page, state.Loader.Patient with
+        | Page.ContinuousMeds, Some pat when pat.Location.IsSome && pat |> Models.PatientData.validate |> Result.isOk ->
+            Some pat
+        | _ -> None
+
+
+    /// Whether a launched Session is open or closing.
     let launched (state: ClientState) =
         match SessionState.view state.Lanes.Session with
         | SessionView.Open _
@@ -117,45 +192,94 @@ module Client =
         | _ -> false
 
 
-    /// Whether the patient is held; the panel takes no change then.
-    let held (state: ClientState) =
-        HeldPanelPolicy.held (SessionState.view state.Lanes.Session) (OrderPlanState.changed state.Lanes.OrderPlan)
+    /// Returns the contexts of the nutrition slots.
+    let slotContexts (state: ClientState) =
+        state.Lanes.Slots
+        |> Seq.map snd
+        |> Seq.choose OrderContextState.context
+        |> Seq.toList
+
+
+    /// Returns the nutrition slot views in the order the slots were started.
+    let slots (state: ClientState) =
+        let adding = state.Lanes.OrderPlan |> OrderPlanState.adding
+
+        state.Lanes.Slots
+        |> List.map (fun (id, slot) ->
+            let view = slot |> OrderContextState.view
+
+            let prescribes =
+                match view, slot |> OrderContextState.linkedToPrescribe with
+                | OrderContextView.Settled ctx, Some _ ->
+                    ctx |> Models.OrderContext.contribution |> Option.map _.Order.Id
+                | _ -> None
+
+            {
+                Id = id
+                Context = view
+                Offers = slot |> OrderContextState.linkedOffers
+                PrescribeOrderId = prescribes
+                Prescribing = adding = Some id
+            }
+        )
+
+
+    /// Returns the totals of the nutrition page: the combined totals of the plan and the slots when loaded,
+    /// otherwise the plan totals.
+    let nutritionTotals (state: ClientState) =
+        match state.Loader.Totals with
+        | Resolved totals
+        | Refreshing totals -> Some totals
+        | HasNotStartedYet
+        | InProgress -> state.Lanes.OrderPlan |> OrderPlanState.plan |> Option.map _.Totals
 
 
     /// Whether leaving the page would lose work.
     let unsignedWork (state: ClientState) =
         UnsignedWorkPolicy.hasUnsignedWork
             (state.Lanes.OrderContext |> OrderContextState.context)
+            (slotContexts state)
             (state.Lanes.Signing |> SigningState.view)
             (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
-    /// Every data load with its reading, the server check excepted.
+    /// Whether the patient was no longer active in the EHR at the signing challenge.
+    let ehrMovedOn (state: ClientState) = state.Lanes.Signing |> SigningState.ehrMovedOn
+
+
+    /// Returns the identity of the patient being signed for; None when the EHR did not identify the patient.
+    let signedFor (state: ClientState) =
+        SessionState.view state.Lanes.Session |> SessionPatientPolicy.identity
+
+
+    /// Whether an edit on the panel counts as another patient, so the prescriber is asked first.
+    let asksNewPatient (state: ClientState) =
+        NewPatientPolicy.asks
+            (SessionState.view state.Lanes.Session)
+            (state.Lanes.OrderPlan |> OrderPlanState.plan)
+            (state.Lanes.OrderContext |> OrderContextState.context)
+            (slotContexts state)
+
+
+    /// Lists every loader and admin load with its load state, except the server check.
     let loads (state: ClientState) =
         LoaderState.readings state.Loader @ AdminState.readings state.Admin
 
 
-    /// The requests out in the lanes and the loads.
+    /// Returns the requests in progress in the lanes and the loads.
     let busy (state: ClientState) =
-        OutPolicy.out
-            state.Shell.Counting
-            state.Lanes.Patient
-            state.Lanes.OrderContext
-            state.Lanes.OrderPlan
-            state.Lanes.Session
-            state.Lanes.Signing
-            (state |> loads |> outOf)
+        Lanes.out state.Shell.Counting state.Lanes (state |> loads |> outOf)
 
 
-    /// Whether any request is out.
+    /// Whether any request is in progress.
     let busyAny (state: ClientState) = state |> busy |> BusyPolicy.any
 
 
-    /// Whether a request is out that changes this page.
+    /// Whether a request that changes this page is in progress.
     let busyPage page (state: ClientState) = state |> busy |> BusyPolicy.page page
 
 
-    /// Where the start-up is; started once, it stays so.
+    /// Returns the start-up status; once started, it stays started.
     let startup (state: ClientState) =
         if state.Shell.Started then
             StartupPolicy.Startup.Started
@@ -163,7 +287,7 @@ module Client =
             StartupPolicy.status (busy state) (state |> loads |> loadedOf) state.Loader.Failed
 
 
-    /// What a url change is decided against.
+    /// Returns the state a url change is checked against.
     let urlCheck (state: ClientState) =
         {
             SigningUnderWay = state.Lanes.Signing |> SigningState.view |> SigningPolicy.underWay
@@ -193,20 +317,59 @@ module Client =
     let interactions (state: ClientState) = state.Loader.Interactions
 
 
-    /// The drug names the interactions can be checked for.
+    /// The medication names the interactions can be checked for.
     let drugNames (state: ClientState) = state.Loader.DrugNames
 
 
-    /// The emergency list's medication.
-    let bolusMedication (state: ClientState) = state.Loader.BolusMedication
+    /// The rows of the emergency list.
+    let emergencyList (state: ClientState) = state.Loader.EmergencyList
 
 
-    /// The continuous medication.
-    let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
+    /// Returns the numbers of the checked rows of the emergency list.
+    let emergencyListChecked (state: ClientState) = state.Loader.EmergencyListChecked
 
 
-    /// The hospitals to choose from.
-    let hospitals (state: ClientState) = state.Loader.Hospitals
+    /// Returns the order context of the list row with this number, from 1. Returns None for a row without an
+    /// order context or a number without a row.
+    let rowContext (rows: Deferred<Intervention[]>) number =
+        rows
+        |> Deferred.defaultValue [||]
+        |> Array.tryItem (number - 1)
+        |> Option.bind _.OrderContext
+
+
+    /// Returns the order context of the emergency list row with this number, from 1. Returns None for a
+    /// calculated row or a number without a row.
+    let emergencyListRowContext (state: ClientState) number = rowContext state.Loader.EmergencyList number
+
+
+    /// Returns the order contexts of the checked rows of the emergency list; a calculated row has none.
+    let emergencyListCheckedContexts (state: ClientState) =
+        state.Loader.EmergencyListChecked
+        |> Array.choose (emergencyListRowContext state)
+
+
+    /// The rows of the continuous medication list.
+    let continuousList (state: ClientState) = state.Loader.ContinuousList
+
+
+    /// Returns the numbers of the checked rows of the continuous medication list.
+    let continuousListChecked (state: ClientState) = state.Loader.ContinuousListChecked
+
+
+    /// Returns the order context of the continuous medication list row with this number, from 1. Returns None for
+    /// a number without a row.
+    let continuousListRowContext (state: ClientState) number = rowContext state.Loader.ContinuousList number
+
+
+    /// Returns the order contexts of the checked rows of the continuous medication list.
+    let continuousListCheckedContexts (state: ClientState) =
+        state.Loader.ContinuousListChecked
+        |> Array.choose (continuousListRowContext state)
+
+
+    /// The hospitals to choose from: the locations of the server settings.
+    let hospitals (state: ClientState) = state.Loader.Settings |> Deferred.map _.Locations
 
 
     /// The resources reload.
@@ -229,6 +392,16 @@ module Client =
     let orderContext (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.view
 
 
+    /// The linked orders the link rules offer with the workbench order, each turned on or off.
+    let workbenchOffers (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.linkedOffers
+
+
+    /// Whether the workbench order can be prescribed with its linked orders; false while a linked order turned
+    /// on is not narrowed to one scenario.
+    let workbenchPrescribable (state: ClientState) =
+        state.Lanes.OrderContext |> OrderContextState.linkedToPrescribe |> Option.isSome
+
+
     /// The workbench dialog, if one is open.
     let orderContextDialog (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.dialog
 
@@ -237,38 +410,33 @@ module Client =
     let orderPlan (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.view
 
 
-    /// The orders new or changed since the last signed order plan.
-    let changedOrders (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.changed
-
-
-    /// The patient as the panel shows it.
+    /// The patient data the panel shows.
     let draft (state: ClientState) = state.Lanes.Patient |> PatientState.draft
 
 
-    /// Whether a patient change is out.
+    /// Whether a patient data update is in progress.
     let changing (state: ClientState) = state.Lanes.Patient |> PatientState.changing
 
 
-    /// The draft with the estimates from the normal values, once they have loaded.
-    let estimated (state: ClientState) =
-        match state.Loader.NormalValues with
-        | Resolved nv ->
-            state
-            |> draft
-            |> Option.map (Informedica.GenPRES.Shared.Models.NormalValues.apply nv)
-        | _ -> draft state
+    /// Whether the orders were calculated for other patient data than the panel shows, after a failed update.
+    let planBehind (state: ClientState) = OutPolicy.planBehind state.Lanes.Patient state.Lanes.OrderPlan
+
+
+    /// Returns the patient data from the server answer, with its estimates; otherwise the draft, even an
+    /// incomplete one, so the summary shows what was entered and what is missing.
+    let currentPatient (state: ClientState) =
+        state.Lanes.Patient |> PatientState.answered |> Option.orElse (draft state)
 
 
     /// The Session as the page shows it.
     let session (state: ClientState) = state.Lanes.Session |> SessionState.view
 
 
-    /// The OpenedToken the Session holds, sent with every computing request; none without an open
-    /// Session.
+    /// The OpenedToken of the Session, sent with every calculation request; None without an open Session.
     let opened (state: ClientState) = state.Lanes.Session |> SessionState.token
 
 
-    /// A newer signed order plan than the one open, if the Session holds one.
+    /// A newer signed order plan than the open one, if the Session has one.
     let newerPlan (state: ClientState) = state.Lanes.Session |> SessionState.newerPlan
 
 
@@ -276,8 +444,13 @@ module Client =
     let signing (state: ClientState) = state.Lanes.Signing |> SigningState.view
 
 
-    /// The differences the signature is asked for.
+    /// The differences the signature is requested for.
     let differences (state: ClientState) = state.Lanes.Signing |> SigningState.differences
+
+
+    /// The order contexts of the plan that are new, changed or removed since the version last opened or
+    /// signed.
+    let planDifferences (state: ClientState) plan = state.Lanes.OrderPlan |> OrderPlanState.differences plan
 
 
     /// The page shown.
@@ -300,7 +473,7 @@ module Client =
     let serverError (state: ClientState) = state.Shell.ServerError
 
 
-    /// Whether a quantity field counts.
+    /// Whether a quantity field is counting step clicks.
     let counting (state: ClientState) = state.Shell.Counting
 
 
@@ -308,16 +481,15 @@ module Client =
     let isDemo (state: ClientState) = state.Shell.IsDemo
 
 
-    /// The emergency list's filter.
+    /// The filter of the emergency list.
     let emergencyListFilter (state: ClientState) = state.Shell.EmergencyListFilter
 
 
-    /// The continuous medication's filter.
+    /// The filter of the continuous medication list.
     let continuousMedsFilter (state: ClientState) = state.Shell.ContinuousMedsFilter
 
 
-    /// Whether the disclaimer shows: for anonymous use only, so a launched, resuming or refused
-    /// Session never sees it, an anonymous open after a refusal does.
+    /// Whether the disclaimer shows: only when the shell asks for it and the Session is anonymous.
     let showDisclaimer (state: ClientState) =
         state.Shell.ShowDisclaimer
         && (
@@ -339,37 +511,9 @@ module Client =
         |> Option.isSome
 
 
-    /// The seed of an item on the emergency list, when the list has loaded and holds it.
-    let emergencySeed (item: string) (meds: Deferred<BolusMedication list>) =
-        match meds with
-        | Resolved meds ->
-            meds
-            |> List.tryFind (fun m -> item.EndsWith($".%s{m.Hospital}.%s{m.Category}.%s{m.Generic}"))
-            |> Option.map (fun m ->
-                let generic =
-                    if m.TemplateGeneric = "" then
-                        m.Generic
-                    else
-                        m.TemplateGeneric
-                FilterSeed.ofListItem generic m.TemplateIndication m.TemplateRoute m.TemplateDoseType
-            )
-        | _ -> None
-
-
-    /// The seed of an item on the continuous medication list, when the list has loaded and holds it;
-    /// continuous medication runs intravenously.
-    let continuousSeed (item: string) (meds: Deferred<ContinuousMedication list>) =
-        match meds with
-        | Resolved meds ->
-            meds
-            |> List.tryFind (fun m -> item.EndsWith($".%s{m.Medication}"))
-            |> Option.map (fun m -> FilterSeed.ofListItem m.Generic m.Indication "INTRAVENEUS" m.DoseType)
-        | _ -> None
-
-
-    /// A medication seeded over the workbench for the patient there is; without one it is dropped and
-    /// said, since the patient is part of the filter.
-    let seeded newId seed (state: ClientState) =
+    /// Seeds the workbench filter when there is patient data; otherwise raises an alert, because the patient
+    /// is part of the filter.
+    let seedOrAlert newId seed state =
         match patient state with
         | Some _ ->
             [
@@ -378,19 +522,30 @@ module Client =
         | None -> [ ClientMsg.Shell(ShellMsg.AlertRaised Alert.Alert.NoPatientForMedication) ]
 
 
-    /// A list item chosen: the Prescribe page and the seed, for the patient there is.
-    let chosen newId seed (state: ClientState) =
-        match seed, patient state with
-        | Some seed, Some _ ->
-            ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
-            :: seeded newId seed state
-        | Some seed, None -> seeded newId seed state
-        // an item the list does not hold
-        | None, _ -> []
+    /// Returns the message that queries the emergency list when the query of the state after a step differs from
+    /// the query of the state before it; otherwise no message.
+    let emergencyListFollow before after =
+        let query = emergencyListQuery after
+
+        [
+            if query <> emergencyListQuery before then
+                ClientMsg.Loader(LoaderMsg.QueryEmergencyList query)
+        ]
 
 
-    /// One message: a part's step, or the messages for the parts it becomes. A client message that
-    /// becomes none is dropped, and the step says so.
+    /// Returns the message that queries the continuous medication list when the query of the state after a step
+    /// differs from the query of the state before it; otherwise no message.
+    let continuousListFollow before after =
+        let query = continuousListQuery after
+
+        [
+            if query <> continuousListQuery before then
+                ClientMsg.Loader(LoaderMsg.QueryContinuousList query)
+        ]
+
+
+    /// Runs one message: a step of a part, or follow-up messages for the parts. A client message without
+    /// follow-up messages is recorded as dropped.
     let step newId msg (state: ClientState) =
         let ran state emitted taken =
             {
@@ -413,70 +568,96 @@ module Client =
             }
 
         match msg with
+        // Queries the totals again when a lanes step changed the totals query.
         | ClientMsg.Lanes m ->
             let lanes, effects, taken = Lanes.transition newId m state.Lanes
-            ran
-                { state with Lanes = lanes }
-                (effects |> List.map ClientEffect.Lanes)
-                (taken |> List.map ClientStep.Lanes)
+            let next = { state with Lanes = lanes }
+            let query = totalsQuery next
+
+            {
+                State = next
+                Emitted = effects |> List.map ClientEffect.Lanes
+                Taken = taken |> List.map ClientStep.Lanes
+                Follow =
+                    [
+                        if query <> totalsQuery state then
+                            ClientMsg.Loader(LoaderMsg.QueryTotals query)
+                    ]
+            }
+        // Queries a list again when a loader step changed the patient of its query.
         | ClientMsg.Loader m ->
             let loader, effects = LoaderMachine.transition m state.Loader
-            ran
-                { state with Loader = loader }
-                (effects |> List.map ClientEffect.Loader)
-                [ ClientStep.Loader(m, loader, effects) ]
+            let next = { state with Loader = loader }
+
+            { ran next (effects |> List.map ClientEffect.Loader) [ ClientStep.Loader(m, loader, effects) ] with
+                Follow = emergencyListFollow state next @ continuousListFollow state next
+            }
         | ClientMsg.Admin m ->
             let admin, effects = AdminMachine.transition m state.Admin
             ran
                 { state with Admin = admin }
                 (effects |> List.map ClientEffect.Admin)
                 [ ClientStep.Admin(m, admin, effects) ]
+        // Queries a list again when a shell step changed the page.
         | ClientMsg.Shell m ->
             let shell, effects = ShellMachine.transition m state.Shell
-            ran
-                { state with Shell = shell }
-                (effects |> List.map ClientEffect.Shell)
-                [ ClientStep.Shell(m, shell, effects) ]
+            let next = { state with Shell = shell }
+
+            { ran next (effects |> List.map ClientEffect.Shell) [ ClientStep.Shell(m, shell, effects) ] with
+                Follow = emergencyListFollow state next @ continuousListFollow state next
+            }
         | ClientMsg.PageChosen page ->
             becomes [ ClientMsg.Shell(ShellMsg.PageChosen(page, state.Admin.IsAuthenticated)) ]
-        // the panel is disabled while the patient is held, so a change that still comes is dropped
-        | ClientMsg.PanelChanged _ when held state -> becomes []
-        | ClientMsg.PanelChanged(pat, estimates, request) ->
+        | ClientMsg.PanelCleared request ->
+            becomes [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, request))) ]
+        | ClientMsg.PanelEdited(edit, request) ->
             becomes
                 [
-                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
+                ]
+        // Ignored while a launch can identify the patient, because the orders of that patient are never
+        // cleared.
+        | ClientMsg.NewPatient _ when not (NewPatientPolicy.startsNewPatient (SessionState.view state.Lanes.Session)) ->
+            becomes []
+        | ClientMsg.NewPatient(edit, request) ->
+            becomes
+                [
+                    ClientMsg.Loader LoaderMsg.PatientExpected
+                    // A failed patient call gives no plan, so the interaction warnings are cleared here.
+                    ClientMsg.Loader(LoaderMsg.CheckInteractions [])
+                    ClientMsg.Lanes(LanesMsg.Patient PatientMsg.Cleared)
+                    // The edit applies to the patient data the panel showed before the clear.
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Edited(edit, draft state, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]
-        | ClientMsg.EmergencyListItemChosen item ->
-            state
-            |> chosen newId (state.Loader.BolusMedication |> emergencySeed item)
-            |> becomes
-        | ClientMsg.ContinuousMedicationChosen item ->
-            state
-            |> chosen newId (state.Loader.ContinuousMedication |> continuousSeed item)
-            |> becomes
-        // the orders that differ are taken now, so what reaches the plan meanwhile leaves them as signed
+        // a list has rows only for a patient, so a chosen row needs no alert
+        | ClientMsg.EmergencyListRowChosen ctx
+        | ClientMsg.ContinuousListRowChosen ctx ->
+            becomes
+                [
+                    ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
+                    ClientMsg.Lanes(LanesMsg.Workbench(OrderContextMsg.Chosen ctx))
+                ]
+        // The differences are taken now, so a plan change during signing does not alter what is signed.
         | ClientMsg.Sign(plan, request) ->
-            let differences = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+            let differences = planDifferences state plan
             becomes
                 [
                     ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.Sign(plan, differences, request)))
                 ]
-        // held, the plan keeps the data its new and changed orders were composed on
-        | ClientMsg.AcceptDataChange ->
-            becomes [ ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.AcceptDataChange(held state))) ]
+        | ClientMsg.TakeEhrData -> becomes [ ClientMsg.Lanes(LanesMsg.Signing SigningMsg.TakeEhrData) ]
 
 
-    /// The messages an effect becomes for other parts, over the state at the moment it is passed on;
-    /// none for an effect that only leaves the client.
+    /// Routes an effect to messages for other parts, using the current state; no messages for an effect that
+    /// only leaves the client.
     let route newId effect (state: ClientState) =
         let alert a = [ ClientMsg.Shell(ShellMsg.AlertRaised a) ]
         let failed source errs = [ ClientMsg.Shell(ShellMsg.ServerErrorRaised(source, errs)) ]
         let succeeded source = [ ClientMsg.Shell(ShellMsg.ServerErrorCleared source) ]
-        let first errs = errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"
+        let first errs = errs |> Array.tryHead
 
         match effect with
-        // the lanes: what the user is told, the plan's error banner, the pages and the interactions
+        // Lanes effects: alerts, the plan error banner, the pages and the interactions.
         | ClientEffect.Lanes(LanesEffect.Signing(SigningEffect.TellSigned signed)) ->
             alert (Alert.Alert.OrderPlanSigned signed)
         | ClientEffect.Lanes(LanesEffect.Signing(SigningEffect.TellRefused refusal)) ->
@@ -489,29 +670,40 @@ module Client =
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.TellNewerSignedPlan head)) ->
             alert (Alert.Alert.NewerSignedPlan head)
         | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.Alert a)) -> alert a
+        // The hospital a patient answer names becomes the hospital shown, so the lists and the calculations agree.
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData pat)) ->
             [
                 ClientMsg.Shell ShellMsg.ListFiltersCleared
                 ClientMsg.Loader(LoaderMsg.PatientSet pat)
+                match pat |> Option.bind _.Location with
+                | Some hospital -> ClientMsg.Shell(ShellMsg.PatientHospitalLanded hospital)
+                | None -> ()
             ]
         | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.TellError errs)) ->
             alert (Alert.Alert.PatientChangeFailed(first errs))
         | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.SyncPages filter)) ->
             [ ClientMsg.Loader(LoaderMsg.FilterAnswered filter) ]
-        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellError errs)) ->
+        // A slot error shows the same alert as a workbench error. A slot SyncPages is not routed, because the
+        // formulary and parenteralia pages follow only the workbench.
+        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellError errs))
+        | ClientEffect.Lanes(LanesEffect.Slot(_, OrderContextEffect.TellError errs)) ->
             alert (Alert.Alert.WorkbenchFailed(first errs))
-        | ClientEffect.Lanes(LanesEffect.Workbench OrderContextEffect.TellNotSolved) ->
-            alert Alert.Alert.ChangeNotApplied
+        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellNotApplied refusal))
+        | ClientEffect.Lanes(LanesEffect.Slot(_, OrderContextEffect.TellNotApplied refusal)) ->
+            alert (Alert.Alert.ChangeNotApplied refusal)
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.CheckInteractions drugs)) ->
             [ ClientMsg.Loader(LoaderMsg.CheckInteractions drugs) ]
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.TellError errs)) ->
             failed ServerErrorPolicy.ErrorSource.OrderPlan errs
         | ClientEffect.Lanes(LanesEffect.Plan OrderPlanEffect.TellAnswered) ->
             succeeded ServerErrorPolicy.ErrorSource.OrderPlan
+        | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.TellPatientDataChanged summary)) ->
+            alert (Alert.Alert.PatientDataChanged summary)
+        | ClientEffect.Lanes LanesEffect.PatientExpected -> [ ClientMsg.Loader LoaderMsg.PatientExpected ]
         | ClientEffect.Lanes LanesEffect.GoToPlanPage -> [ ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.OrderPlan) ]
 
-        // the loads: the seed to the workbench, the settings and what the user is told to the shell, the
-        // notice to the Session
+        // Loader effects: the seed goes to the workbench, the settings and alerts to the shell, the notice to
+        // the Session.
         | ClientEffect.Loader(LoaderEffect.SeedWorkbench seed) ->
             [
                 ClientMsg.Lanes(LanesMsg.Workbench(OrderContextMsg.SeedFilter(seed, newId ())))
@@ -526,30 +718,29 @@ module Client =
         | ClientEffect.Loader(LoaderEffect.NoticeReceived(from, notice)) ->
             [ ClientMsg.Lanes(LanesMsg.Session(SessionMsg.NoticeReceived(from, notice))) ]
 
-        // the admin: the reload to the loads, the logout and what the user is told to the shell
+        // Admin effects: the reload goes to the loader, the logout and alerts to the shell.
         | ClientEffect.Admin AdminEffect.ReloadDone -> [ ClientMsg.Loader LoaderMsg.ResourcesReloaded ]
         | ClientEffect.Admin AdminEffect.LoggedOut -> [ ClientMsg.Shell ShellMsg.LoggedOut ]
         | ClientEffect.Admin(AdminEffect.Alert a) -> alert a
         | ClientEffect.Admin(AdminEffect.RequestFailed(source, errs)) -> failed source errs
         | ClientEffect.Admin(AdminEffect.RequestSucceeded source) -> succeeded source
 
-        // the shell: the page to the loads, what a url brings to the lanes and the Session
+        // Shell effects: the page goes to the loader, the url results to the lanes and the Session.
         | ClientEffect.Shell(ShellEffect.PageShown page) -> [ ClientMsg.Loader(LoaderMsg.PageShown page) ]
-        // a check still out is for the old plan, and is dropped
+        // The hospital chosen becomes the Location of the patient the panel shows.
+        | ClientEffect.Shell(ShellEffect.HospitalShown hospital) when (draft state).IsSome ->
+            [ ClientMsg.PanelEdited(PatientDataEdit.SetLocation(Some hospital), newId ()) ]
+        // An empty interaction check ends any check for the old plan, so its answer is ignored.
         | ClientEffect.Shell(ShellEffect.StartOver pat) ->
             [
                 ClientMsg.Loader(LoaderMsg.CheckInteractions [])
                 ClientMsg.Lanes(LanesMsg.StartOver pat)
             ]
-        // an open Session supplies the patient: a launched patient is never assigned from the url
+        // An open launched Session supplies the patient, so the patient from the url is ignored.
         | ClientEffect.Shell(ShellEffect.PatientFromUrl _) when launched state -> []
         | ClientEffect.Shell(ShellEffect.PatientFromUrl pat) ->
-            [
-                ClientMsg.Lanes(
-                    LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
-                )
-            ]
-        | ClientEffect.Shell(ShellEffect.SeedWorkbench seed) -> state |> seeded newId seed
+            [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, newId ()))) ]
+        | ClientEffect.Shell(ShellEffect.SeedWorkbench seed) -> state |> seedOrAlert newId seed
         | ClientEffect.Shell(ShellEffect.LaunchRefused refusal) ->
             [ ClientMsg.Lanes(LanesMsg.Session(SessionMsg.LaunchRefused refusal)) ]
         | ClientEffect.Shell ShellEffect.ResumeSession -> [ ClientMsg.Lanes(LanesMsg.Session SessionMsg.Resume) ]
@@ -557,30 +748,47 @@ module Client =
         | _ -> []
 
 
-    /// What waits to be run: a message, or an effect to pass on.
+    /// An item in the run queue: a message to run or an effect to route.
     [<RequireQualifiedAccess>]
     type Queued =
         | Run of ClientMsg
         | Pass of ClientEffect
 
 
-    /// The next state, the effects that come out and the steps taken, for these messages. A message's
-    /// effects are passed on one by one, each over the state the effects before it left, and what they
-    /// become runs before anything still waiting. The routes run one way, so the queue empties. The
-    /// start-up is marked as ended at the first transition in which it is.
+    /// Returns the effect with the hospital as the Location of the patient data a patient call sends; the effect as
+    /// it is when no hospital is chosen or it is no patient call. The server answer then names the hospital chosen,
+    /// so no edit has to follow it.
+    let withHospital hospital effect =
+        match hospital, effect with
+        | Some _, ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(pat, request))) ->
+            ClientEffect.Lanes(
+                LanesEffect.Patient(PatientEffect.CallPatient({ pat with Location = hospital }, request))
+            )
+        | Some _, ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallEdit(edit, pat, request))) ->
+            ClientEffect.Lanes(
+                LanesEffect.Patient(PatientEffect.CallEdit(edit, { pat with Location = hospital }, request))
+            )
+        | _ -> effect
+
+
+    /// Returns the next state, the effects and the steps for these messages. The effects of a message are
+    /// routed one by one with the current state, and the resulting messages run before the rest of the queue.
+    /// Routes go in one direction only, so the queue ends. Every patient call sends the hospital chosen. The
+    /// start-up is marked as ended in the first transition after which it is started.
     let run newId msgs (state: ClientState) =
         let rec go queue (state, effects, steps) =
             match queue with
             | [] -> state, effects, steps
             | Queued.Run msg :: rest ->
                 let stepped = state |> step newId msg
+                let emitted = stepped.Emitted |> List.map (withHospital stepped.State.Shell.Hospital)
 
                 let queue =
                     (stepped.Follow |> List.map Queued.Run)
-                    @ (stepped.Emitted |> List.map Queued.Pass)
+                    @ (emitted |> List.map Queued.Pass)
                     @ rest
 
-                go queue (stepped.State, effects @ stepped.Emitted, steps @ stepped.Taken)
+                go queue (stepped.State, effects @ emitted, steps @ stepped.Taken)
             | Queued.Pass effect :: rest ->
                 let follow = state |> route newId effect |> List.map Queued.Run
                 go (follow @ rest) (state, effects, steps)
@@ -594,12 +802,11 @@ module Client =
         | _ -> state, effects, steps
 
 
-    /// The next state, the effects that come out and the steps taken, for a message.
+    /// Returns the next state, the effects and the steps for a message.
     let transition newId msg state = state |> run newId [ msg ]
 
 
-    /// The page load: the url applied, the Session resumed or left, the server checked and the
-    /// start-up loads asked for.
+    /// Runs the page load: applies the url, checks the server and starts the start-up loads.
     let pageLoad newId sl (url: Url.UrlParts) state =
         state
         |> run
@@ -610,10 +817,6 @@ module Client =
                 for load in
                     [
                         Load.Settings
-                        Load.NormalValues
-                        Load.BolusMedication
-                        Load.ContinuousMedication
-                        Load.Products
                         Load.Localization
                         Load.Formulary
                         Load.Parenteralia

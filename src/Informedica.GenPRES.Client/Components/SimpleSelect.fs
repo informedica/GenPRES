@@ -14,12 +14,13 @@ module SimpleSelect =
     open Feliz
 
 
-    /// A field's state for the trail: whether it holds a value and what it lists; never the value.
-    let fieldState (selected: string option) (listed: int) (reopening: bool) =
+    /// Describes a field for the step trail: whether a value is picked, how many values are listed,
+    /// and whether it recalculates. The value itself is never included.
+    let fieldState (selected: string option) (listed: int) (recalculating: bool) =
         let held = if selected.IsSome then "picked" else "none"
         let list = if listed = 0 then "range" else string listed
-        let reopen = if reopening then " reopening" else ""
-        $"%s{held} of %s{list}%s{reopen}"
+        let reCalc = if recalculating then " recalculating" else ""
+        $"%s{held} of %s{list}%s{reCalc}"
 
 
     [<JSX.Component>]
@@ -32,28 +33,32 @@ module SimpleSelect =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
-                // the field cannot be opened, but it is not greyed and what it holds still
-                // answers, so the cross inside it can be pressed
+                // the field cannot be opened, but it is not greyed out and still reacts, so its
+                // clear button works
                 readOnly: bool
                 hasClear: bool
-                // whether the value can be stepped beside the select: a single value that can
-                // be stepped is not a fixed one, and is not drawn as one
+                // whether step buttons stand beside the select; a single value that can be stepped
+                // is not drawn as a fixed value
                 canStep: bool
                 severity: Severity
                 minWidth: int option
-                // what a click or a key on the select does beyond choosing, told to a screen
-                // reader on the element that has the focus
+                // what a click or a key on the select does besides choosing, read to a screen
+                // reader on the focused element
                 description: string option
-                // a field the user narrowed: opening it clears its choice first and the list shows
-                // what the server answers; None opens the list as it is
-                reopen: (unit -> unit) option
-                // the list of a reopen closed without a pick: the page puts back what it showed
+                // for a field with one value: opening the list recalculates the field first, and the
+                // list shows the result; None opens the list as it is
+                reCalc: (unit -> unit) option
+                // called when the list of a recalculation closes without a pick, so the page restores
+                // what it showed
                 restore: unit -> unit
-                // a request of the page under way, also a step shown before its answer: a reopen
-                // then does nothing, since the clear would wait behind it with nothing to put back
+                // a page request runs, also for a step shown before its answer; opening the list then
+                // starts no recalculation, since it would wait behind that request with nothing to restore
                 busy: bool
-                // what the box asks while it has values to pick from and shows none
+                // the greyed text shown while there are values to pick and none is selected
                 placeholder: string option
+                // the value the list opens on while none is selected, if it is one of the values; the
+                // box shows the placeholder then, or stays empty without a placeholder
+                placeholderValue: string option
             |})
         =
 
@@ -66,37 +71,39 @@ module SimpleSelect =
             else
                 {| |} |> box
 
-        // the list is opened by the select and by a reopen; a reopen opens it at once, showing
-        // the value held until the answer brings the others
+        // The list opens from the select and from a recalculation. A recalculation opens it at once
+        // with the prior value, until the answer brings the other values.
         let isOpen, setOpen = React.useState false
-        // a reopen under way, whether its answer has been asked for, and the value held before it
-        let reopening = React.useRef false
+        // whether a recalculation runs, whether its loading has been seen, and the value selected
+        // before it
+        let recalculating = React.useRef false
         let sawLoading = React.useRef false
         let prior = React.useRef props.selected
-        // the list of a reopen waits for its answer: drawn under a loading overlay meanwhile
+        // whether the list of a recalculation waits for the answer; a loading overlay covers it then
         let waiting, setWaiting = React.useState false
 
-        // a lone range is no list: its click picks the median
+        // a single range is not a list: a click on it picks the median
         let listed =
             match props.values with
             | [| ("range", _) |] -> 0
             | values -> values.Length
 
+        // Closes the list and sends the value picked. A pick ends a recalculation, so there is
+        // nothing to restore.
+        let pick value =
+            recalculating.current <- false
+            setWaiting false
+            setOpen false
+            props.updateSelected value
+
         let handleChange =
             fun ev ->
-                let value = ev?target?value
-
-                // a pick ends a reopen: nothing to put back
-                reopening.current <- false
-                setWaiting false
-                setOpen false
-
-                value
+                ev?target?value
                 |> string
                 |> function
                     | s when s |> String.isNullOrWhiteSpace -> None
                     | s -> s |> Some
-                |> props.updateSelected
+                |> pick
 
         let clear = fun _ -> None |> props.updateSelected
 
@@ -105,11 +112,11 @@ module SimpleSelect =
                 "Field"
                 $"%s{event} %s{props.label}"
                 effects
-                (fieldState props.selected listed reopening.current)
+                (fieldState props.selected listed recalculating.current)
 
         let handleOpen =
             fun _ ->
-                match props.reopen with
+                match props.reCalc with
                 | Some _ when props.isLoading || props.busy ->
                     trace
                         "open"
@@ -119,41 +126,42 @@ module SimpleSelect =
                              else
                                  "blocked busy")
                         ]
-                | Some reopen ->
-                    reopening.current <- true
+                | Some reCalc ->
+                    recalculating.current <- true
                     sawLoading.current <- false
                     prior.current <- props.selected
-                    reopen ()
+                    reCalc ()
                     setWaiting true
                     setOpen true
                 | None -> setOpen true
 
-        // closed without a pick after a reopen: the page puts back what it showed
+        // closing without a pick after a recalculation lets the page restore what it showed
         let handleClose =
             fun _ ->
                 setOpen false
                 setWaiting false
 
-                if reopening.current then
+                if recalculating.current then
                     trace "close" [ "restore" ]
-                    reopening.current <- false
+                    recalculating.current <- false
                     props.restore ()
 
-        // the answer to a reopen with no values to list closes the list; the field shows the range
+        // when the answer to a recalculation has no values to list, the list closes and the field
+        // shows the range
         React.useEffect (
             (fun () ->
-                if reopening.current then
+                if recalculating.current then
                     if props.isLoading then
                         sawLoading.current <- true
                     elif sawLoading.current then
                         setWaiting false
 
-                        match FieldOpenPolicy.reopened listed with
-                        | FieldOpenPolicy.Reopened.NoList ->
-                            trace "reopened" [ "NoList" ]
-                            reopening.current <- false
+                        match FieldOpenPolicy.afterReCalc listed with
+                        | FieldOpenPolicy.AfterReCalc.NoList ->
+                            trace "recalculated" [ "NoList" ]
+                            recalculating.current <- false
                             setOpen false
-                        | FieldOpenPolicy.Reopened.ShowList -> trace "reopened" [ "ShowList" ]
+                        | FieldOpenPolicy.AfterReCalc.ShowList -> trace "recalculated" [ "ShowList" ]
             ),
             [| box props.isLoading; box listed |]
         )
@@ -164,12 +172,31 @@ module SimpleSelect =
                 paddingY = if isMobile then 0.25 else 0.75
             |}
 
+        // The list opens on the value the placeholder stands for, while no value is selected and no
+        // recalculation runs. The select is given that value, because the list focuses and scrolls
+        // to the item of the value the select holds and to no other.
+        let placeholderValue =
+            props.placeholderValue
+            |> Option.filter (fun k ->
+                props.selected.IsNone
+                && not recalculating.current
+                && props.values |> Array.exists (fst >> (=) k)
+            )
+
         let items =
             props.values
             |> Array.mapi (fun i (k, v) ->
+                // The select sends no change for the value it already holds, so a pick of the value
+                // the placeholder stands for is sent here.
+                let handleClick =
+                    if placeholderValue = Some k then
+                        box (fun (_: obj) -> Some k |> pick)
+                    else
+                        null
+
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} >
+                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} onClick={handleClick} >
                     {v}
                 </MenuItem>
                 """
@@ -225,7 +252,7 @@ module SimpleSelect =
                 </IconButton>
                 """
 
-        // the cross clears the value whether or not the value has a stepper beside it
+        // the clear button clears the value, also when step buttons stand beside it
         let endAdornment =
             if not isClear && props.hasClear then
                 Some clearButton
@@ -237,10 +264,9 @@ module SimpleSelect =
             | Some text -> {| ``aria-description`` = text |} |> box
             | None -> {| |} |> box
 
-        let hasInteraction = props.canStep || props.values.Length > 1 || props.reopen.IsSome
+        let hasInteraction = props.canStep || props.values.Length > 1 || props.reCalc.IsSome
 
-        // the arrow shows where it opens something: not beside the cross, not on a field that
-        // cannot be opened
+        // the dropdown arrow shows only when the field can be opened and has no clear button
         let iconVisibility =
             if endAdornment.IsNone && not props.readOnly then
                 "visible"
@@ -263,21 +289,23 @@ module SimpleSelect =
                 |> box
             | false, true -> {| ``& .MuiSelect-icon`` = {| visibility = iconVisibility |} |} |> box
 
-        // while a reopen waits or lists, the value held before it stays chosen when it is offered
+        // during a recalculation the value selected before it stays selected while it is among
+        // the values
         let value =
-            match props.selected with
-            | Some s -> s
-            | None when reopening.current ->
+            match props.selected, placeholderValue with
+            | Some s, _ -> s
+            | None, _ when recalculating.current ->
                 prior.current
                 |> Option.filter (fun p -> props.values |> Array.exists (fst >> (=) p))
                 |> Option.defaultValue ""
-            | None -> ""
+            | None, Some k -> k
+            | None, None -> ""
 
-        // the placeholder stands where the value would, only when the box shows no value, so the
-        // two never lie over each other
+        // The placeholder shows only when no value is selected and there are values, so the two
+        // never overlap.
         let placeholder =
             match props.placeholder with
-            | Some text when value = "" && props.values.Length > 0 -> Some text
+            | Some text when (value = "" || placeholderValue.IsSome) && props.values.Length > 0 -> Some text
             | _ -> None
 
         let placeholderSx = {| color = "text.disabled" |}
@@ -292,7 +320,72 @@ module SimpleSelect =
                     <Box component="span" sx={placeholderSx}>{text}</Box>
                     """
                 |> box
+            // the select holds the value the list opens on, but the box shows nothing
+            | None when placeholderValue.IsSome -> box (fun (_: string) -> null)
             | None -> null
+
+        // A label inside the box would cover the placeholder, so the label shrinks above the box
+        // while the placeholder shows. A box that shows nothing keeps the label inside, as an
+        // empty field does. Otherwise shrink is left undefined and MUI decides.
+        let labelShrink =
+            match placeholder with
+            | Some _ -> box true
+            | None when placeholderValue.IsSome -> box false
+            | None -> JS.undefined
+
+        // The tooltip shows the label of the selected value, so a label cut off with an ellipsis
+        // can still be read. It opens only when the label does not fit and the list is closed.
+        let tipOpen, setTipOpen = React.useState false
+
+        // the text the box shows: the placeholder, nothing, or the label of the selected value
+        let selectedLabel =
+            match placeholder with
+            | Some text -> text
+            | None when placeholderValue.IsSome -> ""
+            | None ->
+                props.values
+                |> Array.tryFind (fst >> (=) value)
+                |> Option.map snd
+                |> Option.defaultValue ""
+
+        // the field under the pointer, kept so the check can run again when the label changes;
+        // null while the pointer is not on the field
+        let hoveredField = React.useRef null
+
+        // whether the text shown in the field is wider than the space the field gives it
+        let overflows field =
+            let display =
+                if isNull field then
+                    null
+                else
+                    field?querySelector (".MuiSelect-select")
+
+            not (isNull display)
+            && (display?scrollWidth: float) > (display?clientWidth: float)
+
+        // MUI may call this after its enter delay, when the event no longer has a current target,
+        // so the field is found from the element under the pointer.
+        let handleTipOpen (e: Browser.Types.Event) =
+            let field = e.target?closest (".MuiFormControl-root")
+            hoveredField.current <- field
+            setTipOpen (overflows field)
+
+        let handleTipClose =
+            fun _ ->
+                hoveredField.current <- null
+                setTipOpen false
+
+        // A value that changes while the pointer stays on the field, such as a server answer,
+        // is checked again, so a new label that does not fit gets the tooltip.
+        React.useEffect (
+            (fun () ->
+                if not (isNull hoveredField.current) then
+                    setTipOpen (overflows hoveredField.current)
+            ),
+            [| box selectedLabel |]
+        )
+
+        let showTip = tipOpen && not isOpen && selectedLabel <> ""
 
         // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
@@ -308,9 +401,11 @@ module SimpleSelect =
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
+        import Tooltip from '@mui/material/Tooltip';
 
+        <Tooltip title={selectedLabel} open={showTip} onOpen={handleTipOpen} onClose={handleTipClose}>
         <FormControl variant="standard" sx={formControlSx}>
-            <InputLabel id={props.label + "-label"}>{props.label}</InputLabel>
+            <InputLabel id={props.label + "-label"} shrink={labelShrink}>{props.label}</InputLabel>
             <Select
             labelId={props.label + "-label"}
             id={props.label}
@@ -333,4 +428,5 @@ module SimpleSelect =
                 {items}
             </Select>
         </FormControl>
+        </Tooltip>
         """

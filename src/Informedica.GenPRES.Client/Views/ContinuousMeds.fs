@@ -16,11 +16,9 @@ module ContinuousMeds =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let envContinuous = AppEnv.asEnv<AppEnv.IContinuousMedication> props.appEnv
-        let interventions = envContinuous.ContinuousMedication
-        let onSelectItem = envContinuous.OnSelectContinuousMedicationItem
-        let filterState = envContinuous.ContinuousMedicationFilter
-        let onFilterChange = envContinuous.OnContinuousMedicationFilterChange
+        let envList = AppEnv.asEnv<AppEnv.IContinuousList> props.appEnv
+        let filterState = envList.ContinuousListFilter
+        let onFilterChange = envList.OnContinuousListFilterChange
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -28,7 +26,6 @@ module ContinuousMeds =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let hosp = context.Hospital
 
         let printOpen, setPrintOpen = React.useState false
         let printLabels = Global.printLabels ()
@@ -57,8 +54,8 @@ module ContinuousMeds =
                 |}
                 |> box
                 {|
-                    field = "catagory"
-                    headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"
+                    field = "category"
+                    headerName = Terms.``Continuous Medication Category`` |> getTerm "Category"
                     width = 140
                     filterable = true
                     sortable = true
@@ -66,7 +63,7 @@ module ContinuousMeds =
                 |> box
                 {|
                     field = "medication"
-                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"
+                    headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medication"
                     width = 200
                     filterable = true
                     sortable = true
@@ -76,7 +73,7 @@ module ContinuousMeds =
                     [
                         "field" ==> "quantity"
                         "headerName"
-                        ==> (Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid")
+                        ==> (Terms.``Continuous Medication Quantity`` |> getTerm "Quantity")
                         "width" ==> 140
                         "filterable" ==> false
                         "sortable" ==> false
@@ -86,7 +83,7 @@ module ContinuousMeds =
                     [
                         "field" ==> "solution"
                         "headerName"
-                        ==> (Terms.``Continuous Medication Solution`` |> getTerm "Oplossing")
+                        ==> (Terms.``Continuous Medication Solution`` |> getTerm "Solution")
                         "width" ==> 140
                         "filterable" ==> false
                         "sortable" ==> false
@@ -94,15 +91,15 @@ module ContinuousMeds =
                     ]
                 {|
                     field = "dose"
-                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"
+                    headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dose"
                     width = 200
                     filterable = false
                     sortable = false
                 |}
-                |> box //``type`` = "number"
+                |> box
                 {|
                     field = "advice"
-                    headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"
+                    headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advice"
                     width = 200
                     filterable = false
                     sortable = false
@@ -110,53 +107,63 @@ module ContinuousMeds =
                 |> box
             |]
 
+        // The table gives the id of the clicked row, which is its number in the list.
+        let handleRowClick (id: string) = id |> int |> envList.OnContinuousListRowChosen
+
+        // The table gives the ids of the checked rows, which are their numbers in the list.
+        let handleSelectChange (ids: string[]) = ids |> Array.map int |> envList.OnContinuousListRowsChecked
+
+        let selectedRows = envList.ContinuousListChecked |> Array.map string
+
+        // The button is disabled while no row is checked.
+        let prescribeAction =
+            Components.ActionBar.prescribe
+                getTerm
+                envList.OnContinuousListPrescribe
+                (envList.ContinuousListCheckedContexts |> Array.isEmpty)
+
+        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
+
+        // The rows the server calculated for the patient, also while they are calculated again.
         let rows =
-            match interventions with
-            | Resolved items ->
-                items
-                |> List.filter (fun i ->
-                    hosp |> String.isNullOrWhiteSpace
-                    || i.Hospital |> String.isNullOrWhiteSpace
-                    || hosp = i.Hospital
-                )
-                |> List.toArray
-                |> Array.mapi (fun i m ->
-                    {|
-                        cells =
-                            [|
-                                {|
-                                    field = "id"
-                                    value = $"{i + 1}.{m.Name}"
-                                |}
-                                {|
-                                    field = "catagory"
-                                    value = $"{m.Category}"
-                                |}
-                                {|
-                                    field = "medication"
-                                    value = $"**{m.Name}**"
-                                |}
-                                {|
-                                    field = "quantity"
-                                    value = $"{m.Quantity} {m.QuantityUnit}"
-                                |}
-                                {|
-                                    field = "solution"
-                                    value = $"{m.Total} ml {m.Solution}"
-                                |}
-                                {|
-                                    field = "dose"
-                                    value = $"{m.SubstanceDoseText}"
-                                |}
-                                {|
-                                    field = "advice"
-                                    value = m.Text
-                                |}
-                            |]
-                        actions = None
-                    |}
-                )
-            | _ -> [||]
+            envList.ContinuousList
+            |> Deferred.defaultValue [||]
+            |> Array.mapi (fun i m ->
+                {|
+                    cells =
+                        [|
+                            {|
+                                field = "id"
+                                value = $"%i{i + 1}"
+                            |}
+                            {|
+                                field = "category"
+                                value = m.Category
+                            |}
+                            {|
+                                field = "medication"
+                                value = $"**%s{m.Name}**"
+                            |}
+                            {|
+                                field = "quantity"
+                                value = m.QuantityUnit
+                            |}
+                            {|
+                                field = "solution"
+                                value = m.Solution
+                            |}
+                            {|
+                                field = "dose"
+                                value = m.SubstanceDoseText
+                            |}
+                            {|
+                                field = "advice"
+                                value = m.Text
+                            |}
+                        |]
+                    actions = None
+                |}
+            )
 
         let rowCreate (cells: string[]) =
             if cells |> Array.length <> 7 then
@@ -164,7 +171,7 @@ module ContinuousMeds =
             else
                 {|
                     id = cells[0]
-                    catagory = cells[1].Replace("*", "")
+                    category = cells[1].Replace("*", "")
                     medication = cells[2].Replace("*", "")
                     quantity = cells[3].Replace("*", "")
                     solution = cells[4].Replace("*", "")
@@ -187,7 +194,7 @@ module ContinuousMeds =
         let printColumns =
             [|
                 {|
-                    field = "catagory"
+                    field = "category"
                     label = "Categorie"
                     width = "15%"
                 |}
@@ -255,10 +262,11 @@ module ContinuousMeds =
                 rows = rows
                 rowCreate = rowCreate
                 height = "100%"
-                onRowClick = onSelectItem
-                checkboxSelection = false
-                selectedRows = [||]
-                onSelectChange = ignore
+                onRowClick = handleRowClick
+                markedRow = None
+                checkboxSelection = true
+                selectedRows = selectedRows
+                onSelectChange = handleSelectChange
                 showToolbar = true
                 showFooter = true
                 onPrint =
@@ -276,7 +284,7 @@ module ContinuousMeds =
             {|
                 isOpen = printOpen
                 onClose = fun () -> setPrintOpen false
-                title = Terms.``Continuous Medication List`` |> getTerm "Continue Medicatie"
+                title = Terms.``Continuous Medication List`` |> getTerm "Continuous Medication"
                 children = printContent
             |}
 
@@ -287,6 +295,7 @@ module ContinuousMeds =
 
         <Box sx={boxSx}>
             {patientNotice}
+            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>

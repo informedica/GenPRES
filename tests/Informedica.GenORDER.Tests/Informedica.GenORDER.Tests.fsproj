@@ -11,22 +11,39 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="SamplePatients.fs" />
     <Compile Include="Scenarios.fs" />
     <Compile Include="GoldenOrders.fs" />
     <Compile Include="TotalsGolden.fs" />
+    <Compile Include="TotalsGestAgeTests.fs" />
+    <Compile Include="TotalsSeverityTests.fs" />
     <Compile Include="OrderPlanTests.fs" />
+    <Compile Include="OrderContextRuleTests.fs" />
+    <Compile Include="StandardOrderTests.fs" />
     <Compile Include="FilterFixtures.fs" />
     <Compile Include="FilterCommandTests.fs" />
     <Compile Include="OrderValueCommandTests.fs" />
     <Compile Include="DomainCommandTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
+    <Compile Include="PlaceholderProductTests.fs" />
     <Compile Include="MedicationSchemaTests.fs" />
     <Compile Include="DoseQuantityPercTests.fs" />
+    <Compile Include="DivisibilityTests.fs" />
+    <Compile Include="StrictPreparationTests.fs" />
+    <Compile Include="SplitByDivisibleTests.fs" />
+    <Compile Include="ReconstitutionOrderTests.fs" />
+    <Compile Include="PredilutionOrderTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="OrderReCalcTests.fs" />
+    <Compile Include="DataUpdateFixtures.fs" />
+    <Compile Include="RecalculationTests.fs" />
+    <Compile Include="RuleCheckTests.fs" />
+    <Compile Include="PlanOnDataTests.fs" />
     <Compile Include="OrderSetTests.fs" />
     <Compile Include="OrderLawsTests.fs" />
     <Compile Include="ConcentrationTests.fs" />
+    <Compile Include="ComponentConcentrationTests.fs" />
+    <Compile Include="LargeIncrementTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <Content Include="..\..\docs\domain\medication.schema.json" Link="medication.schema.json" CopyToOutputDirectory="PreserveNewest" />

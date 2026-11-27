@@ -18,61 +18,47 @@ module Utils =
         open Informedica.Utils.Lib
 
 
-        /// <summary>
-        /// Get data from a Google sheet containing data for GenPres
-        /// </summary>
-        /// <returns>A array table of string arrays</returns>
+        /// <summary>Reads a sheet of the Google spreadsheet that GENPRES_URL_ID names.</summary>
+        /// <returns>The rows as string arrays, or an empty array when the download fails.</returns>
+        /// <exception cref="System.InvalidOperationException">When GENPRES_URL_ID is not set.</exception>
         let getDataFromGenPres sheet =
             Env.loadDotEnv () |> ignore
 
             Env.getItem Constants.GENPRES_URL_ID
             |> Option.defaultWith (fun () -> invalidOp $"{Constants.GENPRES_URL_ID} not set")
-            |> fun urlId -> GoogleSheets.getCsvDataFromSheetSync urlId sheet // urlId sheet
+            |> fun urlId -> GoogleSheets.getRowsFromSheetSync urlId sheet
             |> Result.defaultValue [||]
 
 
     module MinMax =
 
-        /// Turn a MinMax to a string with
-        /// mins and maxs as annotations
-        /// for resp. the min and max value.
+        /// Formats a MinMax as text, with the given labels for an inclusive or exclusive minimum and maximum.
         let toString = Informedica.GenForm.Lib.Utils.MinMax.toString
 
 
-/// Types and functions to deal with
-/// value primitives
+/// Functions for the Id and the variable Name.
 [<AutoOpen>]
 module WrappedString =
 
     open Informedica.Utils.Lib.BCL
 
 
-    /// Type and functions that
-    /// deal with an identifier
+    /// Functions for an Id.
     module Id =
 
-        /// <summary>
-        /// Create an Id from a string
-        /// </summary>
-        /// <param name="s">The id string</param>
+        /// Creates an Id from a string.
         let create s = s |> Id
 
 
-        /// <summary>
-        /// Lift a function to hande the identifier string
-        /// </summary>
-        /// <param name="f">The function</param>
-        /// <returns>A function that handles the identifier</returns>
+        /// Applies a function to the string of an Id and returns the result as an Id.
         let lift f = fun (Id s) -> s |> f |> create
 
 
-        /// <summary>
-        /// Get the string from an Id
-        /// </summary>
+        /// Returns the string of an Id.
         let toString (Id s) = s
 
 
-    /// Helper functions for Informedica.GenSolver.Variable.Name type
+    /// Functions for the variable Name of GenSolver.
     module Name =
 
         open Informedica.GenSolver.Lib
@@ -87,25 +73,23 @@ module WrappedString =
         let addWith = "_"
 
 
-        /// <summary>
-        /// Create a <c>Name</c> from a list of strings. The strings
-        /// will be concatenated with a dot.
-        ///</summary>
+        /// Creates a Name from a list of strings, joined with a dot between square brackets.
+        /// Raises a NameException when the name is not valid.
         let create ns =
             try
                 $"[{ns |> String.concat concatWith}]" |> Name.createExc
             with e ->
                 raise e
 
-        /// Get the string from a Name
+        /// Returns the string of a Name.
         let toString = Name.toString
 
 
-        /// Create a Name from a string
+        /// Creates a Name from a string. Raises a NameException when the name is not valid.
         let fromString = Name.createExc
 
 
-        /// Return a Name as a string list
+        /// Splits a Name into its parts: the square brackets removed, split at every dot and underscore.
         let toStringList =
             Name.toString
             >> (String.replace "[" "")
@@ -114,13 +98,7 @@ module WrappedString =
             >> (String.split concatWith)
 
 
-        /// <summary>
-        /// Add a string to a <c>Name</c>. The string will be
-        /// added with an underscore.
-        /// </summary>
-        /// <param name="s">The string to add</param>
-        /// <param name="n">The Name</param>
-        /// <returns>The new Name</returns>
+        /// Adds a string to a Name after an underscore. Raises a NameException when the name is not valid.
         let add s n =
             try
                 $"{n |> toString}{addWith}%s{s}" |> Name.createExc

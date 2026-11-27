@@ -73,7 +73,6 @@ graph BT
     GenPRES_Server --> GenPRES_Shared
     GenPRES_Server --> GenORDER_Lib
     GenPRES_Server --> GenINTERACT_Lib
-    GenPRES_Server --> Agents_Lib
     MCP_Lib --> GenORDER_Lib
     MCP_Lib --> GenPRES_Shared
     MCP_Server --> MCP_Lib
@@ -97,7 +96,7 @@ graph BT
     linkStyle 3 stroke:#ef4444,stroke-width:2px
 ```
 
-20 projects, 27 project references. An arrow points at the dependency. A green arrow points
+20 projects, 26 project references. An arrow points at the dependency. A green arrow points
 inward, as the dependency rule wants. A dashed red arrow is an outward reference the rule still tolerates but that should
 not exist; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->
@@ -242,6 +241,8 @@ erDiagram
         int birth_year "migr 9"
         int birth_month "migr 9"
         int birth_day "migr 9"
+        int ehr_json_version "migr 10"
+        text ehr_data "migr 10"
     }
     session {
         int id PK
@@ -257,11 +258,10 @@ erDiagram
     session_opened_with {
         int id PK
         text session_id FK
+        text act
         text version_id
         text head_id
         text opened_token
-        int json_version
-        text patient "json"
         int at
         int ehr_json_version "migr 6"
         text ehr_data "migr 6"
@@ -302,18 +302,9 @@ erDiagram
         text outcome
         text detail
     }
-    measurement {
-        int id PK
-        text session_id FK
-        text kind
-        int value
-        int days
-        int at
-    }
     session ||--o{ session_seen : "FK session_id"
     session ||--o| session_ending : "FK session_id"
     session ||--o| session_acknowledged : "FK session_id"
-    session ||--o{ measurement : "FK session_id"
     session |o--o{ audit_entry : "session_id (logical)"
 ```
 
@@ -343,8 +334,6 @@ erDiagram
         text session_id FK
         text nonce
         text digest
-        int json_version
-        text reading "json"
         int expiry
         int at
         int ehr_json_version "migr 7"

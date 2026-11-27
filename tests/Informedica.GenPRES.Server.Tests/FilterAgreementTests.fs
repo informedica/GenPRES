@@ -35,19 +35,24 @@ module Contract =
             DoseTypes = f.DoseTypes |> Array.map doseType
             Diluents = f.Diluents
             Components = f.Components
+            DoseRuleComponents = f.DoseRuleComponents
             Indication = f.Indication
             Generic = f.Generic
             Route = f.Route
             Form = f.Form
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
-            SelectedComponents = f.SelectedComponents
+            SelectedComponents =
+                match f.SelectedComponents with
+                | ComponentSelection.AllComponents -> S.ComponentSelection.AllComponents
+                | ComponentSelection.Selected cs -> S.ComponentSelection.Selected cs
+            PickedProducts = f.PickedProducts
         }
 
 
     let category (c: OrderCategory) =
         match c with
-        | OrderCategory.Drug -> S.OrderCategory.Drug
+        | OrderCategory.Medication -> S.OrderCategory.Medication
         | OrderCategory.Nutrition _ -> S.OrderCategory.Nutrition S.NutritionCategory.TPN
 
 
@@ -110,19 +115,30 @@ let tests =
                 [
                     for fname, filter in filters do
                         let ctx = { context filter with Scenarios = [||] }
-                        let shared = ctx |> Contract.context OrderCategory.Drug
+                        let shared = ctx |> Contract.context OrderCategory.Medication
 
                         for n in [ None; Some 0; Some 1; Some 2 ] do
                             test $"%s{fname}, diluent %A{n}" {
                                 sameFilter
-                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Diluent n)
+                                    (ctx |> OrderContext.changeFilter OrderCategory.Medication FilterField.Diluent n)
                                     (shared |> SCtx.changeDiluent n)
                             }
 
                             test $"%s{fname}, one component %A{n}" {
                                 sameFilter
-                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Components n)
-                                    (shared |> SCtx.setNthComponents (n |> Option.toArray))
+                                    (ctx
+                                     |> OrderContext.changeFilter OrderCategory.Medication FilterField.Components n)
+                                    // the field emptied is every component; the client has no command for it
+                                    (match n with
+                                     | None ->
+                                         Ok
+                                             { shared with
+                                                 Filter =
+                                                     { shared.Filter with
+                                                         SelectedComponents = S.ComponentSelection.AllComponents
+                                                     }
+                                             }
+                                     | Some n -> shared |> SCtx.setNthComponents [| n |])
                             }
 
                         for ns in [ [||]; [| 0 |]; [| 1; 2 |]; [| 3 |] ] do
@@ -144,17 +160,23 @@ let seedTests =
     let sources =
         [
             SeedSource.Url, S.SeedSource.Url
-            SeedSource.MedicationList, S.SeedSource.MedicationList
             SeedSource.Formulary, S.SeedSource.Formulary
             SeedSource.Parenteralia, S.SeedSource.Parenteralia
             SeedSource.Reload, S.SeedSource.Reload
         ]
 
-    // the filter's own choices, other choices, and none at all
+    // the filter's own choices, other choices, one other choice each, and none at all
     let choices (f: Filter) =
+        let otherDoseType = options.DoseTypes |> Array.tryFind (Some >> (<>) f.DoseType)
+
         [
             "the same", (f.Indication, f.Generic, f.Route, f.Form, f.DoseType)
             "others", (Some "sedatie", Some "morfine", Some "INTRAVENEUS", Some "drank", Some options.DoseTypes[1])
+            "another indication", (Some "sedatie", f.Generic, f.Route, f.Form, f.DoseType)
+            "another medication", (f.Indication, Some "morfine", f.Route, f.Form, f.DoseType)
+            "another route", (f.Indication, f.Generic, Some "INTRAVENEUS", f.Form, f.DoseType)
+            "another form", (f.Indication, f.Generic, f.Route, Some "drank", f.DoseType)
+            "another dose type", (f.Indication, f.Generic, f.Route, f.Form, otherDoseType)
             "none", (None, None, None, None, None)
         ]
 
@@ -162,8 +184,15 @@ let seedTests =
         "the domain's seeds and Shared's"
         [
             for fname, filter in filters do
+                // the components of a dose rule set, so that a seed that lets go of them shows
+                let filter =
+                    { filter with
+                        DoseRuleComponents = [| "paracetamol"; "NaCl 0,9%"; "water" |]
+                        SelectedComponents = ComponentSelection.Selected [ "NaCl 0,9%" ]
+                    }
+
                 let ctx = { context filter with Scenarios = [||] }
-                let shared = ctx |> Contract.context OrderCategory.Drug
+                let shared = ctx |> Contract.context OrderCategory.Medication
 
                 for source, sharedSource in sources do
                     for cname, (ind, gen, rte, frm, dt) in choices filter do

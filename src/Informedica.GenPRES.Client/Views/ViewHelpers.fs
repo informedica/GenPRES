@@ -6,6 +6,7 @@ namespace Views
 module ViewHelpers =
 
     open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
     open Informedica.GenPRES.Client.Core.Policies
 
     open System
@@ -16,8 +17,8 @@ module ViewHelpers =
     open Informedica.GenPRES.Shared.Models.Order
 
 
-    /// A filter select: what it offers is the pick rule's answer.
-    let filterSelect lbl selected dispatch xs =
+    /// Shows a clearable filter select with the options xs, disabled when enabled is false.
+    let filterSelectWhen enabled lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -26,13 +27,24 @@ module ViewHelpers =
                 onChange = dispatch
                 clearable = true
                 isLoading = false
-                enabled = true
+                enabled = enabled
                 shape = Components.PickField.Shape.Scroll
             |}
 
 
-    /// What a field shows of a value outside the rules: its severity, and the reason as the
-    /// field words it on hover.
+    /// A filter select that can always be used.
+    let filterSelect lbl selected dispatch xs = filterSelectWhen true lbl selected dispatch xs
+
+
+    /// Sends the command of a pick. Without a command the field did not offer the value picked: that is a
+    /// bug, written to the console as a warning, and nothing is sent.
+    let sendPick send (picked: 'a option) cmd =
+        match cmd with
+        | Some cmd -> send cmd
+        | None -> Logging.warning "a pick the field does not offer is not sent" picked
+
+
+    /// The severity of a field value and, for a value outside the rules, the reason shown on hover.
     type Mark =
         {|
             severity: Severity
@@ -48,10 +60,9 @@ module ViewHelpers =
         |}
 
 
-    /// The reason in words: the bound crossed, in the value's unit and at the bound's own
-    /// precision, so it is the bound the value crossed and not a rounding of it. A bound that
-    /// is itself allowed reads "max 15 mg" or "min 2 mg"; one that is not reads "< 15 mg" or
-    /// "> 2 mg". Nothing for a mark the bounds do not explain.
+    /// Describes the bound a value crosses, in the unit of the bound and without rounding it. An
+    /// inclusive bound reads "max 15 mg" or "min 2 mg", an exclusive bound "< 15 mg" or "> 2 mg".
+    /// Returns None when the value is outside the rules without a known bound.
     let reasonText (reason: SeverityReasonPolicy.Reason) =
         let show (b: SeverityReasonPolicy.Bound) =
             $"{b.Value |> Decimal.toStringNumberNLWithoutTrailingZeros} {b.Unit}"
@@ -64,8 +75,7 @@ module ViewHelpers =
         | SeverityReasonPolicy.Reason.Outside -> None
 
 
-    /// The mark an order variable carries: its level as a severity, and the bound its values
-    /// cross as the reason.
+    /// Builds the mark of an order variable: the severity of its level and the bound its values cross.
     let markOf (ovar: OrderVariable) : Mark =
         {|
             severity = ovar.Level |> Severity.ofLevel
@@ -73,22 +83,37 @@ module ViewHelpers =
         |}
 
 
-    /// The quantity field's texts in the user's language, today's Dutch where the sheet has no
+    /// The caption of the intake slider and the sentence that tells the percentage of the total, in
+    /// the language of getTerm.
+    let intakeSliderTexts (getTerm: string -> Terms -> string) : Components.IntakeSlider.Texts =
+        {|
+            caption =
+                Terms.``Nutrition Intake Caption``
+                |> getTerm "dose quantity as a percentage of the total"
+            shareOfTotal =
+                fun pct ->
+                    Terms.``Nutrition Share Of Total``
+                    |> getTerm "{0}% of total"
+                    |> TermText.fill [ pct ]
+        |}
+
+
+    /// The quantity field's texts in the user's language, English where the sheet has no
     /// translation.
     let quantityFieldTexts (getTerm: string -> Terms -> string) : Components.QuantityField.Texts =
         {|
-            pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
-            pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            pickValue = Terms.``Pick a value`` |> getTerm "pick a value"
+            pickMedian = Terms.``Pick the median`` |> getTerm "to the median"
             navigableTitles =
-                Terms.``Step to minimum`` |> getTerm "naar minimum",
-                Terms.``Step lower`` |> getTerm "lager",
-                Terms.``Step higher`` |> getTerm "hoger",
-                Terms.``Step to maximum`` |> getTerm "naar maximum"
+                Terms.``Step to minimum`` |> getTerm "to the minimum",
+                Terms.``Step lower`` |> getTerm "lower",
+                Terms.``Step higher`` |> getTerm "higher",
+                Terms.``Step to maximum`` |> getTerm "to the maximum"
             stepableTitles =
-                Terms.``Step large down`` |> getTerm "grote stap omlaag",
-                Terms.``Step down`` |> getTerm "stap omlaag",
-                Terms.``Step up`` |> getTerm "stap omhoog",
-                Terms.``Step large up`` |> getTerm "grote stap omhoog"
+                Terms.``Step large down`` |> getTerm "large step down",
+                Terms.``Step down`` |> getTerm "step down",
+                Terms.``Step up`` |> getTerm "step up",
+                Terms.``Step large up`` |> getTerm "large step up"
         |}
 
 
@@ -96,11 +121,10 @@ module ViewHelpers =
     let noSteps = Components.QuantityField.Selectable
 
 
-    /// How a field with one value is recalculated: whether the intent policy allows it on the order
-    /// shown, the recalculation the page sends, what the page does when the list of a recalculation
-    /// closes without a pick, and whether a request of the page is under way, during which the field
-    /// is not recalculated.
-    type Reopen =
+    /// The recalculation of a field with a single value. allowed is true when the intent policy allows it
+    /// for the order shown, reCalc sends it, restore runs when the list closes without a pick, and busy is
+    /// true while a request of the page is under way, which blocks the recalculation.
+    type ReCalc =
         {|
             allowed: bool
             reCalc: unit -> unit
@@ -109,13 +133,12 @@ module ViewHelpers =
         |}
 
 
-    /// A field of an order. It never offers the cross, since the solver fills an emptied value
-    /// again. Several values open as a list; one value the intent policy allows is recalculated
-    /// first and the list shows what the server answers; any other value is not selectable. A
-    /// field without a reopen is one whose values are the order's own parts or only shown: it
-    /// opens a list of several, never recalculates.
+    /// Shows a field of an order. It has no clear button, because the solver fills an emptied value again.
+    /// Several values open as a list. A single value is recalculated first when the intent policy allows
+    /// it, and the list shows the server answer; otherwise the field is read-only. Without reCalc the field
+    /// only opens a list of several values.
     let orderField
-        (reopen: Reopen option)
+        (reCalc: ReCalc option)
         (texts: Components.QuantityField.Texts)
         alwaysShow
         disabled
@@ -147,15 +170,15 @@ module ViewHelpers =
                 else
                     selected
 
-            // a lone range holds no value to list
+            // A single range entry counts as no values to list.
             let values =
                 match xs with
                 | [| ("range", _) |] -> 0
                 | _ -> xs.Length
 
-            let allowed = reopen |> Option.exists _.allowed
+            let allowed = reCalc |> Option.exists _.allowed
 
-            let offer = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
+            let selectable = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
 
             let trace event effects =
                 StepTrail.event
@@ -164,11 +187,11 @@ module ViewHelpers =
                     effects
                     (Components.SimpleSelect.fieldState shown values false)
 
-            let reopenField =
-                match offer.Selectable, reopen with
+            let reCalcField =
+                match selectable, reCalc with
                 | FieldOpenPolicy.Selectable.ReCalc, Some r ->
                     Some(fun () ->
-                        trace "open" [ "reopen" ]
+                        trace "open" [ "reCalc" ]
                         r.reCalc ()
                     )
                 | _ -> None
@@ -180,7 +203,7 @@ module ViewHelpers =
 
                 updateSelected value
 
-            // no field is the lead yet: which one the user starts from is the server's to say
+            // The server decides which field is the lead, so no field is marked as the lead here.
             Components.QuantityField.View
                 {|
                     onChange = if isEmpty then ignore else onChange
@@ -190,10 +213,10 @@ module ViewHelpers =
                     isLoading = isLoading
                     disabled = disabled || isEmpty
                     hasClear = false
-                    readOnly = offer.Selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
-                    reopen = reopenField
-                    restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
-                    busy = reopen |> Option.exists _.busy
+                    readOnly = selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
+                    reCalc = reCalcField
+                    restore = reCalc |> Option.map _.restore |> Option.defaultValue ignore
+                    busy = reCalc |> Option.exists _.busy
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
@@ -203,7 +226,7 @@ module ViewHelpers =
                 |}
 
 
-    /// A value the rules narrowed, which the user may narrow further and reopen by its arrow.
+    /// A value the rules narrowed, which the user may narrow further, or recalculate when it holds one.
     let orderSelect
         texts
         alwaysShow
@@ -214,15 +237,15 @@ module ViewHelpers =
         updateSelected
         mode
         (mark: Mark)
-        reopen
+        reCalc
         minWidth
         xs
         =
-        orderField (Some reopen) texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+        orderField (Some reCalc) texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
-    /// A field that never reopens: a choice among the order's own parts, which always holds one of
-    /// them, or a value that is only shown.
+    /// A field that is never recalculated: a choice among the parts of the order, or a value that is only
+    /// shown.
     let orderFixed texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
         orderField None texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
@@ -316,8 +339,7 @@ module ViewHelpers =
         )
 
 
-    /// The value of the first (key, value) pair of a ValueUnit, if any. Shared helper for
-    /// the increment/step calculations below.
+    /// The value of the first (key, value) pair of a ValueUnit, or None when it is empty.
     let firstSnd (vu: Types.ValueUnit) = vu.Value |> Array.tryHead |> Option.map snd
 
 
@@ -346,17 +368,11 @@ module ViewHelpers =
         | None, _ -> false
 
 
-    /// Build a per-click step function for a solved order variable. Given the net small-step
-    /// click delta (single-step buttons, the DEFINED increment) and the net large-step click
-    /// delta (jump buttons, the server's CALCULATED LargeIncr) it returns the (key, label) of
-    /// the predicted value. This mirrors the server step (Informedica.GenORDER.Lib.OrderVariable.step),
-    /// which moves freely along the increment grid with NO upper bound and is then re-solved —
-    /// so the optimistic value is deliberately NOT bounded to the defined range (doing so would
-    /// make it undershoot what the server returns). The only ceiling applied is the structural
-    /// feasibility `ceiling`: a bound the solver genuinely enforces (e.g. a
-    /// multi-component dose quantity cannot exceed the prepared orderable quantity). A floor of
-    /// one increment mirrors the server keeping the value non-zero positive. Returns None when
-    /// no increment is available (cannot step locally).
+    /// Builds the step function of a solved order variable. It takes the net clicks of the small step (the
+    /// defined increment) and of the large step (LargeIncr), and returns the key and label of the predicted
+    /// value. Like the server step, the prediction is not bounded by the defined range, which would make it
+    /// lower than the server answer. Only the ceiling, which the solver enforces, and a floor of one
+    /// increment apply. Returns None without a current value or a positive defined increment.
     let ovarStepTo
         (ceiling: decimal option)
         (format: decimal -> string)
@@ -371,22 +387,23 @@ module ViewHelpers =
             | Some cur ->
                 let unit = vals.Unit
 
-                // The large step follows the server-provided LargeIncr; when the server emits
-                // none, it falls back to the defined increment (behaving like the small step).
+                // The large step uses LargeIncr, or the defined increment when the server sends none.
                 let largeIncr = ovar.LargeIncr |> Option.bind firstSnd |> Option.defaultValue smallIncr
 
-                // The server's step applies no upper bound (it explores freely and re-solves),
-                // so the prediction follows the increment grid freely. Apply only the structural
-                // feasibility ceiling plus a one-increment floor — both of which the server
-                // genuinely enforces (the floor keeps the value non-zero positive).
+                // The server step has no upper bound, so only the ceiling and a floor of one increment
+                // apply. The server enforces both; the floor keeps the value above zero.
                 let applyBounds v =
                     let v = ceiling |> Option.map (min v) |> Option.defaultValue v
                     max v smallIncr
 
                 (fun (smallDelta, largeDelta) ->
+                    // The server sends each value as a decimal converted from a float, so the value has about
+                    // 15 significant digits. Adding the increments to the current value can then give noise,
+                    // such as 0.2499999999999998 for 0.25. Rounding to 10 decimals removes the noise.
                     let next =
                         cur + decimal smallDelta * smallIncr + decimal largeDelta * largeIncr
                         |> applyBounds
+                        |> fun v -> Math.Round(v, 10)
 
                     string next, $"{format next} {unit}"
                 )
@@ -395,19 +412,14 @@ module ViewHelpers =
         | _ -> None
 
 
-    /// <summary>
-    /// Like <see cref="ovarStepTo"/> but without a feasibility ceiling — the prediction
-    /// follows the increment grid freely (mirroring the server's unbounded step).
-    /// </summary>
+    /// <summary>Like <see cref="ovarStepTo"/> without a ceiling.</summary>
     let ovarStep (format: decimal -> string) (ovar: OrderVariable) : (int * int -> string * string) option =
         ovarStepTo None format ovar
 
 
-    /// Upper bound for the orderable dose quantity. For a multi-component orderable the
-    /// dose quantity cannot exceed the prepared orderable quantity ("you cannot give more
-    /// than you have", and the individual components cannot be grown to follow a larger
-    /// dose). For a single component the orderable quantity follows the dose, so there is
-    /// no extra ceiling and stepping stays unconstrained (beyond the defined range).
+    /// The ceiling of the orderable dose quantity: the largest prepared orderable quantity when the
+    /// orderable has more than one component, because the components cannot grow with the dose. Returns
+    /// None for a single component, whose orderable quantity follows the dose, or without a quantity.
     let orderableDoseQuantityCeiling (ord: Types.Order) : decimal option =
         if ord.Orderable.Components |> Array.length > 1 then
             ord.Orderable.OrderableQuantity.Variable.Vals
@@ -421,31 +433,24 @@ module ViewHelpers =
             None
 
 
-    /// How many whole `incr`-sized steps fit between the variable's current value and a
-    /// feasibility ceiling, never negative. Shared core of incrementStepsToCeiling and
-    /// largeIncrementStepsToCeiling — the two differ only in which increment they pass.
+    /// Counts the whole steps of incr between the current value and the ceiling, at least 0. Returns None
+    /// without a ceiling, a current value or a positive increment.
     let stepsToCeiling (ceiling: decimal option) (incr: decimal option) (ovar: OrderVariable) : int option =
         match ceiling, ovar.Variable.Vals |> Option.bind firstSnd, incr with
         | Some ceil, Some cur, Some i when i > 0M -> System.Math.Floor((ceil - cur) / i) |> int |> max 0 |> Some
         | _ -> None
 
 
-    /// How many whole defined-increment steps fit between the current value and a
-    /// feasibility ceiling. Used to cap an increase so it lands on the last step below the
-    /// ceiling rather than overshooting it — an overshoot is rejected by the solver, which
-    /// reverts the value to where it started. Returns 0 when less than one step fits (already
-    /// at the max). None when there is no ceiling or no usable increment.
+    /// Counts the defined-increment steps that fit below the ceiling. An increase capped at this count
+    /// does not pass the ceiling, which the solver would reject by reverting the value. Returns 0 at the
+    /// maximum, and None without a ceiling or a positive increment.
     let incrementStepsToCeiling (ceiling: decimal option) (ovar: OrderVariable) : int option =
         ovar |> stepsToCeiling ceiling (definedIncrement ovar)
 
 
     /// <summary>
-    /// Like <see cref="incrementStepsToCeiling"/> but counts steps of the LARGE increment
-    /// (the server's calculated LargeIncr used by the jump buttons), falling back to the
-    /// defined increment when the server emits none. Lets a large step saturate at the
-    /// feasibility ceiling exactly like a small step, so the larger increment does not
-    /// overshoot the ceiling and get reverted by the solver. None when there is no ceiling
-    /// or no usable increment.
+    /// Like <see cref="incrementStepsToCeiling"/>, but counts steps of LargeIncr, or of the defined
+    /// increment when the server sends none.
     /// </summary>
     let largeIncrementStepsToCeiling (ceiling: decimal option) (ovar: OrderVariable) : int option =
         let largeIncr = ovar.LargeIncr |> Option.bind firstSnd |> Option.orElse (definedIncrement ovar)
@@ -475,13 +480,10 @@ module ViewHelpers =
             (rate |> largeStepText)
 
 
-    /// Build the steps and the mode of the orderable dose-quantity select, shared by the Order
-    /// and Nutrition views. Handles the optimistic stepping with feasibility-ceiling
-    /// saturation: the displayed value follows the click count up to the prepared orderable
-    /// quantity, and dispatched steps are saturated at that ceiling so an overshoot is not
-    /// reverted by the solver. The five message constructors (setMin/decr/setMed/incr/setMax)
-    /// are supplied by each view from its own Msg type. The mode is the quantity mode rule's,
-    /// which gives no steps unless every component has a single orderable quantity.
+    /// Builds the steps and the mode of the orderable dose quantity field for the Order and Nutrition
+    /// views. The value shown follows the clicks up to the ceiling, and the steps sent are capped at the
+    /// ceiling, so the solver does not revert them. QuantityModePolicy decides the mode, which has no steps
+    /// unless every component has a single orderable quantity. The caller passes the five messages.
     let createDoseQtyStepper
         dispatch
         (ord: Order)
@@ -509,11 +511,8 @@ module ViewHelpers =
             let navigable = mode = QuantityModePolicy.Mode.Navigable
             let solved = mode = QuantityModePolicy.Mode.Stepable
 
-            // For a multi-component orderable the dose quantity cannot exceed the prepared
-            // orderable quantity. Use it as a feasibility ceiling: the optimistic value stays
-            // within it, and an overflowing increase is saturated at the max (saturateInc)
-            // instead of overshooting, which the solver would reject — reverting the value.
-            // Single component: orderable quantity follows the dose, so no ceiling.
+            // A multi-component orderable has the prepared orderable quantity as ceiling; a single
+            // component has none. An increase past the ceiling would be reverted by the solver.
             let doseQtyCeiling = ord |> orderableDoseQuantityCeiling
 
             let saturateInc n =
@@ -522,26 +521,17 @@ module ViewHelpers =
                 |> Option.map (min n)
                 |> Option.defaultValue n
 
-            // Large-step counterpart of saturateInc: clamp the dispatched large steps so the
-            // larger increment lands on the last grid point at or below the ceiling instead of
-            // overshooting and being reverted by the solver.
+            // Caps the large steps sent at the ceiling, like saturateInc.
             let saturateLarge n =
                 ord.Orderable.Dose.Quantity
                 |> largeIncrementStepsToCeiling doseQtyCeiling
                 |> Option.map (min n)
                 |> Option.defaultValue n
 
-            // Whether a full defined-increment step still fits below the feasibility ceiling.
-            // The increment grid cannot generally land exactly on the ceiling, so the server
-            // value settles just below it while the optimistic display clamps to the ceiling —
-            // leaving DoseCount > 1 (so canIncr stays true) and the increase buttons permanently
-            // active despite the field showing the max. Gating on remaining ceiling room
-            // disables them once no further step fits.
-            //
-            // No ceiling (single component) → stepping is unconstrained, so stay enabled. With a
-            // ceiling, require a positive step count; if the step count can't be computed (ceiling
-            // known but increment unavailable) disable rather than dispatch an unsaturated step the
-            // solver would revert.
+            // The increment grid seldom lands on the ceiling, so the server value stays just below it and
+            // DoseCount stays above 1. Without this check the increase buttons stay enabled while the field
+            // shows the maximum. With a ceiling, an increase needs one more step to fit; when the steps
+            // cannot be counted, the buttons are disabled. Without a ceiling they stay enabled.
             let canStepUp =
                 match doseQtyCeiling with
                 | None -> true
@@ -550,8 +540,7 @@ module ViewHelpers =
                     |> incrementStepsToCeiling doseQtyCeiling
                     |> Option.exists (fun steps -> steps > 0)
 
-            // Large-step counterpart of canStepUp, measured against the large increment so the
-            // last button disables exactly when no further large step fits below the ceiling.
+            // Like canStepUp, for the large increment.
             let canStepUpLarge =
                 match doseQtyCeiling with
                 | None -> true
@@ -598,8 +587,8 @@ module ViewHelpers =
             |> stepsMode mode
 
 
-    /// A value shown and not changed, or its range when it has no value yet. `display` is built from
-    /// `orderFixed`, since a field that takes no change has nothing for a cross to clear.
+    /// Shows an order variable that cannot be changed, or its range when it has no value. The caller
+    /// passes orderFixed as display.
     let ovarDisplay display (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
@@ -607,9 +596,8 @@ module ViewHelpers =
         display false label None ignore noSteps mark minWidth vals
 
 
-    /// The same filter select, typed into rather than scrolled, for a list long enough that
-    /// reading it is slower than naming it. The same rule decides what it offers.
-    let autoComplete lbl selected dispatch xs =
+    /// A filter select that the user types into instead of scrolling, for a long list.
+    let autoCompleteWhen enabled lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -618,17 +606,27 @@ module ViewHelpers =
                 onChange = dispatch
                 clearable = true
                 isLoading = false
-                enabled = true
+                enabled = enabled
                 shape = Components.PickField.Shape.Type
             |}
 
 
-    /// A filter scrolled on a small screen and typed into on a large one.
-    let responsiveFilter isMobile lbl selected dispatch xs =
+    /// The typed filter select that can always be used.
+    let autoComplete lbl selected dispatch xs = autoCompleteWhen true lbl selected dispatch xs
+
+
+    /// A filter, enabled or not, scrolled on a small screen and typed into on a large one.
+    let responsiveFilterWhen enabled isMobile lbl selected dispatch xs =
         if isMobile then
-            xs |> Array.map (fun s -> s, s) |> filterSelect lbl selected dispatch
+            xs
+            |> Array.map (fun s -> s, s)
+            |> filterSelectWhen enabled lbl selected dispatch
         else
-            xs |> autoComplete lbl selected dispatch
+            xs |> autoCompleteWhen enabled lbl selected dispatch
+
+
+    /// A filter that can always be used, scrolled on a small screen and typed into on a large one.
+    let responsiveFilter isMobile lbl selected dispatch xs = responsiveFilterWhen true isMobile lbl selected dispatch xs
 
 
     /// The text of an item, without the emphasis it is drawn with.
@@ -762,8 +760,8 @@ module ViewHelpers =
             |}
 
 
-        /// The patient's weight for the print, or the caller's word for not known.
-        let patientWeight (unknown: string) (patient: Patient option) =
+        /// The weight of the patient for the print, or the text unknown when there is no weight.
+        let patientWeight (unknown: string) (patient: PatientData option) =
             patient
             |> Option.bind PatientRead.getWeightInKg
             |> Option.map (fun w ->

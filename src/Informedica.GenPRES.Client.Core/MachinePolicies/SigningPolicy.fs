@@ -18,6 +18,13 @@ module SigningPolicy =
     let english (term: Terms) : string =
         match term with
         | Terms.``Signing Sign`` -> "Sign"
+        | Terms.``Signing Plan Behind`` ->
+            "These orders are not calculated on the patient data shown, because the recalculation failed. Try again to continue."
+        | Terms.``Signing Plan Behind Retry`` -> "Try again"
+        | Terms.``Plan Context Locked`` -> "Calculated with other patient data; this order cannot be changed"
+        | Terms.``Plan Context Group Locked`` ->
+            "Another order of its group was calculated with other patient data; this order cannot be changed"
+        | Terms.``Signing Not Recalculated`` -> "{0}: not calculated on the current patient data."
         | Terms.``Signing Dialog Title`` -> "Sign the order plan"
         | Terms.``Signing Dialog Text`` ->
             "The list shows the orders changed since the last signed version. Your PIN signs the whole order plan; or cancel and edit."
@@ -26,11 +33,14 @@ module SigningPolicy =
         | Terms.``Signing Proceed`` -> "Continue"
         | Terms.``Signing Signed`` -> "Version {0} was signed by {1}."
         | Terms.``Signing Data Changed`` ->
-            "The patient data changed since the session opened. It is shown as it stands now; continue to sign over it, or cancel."
-        | Terms.``Signing Data Changed Held`` ->
-            "The patient data changed since the session opened, but the plan has new or changed orders composed on the data as it was. Continue to sign over the data as it was; the new data applies after the sign. Or cancel."
+            "The EHR's data differ from the data the session opened on. Taking the EHR's data ends this signature: the orders follow the new data, and you sign again. Keeping the plan's data signs the plan as shown."
+        | Terms.``Signing Take Ehr Data`` -> "Take the EHR's data"
+        | Terms.``Signing Keep Plan Data`` -> "Keep the plan's data"
+        | Terms.``Signing Notice Ehr`` -> "EHR"
+        | Terms.``Signing Ehr Moved On`` -> "You are signing for {0}. This patient is no longer active in the EHR."
+        | Terms.``Signing Ehr Moved On Unnamed`` -> "This patient is no longer active in the EHR."
         | Terms.``Signing Data Unverified`` ->
-            "The patient data could not be verified. Continue to sign over the data the session opened with, or cancel."
+            "The patient data could not be verified. Continue to sign over the plan's data, or cancel."
         | Terms.``Signing Refusal No Session`` -> "There is no session to sign in. Open GenPRES again from MainEHR."
         | Terms.``Signing Refusal No Patient`` -> "The plan is not over this session's patient."
         | Terms.``Signing Refusal Not Prescriber`` -> "Only a Prescriber can sign."
@@ -45,8 +55,6 @@ module SigningPolicy =
         | Terms.``Signing Refusal Locked`` -> "Signing is locked until {0}."
         | Terms.``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
         | Terms.``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
-        | Terms.``Signing Refusal Context Differs`` ->
-            "An order in the plan was composed on other patient data. Remove the new and changed orders and prescribe them again."
         | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
         | Terms.``Signing New`` -> "New"
         | Terms.``Signing Changed`` -> "Changed"
@@ -72,7 +80,6 @@ module SigningPolicy =
         | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> TermText.fill [ TextFormat.time until ]
         | SigningRefusal.StoreFailed -> tr Terms.``Signing Refusal Store Failed``
         | SigningRefusal.PlanUnreadable -> tr Terms.``Signing Refusal Plan Unreadable``
-        | SigningRefusal.ContextDiffers -> tr Terms.``Signing Refusal Context Differs``
 
 
     /// The sentence once a version is signed.
@@ -87,17 +94,125 @@ module SigningPolicy =
         |> TermText.fill [ head.By.DisplayName; TextFormat.time head.SignedAt ]
 
 
+    /// The warning before the PIN, with the name of the patient being signed for if there is one.
+    let ehrMovedOnSentence (tr: Terms -> string) (who: PatientIdentity option) =
+        match who with
+        | Some who -> tr Terms.``Signing Ehr Moved On`` |> TermText.fill [ who.Name ]
+        | None -> tr Terms.``Signing Ehr Moved On Unnamed``
+
+
+    /// Returns the warning before the PIN that names the plan orders not calculated on the current patient
+    /// data; None when all orders are calculated on it.
+    let notRecalculatedSentence (tr: Terms -> string) (plan: OrderPlan) =
+        match
+            Informedica.GenPRES.Shared.Models.OrderPlan.orders plan
+            |> Array.filter _.NotRecalculated
+            |> Array.map _.Name
+        with
+        | [||] -> None
+        | names ->
+            tr Terms.``Signing Not Recalculated``
+            |> TermText.fill [ names |> String.concat ", " ]
+            |> Some
+
+
     /// The sentence when a version is opened.
     let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
         tr Terms.``Session Version Opened``
         |> TermText.fill [ string head.No; head.By.DisplayName ]
 
 
-    /// The sentence of the data notice: the data changed, or could not be verified. When the patient
-    /// context is held, the plan is signed over the data as it was, and the notice says so.
-    let noticeSentence (tr: Terms -> string) (held: bool) (notice: DataNotice) =
-        match notice.Data with
-        | Some _ when held -> tr Terms.``Signing Data Changed Held``
+    /// One line of the data notice: the plan value beside the EHR value.
+    type NoticeRow =
+        {
+            Label: Terms
+            Plan: string
+            Ehr: string
+        }
+
+
+    /// Returns the lines of the data notice, one for every field that differs. The age and the adult mark
+    /// are left out, because the EHR has neither. An unverified notice has no lines.
+    let noticeRows (tr: Terms -> string) (patient: PatientData) (notice: DataNotice) =
+        let text value show = value |> Option.map show |> Option.defaultValue "-"
+
+        let row label held ehr show =
+            if held = ehr then
+                None
+            else
+                Some
+                    {
+                        Label = label
+                        Plan = text held show
+                        Ehr = text ehr show
+                    }
+
+        let height (c: int<cm>) = $"%i{int c} cm"
+
+        // A measured value, else the estimate. Whether it is measured counts as a difference, because
+        // taking the EHR data can turn an estimate into a measurement of the same value.
+        let measure measured estimated =
+            measured
+            |> Option.map (fun v -> v, true)
+            |> Option.orElse (estimated |> Option.map (fun v -> v, false))
+
+        let labelled show (value, measured) =
+            if measured then
+                show value
+            else
+                $"%s{show value} (%s{tr Terms.``Patient Estimated``})"
+
+        let gestAge (g: AgeWeeksDays) =
+            $"%i{int g.Weeks} %s{tr Terms.``Patient Age weeks``} %i{int g.Days} %s{tr Terms.``Patient Age days``}"
+
+        let gender =
+            function
+            | Male -> tr Terms.``Patient Male``
+            | Female -> tr Terms.``Patient Female``
+            | UnknownGender -> tr Terms.``Patient Unknown Gender``
+
+        let access =
+            function
+            | [] -> "-"
+            | devices ->
+                devices
+                |> List.map (PatientText.accessText (tr Terms.``Patient Enteral Tube``))
+                |> String.concat ", "
+
+        match notice.PatientData with
+        | None -> []
+        | Some ehr ->
+            [
+                row
+                    Terms.``Patient Weight``
+                    (measure patient.Weight.Measured patient.Weight.Estimated)
+                    (measure ehr.Weight.Measured ehr.Weight.Estimated)
+                    (labelled PatientText.weightText)
+                row
+                    Terms.``Patient Length``
+                    (measure patient.Height.Measured patient.Height.Estimated)
+                    (measure ehr.Height.Measured ehr.Height.Estimated)
+                    (labelled height)
+                row
+                    Terms.``Patient GA Age``
+                    (patient.GestationalAge |> Models.GestationalAge.value)
+                    (ehr.GestationalAge |> Models.GestationalAge.value)
+                    gestAge
+                row Terms.``Patient Gender`` (Some patient.Gender) (Some ehr.Gender) gender
+                row Terms.``Patient Access`` (Some(List.sort patient.Access)) (Some(List.sort ehr.Access)) access
+                row
+                    Terms.``Patient Renal Function``
+                    patient.RenalFunction
+                    ehr.RenalFunction
+                    (RenalFunctionText.term >> tr)
+                row Terms.``Patient Department`` patient.Department ehr.Department id
+            ]
+            |> List.choose id
+
+
+    /// The sentence of the data notice: the EHR's data differ, or could not be verified.
+    let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
+        match notice.PatientData with
         | Some _ -> tr Terms.``Signing Data Changed``
         | None -> tr Terms.``Signing Data Unverified``
 
@@ -111,13 +226,15 @@ module SigningPolicy =
 
 
     /// Whether the plan can be signed: an open session with a patient, a user with the Prescriber
-    /// role, and at least one order.
-    let canSign (session: SessionView) (plan: OrderPlan) =
+    /// role, and a plan with at least one order or with differences from the version last opened
+    /// or signed. The differences of a plan whose orders were all removed are those removals.
+    let canSign (session: SessionView) differences (plan: OrderPlan) =
         match session with
         | SessionView.Open opened ->
             (opened.User |> Option.map _.Role) = Some UserRole.Prescriber
             && opened.PatientContext.IsSome
-            && (Informedica.GenPRES.Shared.Models.OrderPlan.orders plan).Length > 0
+            && ((Informedica.GenPRES.Shared.Models.OrderPlan.orders plan).Length > 0
+                || differences |> Array.isEmpty |> not)
         | _ -> false
 
 

@@ -6,30 +6,26 @@ module CompositionRoot =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The api of one request: the settings and the env are built once per host, the cookie
-    /// once per request; the settings take the departments as loaded when asked.
+    /// Builds the server api for one request. The settings and the env are built once per host, the
+    /// cookies once per request. The settings get the departments and the locations as loaded at the time of the
+    /// request.
     let compose
-        (settings: Informedica.GenForm.Lib.Types.Departments -> ServerSettings)
+        (settings: string[] -> string[] -> ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)
         (enrolment: EnrolmentCookie)
         : IServerApi
         =
-        let noPatient _ : Informedica.GenPRES.Shared.Types.Patient option = None
-
         {
-            // every computing member goes through Compute.bound: the log, the Session marked seen
-            // and told what a patient change measures, the gate, the exception as an Error;
-            // only the patient member records a patient
-            // and told, the gate, the exception as an Error
+            // The computing functions run through Compute.bound: logging, the session check, the
+            // loaded-resources check and the exception as an Error.
             processOrderContext =
                 Compute.bound
                     env
                     cookie
                     OrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    noPatient
                     (OrderContextCommand.processCmd env)
 
             processFormulary =
@@ -38,7 +34,6 @@ module CompositionRoot =
                     cookie
                     FormularyCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    noPatient
                     (FormularyCommand.processCmd env)
 
             processParenteralia =
@@ -47,36 +42,41 @@ module CompositionRoot =
                     cookie
                     ParenteraliaCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    noPatient
                     (ParenteraliaCommand.processCmd env)
 
-            processPatient =
+            processPatientData =
                 Compute.bound
                     env
                     cookie
-                    PatientCommand.toString
-                    PatientCommand.gate
-                    PatientCommand.patientOf
-                    (PatientCommand.processCmd env cookie)
+                    PatientDataCommand.toString
+                    PatientDataCommand.gate
+                    (PatientDataCommand.processCmd env)
 
-            // the one plan, nutrition included
+            // The order plan, including nutrition.
             processOrderPlan =
                 Compute.bound
                     env
                     cookie
                     OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    noPatient
                     (OrderPlanCommand.processCmd env)
 
-            // the one member whose gate differs per command: the drug names run open
+            // Calculates the totals of the requested orders without changing the plan.
+            processTotals =
+                Compute.bound
+                    env
+                    cookie
+                    TotalsQuery.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (OrderPlanCommand.processTotals env)
+
+            // The check depends on the command: the medication names do not need the loaded resources.
             processInteraction =
                 Compute.bound
                     env
                     cookie
                     InteractionCommand.toString
                     InteractionCommand.gate
-                    noPatient
                     (InteractionCommand.processCmd env)
 
             processLaunch =
@@ -87,7 +87,7 @@ module CompositionRoot =
 
             processSigning = Compute.logged env "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
 
-            // never Session-bound: no cookie read, no notice, and not behind requireLoaded
+            // Admin commands read no session cookie, return no notice and run before the resources are loaded.
             processAdmin = Compute.logged env "admin" AdminCommand.toString (AdminCommand.processCmd env)
 
             getSettings =
@@ -96,9 +96,41 @@ module CompositionRoot =
                         Logging.ServerLogging.Info "Processing settings"
                         |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
-                        // the departments as loaded now, so a reload reaches the next asker
-                        return env.departments () |> settings
+                        // Reads the departments and the locations on every request, so a reload shows on the next
+                        // request.
+                        return settings (env.departments ()) (env.locations ())
                     }
+
+            getEmergencyList =
+                Compute.bound
+                    env
+                    cookie
+                    EmergencyListCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (EmergencyListCommand.processCmd env)
+
+            getContinuousList =
+                Compute.bound
+                    env
+                    cookie
+                    ContinuousListCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (ContinuousListCommand.processCmd env)
 
             testApi = fun () -> async { return "Hello world!" }
         }
+
+
+[<AutoOpen>]
+module ApiImpl =
+
+    /// Creates the IServerApi implementation for one request using the composition root.
+    let createServerApi
+        (settings: string[] -> string[] -> Informedica.GenPRES.Shared.Api.ServerSettings)
+        (env: AppEnv)
+        (cookie: SessionCookie)
+        (stateCookie: LaunchStateCookie)
+        (enrolment: EnrolmentCookie)
+        : Informedica.GenPRES.Shared.Api.IServerApi
+        =
+        CompositionRoot.compose settings env cookie stateCookie enrolment

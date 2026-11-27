@@ -15,7 +15,8 @@ It is a refactor with visible changes, each decided below:
   disabled as a whole while a request out can change it; the title bar and the patient panel
   wait for every request;
 - the formulary and parenteralia pages follow the workbench when its answer lands;
-- a prescription clears the workbench and opens the OrderPlan page at the click;
+- a prescription opens the OrderPlan page at the click and clears the workbench once the order
+  has landed;
 - a url with a patient or a medication means anonymous mode: it ends an open Session and starts
   the order lanes over, after the question about unsigned work; any other url change touches no
   lane;
@@ -537,17 +538,21 @@ What can start a request, and what each depends on:
    to the scenario with that order and its form, as the prescribe button did, and hands it to
    the plan machine as an `Add` change, so no page passes a context or a plan to a machine any
    more.
-8. **A prescription clears the workbench and opens the OrderPlan page at the click.** Decided (user,
-   2026-10-06).
-   - The prescribe click sends `Add` to the plan, the reset to the workbench and opens the plan
-     page, at once; the plan's answer to `AddOrderContext` no longer emits `GoToPlanPage` and
-     `ResetWorkbench`.
-   - The reset goes out over an idle workbench, since the Prescribe page is disabled while a
-     workbench request runs, and the OrderPlan page is then disabled until the order lands, so
-     no pick can come between the prescription and the reset.
+8. **A prescription opens the OrderPlan page at the click and clears the workbench once the
+   order has landed.** Decided (user, 2026-10-06), revised (user, 2026-11-03, #1627).
+   - The prescribe click sends `Add` to the plan and opens the plan page, at once, when the
+     order went out; the plan's answer to `AddOrderContext` no longer emits `GoToPlanPage`.
+   - The plan's answer to `AddOrderContext`, when it lands, emits `OrderAdded`, which `Lanes`
+     routes to the reset of the workbench. The reset goes out over an idle workbench: the
+     OrderPlan page is disabled and the menu locked until the order lands, so no pick can come
+     between the prescription and the reset.
+   - The page cannot move at the answer instead: a plan request does not disable the Prescribe
+     page, so the workbench could change during the add, and the reset at the answer would then
+     wipe that work or find the workbench busy.
    - The OrderPlan page shows the plan greyed until the order lands.
-   - Accepted: a prescription that fails, a server error or a Session problem, leaves an empty
-     workbench with the error told, where today the workbench stays.
+   - A prescription that fails, a server error or a Session problem, leaves the workbench
+     narrowed to the order, with the error told, so the retry is the same click. Until the
+     revision the reset went out at the click and a failed prescription left an empty workbench.
    - **The Session's refresh, open of a signed version and close count as requests.** Decided
      (user, 2026-10-08). All three change the patient or the plan, so every page is disabled
      and the menu waits while one runs (decision 1, step 4). The close is already tracked

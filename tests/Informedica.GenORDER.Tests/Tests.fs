@@ -9,6 +9,12 @@ open Informedica.GenSolver.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
+module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+
+type CoreGender = Informedica.GenCore.Lib.Patients.Gender
+type CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+type CoreAccess = Informedica.GenCore.Lib.Patients.Access
+
 // --- New tests for fluent pipeline guard/order behavior ---
 
 // No GENPRES_URL_ID: these tests are hermetic and never download from Google
@@ -91,6 +97,9 @@ module Result =
 /// The steps the tests take a medication through to a solved order, failing the test on the way.
 module TestOrder =
 
+    open Informedica.GenCore.Lib.Ranges
+
+
     /// The medication the text holds.
     let parse text =
         match text |> MedicationText.fromString with
@@ -113,10 +122,44 @@ module TestOrder =
         |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
 
 
+    /// A solution rule for the amphotericin B scenario with the solution limit sl.
+    let solutionRule sl : SolutionRule =
+        {
+            Id = ""
+            SourceText = ""
+            GPKs = [||]
+            HPKs = [||]
+            ShelfLife = None
+            MinPh = None
+            MaxPh = None
+            SameLine = [||]
+            NotSameLine = [||]
+            Notes = ""
+            PrepText = ""
+            AdminText = ""
+            Generic = "amfotericine b liposomaal"
+            Form = None
+            Route = "iv"
+            Indication = None
+            DoseType = NoDoseType
+            PatientCategory = PatientCategory.empty
+            Dose = MinMax.empty
+            AdjustUnit = None
+            Diluents = [||]
+            SolutionLimit = sl
+            DilutionLimits = [||]
+        }
+
+
     /// The order of the medication as the dose dialog gets it: CalcMinMax when the scenario is made,
     /// CalcValues when it is selected, SolveOrder after it.
     let processed med =
         med |> toOrder |> solve CalcMinMax |> solve CalcValues |> solve SolveOrder
+
+
+    /// The processed order after a reset. A timed order with three or more components is preset to the
+    /// median of each component quantity and of the rate when it is made; a reset gives its value lists back.
+    let processedAndReset med = med |> processed |> solve ReCalcValues
 
 
     /// The values of an order variable, none when it holds no value set.
@@ -160,19 +203,6 @@ module Pipeline =
 
     let private countValues (o: Order) =
         o |> toOrdVars |> List.filter OrderVariable.hasValues |> List.length
-
-    let private mkOnceTimedOrder () =
-        Scenarios.kaliumchlorideOnceTimedText
-        |> MedicationText.fromString
-        |> function
-            | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
-            | Ok med ->
-                med
-                |> Medication.toOrderDto Scenarios.testStart
-                |> Dto.fromDto
-                |> function
-                    | Error msg -> failtest $"Failed to create order: {msg}"
-                    | Ok ord -> ord
 
     [<Tests>]
     let guard_and_run_order_tests =
@@ -228,6 +258,8 @@ module Pipeline =
                                 MaxAge = None
                                 MinWeight = None
                                 MaxWeight = None
+                                MinGestAge = None
+                                MaxGestAge = None
                                 Unit = Some Units.Volume.milliLiter
                                 Adj = Some Units.Weight.kiloGram
                                 TimeUnit = Some Units.Time.day
@@ -246,7 +278,7 @@ module Pipeline =
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
-                    let result = Totals.getTotals syntheticTotals None None [| ord |]
+                    let result = Totals.getTotals [||] [||] syntheticTotals None None None [| ord |]
 
                     result.Volume |> Expect.isNone "no weight -> no volume total"
                 }
@@ -258,7 +290,7 @@ module Pipeline =
             "staged value expansion for timed orders"
             [
                 test "CalcMinMax for kaliumchloride OnceTimed completes without overflow" {
-                    let ord = mkOnceTimedOrder ()
+                    let ord = Scenarios.kaliumchlorideOnceTimed ()
                     let res = OrderProcessor.processPipeline noLogger (CalcMinMax ord)
 
                     match res with
@@ -273,7 +305,7 @@ module Pipeline =
                 }
 
                 test "CalcValues for kaliumchloride OnceTimed completes without overflow" {
-                    let ord = mkOnceTimedOrder ()
+                    let ord = Scenarios.kaliumchlorideOnceTimed ()
 
                     let ordAfterCalcMinMax =
                         OrderProcessor.processPipeline noLogger (CalcMinMax ord)
@@ -318,308 +350,6 @@ module Pipeline =
                         |> Expect.isFalse "non-timed order should not have ValueSetOverflow"
                 }
             ]
-
-module ToOrderDto =
-
-    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
-    module Limit = Informedica.GenCore.Lib.Ranges.Limit
-
-    open Informedica.GenOrder.Lib.Medication
-
-    /// <summary>
-    /// Map a medication order record to a OrderDto record.
-    /// The medication order will map the constraints of the OrderDto.
-    /// </summary>
-    /// <param name="d">The Medication to convert</param>
-    let toOrderDto (d: Medication) =
-        let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
-
-        let limToDto = Option.map Limit.getValueUnit >> vuToDto
-
-        let oru = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
-
-        let standDoseRate un (orbDto: Order.Orderable.Dto.Dto) =
-            orbDto.Dose.Rate.Constraints.IncrOpt <- 1N / 10N |> createSingleValueUnitDto un
-            orbDto.Dose.Rate.Constraints.MinIncl <- true
-            orbDto.Dose.Rate.Constraints.MinOpt <- 1N / 10N |> createSingleValueUnitDto un
-            orbDto.Dose.Rate.Constraints.MaxIncl <- true
-            orbDto.Dose.Rate.Constraints.MaxOpt <- 1000N |> createSingleValueUnitDto un
-
-        let orbDto = Order.Orderable.Dto.dto d.Id d.Name
-
-        // make sure the orderable quantity has a unit
-        d.Components
-        |> List.tryHead
-        |> Option.map (fun p -> p.Quantities |> Option.map ValueUnit.getUnit, p.Divisible)
-        |> function
-            | Some(Some u, Some d) ->
-                orbDto.OrderableQuantity.Constraints.IncrOpt <- 1N / d |> createSingleValueUnitDto u
-            | _ -> ()
-
-        orbDto.DoseCount.Constraints |> setMinMaxConstraints false d.DoseCount
-
-        orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
-
-        let setOrbDoseRate (dl: DoseLimit) =
-
-            orbDto.Dose.Rate.Constraints |> setMinMaxConstraints false dl.Rate
-
-            orbDto.Dose.RateAdjust.Constraints |> setMinMaxConstraints true dl.RateAdjust
-
-        let setOrbDoseQty isOnce (dl: DoseLimit) =
-            orbDto.Dose.Quantity.Constraints |> setMinMaxConstraints false dl.Quantity
-
-            orbDto.Dose.QuantityAdjust.Constraints
-            |> setMinMaxConstraints true dl.QuantityAdjust
-
-            if not isOnce then
-                orbDto.Dose.PerTime.Constraints |> setMinMaxConstraints false dl.PerTime
-
-                orbDto.Dose.PerTimeAdjust.Constraints
-                |> setMinMaxConstraints true dl.PerTimeAdjust
-
-        match d.OrderType with
-        | AnyOrder
-        | ProcessOrder -> ()
-
-        | ContinuousOrder ->
-            orbDto |> standDoseRate oru
-
-            match d.Dose with
-            | Some dl -> dl |> setOrbDoseRate
-            | None -> ()
-
-        | OnceOrder ->
-            match d.Dose with
-            | Some dl -> dl |> setOrbDoseQty true
-            | None -> ()
-
-        | OnceTimedOrder ->
-            orbDto |> standDoseRate oru
-
-            match d.Dose with
-            | Some dl ->
-                dl |> setOrbDoseRate
-                dl |> setOrbDoseQty true
-                // Assume timed order always solution
-                orbDto.Dose.Quantity.Constraints.IncrOpt <- 1N / 10N |> createSingleValueUnitDto Units.Volume.milliLiter
-            | None -> ()
-
-        | DiscontinuousOrder ->
-            match d.Dose with
-            | Some dl -> dl |> setOrbDoseQty false
-            | None -> ()
-
-        | TimedOrder ->
-            orbDto |> standDoseRate oru
-            // Assume timed order always solution
-            if orbDto.Dose.Quantity.Constraints.ValsOpt.IsNone then
-                orbDto.Dose.Quantity.Constraints.IncrOpt <- 1N / 10N |> createSingleValueUnitDto Units.Volume.milliLiter
-
-            if orbDto.OrderableQuantity.Constraints.ValsOpt.IsNone then
-                orbDto.OrderableQuantity.Constraints.IncrOpt <-
-                    1N / 10N |> createSingleValueUnitDto Units.Volume.milliLiter
-
-            match d.Dose with
-            | Some dl ->
-                dl |> setOrbDoseRate
-                dl |> setOrbDoseQty false
-            | None -> ()
-
-        // TODO: not good, can vary per product!!
-        orbDto.Dose.Quantity.Constraints.IncrOpt <-
-            d.Components
-            |> List.tryHead
-            |> Option.bind (fun p ->
-                p.Divisible
-                |> Option.bind (fun d ->
-                    let ou = p.Quantities |> Option.map ValueUnit.getUnit |> Option.defaultValue NoUnit
-                    1N / d |> createSingleValueUnitDto ou
-                )
-            )
-
-        orbDto.Components <-
-            [
-                for p in d.Components do
-                    let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Form
-
-                    let div =
-                        p.Divisible
-                        |> Option.bind (fun d ->
-                            let ou = p.Quantities |> Option.map ValueUnit.getUnit |> Option.defaultValue NoUnit
-                            (1N / d) |> createSingleValueUnitDto ou
-                        )
-
-                    cmpDto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> vuToDto
-                    cmpDto.OrderableQuantity.Constraints.IncrOpt <- div
-
-                    if d.Components |> List.length = 1 then
-                        // If there is only one product, the concentration of that product in the
-                        // Orderable will be by definition be 1.
-                        cmpDto.OrderableConcentration.Constraints.ValsOpt <-
-                            1N |> createSingleValueUnitDto Units.Count.times
-
-                        cmpDto.Dose.Quantity.Constraints.IncrOpt <- div
-
-                    match p.Solution with
-                    | Some sl ->
-                        cmpDto.OrderableQuantity.Constraints |> setMinMaxConstraints false sl.Quantity
-
-                        cmpDto.OrderableConcentration.Constraints
-                        |> setMinMaxConstraints true sl.Concentration
-                    | None -> ()
-
-                    let setDoseRate (dl: DoseLimit) =
-                        if dl.Rate |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.Rate.Constraints |> setMinMaxConstraints false dl.Rate
-
-                        if dl.RateAdjust |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.RateAdjust.Constraints |> setMinMaxConstraints true dl.RateAdjust
-
-                    let setDoseQty (dl: DoseLimit) =
-                        if dl.Quantity |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.Quantity.Constraints |> setMinMaxConstraints false dl.Quantity
-
-                        if dl.QuantityAdjust |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.QuantityAdjust.Constraints
-                            |> setMinMaxConstraints true dl.QuantityAdjust
-
-                        if dl.PerTime |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.PerTime.Constraints |> setMinMaxConstraints false dl.PerTime
-
-                        if dl.PerTimeAdjust |> MinMax.isEmpty |> not then
-                            cmpDto.Dose.PerTimeAdjust.Constraints
-                            |> setMinMaxConstraints true dl.PerTimeAdjust
-
-                    match d.OrderType with
-                    | AnyOrder -> ()
-                    | ProcessOrder -> ()
-                    | ContinuousOrder ->
-                        match p.Dose with
-                        | None -> ()
-                        | Some dl -> dl |> setDoseRate
-
-                    | OnceOrder
-                    | DiscontinuousOrder ->
-                        match p.Dose with
-                        | None -> ()
-                        | Some dl -> dl |> setDoseQty
-
-                    | OnceTimedOrder
-                    | TimedOrder ->
-                        match p.Dose with
-                        | None -> ()
-                        | Some dl ->
-                            dl |> setDoseRate
-                            dl |> setDoseQty
-
-                    cmpDto.Items <-
-                        [
-                            for s in p.Substances do
-                                let itmDto = Order.Orderable.Item.Dto.dto d.Id d.Name p.Name s.Name
-
-                                itmDto.ComponentConcentration.Constraints.ValsOpt <- s.Concentrations |> vuToDto
-
-                                if d.Components |> List.length = 1 then
-                                    // When only one product, the orderable concentration is the same as the component concentration
-                                    itmDto.OrderableConcentration.Constraints.ValsOpt <-
-                                        itmDto.ComponentConcentration.Constraints.ValsOpt
-
-                                match s.Solution with
-                                | Some sl ->
-                                    itmDto.OrderableQuantity.Constraints |> setMinMaxConstraints false sl.Quantity
-
-                                    itmDto.OrderableConcentration.Constraints
-                                    |> setMinMaxConstraints true sl.Concentration
-                                | None -> ()
-
-                                let setDoseRate (dl: DoseLimit) =
-
-                                    itmDto.Dose.Rate.Constraints |> setMinMaxConstraints false dl.Rate
-
-                                    itmDto.Dose.RateAdjust.Constraints |> setMinMaxConstraints true dl.RateAdjust
-
-                                let setDoseQty (dl: DoseLimit) =
-                                    itmDto.Dose.Quantity.Constraints |> setMinMaxConstraints false dl.Quantity
-
-                                    itmDto.Dose.QuantityAdjust.Constraints
-                                    |> setMinMaxConstraints true dl.QuantityAdjust
-
-                                    itmDto.Dose.PerTime.Constraints |> setMinMaxConstraints false dl.PerTime
-
-                                    itmDto.Dose.PerTimeAdjust.Constraints
-                                    |> setMinMaxConstraints true dl.PerTimeAdjust
-
-                                match d.OrderType with
-                                | AnyOrder -> ()
-                                | ProcessOrder -> ()
-                                | ContinuousOrder ->
-                                    match s.Dose with
-                                    | None -> ()
-                                    | Some dl -> dl |> setDoseRate
-
-                                | OnceOrder
-                                | DiscontinuousOrder ->
-                                    match s.Dose with
-                                    | None -> ()
-                                    | Some dl -> dl |> setDoseQty
-
-                                | OnceTimedOrder
-                                | TimedOrder ->
-                                    match s.Dose with
-                                    | None -> ()
-                                    | Some dl ->
-                                        dl |> setDoseRate
-                                        dl |> setDoseQty
-
-                                itmDto
-                        ]
-
-                    cmpDto
-            ]
-
-        let dto =
-            match d.OrderType with
-            | AnyOrder -> "the order type cannot be 'Any'" |> failtest
-            | ProcessOrder -> "the order type cannot be 'Process'" |> failtest
-            | OnceOrder -> Order.Dto.once Scenarios.testStart d.Id d.Name d.Route []
-            | OnceTimedOrder -> Order.Dto.onceTimed Scenarios.testStart d.Id d.Name d.Route []
-            | ContinuousOrder -> Order.Dto.continuous Scenarios.testStart d.Id d.Name d.Route []
-            | DiscontinuousOrder -> Order.Dto.discontinuous Scenarios.testStart d.Id d.Name d.Route []
-            | TimedOrder -> Order.Dto.timed Scenarios.testStart d.Id d.Name d.Route []
-
-        dto.Orderable <- orbDto
-
-        dto.Schedule.Frequency.Constraints.ValsOpt <- d.Frequencies |> vuToDto
-
-        dto.Schedule.Frequency.Constraints.IncrOpt <-
-            d.Frequencies
-            |> Option.bind (fun vu ->
-                let u = ValueUnit.getUnit vu
-                1N |> createSingleValueUnitDto u
-            )
-
-        dto.Schedule.Time.Constraints.MinIncl <- d.Time.Min.IsSome
-        dto.Schedule.Time.Constraints.MinOpt <- d.Time.Min |> limToDto
-        dto.Schedule.Time.Constraints.MaxIncl <- d.Time.Max.IsSome
-        dto.Schedule.Time.Constraints.MaxOpt <- d.Time.Max |> limToDto
-
-        if
-            d.Adjust
-            |> Option.map ValueUnit.getUnit
-            |> Option.map (ValueUnit.Group.eqsGroup Units.Weight.kiloGram)
-            |> Option.defaultValue false
-        then
-            let u = d.Adjust |> Option.map ValueUnit.getUnit |> Option.defaultValue NoUnit
-            // Adjusted by weight
-            dto.Adjust.Constraints.MinOpt <- (200N / 1000N) |> createSingleValueUnitDto u
-
-            dto.Adjust.Constraints.MaxOpt <- 150N |> createSingleValueUnitDto u
-        // TODO: add constraints for BSA
-        dto.Adjust.Constraints.ValsOpt <- d.Adjust |> vuToDto
-
-        dto
-
 
 // Add your test modules here
 /// Component limits of a dose rule, as GenFORM gives them, holding products and no limits.
@@ -700,6 +430,8 @@ module ComponentProductTests =
                             {
                                 Id = "11"
                                 FormQuantities = Some(ml 10N)
+                                Reconstitution = None
+                                Predilution = None
                                 Strengths =
                                     [
                                         {
@@ -715,6 +447,8 @@ module ComponentProductTests =
                             {
                                 Id = "22"
                                 FormQuantities = Some(ml 20N)
+                                Reconstitution = None
+                                Predilution = None
                                 Strengths =
                                     [
                                         {
@@ -877,18 +611,6 @@ module ComponentProductTests =
                     |> List.contains (DtoError.NotMadeOf("Components[0].Products[1]", "amox-clav-1000-200"))
                     |> Expect.isTrue "the second product"
                 }
-
-                test "a product with a blank id is an error" {
-                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: \"\"")
-                    |> MedicationText.fromString
-                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
-                }
-
-                test "a product without an id is an error" {
-                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: ~")
-                    |> MedicationText.fromString
-                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
-                }
             ]
 
 
@@ -937,6 +659,30 @@ module ProductNarrowingTests =
         |> solve (fun o -> ChangeProperty(o, SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n)))
 
 
+    let amoxClav500 = "amox-clav-500-50"
+
+
+    /// The amoxicilline/clavulaanzuur order with the 500/50 mg product reconstituted in 10 mL water.
+    let reconstitutedAmoxClav () =
+        let reconstitution =
+            [
+                "        Reconstitution:"
+                "          Solvent: water"
+                "          SolventVolume:"
+                "            Value:"
+                "              - \"10\""
+                "            Unit: ml"
+            ]
+            |> String.concat "\n"
+
+        Scenarios.amoxClavText
+        // a checkout with CRLF line endings holds \r\n in the text
+        |> String.replace "\r\n" "\n"
+        |> String.replace $"      - Id: %s{amoxClav500}\n" $"      - Id: %s{amoxClav500}\n%s{reconstitution}\n"
+        |> parse
+        |> built
+
+
     let tests =
         testList
             "the products narrow the strengths"
@@ -949,6 +695,41 @@ module ProductNarrowingTests =
                     |> Expect.equal "the dose leaves 5 mg/mL" [| 5N |]
                     ord |> Order.productIds |> Expect.equal "one product" [| "amox-clav-500-50" |]
                     ord |> cmpQuantities |> Expect.equal "its 10 mL" [| 10N |]
+                }
+
+                test "a reconstituted product gives the pick id of the GenFORM product it was made from" {
+                    let recon =
+                        SplitByDivisibleTests.Fixture.reconstituted amoxClav500 "water"
+                        |> Medication.reconstitutionOf
+
+                    let picked = Order.pickId amoxClav500 recon None
+
+                    reconstitutedAmoxClav ()
+                    |> Order.productIds
+                    |> Expect.equal "the pick id" [| picked |]
+                }
+
+                test "an order with a reconstituted product gives its reconstitution as text" {
+                    reconstitutedAmoxClav ()
+                    |> Order.reconstitutionText
+                    |> Expect.equal "the text" (Some "10 mL water")
+                }
+
+                test "the preparation shows the concentration of an item without markup" {
+                    reconstitutedAmoxClav ()
+                    |> Order.Print.printPrep true [| "amoxicilline" |]
+                    |> Array.tryFind (fun row -> row |> Array.contains (Valid "amoxicilline"))
+                    |> Option.map (fun row -> row[3])
+                    |> Expect.equal "the concentration" (Some(Valid "50 mg/mL"))
+                }
+
+
+                test "an order without a reconstituted product gives no reconstitution text" {
+                    Scenarios.amoxClavText
+                    |> parse
+                    |> built
+                    |> Order.reconstitutionText
+                    |> Expect.isNone "no text"
                 }
 
                 test "both strengths of clavulaanzuur keep both products" {
@@ -1072,37 +853,6 @@ module MedicationOrderTests =
                             |> Expect.hasLength "should have 3 items in first component" 2
                         }
 
-                        test "ToDto reference function to OrderDto" {
-                            let medOrd = testMedicationOrders |> List.head
-
-                            let ord1 =
-                                Medication.toOrderDto Scenarios.testStart medOrd
-                                |> Order.Dto.fromDto
-                                |> Result.get
-
-                            // Check if the dto the same as ToOrderDto.toOrderDto
-                            let ord2 = ToOrderDto.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
-
-                            ord1.Adjust |> Expect.equal "should be equal" ord2.Adjust
-                            ord1.Duration |> Expect.equal "should be equal" ord2.Duration
-                            ord1.Id |> Expect.equal "should be equal" ord2.Id
-                            ord1.Route |> Expect.equal "should be equal" ord2.Route
-                            ord1.Schedule |> Expect.equal "should be equal" ord2.Schedule
-                            ord1.Orderable.Name |> Expect.equal "should be equal" ord2.Orderable.Name
-
-                            ord1.Orderable.Components[0].OrderableQuantity
-                            |> Expect.equal "should be equal" ord2.Orderable.Components[0].OrderableQuantity
-
-                            // this is fix: https://github.com/halcwb/GenPres2/commit/43d58ab1e123fd3217061d191226c5f074cdfad3
-                            ord1.Orderable.OrderableQuantity
-                            |> Expect.notEqual "should NOT be equal" ord2.Orderable.OrderableQuantity
-
-                            printfn $"{medOrd.Components[0].Dose}"
-
-                            ord1.Orderable.Dose.Quantity
-                            |> Expect.notEqual "should NOT be equal" ord2.Orderable.Dose.Quantity
-                        }
-
                     ]
             ]
 
@@ -1114,9 +864,6 @@ module DosePrintoutTests =
     module Units = Units
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
-
-    let private createSingleValueUnitDto un v =
-        ValueUnit.create un [| v |] |> ValueUnit.Dto.toDto false "English"
 
     /// Helper to create a test order with configurable dose constraints
     let private createTestOrderWithConstraints hasQuantityConstraints hasQuantityAdjustConstraints adjustUnit =
@@ -1452,13 +1199,15 @@ module TypeTests =
                 DoseTypes = [||]
                 Diluents = [||]
                 Components = [||]
+                DoseRuleComponents = [||]
                 Indication = None
                 Generic = None
                 Route = None
                 Form = None
                 DoseType = None
                 Diluent = None
-                SelectedComponents = [||]
+                SelectedComponents = ComponentSelection.AllComponents
+                PickedProducts = [||]
             }
 
 
@@ -1487,7 +1236,7 @@ module TypeTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = Patient.patient
+                PatientData = PatientData.unknown
                 Scenarios = [||]
                 Argumentation = None
             }
@@ -1498,13 +1247,14 @@ module TypeTests =
                 Id = id
                 Category = category
                 Context = context
-                Intake = totals
+                Totals = totals
+                LinkedTo = None
             }
 
 
         let plan contexts =
             {
-                Patient = Patient.patient
+                PatientData = PatientData.unknown
                 Filtered = [||]
                 Contexts = contexts
                 Totals = totals
@@ -1516,14 +1266,15 @@ module TypeTests =
             "Types"
             [
                 test "a plan context wraps an order context with its id, category and intake" {
-                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication
 
                     pc.Context
                     |> Expect.equal "the context is held as given" OrderPlanFixtures.context
 
                     pc.Id |> Expect.equal "the id is the plan's" "ctx-1"
-                    pc.Category |> Expect.equal "a drug" OrderCategory.Drug
-                    pc.Intake |> Expect.equal "the intake is held as given" OrderPlanFixtures.totals
+                    pc.Category |> Expect.equal "a medication" OrderCategory.Medication
+                    pc.Totals
+                    |> Expect.equal "the totals are held as given" OrderPlanFixtures.totals
                 }
 
                 test "a nutrition context carries its category" {
@@ -1531,13 +1282,13 @@ module TypeTests =
 
                     match pc.Category with
                     | OrderCategory.Nutrition cat -> cat |> Expect.equal "TPN" NutritionCategory.TPN
-                    | OrderCategory.Drug -> failtest "a nutrition context is not a drug"
+                    | OrderCategory.Medication -> failtest "a nutrition context is not a medication"
                 }
 
                 test "an order plan holds its contexts, its filter and its totals" {
                     let contexts =
                         [|
-                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication
                             OrderPlanFixtures.planContext
                                 "ctx-2"
                                 (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
@@ -1550,53 +1301,30 @@ module TypeTests =
                     |> Expect.equal "both contexts" [| "ctx-1"; "ctx-2" |]
 
                     plan.Filtered |> Expect.equal "the filter keeps one" [| "ctx-2" |]
-                    plan.Patient |> Expect.equal "the patient as shown" Patient.patient
-                }
-
-                test "an order plan version stores the whole plan and its identity" {
-                    let plan = OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug |]
-
-                    let version =
-                        {
-                            Id = "v-1"
-                            No = 1
-                            PatientId = "stub-patient"
-                            Base = None
-                            SignedBy =
-                                {
-                                    UserId = "u-1"
-                                    DisplayName = "Stub Prescriber"
-                                }
-                            SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
-                            Plan = plan
-                            Verified = true
-                        }
-
-                    version.Plan |> Expect.equal "the plan as signed" plan
-                    version.Base |> Expect.isNone "the first version has no base"
-                    version.SignedBy.DisplayName |> Expect.equal "the signer" "Stub Prescriber"
-
-                    let second =
-                        { version with
-                            Id = "v-2"
-                            No = 2
-                            Base = Some version.Id
-                        }
-
-                    second.Base |> Expect.equal "the second is built on the first" (Some "v-1")
-                    second.Plan |> Expect.equal "the plan is copied, not recomputed" version.Plan
+                    plan.PatientData |> Expect.equal "the patient as shown" PatientData.unknown
                 }
 
                 test "a nutrition rule set names what its category draws from" {
                     let set =
                         {
-                            Category = NutritionCategory.Lipid
+                            Kind = RuleSetKind.Nutrition NutritionCategory.Lipid
                             Label = "Lipid"
-                            Indications = [| "parenterale voeding" |]
-                            Generics = [| "smoflipid" |]
+                            Rows =
+                                [|
+                                    {
+                                        RuleSetData.Category = "Lipid"
+                                        RuleSetData.Label = "Lipid"
+                                        RuleSetData.Indication = "parenterale voeding"
+                                        RuleSetData.Generic = "smoflipid"
+                                        RuleSetData.Location = None
+                                        RuleSetData.Department = None
+                                    }
+                                |]
                         }
 
-                    set.Generics |> Expect.equal "the generics of the set" [| "smoflipid" |]
+                    set.Rows
+                    |> RuleSet.distinctOf _.Generic
+                    |> Expect.equal "the generics of the set" [| "smoflipid" |]
                 }
 
                 test "OrderVariable can be created" {
@@ -1630,34 +1358,58 @@ module PatientConstructorTests =
             [
 
                 test "premature has gestational age set" {
-                    Patient.premature.GestAge
+                    SamplePatients.premature.GestationalAge
                     |> Expect.isSome "premature should have gestational age"
                 }
 
-                test "premature has department NEO" {
-                    Patient.premature.Department |> Expect.equal "should be NEO" (Some "NEO")
+                test "premature has the post-menstrual age of 1 week plus 32 weeks" {
+                    SamplePatients.premature
+                    |> CorePatientData.postMenstrualAgeInDays
+                    |> Expect.equal "231 days" (Some(ValueUnit.singleWithUnit Units.Time.day 231N))
                 }
 
-                test "newBorn has age set" { Patient.newBorn.Age |> Expect.isSome "newBorn should have age" }
+                test "a patient without a gestational age has no post-menstrual age" {
+                    SamplePatients.newBorn.PostMenstrualAge |> Expect.isNone "none"
+                }
 
-                test "infant has weight set" { Patient.infant.Weight |> Expect.isSome "infant should have weight" }
+                test "premature has department NEO" {
+                    SamplePatients.premature
+                    |> Patient.getDepartment
+                    |> Expect.equal "should be NEO" (Some "NEO")
+                }
 
-                test "child has height set" { Patient.child.Height |> Expect.isSome "child should have height" }
+                test "newBorn has age set" { SamplePatients.newBorn.Age |> Expect.isSome "newBorn should have age" }
 
-                test "teenager has age set" { Patient.teenager.Age |> Expect.isSome "teenager should have age" }
+                test "infant has weight set" {
+                    SamplePatients.infant
+                    |> Patient.getWeight
+                    |> Expect.isSome "infant should have weight"
+                }
 
-                test "adult has weight set" { Patient.adult.Weight |> Expect.isSome "adult should have weight" }
+                test "child has height set" {
+                    SamplePatients.child
+                    |> Patient.getHeight
+                    |> Expect.isSome "child should have height"
+                }
+
+                test "teenager has age set" { SamplePatients.teenager.Age |> Expect.isSome "teenager should have age" }
+
+                test "adult has weight set" {
+                    SamplePatients.adult
+                    |> Patient.getWeight
+                    |> Expect.isSome "adult should have weight"
+                }
 
                 test "all patient constructors have distinct departments or ages" {
                     let patients =
                         [
-                            Patient.premature
-                            Patient.newBorn
-                            Patient.infant
-                            Patient.toddler
-                            Patient.child
-                            Patient.teenager
-                            Patient.adult
+                            SamplePatients.premature
+                            SamplePatients.newBorn
+                            SamplePatients.infant
+                            SamplePatients.toddler
+                            SamplePatients.child
+                            SamplePatients.teenager
+                            SamplePatients.adult
                         ]
 
                     patients |> List.length |> Expect.equal "should have 7 distinct patients" 7
@@ -1665,9 +1417,81 @@ module PatientConstructorTests =
             ]
 
 
+module PatientAgeTests =
+
+    open Informedica.GenOrder.Lib.Patient.AgeParts
+
+
+    let orderPatient ags marked =
+        { PatientData.unknown with AdultMark = CoreAdultMark.MarkableAdult marked }
+        |> SamplePatients.withAge ags
+
+
+    let orderDays ags =
+        orderPatient ags false
+        |> CorePatientData.ageInDays
+        |> Option.map (ValueUnit.getValue >> Array.head)
+        |> Option.defaultValue 0N
+
+
+    let tests =
+        testList
+            "Patient age in months"
+            [
+                test "216 months is 6,570 days" { orderDays [ Months 216 ] |> Expect.equal "6,570 days" 6570N }
+
+                test "216 months is an adult" {
+                    orderPatient [ Months 216 ] false
+                    |> PatientData.isAdult
+                    |> Expect.isTrue "adult"
+                }
+
+                test "215 months is a child" {
+                    orderPatient [ Months 215 ] false
+                    |> PatientData.isAdult
+                    |> Expect.isFalse "child"
+                }
+
+                test "192 months marked is an adult" {
+                    orderPatient [ Months 192 ] true |> PatientData.isAdult |> Expect.isTrue "adult"
+                }
+
+                test "191 months marked is not an adult" {
+                    orderPatient [ Months 191 ] true
+                    |> PatientData.isAdult
+                    |> Expect.isFalse "child"
+                }
+
+                test "1 year and 14 months is 2 years and 2 months" {
+                    orderDays [ Years 1; Months 14 ]
+                    |> Expect.equal "the same days" (orderDays [ Years 2; Months 2 ])
+                }
+
+                test "6 months is 180 days" { orderDays [ Months 6 ] |> Expect.equal "180 days" 180N }
+
+                test "6,565 days is 17 years, 11 months, 4 weeks and 2 days" {
+                    orderPatient [ Days 6565 ] false
+                    |> Patient.getAge
+                    |> Expect.equal "never 12 months" [ Years 17; Months 11; Weeks 4; Days 2 ]
+                }
+
+                test "every day count up to 20 years survives the round trip" {
+                    [ 0 .. 20 * 365 ]
+                    |> List.filter (fun d ->
+                        orderPatient [ Days d ] false |> Patient.getAge |> orderDays
+                        <> BigRational.FromInt d
+                    )
+                    |> Expect.isEmpty "no day count changes"
+                }
+            ]
+
+
 module OrderBuilderTests =
 
     open Informedica.GenOrder.Lib.Medication
+    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+    module Minimum = Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
+    module Maximum = Informedica.GenSolver.Lib.Variable.ValueRange.Maximum
 
     /// The names of every order variable of an order, in order.
     let private names (ord: Order) =
@@ -1686,6 +1510,48 @@ module OrderBuilderTests =
     /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
     /// list of fixtures and forgotten in the other.
     let private fixtures = GoldenOrders.all |> List.map (fun g -> g.Name, g.Medication)
+
+    let private mLPerKgPerHour =
+        Units.Volume.milliLiter
+        |> ValueUnit.per Units.Weight.kiloGram
+        |> ValueUnit.per Units.Time.hour
+
+    /// A continuous infusion of one component, the morphine of morfCont, without a dose of its
+    /// own, whose component has the rate adjust given, in mL/kg/hour.
+    let private singleComponent rateAdjust =
+        let morphine = Scenarios.morfCont.Components |> List.head
+
+        { Scenarios.morfCont with
+            Dose = None
+            Components =
+                [
+                    { morphine with
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "morfine" |> ComponentLimitTarget
+                                DoseUnit = Units.Volume.milliLiter
+                                AdjustUnit = Some Units.Weight.kiloGram
+                                RateAdjust = rateAdjust
+                            }
+                            |> Some
+                    }
+                ]
+        }
+
+    /// The minimum and maximum the orderable dose rate adjust of a medication is constrained to,
+    /// as values.
+    let private orderableRateAdjust (med: Medication) =
+        let cs =
+            med
+            |> OrderBuilder.newOrder Scenarios.testStart
+            |> OrderBuilder.withComponents med
+            |> OrderBuilder.withOrderableConstraints med
+            |> _.Orderable.Dose.RateAdjust
+            |> OrderVariable.RateAdjust.toOrdVar
+            |> OrderVariable.getConstraints
+
+        cs.Min |> Option.map (Minimum.toValueUnit >> ValueUnit.getValue),
+        cs.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue)
 
     /// The constraints of every order variable of an order, by name, for those whose name has
     /// the given number of parts: four for an item, three for a component, two for the
@@ -1831,6 +1697,15 @@ module OrderBuilderTests =
                             |> constraintsOfDepth 3
                             |> Expect.equal "the same component constraints" (ord |> constraintsOfDepth 3)
                     }
+
+                test "a rate adjust norm of a single component without a dose is widened on the orderable" {
+                    20N
+                    |> ValueUnit.singleWithUnit mLPerKgPerHour
+                    |> MinMax.createExact
+                    |> singleComponent
+                    |> orderableRateAdjust
+                    |> Expect.equal "18 to 22 mL/kg/hour" (Some [| 18N |], Some [| 22N |])
+                }
             ]
 
 
@@ -1896,6 +1771,25 @@ module ConstraintsTests =
             (two |> Increment.create |> Some)
             (two |> Maximum.create true |> Some)
             (one |> ValueSet.create |> Some)
+
+    let private noConstraints = Constraints.create None None None None
+
+    /// The value 10 to the power 30, which is above the largest decimal.
+    let private beyondDecimal = List.replicate 30 10N |> List.reduce (*)
+
+    /// The constraints of a dose limit with the minimum lo and the maximum hi in milligram.
+    /// Equal bounds are stored as a norm dose when calcNormDose is true.
+    let private limitedWith calcNormDose lo hi =
+        let minMax =
+            { MinMax.empty with
+                Min = lo |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+                Max = hi |> ValueUnit.singleWithUnit mg |> Limit.Inclusive |> Some
+            }
+
+        noConstraints |> Constraints.setMinMax calcNormDose minMax
+
+    /// The constraints of a dose limit in milligram, with equal bounds stored as a norm dose.
+    let private limited = limitedWith true
 
     let tests =
         testList
@@ -1979,6 +1873,70 @@ module ConstraintsTests =
                     |> _.Max
                     |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
                     |> Expect.equal "a range is not a norm dose" (Some 2N)
+                }
+
+                for norm in [ 1N; 5N; 1N / 3N; 250N ] do
+                    test $"getNorm reads back a norm dose of %A{norm} mg" {
+                        limited norm norm
+                        |> Constraints.getNorm
+                        |> Expect.equal "the norm dose itself" (norm |> ValueUnit.singleWithUnit mg |> Some)
+                    }
+
+                test "getNorm of a range is no norm dose" {
+                    limited 1N 2N |> Constraints.getNorm |> Expect.isNone "a range has no norm dose"
+                }
+
+                test "getNorm of constraints without a minimum and a maximum is no norm dose" {
+                    noConstraints |> Constraints.getNorm |> Expect.isNone "no bounds, no norm dose"
+                }
+
+                test "getNorm of constraints with only a minimum is no norm dose" {
+                    noConstraints
+                    |> Constraints.setMin true (Some one)
+                    |> Constraints.getNorm
+                    |> Expect.isNone "a single bound is not a norm dose"
+                }
+
+                test "toMinMaxString of a norm dose is the norm dose" {
+                    limited 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose" "5 mg"
+                }
+
+                test "toMinMaxString of a norm dose of a third is rounded to the precision" {
+                    limited (1N / 3N) (1N / 3N)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "three significant digits" "0,333 mg"
+                }
+
+                test "toMinMaxString of equal bounds is the single value" {
+                    limitedWith false 5N 5N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the single value" "5 mg"
+                }
+
+                test "toMinMaxString of a range is the minimum and the maximum" {
+                    limited 1N 2N
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the range" "1 - 2 mg"
+                }
+
+                test "toMinMaxString of a norm dose beyond a decimal is the norm dose" {
+                    limited beyondDecimal beyondDecimal
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal "the norm dose in full" "1000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString of a range beyond a decimal is the minimum and the maximum" {
+                    limited beyondDecimal (2N * beyondDecimal)
+                    |> Constraints.toMinMaxString 3
+                    |> Expect.equal
+                        "the range in full"
+                        "1000000000000000000000000000000 - 2000000000000000000000000000000 mg"
+                }
+
+                test "toMinMaxString without bounds is an empty text" {
+                    noConstraints |> Constraints.toMinMaxString 3 |> Expect.equal "no text" ""
                 }
             ]
 
@@ -2182,6 +2140,45 @@ module HelperTests =
                             |> ovar None
                             |> OrderVariable.hasOneValue
                             |> Expect.isFalse "two values"
+                        }
+
+                        test "the text of a range with only a minimum is min with the limit" {
+                            ValueRange.createMin true (mL [ 1 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "min" "min 1 mL"
+                        }
+
+                        test "the text of a range with only a maximum is max with the limit" {
+                            ValueRange.createMax true (mL [ 2 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "max" "max 2 mL"
+                        }
+
+                        test "the text of an exclusive minimum of zero is empty" {
+                            ValueRange.createMin false (mL [ 0 ])
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "no text" ""
+                        }
+
+                        test "the text of a range with a minimum and a maximum is the markdown without markers" {
+                            ValueRange.create
+                                (mL [ 1 ] |> Minimum.create true |> Some)
+                                None
+                                (mL [ 2 ] |> ValueRange.Maximum.create true |> Some)
+                                None
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "the range" "1 - 2 mL"
+                        }
+
+                        test "the text of a value set is the values with the unit" {
+                            valSet mL [ 2 ]
+                            |> ovar None
+                            |> OrderVariable.toValueUnitText id 3
+                            |> Expect.equal "the value" "2 mL"
                         }
 
                         test "the value of a variable with one value" {
@@ -2527,6 +2524,7 @@ module ReferenceTests =
             OrderVariableReference.ScheduleFrequency
             OrderVariableReference.ScheduleTime
             OrderVariableReference.OrderableQuantity
+            OrderVariableReference.OrderableQuantityAdjust
             OrderVariableReference.OrderableDoseCount
             OrderVariableReference.OrderableOrderCount
             OrderVariableReference.OrderDuration
@@ -2540,6 +2538,7 @@ module ReferenceTests =
                 OrderVariableReference.ComponentOrderCount c'
                 OrderVariableReference.ComponentQuantity c'
                 OrderVariableReference.ComponentOrderableQuantity c'
+                OrderVariableReference.ComponentOrderableQuantityAdjust c'
                 OrderVariableReference.ComponentOrderableCount c'
                 OrderVariableReference.ComponentOrderableConcentration c'
 
@@ -2551,6 +2550,7 @@ module ReferenceTests =
                     OrderVariableReference.ItemComponentQuantity(c', i')
                     OrderVariableReference.ItemComponentConcentration(c', i')
                     OrderVariableReference.ItemOrderableQuantity(c', i')
+                    OrderVariableReference.ItemOrderableQuantityAdjust(c', i')
                     OrderVariableReference.ItemOrderableConcentration(c', i')
 
                     for p in props do
@@ -3539,85 +3539,77 @@ module EquationsTests =
     open TestOrder
 
 
-    // Golden reference: the full "Equations" sheet. Each entry is the equation
-    // string ("Short Name" column) and a 5-char marker for which dose types mark
-    // it with an "x", in column order discontinuous, continuous, timed, once,
-    // onceTimed ('x' = applies, '.' = blank). This is an independent transcription
-    // of the source sheet, except that the component and orderable dose totals
-    // follow the item dose total: the total by per time on the dose types with a
-    // frequency and the total by rate on a continuous order only. The sheet had
-    // both on a timed order, which a timed order with a duration cannot satisfy.
-    // The test fails if the hardcoded EquationMapping.equations list drifts from
-    // it (wrong equation text, wrong dose-type assignment, or order).
+    // Golden reference: the "Equations" sheet. Each entry is the equation ("Short Name" column), a 5-char marker for
+    // the dose types in column order discontinuous, continuous, timed, once and onceTimed, and a 7-char marker for
+    // the marks in column order dosAdjust, orbQtyAdjust, tie, itmCnc, noTimedCnc, noOnceTimedCnc and sum ('x' =
+    // marked, '.' = blank). This is an independent transcription of the 63 rows of the sheet, in the order of the
+    // EquationMapping.equations list. The tests fail if the list drifts from it: wrong equation text, wrong dose
+    // types, wrong marks or another order.
     let private golden =
         [
-            "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", "xxxxx"
-            "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty", "xxxxx"
-            "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty", "xxxxx"
-            "[itm]_dos_qty = [itm]_dos_rte * [ord]_sch_tme", "....."
-            "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm", "x.x.."
-            "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm", "x.x.."
-            "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte", ".xx.x"
-            "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte", ".xx.x"
-            "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty", ".xx.x"
-            "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme", ".x..."
-            "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj", "xxxxx"
-            "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj", "xxxxx"
-            "[itm]_dos_qty_adj = [itm]_dos_rte_adj * [ord]_sch_tme", "....."
-            "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj", "xxx.."
-            "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj", "xxx.."
-            "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj", ".x..."
-            "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj", ".x..."
-            "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme", "x.x.."
-            "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme", ".x..."
-            "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty", "xxxxx"
-            "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", "xxxxx"
-            "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", "xxxxx"
-            "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", "xxxxx"
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", ".x..."
-            "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", "xxxxx"
-            "[cmp]_dos_qty = [cmp]_dos_rte * [ord]_sch_tme", "....."
-            "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", "x.x.."
-            "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", ".x..."
-            "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", ".x..."
-            "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", "xxxxx"
-            "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", ".x..."
-            "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj", "x.x.."
-            "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", ".x..."
-            "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", "xxxxx"
-            "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", "xxxxx"
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "x.x.."
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", ".x..."
-            "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", ".xx.x"
-            "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
-            "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", "x.x.."
-            "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty", "x.x.."
-            "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", ".xx.x"
-            "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", ".x..."
-            "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", "x.x.."
-            "[orb]_orb_qty = sum([cmp]_orb_qty)", "xxxxx"
-            "[orb]_dos_qty = sum([cmp]_dos_qty)", "....."
-            "[orb]_dos_ptm = sum([cmp]_dos_ptm)", "....."
-            "[orb]_dos_rte = sum([cmp]_dos_rte)", "....."
-            "[orb]_dos_tot = sum([cmp]_dos_tot)", "....."
-            "[orb]_dos_qty_adj = sum([cmp]_dos_qty_adj)", "....."
-            "[orb]_dos_ptm_adj = sum([cmp]_dos_ptm_adj)", "....."
-            "[orb]_dos_rte_adj = sum([cmp]_dos_rte_adj)", "....."
-            "[orb]_dos_tot_adj = sum([cmp]_dos_tot_adj)", "....."
-            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx"
-            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx"
+            "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", "xxxxx", "......."
+            "[itm]_orb_qty = [itm]_orb_cnc * [orb]_orb_qty", "xxxxx", "...x..."
+            "[itm]_orb_qty = [itm]_cmp_cnc * [cmp]_orb_qty", "xxxxx", "......."
+            "[itm]_dos_qty = [itm]_cmp_cnc * [cmp]_dos_qty", "xxxxx", "......."
+            "[itm]_dos_qty = [itm]_orb_cnc * [orb]_dos_qty", "xxxxx", "...x..."
+            "[itm]_dos_qty = [itm]_dos_rte * [ord]_sch_tme", ".....", "......."
+            "[itm]_dos_qty = [itm]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[itm]_dos_ptm = [itm]_cmp_cnc * [cmp]_dos_ptm", "x.x..", "......."
+            "[itm]_dos_ptm = [itm]_orb_cnc * [orb]_dos_ptm", "x.x..", "...x..."
+            "[itm]_dos_ptm = [itm]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[itm]_dos_ptm = [itm]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[itm]_dos_rte = [itm]_cmp_cnc * [cmp]_dos_rte", ".xx.x", "......."
+            "[itm]_dos_rte = [itm]_orb_cnc * [orb]_dos_rte", ".xx.x", "...x..."
+            "[itm]_dos_rte = [itm]_dos_rte_adj * [ord]_adj_qty", ".xx.x", "x......"
+            "[itm]_dos_tot = [itm]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[itm]_dos_tot = [itm]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[itm]_dos_qty_adj = [itm]_cmp_cnc * [cmp]_dos_qty_adj", "xxxxx", "x......"
+            "[itm]_dos_qty_adj = [itm]_orb_cnc * [orb]_dos_qty_adj", "xxxxx", "x..x..."
+            "[itm]_dos_qty_adj = [itm]_dos_rte_adj * [ord]_sch_tme", ".....", "x......"
+            "[itm]_dos_ptm_adj = [itm]_cmp_cnc * [cmp]_dos_ptm_adj", "xxx..", "x......"
+            "[itm]_dos_ptm_adj = [itm]_orb_cnc * [orb]_dos_ptm_adj", "xxx..", "x..x..."
+            "[itm]_dos_ptm_adj = [itm]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[itm]_dos_rte_adj = [itm]_cmp_cnc * [cmp]_dos_rte_adj", ".x...", "x......"
+            "[itm]_dos_rte_adj = [itm]_orb_cnc * [orb]_dos_rte_adj", ".x...", "x..x..."
+            "[itm]_dos_tot_adj = [itm]_dos_ptm_adj * [ord]_ord_tme", "x.x..", "x......"
+            "[itm]_dos_tot_adj = [itm]_dos_rte_adj * [ord]_ord_tme", ".x...", "x......"
+            "[cmp]_orb_qty = [cmp]_orb_cnc * [orb]_orb_qty", "xxxxx", "......."
+            "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", "xxxxx", "......."
+            "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", "xxxxx", "......."
+            "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", "xxxxx", "......."
+            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", "xxxxx", "......."
+            "[cmp]_dos_qty = [cmp]_dos_rte * [ord]_sch_tme", ".....", "......."
+            "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", "x.x..", "......."
+            "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", ".x...", "....xx."
+            "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", ".x...", "x......"
+            "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", "xxxxx", "x......"
+            "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", ".x...", "x......"
+            "[cmp]_dos_ptm_adj = [cmp]_orb_cnc * [orb]_dos_ptm_adj", "x.x..", "x......"
+            "[cmp]_dos_ptm_adj = [cmp]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", ".x...", "x......"
+            "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", "xxxxx", "......."
+            "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", "xxxxx", "......."
+            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "x.x..", "......."
+            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", ".x...", "......."
+            "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", ".xx.x", "......."
+            "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", "xxxxx", "x......"
+            "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", "x.x..", "......."
+            "[orb]_dos_ptm = [orb]_dos_ptm_adj * [ord]_adj_qty", "x.x..", "x......"
+            "[orb]_dos_rte = [orb]_dos_rte_adj * [ord]_adj_qty", ".xx.x", "x......"
+            "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", ".x...", "x......"
+            "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", "x.x..", "x......"
+            "[ord]_sch_cnt = [ord]_sch_tme * [ord]_sch_frq", "..x..", "......."
+            "[orb]_orb_qty = sum([cmp]_orb_qty)", "xxxxx", "......x"
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx", "..x...."
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx", "..x...x"
+            "[orb]_orb_qty = [orb]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
+            "[cmp]_orb_qty = [cmp]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
+            "[itm]_orb_qty = [itm]_orb_qty_adj * [ord]_adj_qty", "xxxxx", ".x....."
         ]
 
     // (dose-type index used by getEquations, position in the marker string, name)
@@ -3630,15 +3622,93 @@ module EquationsTests =
             EquationMapping.Literals.onceTimed, 4, "onceTimed"
         ]
 
-    let private expectedFor pos =
-        golden |> List.filter (fun (_, m) -> m[pos] = 'x') |> List.map fst
+    // The marks in the column order of the sheet.
+    let private marks =
+        [
+            EquationMapping.Mark.DoseAdjust
+            EquationMapping.Mark.OrderableQuantityAdjust
+            EquationMapping.Mark.Tie
+            EquationMapping.Mark.ItemConcentration
+            EquationMapping.Mark.NoItemConcentrationTimed
+            EquationMapping.Mark.NoItemConcentrationOnceTimed
+            EquationMapping.Mark.Sum
+        ]
+
+    // The golden rows of the dose type at position pos.
+    let private goldenFor pos = golden |> List.filter (fun (_, dts, _) -> dts[pos] = 'x')
+
+    let private expectedFor pos = goldenFor pos |> List.map (fun (eq, _, _) -> eq)
+
+
+    let private marked xs (s: string) =
+        xs |> List.indexed |> List.filter (fun (i, _) -> s[i] = 'x') |> List.map snd
+
+
+    // The rows of the golden table that apply to a dose type, as equation rows.
+    let private goldenRows =
+        golden
+        |> List.filter (fun (_, dts, _) -> dts |> String.contains "x")
+        |> List.map (fun (eq, dts, ms) ->
+            EquationMapping.row eq (marked (doseTypes |> List.map (fun (indx, _, _) -> indx)) dts) (marked marks ms)
+        )
+
+
+    // Every combination of the conditions that an order can have: an adjusted dose constraint, an orderable
+    // quantity adjust constraint, more than one component, and the item concentration products left out. An order
+    // that leaves out the item concentration products has more than two components.
+    let private conditionCases =
+        [
+            for adj in [ false; true ] do
+                for orbAdj in [ false; true ] do
+                    for more in [ false; true ] do
+                        for leavesOut in [ false; true ] do
+                            if more || not leavesOut then
+                                adj, orbAdj, more, leavesOut
+        ]
+
+
+    // The sum and product equations the golden table gives for the dose type at position pos and a condition case.
+    let private expectedSelection indx pos (adj, orbAdj, more, leavesOut) =
+        let has i (ms: string) = ms[i] = 'x'
+
+        let added =
+            match indx with
+            | _ when not leavesOut -> []
+            | EquationMapping.Literals.timed -> golden |> List.filter (fun (_, _, ms) -> ms |> has 4)
+            | EquationMapping.Literals.onceTimed -> golden |> List.filter (fun (_, _, ms) -> ms |> has 5)
+            | _ -> []
+
+        let sums, prods =
+            goldenFor pos @ added
+            |> List.filter (fun (_, _, ms) ->
+                (not (ms |> has 0) || adj)
+                && (not (ms |> has 1) || orbAdj)
+                && (not (ms |> has 2) || more)
+                && (not (ms |> has 3) || not leavesOut)
+            )
+            |> List.partition (fun (_, _, ms) -> ms |> has 6)
+
+        sums |> List.map (fun (eq, _, _) -> eq), prods |> List.map (fun (eq, _, _) -> eq)
+
+
+    let private marksOf (adj, orbAdj, more, leavesOut) =
+        [
+            if adj then
+                EquationMapping.Mark.DoseAdjust
+            if orbAdj then
+                EquationMapping.Mark.OrderableQuantityAdjust
+            if more then
+                EquationMapping.Mark.Tie
+            if not leavesOut then
+                EquationMapping.Mark.ItemConcentration
+        ]
 
 
     let private items (ord: Order) = ord.Orderable.Components |> List.collect _.Items
 
 
     let private mappedEquations indx ord =
-        match EquationMapping.getEquations indx |> EquationMapping.getEqsMapping ord with
+        match indx |> EquationMapping.getEqsMapping ord with
         | SumMapping s, ProductMapping p -> s @ p
         | _ -> []
 
@@ -3663,15 +3733,30 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 67 sheet rows" {
-                    golden |> List.length |> Expect.equal "67 rows transcribed" 67
+                test "golden table has all 63 sheet rows" {
+                    golden |> List.length |> Expect.equal "63 rows transcribed" 63
+                }
+
+                test "the equations table equals the sheet rows with a dose type" {
+                    EquationMapping.equations
+                    |> Expect.equal "the same rows, marks and order" goldenRows
                 }
 
                 for indx, pos, name in doseTypes do
                     test $"getEquations {name} matches the Equations sheet" {
                         EquationMapping.getEquations indx
+                        |> List.map _.Equation
                         |> Expect.equal $"embedded {name} equations equal the sheet" (expectedFor pos)
                     }
+
+                    for (adj, orbAdj, more, leavesOut) as case in conditionCases do
+                        test
+                            $"the selection for {name} follows the marks of the sheet: adjusted dose %b{adj}, orderable quantity adjust %b{orbAdj}, more components %b{more}, item concentration products left out %b{leavesOut}" {
+                            EquationMapping.selectEquations indx (marksOf case)
+                            |> Expect.equal
+                                "the same sums and products in the same order"
+                                (expectedSelection indx pos case)
+                        }
 
                 for name, med, expected in [ "pcmSupp", Scenarios.pcmSupp, false; "amfo", Scenarios.amfo, true ] do
                     test $"the tie equations are mapped for %s{name}: %b{expected}" {
@@ -3679,8 +3764,7 @@ module EquationsTests =
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             let sumEqs, prodEqs =
-                                EquationMapping.getEquations EquationMapping.Literals.discontinuous
-                                |> EquationMapping.getEqsMapping ord
+                                EquationMapping.Literals.discontinuous |> EquationMapping.getEqsMapping ord
 
                             let eqs =
                                 match sumEqs, prodEqs with
@@ -3782,6 +3866,756 @@ module EquationsTests =
 
                     obj.ReferenceEquals(first, second)
                     |> Expect.isTrue "second call is served from the cache"
+                }
+            ]
+
+
+/// The quantity in the orderable per adjust unit of the orderable, a component and an item: the variables
+/// [orb]_orb_qty_adj, [cmp]_orb_qty_adj and [itm]_orb_qty_adj and their equations, which apply only when a variable
+/// has a constraint. Also the quantity per adjust unit on the medication, which a solution rule sets.
+module OrderableQuantityAdjustTests =
+
+    open Informedica.GenCore.Lib.Ranges
+
+
+    /// The orderable quantity per adjust of every component of the order, as order variables.
+    let componentQuantityAdjusts (ord: Order) =
+        ord.Orderable.Components
+        |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+
+
+    let mL = Units.Volume.milliLiter
+
+
+    let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
+
+
+    let mLPerM2 = mL |> ValueUnit.per Units.BSA.m2
+
+
+    let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
+
+
+    let mgPerM2 = Units.Mass.milliGram |> ValueUnit.per Units.BSA.m2
+
+
+    /// Sets a maximum of max in unit u on a quantity per adjust unit.
+    let maximumOf u max =
+        let mm = { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+        OrderVariable.QuantityAdjust.apply (OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false mm))
+
+
+    /// The order with a maximum of max mL/kg on the orderable quantity per adjust of the first component.
+    let withComponentMaximum max (ord: Order) =
+        let limit = maximumOf mLPerKg max
+
+        match ord.Orderable.Components with
+        | cmp :: rest ->
+            { ord with
+                Order.Orderable.Components =
+                    { cmp with OrderableQuantityAdjust = cmp.OrderableQuantityAdjust |> limit }
+                    :: rest
+            }
+        | [] -> ord
+
+
+    /// Whether the mapped equation e has an orderable quantity per adjust variable.
+    let hasOrderableQuantityAdjust e = e |> String.contains "_orb_qty_adj"
+
+
+    /// The product equations of a discontinuous order.
+    let productEquations (ord: Order) =
+        match EquationMapping.Literals.discontinuous |> EquationMapping.getEqsMapping ord with
+        | _, ProductMapping eqs -> eqs
+        | _ -> failtest "no product mapping"
+
+
+    /// The full processing of the golden order tests; fails the test when a stage reports an error.
+    let solve ord =
+        [ CalcMinMax; IncreaseIncrements; CalcValues; SolveOrder ]
+        |> List.fold (fun o cmd -> o |> TestOrder.solve cmd) ord
+
+
+    /// The medication without the doses of its substances, so its order has no adjusted dose constraints.
+    let withoutAdjustedDose (med: Medication) =
+        { med with
+            Components =
+                med.Components
+                |> List.map (fun pc ->
+                    { pc with Substances = pc.Substances |> List.map (fun si -> { si with Dose = None }) }
+                )
+        }
+
+
+    /// The medication with a maximum of max in unit u on its first component, as a limit per adjust only.
+    let withComponentLimitAdjust max u (med: Medication) =
+        match med.Components with
+        | pc :: rest ->
+            let dilutionLimit =
+                { SolutionRule.DilutionLimit.create (DilutionTarget.Component pc.Name) with
+                    QuantityAdjust =
+                        { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+                }
+
+            { med with Components = { pc with Dilution = Some dilutionLimit } :: rest }
+        | [] -> med
+
+
+    /// The medication with a maximum of max in unit u on the first substance of its first component, as a limit per
+    /// adjust only.
+    let withSubstanceLimitAdjust max u (med: Medication) =
+        match med.Components with
+        | pc :: pcs ->
+            match pc.Substances with
+            | si :: sis ->
+                let dilutionLimit =
+                    { SolutionRule.DilutionLimit.create (DilutionTarget.Substance si.Name) with
+                        QuantityAdjust =
+                            { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+                    }
+
+                { med with
+                    Components = { pc with Substances = { si with Dilution = Some dilutionLimit } :: sis } :: pcs
+                }
+            | [] -> med
+        | [] -> med
+
+
+    /// The orderable quantity per adjust of the first item of the order of the medication.
+    let firstItemQuantityAdjust med =
+        med
+        |> TestOrder.toOrder
+        |> _.Orderable.Components
+        |> List.head
+        |> _.Items
+        |> List.head
+        |> _.OrderableQuantityAdjust
+        |> OrderVariable.QuantityAdjust.toOrdVar
+
+
+    /// The orderable quantity per adjust of the first component of the order of the medication.
+    let firstQuantityAdjust med =
+        med
+        |> TestOrder.toOrder
+        |> _.Orderable.Components
+        |> List.head
+        |> _.OrderableQuantityAdjust
+        |> OrderVariable.QuantityAdjust.toOrdVar
+
+
+    /// The medication with a maximum of max in unit u on its quantity per adjust unit.
+    let withMedicationLimitAdjust max u (med: Medication) =
+        { med with
+            QuantityAdjust = { MinMax.empty with Max = max |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+        }
+
+
+    /// The orderable quantity of the solved order of the medication, as text.
+    let solvedOrderableQuantity med =
+        med
+        |> TestOrder.toOrder
+        |> solve
+        |> _.Orderable.OrderableQuantity
+        |> OrderVariable.Quantity.toString
+
+
+    /// The orderable quantity of the first component of the solved order of the medication, as text.
+    let solvedComponentQuantity med =
+        med
+        |> TestOrder.toOrder
+        |> solve
+        |> _.Orderable.Components
+        |> List.head
+        |> _.OrderableQuantity
+        |> OrderVariable.Quantity.toString
+
+
+    /// The number of orderable quantity adjust equations of the order: one for the orderable, plus one for each
+    /// component and each item.
+    let quantityAdjustEquationCount (ord: Order) =
+        let cmps = ord.Orderable.Components
+        1 + cmps.Length + (cmps |> List.sumBy _.Items.Length)
+
+
+    /// The orderable quantity per adjust of the order, as an order variable.
+    let orderableQuantityAdjust (ord: Order) =
+        ord.Orderable.OrderableQuantityAdjust |> OrderVariable.QuantityAdjust.toOrdVar
+
+
+    /// The order with a maximum of max mL/kg on the orderable quantity per adjust.
+    let withOrderableMaximum max (ord: Order) =
+        { ord with
+            Order.Orderable.OrderableQuantityAdjust = ord.Orderable.OrderableQuantityAdjust |> maximumOf mLPerKg max
+        }
+
+
+    /// The orderable quantity per adjust of every item of the order, as order variables.
+    let itemQuantityAdjusts (ord: Order) =
+        ord.Orderable.Components
+        |> List.collect _.Items
+        |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+
+
+    /// The order with a maximum of max mg/kg on the orderable quantity per adjust of the first item of the first
+    /// component.
+    let withItemMaximum max (ord: Order) =
+        let limit = maximumOf mgPerKg max
+
+        match ord.Orderable.Components with
+        | cmp :: cmps ->
+            match cmp.Items with
+            | itm :: itms ->
+                { ord with
+                    Order.Orderable.Components =
+                        { cmp with
+                            Items =
+                                { itm with OrderableQuantityAdjust = itm.OrderableQuantityAdjust |> limit }
+                                :: itms
+                        }
+                        :: cmps
+                }
+            | [] -> ord
+        | [] -> ord
+
+
+    let componentTests =
+        testList
+            "the component quantity per adjust"
+            [
+                test "a new component has the variable [cmp]_orb_qty_adj, without constraints" {
+                    let ovar =
+                        Order.Orderable.Component.createNew "o" "orb" "cmp" "form"
+                        |> _.OrderableQuantityAdjust
+                        |> OrderVariable.QuantityAdjust.toOrdVar
+
+                    ovar.Variable.Name
+                    |> Variable.Name.toString
+                    |> Expect.equal "the name" "[o.orb.cmp]_orb_qty_adj"
+
+                    ovar |> OrderVariable.hasConstraints |> Expect.isFalse "no constraints"
+                }
+
+                test "the component Dto round trip keeps the variable and its constraint" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withComponentMaximum 5N
+
+                    ord.Orderable.Components
+                    |> List.map (Order.Orderable.Component.Dto.toDto >> Order.Orderable.Component.Dto.fromDto)
+                    |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+                    |> Expect.equal "the same variables" (ord |> componentQuantityAdjusts)
+                }
+
+                test "the order Dto round trip keeps the variable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withComponentMaximum 5N
+
+                    ord
+                    |> Order.Dto.toDto
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"the Dto does not read: %A{e}")
+                    |> componentQuantityAdjusts
+                    |> Expect.equal "the same variables" (ord |> componentQuantityAdjusts)
+                }
+
+                test "an order with only the component limit gets no dose adjust equations" {
+                    let ord = Scenarios.pcmSupp |> withoutAdjustedDose |> TestOrder.toOrder
+
+                    // the order must have no adjusted dose constraints for this test to say anything
+                    ord
+                    |> EquationMapping.usesAdjust
+                    |> Expect.isFalse "no adjusted dose constraints"
+
+                    ord
+                    |> withComponentMaximum 5N
+                    |> productEquations
+                    |> List.filter (fun e -> e |> String.contains "_adj" && e |> hasOrderableQuantityAdjust |> not)
+                    |> Expect.isEmpty "no dose adjust equations"
+                }
+
+                test "a maximum of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                    Scenarios.pcmDrink
+                    |> TestOrder.toOrder
+                    |> withComponentMaximum 1N
+                    |> solve
+                    |> _.Orderable.Components
+                    |> List.head
+                    |> _.OrderableQuantity
+                    |> OrderVariable.Quantity.toString
+                    |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                }
+
+                testList
+                    "the component limit per adjust"
+                    [
+                        test "the limit per adjust is a constraint on the component quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> firstQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isTrue "has the limit"
+                        }
+
+                        test "a component without a dilution limit has no constraint on the quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> firstQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isFalse "no constraint"
+                        }
+
+                        test
+                            "a dilution limit of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                            Scenarios.pcmDrink
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> solvedComponentQuantity
+                            |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                        }
+
+                        test
+                            "a dilution limit of 20 mL/m2 limits the paracetamol drink of a child of 0,5 m2 to 1 to 10 mL" {
+                            { Scenarios.pcmDrink with
+                                Adjust = 1N / 2N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+                            }
+                            |> withoutAdjustedDose
+                            |> withComponentLimitAdjust 20N mLPerM2
+                            |> solvedComponentQuantity
+                            // without a dose the minimum is the step of 1 mL
+                            |> Expect.equal
+                                "1 to 10 mL"
+                                "[paracetamol drank.paracetamol]_orb_qty [1;2;3;4;5;6;7;8;9;10 mL]"
+                        }
+
+                        // UseAdjust of an order scenario is set from EquationMapping.usesAdjust
+                        test "an order with only the component limit per adjust shows no doses per adjust" {
+                            Scenarios.pcmDrink
+                            |> withoutAdjustedDose
+                            |> withComponentLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                            |> Expect.isFalse "UseAdjust stays false"
+                        }
+                    ]
+            ]
+
+
+    let itemTests =
+        testList
+            "the item quantity per adjust"
+            [
+                test "a new item has the variable [itm]_orb_qty_adj, without constraints" {
+                    let ovar =
+                        Order.Orderable.Item.createNew "o" "orb" "cmp" "itm"
+                        |> _.OrderableQuantityAdjust
+                        |> OrderVariable.QuantityAdjust.toOrdVar
+
+                    ovar.Variable.Name
+                    |> Variable.Name.toString
+                    |> Expect.equal "the name" "[o.orb.cmp.itm]_orb_qty_adj"
+
+                    ovar |> OrderVariable.hasConstraints |> Expect.isFalse "no constraints"
+                }
+
+                test "the item Dto round trip keeps the variable and its constraint" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withItemMaximum 24N
+
+                    ord.Orderable.Components
+                    |> List.collect _.Items
+                    |> List.map (Order.Orderable.Item.Dto.toDto >> Order.Orderable.Item.Dto.fromDto)
+                    |> List.map (_.OrderableQuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
+                    |> Expect.equal "the same variables" (ord |> itemQuantityAdjusts)
+                }
+
+                test "the order Dto round trip keeps the variable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withItemMaximum 24N
+
+                    ord
+                    |> Order.Dto.toDto
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"the Dto does not read: %A{e}")
+                    |> itemQuantityAdjusts
+                    |> Expect.equal "the same variables" (ord |> itemQuantityAdjusts)
+                }
+
+                test "a maximum of 24 mg/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                    Scenarios.pcmDrink
+                    |> TestOrder.toOrder
+                    |> withItemMaximum 24N
+                    |> solve
+                    |> _.Orderable.Components
+                    |> List.head
+                    |> _.OrderableQuantity
+                    |> OrderVariable.Quantity.toString
+                    |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                }
+
+                testList
+                    "the item limit per adjust"
+                    [
+                        test "the limit per adjust is a constraint on the item quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> withSubstanceLimitAdjust 24N mgPerKg
+                            |> firstItemQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isTrue "has the limit"
+                        }
+
+                        test "an item without a dilution limit has no constraint on the quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> firstItemQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isFalse "no constraint"
+                        }
+
+                        test
+                            "a dilution limit of 24 mg/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                            Scenarios.pcmDrink
+                            |> withSubstanceLimitAdjust 24N mgPerKg
+                            |> solvedComponentQuantity
+                            |> Expect.equal "5 to 10 mL" "[paracetamol drank.paracetamol]_orb_qty [5;6;7;8;9;10 mL]"
+                        }
+
+                        test
+                            "a dilution limit of 480 mg/m2 limits the paracetamol drink of a child of 0,5 m2 to 1 to 10 mL" {
+                            { Scenarios.pcmDrink with
+                                Adjust = 1N / 2N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+                            }
+                            |> withoutAdjustedDose
+                            |> withSubstanceLimitAdjust 480N mgPerM2
+                            |> solvedComponentQuantity
+                            // without a dose the minimum is the step of 1 mL
+                            |> Expect.equal
+                                "1 to 10 mL"
+                                "[paracetamol drank.paracetamol]_orb_qty [1;2;3;4;5;6;7;8;9;10 mL]"
+                        }
+
+                        // UseAdjust of an order scenario is set from EquationMapping.usesAdjust
+                        test "an order with only the item limit per adjust shows no doses per adjust" {
+                            Scenarios.pcmDrink
+                            |> withoutAdjustedDose
+                            |> withSubstanceLimitAdjust 24N mgPerKg
+                            |> TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                            |> Expect.isFalse "UseAdjust stays false"
+                        }
+                    ]
+            ]
+
+
+    let orderableTests =
+        testList
+            "the orderable variable"
+            [
+                test "a new orderable has the variable [orb]_orb_qty_adj, without constraints" {
+                    let ovar =
+                        Order.Orderable.createNew "o" "orb"
+                        |> _.OrderableQuantityAdjust
+                        |> OrderVariable.QuantityAdjust.toOrdVar
+
+                    ovar.Variable.Name
+                    |> Variable.Name.toString
+                    |> Expect.equal "the name" "[o.orb]_orb_qty_adj"
+
+                    ovar |> OrderVariable.hasConstraints |> Expect.isFalse "no constraints"
+                }
+
+                test "the orderable Dto round trip keeps the variable and its constraint" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withOrderableMaximum 1N
+
+                    ord.Orderable
+                    |> Order.Orderable.Dto.toDto
+                    |> Order.Orderable.Dto.fromDto
+                    |> _.OrderableQuantityAdjust
+                    |> OrderVariable.QuantityAdjust.toOrdVar
+                    |> Expect.equal "the same variable" (ord |> orderableQuantityAdjust)
+                }
+
+                test "the order Dto round trip keeps the variable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder |> withOrderableMaximum 1N
+
+                    ord
+                    |> Order.Dto.toDto
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"the Dto does not read: %A{e}")
+                    |> orderableQuantityAdjust
+                    |> Expect.equal "the same variable" (ord |> orderableQuantityAdjust)
+                }
+
+                test "the variable is one of the order variables of the orderable" {
+                    let ord = Scenarios.pcmDrink |> TestOrder.toOrder
+
+                    ord.Orderable
+                    |> Order.Orderable.toOrdVars
+                    |> List.contains (ord |> orderableQuantityAdjust)
+                    |> Expect.isTrue "listed"
+                }
+
+                test "a maximum of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                    Scenarios.pcmDrink
+                    |> TestOrder.toOrder
+                    |> withOrderableMaximum 1N
+                    |> solve
+                    |> _.Orderable.OrderableQuantity
+                    |> OrderVariable.Quantity.toString
+                    |> Expect.equal "5 to 10 mL" "[paracetamol drank]_orb_qty [5;6;7;8;9;10 mL]"
+                }
+
+                testList
+                    "the orderable limit per adjust"
+                    [
+                        test "the limit per adjust is a constraint on the orderable quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> orderableQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isTrue "has the limit"
+                        }
+
+                        test
+                            "a medication without a limit per adjust has no constraint on the orderable quantity per adjust" {
+                            Scenarios.pcmDrink
+                            |> TestOrder.toOrder
+                            |> orderableQuantityAdjust
+                            |> OrderVariable.hasConstraints
+                            |> Expect.isFalse "no constraint"
+                        }
+
+                        test "a limit of 1 mL/kg limits the paracetamol drink of a child of 10 kg to 5 to 10 mL" {
+                            Scenarios.pcmDrink
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> solvedOrderableQuantity
+                            |> Expect.equal "5 to 10 mL" "[paracetamol drank]_orb_qty [5;6;7;8;9;10 mL]"
+                        }
+
+                        test "a limit of 20 mL/m2 limits the paracetamol drink of a child of 0,5 m2 to 1 to 10 mL" {
+                            { Scenarios.pcmDrink with
+                                Adjust = 1N / 2N |> ValueUnit.singleWithUnit Units.BSA.m2 |> Some
+                            }
+                            |> withoutAdjustedDose
+                            |> withMedicationLimitAdjust 20N mLPerM2
+                            |> solvedOrderableQuantity
+                            // without a dose the minimum is the step of 1 mL
+                            |> Expect.equal "1 to 10 mL" "[paracetamol drank]_orb_qty [1;2;3;4;5;6;7;8;9;10 mL]"
+                        }
+
+                        // UseAdjust of an order scenario is set from EquationMapping.usesAdjust
+                        test "an order with only the orderable limit per adjust shows no doses per adjust" {
+                            Scenarios.pcmDrink
+                            |> withoutAdjustedDose
+                            |> withMedicationLimitAdjust 1N mLPerKg
+                            |> TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                            |> Expect.isFalse "UseAdjust stays false"
+                        }
+                    ]
+            ]
+
+
+    let medicationTests =
+        testList
+            "the volume per adjust on the medication"
+            [
+                test "addSolutionRule sets the volume per adjust of the rule on the medication" {
+                    let range = Scenarios.fullMedication.QuantityAdjust
+
+                    Scenarios.amfo
+                    |> Medication.addSolutionRule
+                        OrderLogging.noOp
+                        ({ SolutionRule.SolutionLimit.empty with VolumeAdjust = range }
+                         |> TestOrder.solutionRule
+                         |> Some)
+                    |> _.QuantityAdjust
+                    |> Expect.equal "1 to 20 mL/kg" range
+                }
+
+                test "a new medication has no volume per adjust" {
+                    Medication.template.QuantityAdjust |> Expect.equal "empty" MinMax.empty
+                }
+            ]
+
+
+    let equationSelectionTests =
+        testList
+            "the equation selection"
+            [
+                for golden in GoldenOrders.all do
+                    // the medication without its quantity per adjust unit, so the order starts without a constraint
+                    // on an orderable quantity per adjust unit
+                    let med = { golden.Medication with QuantityAdjust = MinMax.empty }
+
+                    test $"%s{golden.Name}: without a constraint there is no orderable quantity adjust equation" {
+                        med
+                        |> TestOrder.toOrder
+                        |> productEquations
+                        |> List.filter hasOrderableQuantityAdjust
+                        |> Expect.isEmpty "none"
+                    }
+
+                    for limitName, limit in
+                        [
+                            "the orderable", withOrderableMaximum 1N
+                            "a component", withComponentMaximum 5N
+                            "an item", withItemMaximum 24N
+                        ] do
+                        test
+                            $"%s{golden.Name}: a constraint on %s{limitName} gives the equation for the orderable, each component and each item" {
+                            let ord = med |> TestOrder.toOrder |> limit
+
+                            ord
+                            |> productEquations
+                            |> List.filter hasOrderableQuantityAdjust
+                            |> List.length
+                            |> Expect.equal "one each" (ord |> quantityAdjustEquationCount)
+                        }
+
+                        test $"%s{golden.Name}: a constraint on %s{limitName} leaves the other equations as they were" {
+                            let ord = med |> TestOrder.toOrder
+
+                            ord
+                            |> limit
+                            |> productEquations
+                            |> List.filter (hasOrderableQuantityAdjust >> not)
+                            |> Expect.equal "the same other equations" (ord |> productEquations)
+                        }
+            ]
+
+
+    let tests =
+        testList
+            "the orderable quantity per adjust"
+            [
+                medicationTests
+                orderableTests
+                componentTests
+                itemTests
+                equationSelectionTests
+            ]
+
+
+module ScheduleCountTests =
+
+    module Limit = Informedica.GenCore.Lib.Ranges.Limit
+
+
+    let hour = Units.Time.hour
+
+    let perDay = Units.Count.times |> ValueUnit.per Units.Time.day
+
+
+    let orderOf med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord |> Order.applyConstraints
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    let solve ord =
+        ord
+        |> Order.solveMinMax "schedule count" false OrderLogging.noOp
+        |> Result.defaultWith (fun (_, msgs) -> failtest $"solve failed: %A{msgs}")
+
+
+    let scheduleOf (ord: Order) =
+        match ord.Schedule with
+        | Timed(frq, tme) -> frq |> OrderVariable.Frequency.toOrdVar, tme |> OrderVariable.Time.toOrdVar
+        | _ -> failtest "not a timed order"
+
+
+    let maxIn u ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getMax
+        |> Option.map (
+            Variable.ValueRange.Maximum.toValueUnit
+            >> ValueUnit.convertTo u
+            >> ValueUnit.getValue
+            >> Array.max
+        )
+
+
+    let valuesIn u ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getValSet
+        |> Option.map (
+            Variable.ValueRange.ValueSet.toValueUnit
+            >> ValueUnit.convertTo u
+            >> ValueUnit.getValue
+        )
+
+
+    /// Whether the equations of the order use the schedule count of the order.
+    let usesScheduleCount ord =
+        ord
+        |> Order.equations
+        |> List.collect (
+            function
+            | OrderProductEquation(y, xs)
+            | OrderSumEquation(y, xs) -> y :: xs
+        )
+        |> List.map OrderVariable.getName
+        |> List.contains (ord |> Order.scheduleCount |> OrderVariable.getName)
+
+
+    /// morfTimedWithNaCl once a day, with an administration time of 20 to 55 hours.
+    let timed55Hours =
+        { Scenarios.morfTimedWithNaCl with
+            Time =
+                { Scenarios.morfTimedWithNaCl.Time with
+                    Max = 55N |> ValueUnit.singleWithUnit hour |> Limit.inclusive |> Some
+                }
+        }
+
+
+    /// morfTimedWithNaCl at 1, 2 or 3 times a day, with an administration time of at least 10 hours.
+    let timedThreeFrequencies =
+        { Scenarios.morfTimedWithNaCl with
+            Frequencies = perDay |> ValueUnit.withValue [| 1N; 2N; 3N |] |> Some
+            Time =
+                { Scenarios.morfTimedWithNaCl.Time with
+                    Min = 10N |> ValueUnit.singleWithUnit hour |> Limit.inclusive |> Some
+                }
+        }
+
+
+    [<Tests>]
+    let tests =
+        testList
+            "schedule count of a timed order"
+            [
+                test "the time of a timed order once a day is at most 24 hours" {
+                    timed55Hours
+                    |> orderOf
+                    |> solve
+                    |> scheduleOf
+                    |> snd
+                    |> maxIn hour
+                    |> Option.exists (fun h -> h <= 24N)
+                    |> Expect.isTrue "max at most 24 hours"
+                }
+
+                test "a frequency whose interval is shorter than the minimum time is removed" {
+                    // at least 10 hours an administration: at most 2.4 administrations a day
+                    timedThreeFrequencies
+                    |> orderOf
+                    |> solve
+                    |> scheduleOf
+                    |> fst
+                    |> valuesIn perDay
+                    |> Option.exists (Array.forall (fun f -> f * 10N <= 24N))
+                    |> Expect.isTrue "only 1 or 2 times a day"
+                }
+
+                test "the equations of a timed order use the schedule count" {
+                    Scenarios.morfTimedWithNaCl
+                    |> orderOf
+                    |> usesScheduleCount
+                    |> Expect.isTrue "schedule count"
+                }
+
+                test "the equations of a continuous order do not use the schedule count" {
+                    Scenarios.morfCont
+                    |> orderOf
+                    |> usesScheduleCount
+                    |> Expect.isFalse "no schedule count"
                 }
             ]
 
@@ -4153,13 +4987,15 @@ module DtoTests =
                     |]
                 Diluents = [||]
                 Components = [| "paracetamol" |]
+                DoseRuleComponents = [||]
                 Indication = Some "koorts"
                 Generic = Some "paracetamol"
                 Route = Some "rect"
                 Form = None
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
+                PickedProducts = [||]
             }
 
         let scenario (ord: Order) : OrderScenario =
@@ -4183,6 +5019,9 @@ module DtoTests =
                 UseAdjust = true
                 UseRenalRule = false
                 RenalRule = None
+                FitsOnlyWithoutDivisible = false
+                RulesNoLongerApply = false
+                NotRecalculated = false
                 ProductsIds = [| "gpk-1" |]
                 Access = AnyAccess
             }
@@ -4456,19 +5295,13 @@ module OrderPlanDtoTests =
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"
 
-        let kg = Units.Weight.kiloGram
-        let cm = Units.Height.centiMeter
-        let day = Units.Time.day
-
         let child =
-            { Patient.patient with
-                Department = Some "ICK"
-                Gender = Male
-                Age = Some(ValueUnit.singleWithUnit day 3650N)
-                Weight = Some(ValueUnit.singleWithUnit kg 32N)
-                Height = Some(ValueUnit.singleWithUnit cm 140N)
-                Access = [ PVL ]
-            }
+            { PatientData.unknown with Access = [ CoreAccess.PVL ] }
+            |> SamplePatients.withDepartment (Some "ICK")
+            |> SamplePatients.withGender CoreGender.Male
+            |> SamplePatients.withAge [ Patient.AgeParts.Days 3650 ]
+            |> SamplePatients.withWeightInKg 32m
+            |> SamplePatients.withHeightInCm 140m
 
         let filter: Filter =
             {
@@ -4479,13 +5312,15 @@ module OrderPlanDtoTests =
                 DoseTypes = [| Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag" |]
                 Diluents = [||]
                 Components = [| "paracetamol" |]
+                DoseRuleComponents = [||]
                 Indication = Some "koorts"
                 Generic = Some "paracetamol"
                 Route = Some "rect"
                 Form = Some "zetpil"
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
+                PickedProducts = [||]
             }
 
         let scenario: OrderScenario =
@@ -4509,6 +5344,9 @@ module OrderPlanDtoTests =
                 UseAdjust = true
                 UseRenalRule = false
                 RenalRule = None
+                FitsOnlyWithoutDivisible = false
+                RulesNoLongerApply = false
+                NotRecalculated = false
                 ProductsIds = [| "gpk-1" |]
                 Access = AnyAccess
             }
@@ -4516,19 +5354,19 @@ module OrderPlanDtoTests =
         let context: OrderContext =
             {
                 Filter = filter
-                Patient = child
+                PatientData = child
                 Scenarios = [| scenario |]
                 Argumentation = None
             }
 
         let totals: Totals =
             {
-                Volume = Some "100 ml"
-                Energy = Some "50 kcal"
+                Volume = Some(Valid "100 ml")
+                Energy = Some(Warning "50 kcal")
                 Protein = None
                 Carbohydrate = None
                 Fat = None
-                Sodium = Some "3 mmol"
+                Sodium = Some(Valid "3 mmol")
                 Potassium = None
                 Chloride = None
                 Calcium = None
@@ -4545,9 +5383,10 @@ module OrderPlanDtoTests =
         let planContext: PlanContext =
             {
                 Id = "ctx-1"
-                Category = OrderCategory.Drug
+                Category = OrderCategory.Medication
                 Context = context
-                Intake = totals
+                Totals = totals
+                LinkedTo = None
             }
 
         let feeding: PlanContext =
@@ -4558,26 +5397,10 @@ module OrderPlanDtoTests =
 
         let plan: OrderPlan =
             {
-                Patient = child
+                PatientData = child
                 Filtered = [| "ctx-1" |]
                 Contexts = [| planContext; feeding |]
                 Totals = totals
-            }
-
-        let version: OrderPlanVersion =
-            {
-                Id = "v-1"
-                No = 1
-                PatientId = "stub-patient"
-                Base = None
-                SignedBy =
-                    {
-                        UserId = "u-1"
-                        DisplayName = "Stub Prescriber"
-                    }
-                SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
-                Plan = plan
-                Verified = true
             }
 
 
@@ -4605,22 +5428,36 @@ module OrderPlanDtoTests =
                     [
                         l1 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
                         l2 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
-                        l1 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
-                        l2 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
-                        l1 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
-                        l2 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
-                        l1 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
-                        l2 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
                         l1
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
+                            "an order context"
+                            Fixtures.context
+                            OrderContext.Dto.toDto
+                            (OrderContext.Dto.fromDto SamplePatients.readAt)
                         l2
-                            "an order plan version"
-                            Fixtures.version
-                            OrderPlanVersion.Dto.toDto
-                            OrderPlanVersion.Dto.fromDto
+                            "an order context"
+                            Fixtures.context
+                            OrderContext.Dto.toDto
+                            (OrderContext.Dto.fromDto SamplePatients.readAt)
+                        l1
+                            "a plan context"
+                            Fixtures.feeding
+                            PlanContext.Dto.toDto
+                            (PlanContext.Dto.fromDto SamplePatients.readAt)
+                        l2
+                            "a plan context"
+                            Fixtures.feeding
+                            PlanContext.Dto.toDto
+                            (PlanContext.Dto.fromDto SamplePatients.readAt)
+                        l1
+                            "an order plan"
+                            Fixtures.plan
+                            OrderPlan.Dto.toDto
+                            (OrderPlan.Dto.fromDto SamplePatients.readAt)
+                        l2
+                            "an order plan"
+                            Fixtures.plan
+                            OrderPlan.Dto.toDto
+                            (OrderPlan.Dto.fromDto SamplePatients.readAt)
                     ]
 
                 testList
@@ -4628,7 +5465,7 @@ module OrderPlanDtoTests =
                     [
                         test "every category round-trips as a string" {
                             [
-                                OrderCategory.Drug
+                                OrderCategory.Medication
                                 OrderCategory.Nutrition NutritionCategory.EnteralFeeding
                                 OrderCategory.Nutrition NutritionCategory.EnteralSupplement
                                 OrderCategory.Nutrition NutritionCategory.TPN
@@ -4642,7 +5479,7 @@ module OrderPlanDtoTests =
 
                         test "an unknown category is an error" {
                             { (Fixtures.feeding |> PlanContext.Dto.toDto) with Category = "nutrition:soup" }
-                            |> PlanContext.Dto.fromDto
+                            |> PlanContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "named" (Error [ DtoError.UnknownCategory "nutrition:soup" ])
                         }
                     ]
@@ -4651,24 +5488,21 @@ module OrderPlanDtoTests =
                     "fromDto refuses"
                     [
                         test "an order plan whose patient is below the minimum data, with every context's errors" {
-                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
+                            let estimated =
+                                { Fixtures.plan.PatientData with Age = None }
+                                |> SamplePatients.withEstimatedWeight (Fixtures.plan.PatientData |> Patient.getWeight)
+
+                            let dto = { Fixtures.plan with PatientData = estimated } |> OrderPlan.Dto.toDto
 
                             let brokenContext = { dto.Contexts[0] with Category = "x" }
 
-                            { dto with
-                                Patient =
-                                    { dto.Patient with
-                                        AgeDays = None
-                                        WeightMeasured = false
-                                    }
-                                Contexts = [| brokenContext; dto.Contexts[1] |]
-                            }
-                            |> OrderPlan.Dto.fromDto
+                            { dto with Contexts = [| brokenContext; dto.Contexts[1] |] }
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal
                                 "both reported"
                                 (Error
                                     [
-                                        DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                                        DtoError.PatientDataNotEnough PatientDataError.NoAgeOrMeasuredWeightAndHeight
                                         DtoError.UnknownCategory "x"
                                     ])
                         }
@@ -4680,97 +5514,56 @@ module OrderPlanDtoTests =
 
                             match
                                 { dto with Scenarios = [| { dto.Scenarios[0] with Order = broken } |] }
-                                |> OrderContext.Dto.fromDto
+                                |> OrderContext.Dto.fromDto SamplePatients.readAt
                             with
                             | Error [ DtoError.OrderNotCreated _ ] -> ()
                             | other -> failtest $"expected one OrderNotCreated, got {other}"
                         }
 
-                        test "null nested Dtos are missing, null arrays empty, never a crash" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+                        test "a null nested Dto is missing, null arrays empty, never a crash" {
+                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
 
                             { dto with
-                                SignedBy = Unchecked.defaultof<_>
-                                Plan =
-                                    { dto.Plan with
-                                        Totals = Unchecked.defaultof<_>
-                                        Filtered = null
-                                    }
+                                Totals = Unchecked.defaultof<_>
+                                Filtered = null
                             }
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal
-                                "both named"
-                                (Error [ DtoError.Missing "SignedBy"; DtoError.Missing "Totals" ])
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
+                            |> Expect.equal "named" (Error [ DtoError.Missing "Totals" ])
 
                             match
                                 { dto with
-                                    Plan =
-                                        { dto.Plan with
-                                            Filtered = null
-                                            Contexts = null
-                                        }
+                                    Filtered = null
+                                    Contexts = null
                                 }
-                                |> OrderPlanVersion.Dto.fromDto
+                                |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             with
-                            | Ok v ->
-                                v.Plan.Filtered |> Expect.isEmpty "no filter"
-                                v.Plan.Contexts |> Expect.isEmpty "no contexts"
-                            | Error e -> failtest $"expected a version, got {e}"
+                            | Ok plan ->
+                                plan.Filtered |> Expect.isEmpty "no filter"
+                                plan.Contexts |> Expect.isEmpty "no contexts"
+                            | Error e -> failtest $"expected an order plan, got {e}"
                         }
                     ]
 
                 testList
                     "the stored root"
                     [
-                        test "an order plan version reads back from its canonical form, in canonical form" {
-                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
-                            let s = dto |> Canonical.serialize
-
-                            s
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> Canonical.serialize
-                            |> Expect.equal "the same form" s
-                        }
-
-                        test "a version read back parses to the version that was written" {
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            // in canonical form: a local DateTime reads back as the same instant in UTC
-                            |> Result.map (OrderPlanVersion.Dto.toDto >> Canonical.serialize)
-                            |> Expect.equal
-                                "the same version"
-                                (Ok(Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize))
-                        }
-
                         test "a null root is missing by its name, never a crash" {
                             let missing name = Error [ DtoError.Missing name ]
 
-                            "null"
-                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
-                            |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
-
                             Unchecked.defaultof<OrderPlan.Dto.Dto>
-                            |> OrderPlan.Dto.fromDto
+                            |> OrderPlan.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "order plan" (missing "OrderPlan")
 
                             Unchecked.defaultof<PlanContext.Dto.Dto>
-                            |> PlanContext.Dto.fromDto
+                            |> PlanContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "plan context" (missing "PlanContext")
-
-                            Unchecked.defaultof<Signer.Dto.Dto>
-                            |> Signer.Dto.fromDto
-                            |> Expect.equal "signer" (missing "Signer")
 
                             Unchecked.defaultof<Totals.Dto.Dto>
                             |> Totals.Dto.fromDto
                             |> Expect.equal "totals" (missing "Totals")
 
                             Unchecked.defaultof<OrderContext.Dto.Dto>
-                            |> OrderContext.Dto.fromDto
+                            |> OrderContext.Dto.fromDto SamplePatients.readAt
                             |> Expect.equal "order context" (missing "OrderContext")
 
                             Unchecked.defaultof<OrderScenario.Dto.Dto>
@@ -4780,25 +5573,6 @@ module OrderPlanDtoTests =
                             Unchecked.defaultof<Filter.Dto.Dto>
                             |> Filter.Dto.fromDto
                             |> Expect.equal "filter" (missing "Filter")
-                        }
-
-                        test "two versions equal as values digest equal, a re-ordered plan does not" {
-                            let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
-
-                            let b =
-                                { Fixtures.version with
-                                    Plan =
-                                        { Fixtures.plan with Contexts = [| Fixtures.feeding; Fixtures.planContext |] }
-                                }
-                                |> OrderPlanVersion.Dto.toDto
-                                |> Canonical.serialize
-
-                            Fixtures.version
-                            |> OrderPlanVersion.Dto.toDto
-                            |> Canonical.serialize
-                            |> Expect.equal "equal" a
-
-                            a |> Expect.notEqual "a different order plan" b
                         }
                     ]
             ]
@@ -4942,14 +5716,16 @@ module ReachablePickTests =
         testList
             "the picks the dialog offers"
             [
-                test "amox/clav: the clavulaanzuur concentrations are a tenth of the amoxicilline concentrations" {
+                test "amox/clav: the clavulaanzuur concentration is a tenth of the one amoxicilline concentration" {
                     let _, ord = Scenarios.amoxClavText |> parse |> solvedWith processed
                     let cncs = ord |> itemConcentrations
 
                     cncs["clavulaanzuur"]
                     |> Expect.equal "a tenth" (cncs["amoxicilline"] |> Array.map (fun c -> c / 10N))
 
-                    cncs["amoxicilline"] |> Array.length > 1 |> Expect.isTrue "a choice remains"
+                    cncs["amoxicilline"]
+                    |> Array.length
+                    |> Expect.equal "the one concentration of the limit of 20 to 20 mg/mL" 1
                 }
 
                 test "prednisolon under the default discontinuous cap of 10 keeps the whole tablets" {
@@ -5018,10 +5794,12 @@ module ReachablePickTests =
                 }
 
                 test "a binding kalium concentration limit raises the first tpn dose quantity from 380 to 530 mL" {
+                    // the tpn is preset when it is made, and a reset gives the lists back
                     let firstDoseQuantity med =
                         med
                         |> solvedWith processed
                         |> snd
+                        |> solve ReCalcValues
                         |> _.Orderable.Dose.Quantity
                         |> Quantity.toOrdVar
                         |> valuesOf
@@ -5121,9 +5899,9 @@ module ReachablePickTests =
 
 
 /// The rate of a timed or once timed order gets its values only once the dose quantity has one
-/// value, and then the median of them; a cleared rate gives its list back. The orders come from
-/// TestOrder.processed, the commands the dose dialog sends; ReachablePickTests keeps its own, which
-/// also runs IncreaseIncrements, times the run and takes the caps.
+/// value, and then the median of them. The orders come from TestOrder.processed, the commands the
+/// dose dialog sends; ReachablePickTests keeps its own, which also runs IncreaseIncrements, times the
+/// run and takes the caps.
 module RateAfterQuantityTests =
 
     open TestOrder
@@ -5172,7 +5950,7 @@ module RateAfterQuantityTests =
     let private pickMiddleDoseQuantity ord =
         let qty = ord |> doseQuantity
         let n = qty |> valuesOf |> Array.length
-        ord |> pick (n / 2) qty, [ qty |> OrderProcessor.nameOf ]
+        ord |> pick (n / 2) qty, [ qty |> OrderVariable.getName |> Variable.Name.toString ]
 
 
     /// Every component quantity picked in turn, as the dialog completes an order.
@@ -5199,17 +5977,18 @@ module RateAfterQuantityTests =
         testList
             "the rate of a timed order after the dose quantity"
             [
-                test
-                    "after CalcMinMax the dose quantity starts where the limits allow: tpn at 191 mL, amfo timed at 22 mL" {
-                    let first med = med |> toOrder |> solve CalcMinMax |> doseQuantity |> minimumOf
-
-                    (Scenarios.tpn |> first, Scenarios.amfoTimed |> first)
-                    |> Expect.equal "191 and 22 mL" (Some [| 191N |], Some [| 22N |])
+                test "after CalcMinMax the amfo timed dose quantity starts where the limits allow, at 22 mL" {
+                    Scenarios.amfoTimed
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> doseQuantity
+                    |> minimumOf
+                    |> Expect.equal "22 mL" (Some [| 22N |])
                 }
 
-                test "processed, tpn and amfo timed keep the rate and the time ranges while the dose quantity is a list" {
-                    for med in [ Scenarios.tpn; Scenarios.amfoTimed ] do
-                        let ord = med |> processed
+                test
+                    "processed amfo timed, and tpn after a reset, keep the rate and the time ranges while the dose quantity is a list" {
+                    for ord in [ Scenarios.tpn |> processedAndReset; Scenarios.amfoTimed |> processed ] do
 
                         ord |> doseQuantity |> valuesOf |> Array.length > 1
                         |> Expect.isTrue "a list of dose quantities"
@@ -5218,17 +5997,8 @@ module RateAfterQuantityTests =
                         ord |> time |> valuesOf |> Expect.isEmpty "the time without values"
                 }
 
-                test "tpn through CalcMinMax and SolveOrder, without CalcValues, keeps the rate a range" {
-                    let ord = Scenarios.tpn |> toOrder |> solve CalcMinMax |> solve SolveOrder
-
-                    ord |> doseQuantity |> valuesOf |> Array.length > 1
-                    |> Expect.isTrue "a list of dose quantities"
-
-                    ord |> rate |> isRange |> Expect.isTrue "the rate a range"
-                }
-
                 test "a tpn dose quantity pick gives the rate the median of its list, the time within 20 to 24 uur" {
-                    let ord, _ = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+                    let ord, _ = Scenarios.tpn |> processedAndReset |> pickMiddleDoseQuantity
 
                     ord
                     |> rate
@@ -5243,7 +6013,7 @@ module RateAfterQuantityTests =
                 }
 
                 test "a completed tpn solves with the median rate, 18 mL/uur at 380 mL" {
-                    let ord = Scenarios.tpn |> processed |> complete
+                    let ord = Scenarios.tpn |> processedAndReset |> complete
 
                     ord |> Order.isSolved |> Expect.isTrue "solved"
                     ord |> doseQuantity |> valuesOf |> Expect.equal "380 mL" [| 380N |]
@@ -5283,7 +6053,7 @@ module RateAfterQuantityTests =
                 }
 
                 test "the rate stepper sets a rate that is a range to its minimum, its median and its maximum" {
-                    let ord = Scenarios.tpn |> processed
+                    let ord = Scenarios.tpn |> processedAndReset
                     let range = ord |> rate |> OrderVariable.getVar |> Variable.getValueRange
 
                     let bound get toVu =
@@ -5306,6 +6076,119 @@ module RateAfterQuantityTests =
                     |> Array.forall (fun v -> v > lo[0] && v < hi[0])
                     |> Expect.isTrue "the median between them"
                 }
+            ]
+
+
+/// A timed or once timed order with three or more components, each with one concentration, is preset when
+/// its min and max are calculated: each component quantity is set to its median and then the rate, so the
+/// order is solved when it is shown.
+module MedianPresetTests =
+
+    open TestOrder
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+
+
+    let private calculated med = med |> toOrder |> solve CalcMinMax
+
+
+    let private componentQuantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.map (_.OrderableQuantity >> Quantity.toOrdVar >> valuesOf)
+
+
+    let private doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+
+
+    let private rate (ord: Order) = ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
+
+    let private presetEffects med = med |> toOrder |> OrderProcessor.OrderAction.presetEffects
+
+
+    let tests =
+        testList
+            "the median preset of a timed order with three or more components"
+            [
+                test "after CalcMinMax the tpn is solved, with the median of each component quantity and of the rate" {
+                    let ord = Scenarios.tpn |> calculated
+
+                    ord |> Order.isSolved |> Expect.isTrue "solved"
+
+                    ord
+                    |> componentQuantities
+                    |> Expect.equal "193, 66, 22 and 289 mL" [ [| 193N |]; [| 66N |]; [| 22N |]; [| 289N |] ]
+
+                    ord |> doseQuantity |> valuesOf |> Expect.equal "570 mL" [| 570N |]
+                    ord |> rate |> valuesOf |> Expect.equal "26,2 mL/uur" [| 131N / 5N |]
+                }
+
+                for name, med in
+                    [
+                        "tpn", Scenarios.tpn
+                        "tpnComplete", Scenarios.tpnComplete
+                        "tpnKaliumConcentrationBinding", Scenarios.tpnKaliumConcentrationBinding
+                        "tpnKaliumRateBinding", Scenarios.tpnKaliumRateBinding
+                    ] do
+                    test $"%s{name} is solved after CalcMinMax" {
+                        med |> calculated |> Order.isSolved |> Expect.isTrue "solved"
+                    }
+
+                    test $"%s{name}: the value calculation of a selected scenario leaves the preset order as it is" {
+                        let ord = med |> calculated
+                        ord |> solve CalcValues |> Expect.equal "the same order" ord
+                    }
+
+                    test $"%s{name}: a reset gives the component quantities as value lists again" {
+                        med
+                        |> calculated
+                        |> solve ReCalcValues
+                        |> componentQuantities
+                        |> List.exists (fun vs -> vs |> Array.length > 1)
+                        |> Expect.isTrue "a component quantity with more than one value"
+                    }
+
+                for name, med in
+                    [
+                        "amfo", Scenarios.amfo
+                        "morfCont", Scenarios.morfCont
+                        "morfContWithNaCl", Scenarios.morfContWithNaCl
+                    ] do
+                    test $"%s{name}: an order that is not timed or once timed is not preset" {
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                    }
+
+                for name, med in
+                    [
+                        "naclLargeRate", Scenarios.naclLargeRateText |> parse
+                        "amfoTimed", Scenarios.amfoTimed
+                        "kaliumchlorideOnceTimed", Scenarios.kaliumchlorideOnceTimedText |> parse
+                    ] do
+                    test $"%s{name}: a timed or once timed order with fewer than three components is not preset" {
+                        let ord = med |> toOrder
+
+                        ord.Orderable.Components |> List.length < OrderProcessor.OrderAction.minPresetComponents
+                        |> Expect.isTrue "fewer components than the preset needs"
+
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                    }
+
+                for name, med in
+                    [
+                        "amfoWithNaClTwoStrengthsTimed", Scenarios.amfoWithNaClTwoStrengthsTimed
+                        "morfTimedWithNaCl", Scenarios.morfTimedWithNaCl
+                    ] do
+                    test $"%s{name}: an order with a component in more than one concentration is not preset" {
+                        med
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.length
+                        |> Expect.equal "three components" 3
+
+                        med |> presetEffects |> Expect.isEmpty "no effects"
+                        med |> calculated |> Order.isSolved |> Expect.isFalse "not solved"
+                    }
             ]
 
 
@@ -5449,6 +6332,434 @@ module DoseTotalTests =
             ]
 
 
+/// The fraction of the preparation that makes up one dose, from the MinPerc and MaxPerc columns of a
+/// solution rule, turned into the dose count of the order.
+module SolutionDoseCountTests =
+
+    open Informedica.GenCore.Lib.Ranges
+
+
+    let times n = n |> ValueUnit.singleWithUnit Units.Count.times
+
+
+    let incl n = n |> times |> Limit.inclusive |> Some
+
+
+    let fraction min max =
+        { MinMax.empty with
+            Min = min
+            Max = max
+        }
+
+
+    let withRule doseFraction =
+        Scenarios.amfo
+        |> Medication.addSolutionRule
+            OrderLogging.noOp
+            ({ SolutionRule.SolutionLimit.empty with DoseFraction = doseFraction }
+             |> TestOrder.solutionRule
+             |> Some)
+
+
+    let solved doseFraction =
+        doseFraction |> withRule |> TestOrder.toOrder |> TestOrder.solve CalcMinMax
+
+
+    let minOf (var: Informedica.GenSolver.Lib.Types.Variable) =
+        var
+        |> Informedica.GenSolver.Lib.Variable.getValueRange
+        |> Informedica.GenSolver.Lib.Variable.ValueRange.getMin
+        |> Option.map (
+            Informedica.GenSolver.Lib.Variable.ValueRange.Minimum.toValueUnit
+            >> ValueUnit.getValue
+        )
+
+
+    let maxOf (var: Informedica.GenSolver.Lib.Types.Variable) =
+        var
+        |> Informedica.GenSolver.Lib.Variable.getValueRange
+        |> Informedica.GenSolver.Lib.Variable.ValueRange.getMax
+        |> Option.map (
+            Informedica.GenSolver.Lib.Variable.ValueRange.Maximum.toValueUnit
+            >> ValueUnit.getValue
+        )
+
+
+    let tests =
+        testList
+            "the dose fraction of a solution rule as the dose count"
+            [
+                testList
+                    "addSolutionRule"
+                    [
+                        test "a rule with 0.5 gives the medication a dose count of exactly 2" {
+                            fraction (incl (1N / 2N)) (incl (1N / 2N))
+                            |> withRule
+                            |> _.DoseCount
+                            |> Expect.equal "exactly 2" (fraction (incl 2N) (incl 2N))
+                        }
+
+                        test "a rule with empty columns gives an empty dose count" {
+                            MinMax.empty |> withRule |> _.DoseCount |> Expect.equal "empty" MinMax.empty
+                        }
+                    ]
+
+                testList
+                    "an order solved from a rule with 0.5"
+                    [
+                        test "the orderable dose count is 2" {
+                            let ord = fraction (incl (1N / 2N)) (incl (1N / 2N)) |> solved
+
+                            ord.Orderable.DoseCount
+                            |> OrderVariable.Count.toOrdVar
+                            |> TestOrder.valuesOf
+                            |> Expect.equal "2" [| 2N |]
+                        }
+
+                        test "the minimum orderable quantity is twice the minimum dose quantity" {
+                            let ord = fraction (incl (1N / 2N)) (incl (1N / 2N)) |> solved
+
+                            let orb =
+                                (ord.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar).Variable
+                                |> minOf
+                            let dos =
+                                (ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar).Variable
+                                |> minOf
+
+                            dos |> Expect.isSome "the dose quantity has a minimum"
+
+                            orb |> Expect.equal "twice the dose" (dos |> Option.map (Array.map ((*) 2N)))
+                        }
+
+                        test "a rule with empty columns gives an orderable dose count of 1" {
+                            let ord = MinMax.empty |> solved
+
+                            ord.Orderable.DoseCount
+                            |> OrderVariable.Count.toOrdVar
+                            |> TestOrder.valuesOf
+                            |> Expect.equal "1" [| 1N |]
+                        }
+
+                        // the other constraints of the order may narrow the dose count further
+                        test "a rule with 0.5 and an empty maximum keeps the orderable dose count within 1 to 2" {
+                            let ord = fraction (incl (1N / 2N)) None |> solved
+                            let cnt = (ord.Orderable.DoseCount |> OrderVariable.Count.toOrdVar).Variable
+
+                            match cnt |> minOf, cnt |> maxOf with
+                            | Some [| min |], Some [| max |] ->
+                                (min >= 1N && max <= 2N)
+                                |> Expect.isTrue $"%s{min |> string} to %s{max |> string} lies within 1 to 2"
+                            | min, max -> failtest $"no single minimum and maximum: %A{min}, %A{max}"
+                        }
+                    ]
+            ]
+
+
+/// A medication given undiluted, whose product concentrations must fall within its dilution limit.
+module UndilutedSolutionTests =
+
+    open Informedica.GenCore.Lib.Ranges
+
+
+    let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+
+    /// The amphotericin scenario with the concentrations of the amphotericin vial replaced.
+    let withVialConcentrations brs (med: Medication) =
+        { med with
+            Components =
+                med.Components
+                |> List.mapi (fun i pc ->
+                    if i > 0 then
+                        pc
+                    else
+                        { pc with
+                            Substances =
+                                pc.Substances
+                                |> List.map (fun si ->
+                                    if si.Name = "amfotericine b liposomaal" then
+                                        { si with Concentrations = brs |> ValueUnit.withUnit mgPerMl |> Some }
+                                    else
+                                        si
+                                )
+                        }
+                )
+        }
+
+
+    /// The constraints the orderable concentration of the amphotericin item was defined with.
+    let amfoOrbCnc (ord: Order) =
+        ord.Orderable.Components
+        |> List.head
+        |> _.Items
+        |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
+        |> _.OrderableConcentration
+        |> OrderVariable.Concentration.toOrdVar
+        |> _.DefinedConstraints
+
+
+    let tests =
+        testList
+            "an undiluted concentration outside the dilution limit"
+            [
+                test "a substance keeps only the concentrations its dilution limit allows" {
+                    Scenarios.amfo
+                    |> withVialConcentrations [| 1N; 4N |]
+                    |> _.Components.Head.Substances
+                    |> List.find (fun si -> si.Name = "amfotericine b liposomaal")
+                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Expect.equal
+                        "1 mg/mL is within 0.2 to 2 mg/mL, 4 mg/mL is not"
+                        (1N |> ValueUnit.singleWithUnit mgPerMl |> Some)
+                }
+
+                test "a limit with an equal minimum and maximum allows only that concentration" {
+                    { Medication.SubstanceItem.item with
+                        Name = "vancomycine"
+                        Concentrations = [| 9N; 10N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
+                        Dilution =
+                            { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
+                                Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
+                            }
+                            |> Some
+                    }
+                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Expect.equal
+                        "10 mg/mL alone, not 9 or 10.5 mg/mL"
+                        (10N |> ValueUnit.singleWithUnit mgPerMl |> Some)
+                }
+
+                test "the orderable concentration of a limit with an equal minimum and maximum is that value" {
+                    let exactly10 =
+                        { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "amfotericine b liposomaal") with
+                            Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
+                        }
+
+                    let around10 = [| 19N / 2N; 10N; 21N / 2N |] |> ValueUnit.withUnit mgPerMl
+
+                    match Scenarios.amfo |> Medication.toOrder Scenarios.testStart with
+                    | Ok ord ->
+                        let cs =
+                            ord.Orderable.Components
+                            |> List.head
+                            |> _.Items
+                            |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
+                            |> Medication.OrderBuilder.withItemDilution exactly10
+                            |> _.OrderableConcentration
+                            |> OrderVariable.Concentration.toOrdVar
+                            |> _.DefinedConstraints
+
+                        around10
+                        |> ValueUnit.filter (Variable.ValueRange.isBetweenMinMax cs.Min cs.Max)
+                        |> Expect.equal "10 mg/mL alone" (10N |> ValueUnit.singleWithUnit mgPerMl)
+                    | Error e -> failtest $"the order is not built: %A{e}"
+                }
+
+                test "a concentration in a unit the limit cannot be compared with keeps every strength" {
+                    let mmolPerMl = Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+                    let si =
+                        { Medication.SubstanceItem.item with
+                            Name = "vancomycine"
+                            Concentrations = [| 1N; 50N |] |> ValueUnit.withUnit mmolPerMl |> Some
+                            Dilution =
+                                { SolutionRule.DilutionLimit.create (DilutionTarget.Substance "vancomycine") with
+                                    Concentration =
+                                        { MinMax.empty with
+                                            Min = 9N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
+                                            Max = 11N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
+                                        }
+                                }
+                                |> Some
+                        }
+
+                    si
+                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Expect.equal "a molar concentration is not compared with a mass limit" si.Concentrations
+                }
+
+                test "a substance without a dilution limit keeps every concentration" {
+                    let si =
+                        Scenarios.amfo.Components.Head.Substances
+                        |> List.find (fun si -> si.Name = "saccharose")
+
+                    si
+                    |> Medication.concentrationsWithinDilutionLimit
+                    |> Expect.equal "saccharose has no dilution limit" si.Concentrations
+                }
+
+                test "the undiluted amphotericin order is refused" {
+                    Scenarios.amfoUndiluted
+                    |> Medication.undilutedOutsideDilutionLimit
+                    |> List.map _.Name
+                    |> Expect.equal "the amphotericin is outside the limit" [ "amfotericine b liposomaal" ]
+
+                    Scenarios.amfoUndiluted
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.isError
+                    |> Expect.isTrue "a 4 mg/mL vial with no diluent cannot meet 0.2 to 2 mg/mL"
+                }
+
+                test "the undiluted amphotericin refusal says the medication is given undiluted" {
+                    match Scenarios.amfoUndiluted |> Medication.toOrder Scenarios.testStart with
+                    | Error(Exceptions.OrderCouldNotBeCreated exn) ->
+                        exn.Message
+                        |> Expect.stringContains
+                            "names the limit"
+                            "is given undiluted, and its dilution limit allows no concentration of amfotericine b liposomaal"
+
+                        exn.Message
+                        |> String.contains "no diluent"
+                        |> Expect.isFalse "does not say a diluent is missing"
+                    | result -> failtest $"the undiluted order is not refused as uncreatable: %A{result}"
+                }
+
+                test "an undiluted order offers only the vial concentrations within the limit" {
+                    Scenarios.amfoUndiluted
+                    |> withVialConcentrations [| 1N; 4N |]
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.map (amfoOrbCnc >> _.Values >> Option.map Variable.ValueRange.ValueSet.toValueUnit)
+                    |> Expect.equal "only 1 mg/mL is offered" (Ok(1N |> ValueUnit.singleWithUnit mgPerMl |> Some))
+                }
+
+                test "the diluted amphotericin order keeps the dilution limit and offers no concentration" {
+                    match
+                        Scenarios.amfo
+                        |> Medication.toOrder Scenarios.testStart
+                        |> Result.map amfoOrbCnc
+                    with
+                    | Ok cs ->
+                        cs.Values |> Expect.isNone "the solver finds the concentration"
+                        cs.Min |> Expect.isSome "the minimum of the dilution limit is kept"
+                        cs.Max |> Expect.isSome "the maximum of the dilution limit is kept"
+                    | Error msg -> failtest $"the diluted order is not built: %A{msg}"
+                }
+
+                test "an undiluted medication outside its limit needs a diluent" {
+                    [| Scenarios.amfoUndiluted; Scenarios.amfoUndiluted |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isTrue "both are refused"
+                }
+
+                test "a medication that has its diluent means no diluent is needed" {
+                    [| Scenarios.amfoUndiluted; Scenarios.amfo |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isFalse "the diluted order can be built"
+                }
+
+                test "a medication without a dilution limit means no diluent is needed" {
+                    [| Scenarios.amfoUndiluted; Scenarios.pcmSupp |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isFalse "the suppository can be built"
+                }
+
+                test "no medications need no diluent" {
+                    [||] |> Medication.allLackNeededDiluent |> Expect.isFalse "nothing was dropped"
+                }
+
+                test "a medication without a dilution limit is built" {
+                    let pcm = Scenarios.pcmSupp
+
+                    pcm
+                    |> Medication.undilutedOutsideDilutionLimit
+                    |> Expect.isEmpty "paracetamol suppository has no dilution limit"
+
+                    pcm
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.isOk
+                    |> Expect.isTrue "it is built"
+                }
+            ]
+
+
+/// The minimum and maximum volume of a solution rule, which limit the orderable quantity.
+module SolutionVolumeTests =
+
+    open Informedica.GenCore.Lib.Ranges
+    open Informedica.GenSolver.Lib.Variable
+
+
+    let mL n = n |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    let incl n = n |> mL |> Limit.inclusive |> Some
+
+
+    /// The amphotericin scenario with a solution volume of the given minimum and maximum, and no list of volumes.
+    let amfoWithVolume min max =
+        { Scenarios.amfo with
+            Quantity =
+                { MinMax.empty with
+                    Min = min
+                    Max = max
+                }
+            Quantities = None
+        }
+
+
+    /// The orderable quantity of an order as an order variable.
+    let orbQty (ord: Order) =
+        ord.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+
+
+    /// The minimum and the maximum the orderable quantity was defined with, each as a pair of the inclusive flag
+    /// and the value.
+    let orbQtyBounds (ord: Order) =
+        let cs = ord |> orbQty |> _.DefinedConstraints
+
+        cs.Min |> Option.map ValueRange.Minimum.toBoolValueUnit, cs.Max |> Option.map ValueRange.Maximum.toBoolValueUnit
+
+
+    let tests =
+        testList
+            "the solution volume of the orderable quantity"
+            [
+                test "a minimum volume without a list of volumes reaches the order" {
+                    amfoWithVolume (incl 10N) (incl 50N)
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "10 to 50 mL, both inclusive" (Some(true, mL 10N), Some(true, mL 50N))
+                }
+
+                test "only a maximum volume keeps a minimum above 0" {
+                    amfoWithVolume None (incl 50N)
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "above 0 to 50 mL" (Some(false, mL 0N), Some(true, mL 50N))
+                }
+
+                test "no volume keeps a minimum above 0" {
+                    amfoWithVolume None None
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "above 0 mL" (Some(false, mL 0N), None)
+                }
+
+                test "a list of volumes is offered as the values" {
+                    let vols = [| 20N; 40N |] |> ValueUnit.withUnit Units.Volume.milliLiter
+
+                    { amfoWithVolume (incl 10N) (incl 50N) with Quantities = Some vols }
+                    |> TestOrder.toOrder
+                    |> orbQty
+                    |> _.DefinedConstraints.Values
+                    |> Option.map ValueRange.ValueSet.toValueUnit
+                    |> Expect.equal "20 and 40 mL" (Some vols)
+                }
+
+                // the amphotericin scenario solves to at least 22 mL without a volume limit, so a minimum of 30 mL is
+                // what makes the solved minimum 30 mL
+                test "the order with a minimum volume above what the scenario reaches solves to that volume" {
+                    amfoWithVolume (incl 30N) (incl 50N)
+                    |> TestOrder.toOrder
+                    |> TestOrder.solve CalcMinMax
+                    |> orbQty
+                    |> _.Variable.Values
+                    |> ValueRange.getMin
+                    |> Option.map ValueRange.Minimum.toBoolValueUnit
+                    |> Expect.equal "at least 30 mL" (Some(true, mL 30N))
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5463,11 +6774,25 @@ let tests =
             OrderPlanTests.tests
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
+            OrderPlanTests.prescribableTests
+            OrderPlanTests.useAdjustTests
+            OrderPlanTests.componentOptionTests
+            OrderPlanTests.selectsRulesTests
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
+            OrderPlanTests.refusalWithoutLimitsTests
+            OrderPlanTests.orderAdjustUnitTests
+            OrderPlanTests.listsOfOtherPicksTests
             OrderPlanTests.argumentationTests
+            OrderPlanTests.linkTests
+            OrderPlanTests.linkRuleTests
+            OrderPlanTests.linkOfferTests
+            OrderPlanTests.groupAddTests
+            OrderContextRuleTests.tests
+            OrderPlanTests.totalsOverTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
+            PatientAgeTests.tests
             OrderVariableTests.tests
             HelperTests.tests
             DeterminationTests.tests
@@ -5477,12 +6802,17 @@ let tests =
             RecipeTests.reCalcTests
             ConstraintsTests.tests
             GoldenOrderTests.tests
+            OrderableQuantityAdjustTests.tests
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
             RateAfterQuantityTests.tests
+            MedianPresetTests.tests
             DoseTotalTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests
             MedicationTextTests.MedicationTextYamlTests.tests
             MedicationSchemaTests.tests
+            SolutionDoseCountTests.tests
+            UndilutedSolutionTests.tests
+            SolutionVolumeTests.tests
         ]

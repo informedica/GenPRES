@@ -35,7 +35,7 @@ let outDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "fixtures")
 Directory.CreateDirectory outDir |> ignore
 
 for sheet in [ "mult"; "div"; "add"; "sub" ] do
-    match GoogleSheets.getCsvDataFromSheetSync urlId sheet with
+    match GoogleSheets.getRowsFromSheetSync urlId sheet with
     | Ok rows ->
         let col0 =
             rows

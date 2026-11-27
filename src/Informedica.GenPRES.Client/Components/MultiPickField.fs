@@ -1,10 +1,9 @@
 namespace Components
 
 
-/// Some choices among some options, and visibly so: every option is a row with a checkbox,
-/// the chosen ones ticked, so nobody has to know the list is a multi-select to use it as one.
-/// The list stays open while the user ticks, and closes when they click away; the cross clears
-/// every choice at once. A field with nothing to choose is disabled and empty.
+/// A select field for several options, each option a row with a checkbox. The list stays open
+/// while the user ticks options and closes on a click outside; the clear button clears every
+/// selected option. A field without options is disabled and empty.
 module MultiPickField =
 
 
@@ -13,8 +12,8 @@ module MultiPickField =
     open Feliz
 
 
-    /// The field: its label, the options as key and label, the keys chosen, what choosing does,
-    /// and whether the caller has the field enabled.
+    /// The label, the options as key and label pairs, the selected keys, the change handler,
+    /// whether the options are loading, and whether the caller enables the field.
     type Props =
         {|
             label: string
@@ -43,7 +42,7 @@ module MultiPickField =
         let selected = if hasOptions then props.selected else [||]
         let isClear = selected |> Array.isEmpty
 
-        // a multiple select answers with the array of the keys ticked
+        // a multiple select returns the array of the selected keys
         let handleChange =
             fun ev ->
                 let keys: string[] = unbox ev?target?value
@@ -51,7 +50,7 @@ module MultiPickField =
 
         let clear = fun _ -> props.onChange [||]
 
-        // what the closed field shows: the labels of the keys ticked, in the options' order
+        // the closed field shows the labels of the selected keys, in the order of the options
         let renderValue =
             fun (keys: string[]) ->
                 props.options

@@ -40,6 +40,7 @@
     <Compile Include="Console.fs" />
     <Compile Include="ConsoleTables.fs" />
     <Compile Include="StopWatch.fs" />
+    <Compile Include="Xlsx.fs" />
     <Compile Include="Web.fs" />
     <None Include="Scripts/load.fsx" />
   </ItemGroup>

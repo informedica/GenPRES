@@ -264,7 +264,7 @@ store audits nothing, and no one can read the table back yet
 
 Read off `Session.present`, `Session.callback` and `Session.openWith` in
 `src/Informedica.GenPRES.Server/ServerApi.Session.fs`, the dispatch in
-`ServerApi.LaunchCommand.fs`, the routes and cookies in `Server.fs`, the stand-ins in
+`ServerApi.Commands.fs`, the routes and cookies in `Server.fs`, the stand-ins in
 `ServerApi.StubAdapters.fs`, and `SessionMachine.fs`, `Keys.fs` and `App.fs` in
 `src/Informedica.GenPRES.Client/`. The design's launch is UC-1 in
 [`Integration.fsx`](Integration.fsx), which models neither the key pair nor the LaunchRecord.

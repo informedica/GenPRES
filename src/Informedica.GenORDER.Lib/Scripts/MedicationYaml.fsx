@@ -47,7 +47,6 @@ module Fixtures =
             "MedicationTexts.continuousInfusionText", Texts.continuousInfusionText
             "MedicationTexts.vancomycinReconstitutionText", Texts.vancomycinReconstitutionText
             "MedicationTexts.noradrenalineInSolutionText", Texts.noradrenalineInSolutionText
-            "MedicationTexts.feedingWithPowder", Texts.feedingWithPowder
         ]
 
 

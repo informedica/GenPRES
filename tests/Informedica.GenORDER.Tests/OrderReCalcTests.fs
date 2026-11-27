@@ -59,28 +59,52 @@ let baseValues ovar =
     |> Option.defaultValue [||]
 
 
-/// Per solved fixture and recalculation: the order, the command, the variable it names, its recipe
-/// and the order recalculated.
+/// Per solved fixture and recipe: the order, the recipe, the commands that run the recipe with the
+/// variable each names, and the order recalculated by the first of those commands. The commands of a
+/// recipe run the same effects except the variable whose impossible values are dropped, so the order is
+/// recalculated once per recipe rather than once per command.
 let cases =
     lazy
         [
             for name, ord in Tests.RecipeTests.solvedFixtures.Value do
-                for cmd, ovarRef, recipe in ord |> reCalcs do
-                    name, ord, cmd, ovarRef, recipe, ord |> reCalc cmd
+                for recipe, cmds in ord |> reCalcs |> List.groupBy (fun (_, _, recipe) -> recipe) do
+                    let cmds = cmds |> List.map (fun (cmd, ovarRef, _) -> cmd, ovarRef)
+                    name, ord, recipe, cmds, ord |> reCalc (cmds |> List.head |> fst)
         ]
 
 
-/// The cases that solved, with the variable recalculated before and after.
-let recalculated () =
+/// The effects of the recalculation of the variable, without the drop of the impossible values of
+/// that variable; none when the action is refused.
+let reCalcEffects ord ovarRef =
+    ord
+    |> OrderProcessor.OrderAction.effects (OrderAction.ReCalc ovarRef)
+    |> Result.toOption
+    |> Option.map (
+        List.filter (
+            function
+            | OrderEffect.DropImpossibleValues r -> r <> ovarRef
+            | _ -> true
+        )
+    )
+
+
+/// The recalculations that solved, per command the select function keeps of a recipe, with the
+/// variable the command names before and after the recalculation of the recipe.
+let recalculatedWith select =
     [
-        for name, ord, cmd, ovarRef, recipe, res in cases.Value do
-            match res, ovarRef |> Ref.tryGet ord with
-            | Ok after, Some before ->
-                match ovarRef |> Ref.tryGet after with
-                | Some ovar -> $"%s{name} %A{cmd}", ord, ovarRef, recipe, before, after, ovar
-                | None -> ()
-            | _ -> ()
+        for name, ord, recipe, cmds, res in cases.Value do
+            match res with
+            | Ok after ->
+                for cmd, ovarRef in cmds |> select do
+                    match ovarRef |> Ref.tryGet ord, ovarRef |> Ref.tryGet after with
+                    | Some before, Some ovar -> $"%s{name} %A{cmd}", ord, ovarRef, recipe, before, after, ovar
+                    | _ -> ()
+            | Error _ -> ()
     ]
+
+
+/// The recalculations that solved, for every command of a recipe.
+let recalculated () = recalculatedWith id
 
 
 let doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar
@@ -115,21 +139,77 @@ let processed med =
     |> Tests.TestOrder.solve SolveOrder
 
 
+/// The dose variables the dose checks read for the schedule of the order: the rates of a timed or
+/// continuous order, the frequency of a repeated one, and the item doses of an order with a quantity.
+let doseCheckVariables (ord: Order) =
+    let items = ord.Orderable.Components |> List.collect _.Items |> List.map _.Dose
+    let rates =
+        (ord.Orderable.Dose.Rate :: (items |> List.map _.Rate))
+        |> List.map OrderVariable.Rate.toOrdVar
+
+    let quantities =
+        [
+            yield! items |> List.map (_.Quantity >> OrderVariable.Quantity.toOrdVar)
+            yield! items |> List.map (_.PerTime >> OrderVariable.PerTime.toOrdVar)
+            yield! items |> List.map (_.PerTimeAdjust >> OrderVariable.PerTimeAdjust.toOrdVar)
+        ]
+
+    let frequency = ord.Schedule |> Order.Schedule.toOrdVars |> fst |> Option.toList
+
+    match ord.Schedule with
+    | Continuous _ -> rates
+    | Timed _ -> rates @ frequency @ quantities
+    | OnceTimed _ -> rates @ quantities
+    | Discontinuous _ -> frequency @ quantities
+    | Once -> quantities
+
+
 [<Tests>]
 let tests =
     testList
         "OrderProcessor recalculation"
         [
-            test "every recalculation of the solved fixtures solves" {
+            test "no solved or recalculated order leaves a variable the dose checks read cleared" {
+                [
+                    for name, ord in Tests.RecipeTests.solvedFixtures.Value do
+                        name, ord
+
+                    for name, _, recipe, _, res in cases.Value do
+                        match res with
+                        | Ok after -> $"%s{name} %A{recipe}", after
+                        | Error _ -> ()
+                ]
+                |> List.filter (snd >> doseCheckVariables >> List.exists OrderVariable.isCleared)
+                |> List.map fst
+                |> Expect.equal "no order" []
+            }
+
+            test "every recipe recalculation of the solved fixtures solves" {
                 cases.Value |> Expect.isNonEmpty "recalculations"
 
                 [
-                    for name, _, cmd, _, _, res in cases.Value do
+                    for name, _, recipe, _, res in cases.Value do
                         match res with
                         | Ok _ -> ()
-                        | Error(_, msgs) -> $"%s{name} %A{cmd}: %A{msgs}"
+                        | Error(_, msgs) -> $"%s{name} %A{recipe}: %A{msgs}"
                 ]
                 |> Expect.isEmpty "every recalculation solves"
+            }
+
+            // the cases recalculate once per recipe, which holds for every command only when the
+            // commands of a recipe run the same effects up to the variable whose values are dropped
+            test "the commands of a recipe run the same effects, except the variable whose values are dropped" {
+                [
+                    for name, ord, _, cmds, _ in cases.Value do
+                        let first = cmds |> List.head |> snd |> reCalcEffects ord
+
+                        for cmd, ovarRef in cmds do
+                            let effs = ovarRef |> reCalcEffects ord
+
+                            if effs |> Option.isNone || effs <> first then
+                                $"%s{name} %A{cmd}"
+                ]
+                |> Expect.isEmpty "the same effects"
             }
 
             test "a recalculation without a kind is refused, and keeps the order" {
@@ -196,9 +276,11 @@ let tests =
                 |> Expect.isEmpty "the held value is in the list"
             }
 
-            test "the first, middle and last value the field offers each solve" {
+            // a pick solves the whole order, so one field per recipe is picked; the fields of the
+            // other commands of the recipe are calculated from the same order
+            test "the first, middle and last value the field of the first command of a recipe offers each solve" {
                 [
-                    for label, _, _, _, _, after, ovar in recalculated () do
+                    for label, _, _, _, _, after, ovar in recalculatedWith (List.truncate 1) do
                         let n = ovar |> baseValues |> Array.length
 
                         for nth in [ 0; n / 2; n - 1 ] |> List.distinct do
@@ -212,7 +294,8 @@ let tests =
 
             test "tpn: the item rate recalculated after the median rate gives the rate list back" {
                 let ord =
-                    let processed = Scenarios.tpn |> processed
+                    // the tpn is preset when it is made, and a reset gives the lists back
+                    let processed = Scenarios.tpn |> processed |> Tests.TestOrder.solve ReCalcValues
                     let qty = processed |> doseQuantity
                     let n = qty |> baseValues |> Array.length
 
@@ -275,5 +358,365 @@ let tests =
                             time
                             |> Array.forall (fun m -> m >= 60N && m <= 120N)
                             |> Expect.isTrue $"time %A{time} min within 60 to 120"
+            }
+        ]
+
+
+/// The component quantities of a solved preparation set again on an order that was made again,
+/// over the parenteral nutrition fixture.
+[<Tests>]
+let componentQuantityTests =
+    let name (cmp: Component) = cmp.Name |> WrappedString.Name.toString
+
+    // the order as a rebuild makes it: the constraints calculated, no value chosen
+    let rebuiltOf scenario =
+        scenario |> Tests.TestOrder.toOrder |> Tests.TestOrder.solve CalcMinMax
+
+    let rebuilt () = Scenarios.tpn |> rebuiltOf
+
+    // every component set to its median quantity, as a prescriber picks them
+    let preparedOf scenario =
+        let ord = scenario |> rebuiltOf
+
+        ord.Orderable.Components
+        |> List.map name
+        |> List.fold
+            (fun ord cmp ->
+                ord
+                |> run (fun o -> ChangeProperty(o, SetMedianComponentOrderableQuantity cmp))
+                |> Result.defaultValue ord
+            )
+            ord
+
+    let prepared () = Scenarios.tpn |> preparedOf
+
+    let quantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.map (fun cmp ->
+            name cmp,
+            cmp.OrderableQuantity
+            |> OrderVariable.Quantity.toOrdVar
+            |> Tests.TestOrder.valuesOf
+        )
+
+    let setAgain qtys ord = ord |> run (fun o -> SetComponentQuantities(o, qtys))
+
+    // the names of the variables that hold a list of values
+    let withValueLists ord =
+        ord
+        |> Order.toOrdVars
+        |> List.filter (_.Variable >> Informedica.GenSolver.Lib.Variable.getValueRange >> _.IsValSet)
+        |> List.map (_.Variable.Name >> Informedica.GenSolver.Lib.Variable.Name.toString)
+
+    testList
+        "the component quantities set again"
+        [
+            test "an order whose components do not all hold one quantity has no component quantities" {
+                // the tpn is preset when it is made, and a reset gives the lists back
+                rebuilt ()
+                |> Tests.TestOrder.solve ReCalcValues
+                |> OrderContext.componentQuantities
+                |> Expect.isNone "not solved"
+            }
+
+            test "the component quantities are the quantity of every component" {
+                let ord = prepared ()
+
+                match ord |> OrderContext.componentQuantities with
+                | Some qtys ->
+                    qtys
+                    |> List.map fst
+                    |> Expect.equal "every component" (ord.Orderable.Components |> List.map name)
+                | None -> failtest "the preparation is not solved"
+            }
+
+            test "the quantities are set again on an order made again" {
+                let prep = prepared ()
+                let qtys = prep |> OrderContext.componentQuantities |> Option.get
+
+                match rebuilt () |> setAgain qtys with
+                | Ok ord ->
+                    ord
+                    |> quantities
+                    |> Expect.equal "the quantities of the preparation" (prep |> quantities)
+                | Error(_, f) -> failtest $"not set: %A{f}"
+            }
+
+            test "a quantity the order does not allow leaves its component open, the others are set" {
+                let prep = prepared ()
+                let qtys = prep |> OrderContext.componentQuantities |> Option.get
+                let first = qtys |> List.head |> fst
+
+                let qtys =
+                    qtys
+                    |> List.map (fun (n, q) ->
+                        if n = first then
+                            n, 100000N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                        else
+                            n, q
+                    )
+
+                match rebuilt () |> setAgain qtys with
+                | Error(_, f) -> failtest $"not set: %A{f}"
+                | Ok ord ->
+                    let set = ord |> quantities |> Map.ofList
+                    set[first] |> Array.length |> Expect.notEqual "the first open" 1
+
+                    prep
+                    |> quantities
+                    |> List.filter (fst >> (<>) first)
+                    |> List.forall (fun (n, q) -> set[n] = q)
+                    |> Expect.isTrue "the others set"
+            }
+
+            test "the context keeps the quantities, the previous diluent's on the new diluent" {
+                let prep = prepared ()
+                let diluent = prep.Orderable.Components |> List.last |> name
+                let sc = OrderPlanTests.EvaluateFixtures.pcmContext.Scenarios |> Array.exactlyOne
+
+                // the previous order named its diluent otherwise; only its names and quantities are read
+                let previousOrder =
+                    { prep with
+                        Order.Orderable.Components =
+                            prep.Orderable.Components
+                            |> List.map (fun cmp ->
+                                if name cmp = diluent then
+                                    { cmp with Name = "the previous diluent" |> WrappedString.Name.fromString }
+                                else
+                                    cmp
+                            )
+                    }
+
+                let previous =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with
+                        Scenarios =
+                            [|
+                                { sc with
+                                    Order = previousOrder
+                                    Diluent = Some "the previous diluent"
+                                }
+                            |]
+                    }
+
+                let ctx =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with
+                        Scenarios =
+                            [|
+                                { sc with
+                                    Order = rebuilt ()
+                                    Diluent = Some diluent
+                                }
+                            |]
+                    }
+
+                ctx
+                |> OrderContext.setComponentQuantities OrderLogging.noOp previous
+                |> _.Scenarios
+                |> Array.exactlyOne
+                |> _.Order
+                |> quantities
+                |> Expect.equal "every quantity, the diluent's too" (prep |> quantities)
+            }
+
+            test "a context whose previous preparation is not solved stays as rebuilt" {
+                let sc = OrderPlanTests.EvaluateFixtures.pcmContext.Scenarios |> Array.exactlyOne
+                let ctx =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = rebuilt () } |] }
+
+                ctx
+                |> OrderContext.setComponentQuantities OrderLogging.noOp ctx
+                |> _.Scenarios
+                |> Array.exactlyOne
+                |> _.Order
+                |> quantities
+                |> Expect.equal "as rebuilt" (rebuilt () |> quantities)
+            }
+
+            test "an order with at most two components gets the value lists of an order made again" {
+                let qtys = Scenarios.amfo |> preparedOf |> OrderContext.componentQuantities |> Option.get
+
+                let made = Scenarios.amfo |> rebuiltOf
+
+                match made |> setAgain qtys, made |> run CalcValues with
+                | Ok ord, Ok again ->
+                    ord
+                    |> withValueLists
+                    |> Expect.equal "the value lists" (again |> withValueLists)
+                | _ -> failtest "not calculated"
+            }
+
+            test "a refused component selection leaves the order of the context as sent" {
+                // a rate picked besides the component quantities, which setting them again would undo
+                let prep =
+                    prepared ()
+                    |> run (fun o -> ChangeProperty(o, SetMedianOrderableDoseRate))
+                    |> Result.defaultWith (fun _ -> failtest "no rate")
+
+                let sc = OrderPlanTests.EvaluateFixtures.pcmContext.Scenarios |> Array.exactlyOne
+
+                let sent =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = prep } |] }
+
+                match
+                    OrderContext.SetNthComponents(sent, [| 0 |])
+                    |> OrderContext.evaluateOutcome Scenarios.testStart OrderLogging.noOp (OrderPlanTests.NoRules())
+                with
+                | Ok(Refused(cmd, _)) ->
+                    (cmd |> OrderContext.Command.get).Scenarios
+                    |> Array.exactlyOne
+                    |> _.Order
+                    |> Expect.equal "the order as sent" prep
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "a component selection restores the quantities of the context as sent" {
+                let prep = prepared ()
+                let sc = OrderPlanTests.EvaluateFixtures.pcmContext.Scenarios |> Array.exactlyOne
+
+                let sent =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = prep } |] }
+
+                let rebuiltCtx =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = rebuilt () } |] }
+
+                rebuiltCtx
+                |> OrderContext.restoreQuantities OrderLogging.noOp (OrderContext.SetNthComponents(sent, [| 0 |]))
+                |> _.Scenarios
+                |> Array.exactlyOne
+                |> _.Order
+                |> quantities
+                |> Expect.equal "the quantities of the context as sent" (prep |> quantities)
+            }
+
+            test "the plan route restores on an evaluated context, not on a refused one" {
+                let provider = OrderPlanTests.RefusedFixtures.provider ()
+                let restore (ctx: OrderContext) =
+                    { ctx with Filter = { ctx.Filter with Indication = Some "restored" } }
+
+                let indication doseType =
+                    OrderPlanTests.RefusedFixtures.picked provider (Some "paracetamol") (Some "RECTAAL") (Some doseType)
+                    |> PlanContext.create "ctx" OrderCategory.Medication
+                    |> PlanContext.evaluateSent
+                        Scenarios.testStart
+                        OrderLogging.noOp
+                        provider
+                        (fun () -> [||])
+                        restore
+                        OrderContext.UpdateOrderContext
+                    |> Result.map (
+                        function
+                        | Evaluated pc -> "evaluated", pc.Context.Filter.Indication
+                        | Refused(pc, _) -> "refused", pc.Context.Filter.Indication
+                    )
+
+                indication OrderPlanTests.RefusedFixtures.maintenance
+                |> Expect.equal "restored" (Ok("evaluated", Some "restored"))
+
+                indication OrderPlanTests.RefusedFixtures.noText
+                |> Expect.equal "as sent" (Ok("refused", None))
+            }
+        ]
+
+
+/// The filter holds every component of the dose rule in the order of the rule, set once from the first
+/// scenario, so that an additive a selection leaves out keeps its place.
+// here and not in FilterCommandTests, since they need Tests.TestOrder, which compiles after it
+[<Tests>]
+let doseRuleComponentsTests =
+    let name (cmp: Component) = cmp.Name |> WrappedString.Name.toString
+
+    let tpn () =
+        Scenarios.tpn |> Tests.TestOrder.toOrder |> Tests.TestOrder.solve CalcMinMax
+
+    // the paracetamol context with the order given: the update reads only the order and the diluent of
+    // the scenario for the field, so the rest of the context does not matter
+    let contextWith diluent (ord: Order) =
+        let ctx = OrderPlanTests.EvaluateFixtures.pcmContext
+        let sc = ctx.Scenarios |> Array.exactlyOne
+
+        { ctx with
+            Filter = { ctx.Filter with DoseRuleComponents = [||] }
+            Scenarios =
+                [|
+                    { sc with
+                        Order = ord
+                        Diluent = diluent
+                    }
+                |]
+        }
+
+    let tpnNames = [| "Samenstelling C"; "NaCl 3%"; "KCl 7,4%"; "gluc 10%" |]
+
+    let update ctx =
+        ctx |> OrderContext.updateFilterIfOneScenario |> _.Filter.DoseRuleComponents
+
+    testList
+        "the dose rule components of the filter"
+        [
+            test "the first scenario gives every component of the dose rule in the order of the rule" {
+                tpn () |> contextWith None |> update |> Expect.equal "every name" tpnNames
+            }
+
+            test "the diluent of the order is not a component of the dose rule" {
+                tpn ()
+                |> contextWith (Some "gluc 10%")
+                |> update
+                |> Expect.equal "without the diluent" (tpnNames |> Array.take 3)
+            }
+
+            test "a scenario after a selection leaves the components as they are" {
+                let first = tpn () |> contextWith None |> OrderContext.updateFilterIfOneScenario
+                let ord = tpn ()
+                let sc = first.Scenarios |> Array.exactlyOne
+
+                // the order made after a selection that left out the second component
+                let selected = { ord with Order.Orderable.Components = ord.Orderable.Components |> List.removeAt 1 }
+
+                { first with Scenarios = [| { sc with Order = selected } |] }
+                |> update
+                |> Expect.equal "the components of the first scenario" tpnNames
+            }
+
+            test "no scenario, or more than one, sets nothing" {
+                let ctx = tpn () |> contextWith None
+
+                { ctx with Scenarios = [||] } |> update |> Expect.isEmpty "no scenario"
+
+                { ctx with Scenarios = Array.append ctx.Scenarios ctx.Scenarios }
+                |> update
+                |> Expect.isEmpty "two scenarios"
+            }
+
+            test "emptying the components field empties the dose rule components" {
+                { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                |> OrderContext.clearField FilterField.Components
+                |> _.DoseRuleComponents
+                |> Expect.isEmpty "emptied"
+            }
+
+            test "letting go of the selection keeps the dose rule components" {
+                { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                |> OrderContext.clearChoice FilterField.Components
+                |> _.DoseRuleComponents
+                |> Expect.equal "kept" tpnNames
+            }
+
+            test "a filter stored before the field existed reads it as empty" {
+                match
+                    { (OrderContext.emptyFilter |> Filter.Dto.toDto) with DoseRuleComponents = null }
+                    |> Filter.Dto.fromDto
+                with
+                | Ok f -> f.DoseRuleComponents |> Expect.isEmpty "empty"
+                | Error e -> failtest $"%A{e}"
+            }
+
+            test "the dose rule components go to the Dto and back" {
+                match
+                    { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                    |> Filter.Dto.toDto
+                    |> Filter.Dto.fromDto
+                with
+                | Ok f -> f.DoseRuleComponents |> Expect.equal "the same" tpnNames
+                | Error e -> failtest $"%A{e}"
             }
         ]

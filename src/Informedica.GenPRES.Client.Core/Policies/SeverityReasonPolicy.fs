@@ -1,7 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides why the rules mark a value, from the bounds they define and the values the order
-/// variable holds.
+/// Decides why the rules mark a value, from the bounds they define and the values of the order variable.
 module SeverityReasonPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -10,7 +9,7 @@ module SeverityReasonPolicy =
     /// A bound a value crossed.
     type Bound =
         {
-            /// The bound's value, in the values' unit.
+            /// The bound value, in the unit of the values.
             Value: decimal
             /// The unit of the bound and the values.
             Unit: string

@@ -1,9 +1,9 @@
 namespace Components
 
 
-/// What every page says when the patient data is not enough for it: one notice, decided by
-/// PatientReadinessPolicy from the draft alone, in the same words and the same place on every page.
-/// Nothing while the page has what it needs; the patient panel above is where the data goes in.
+/// Shows a warning when the patient data is not enough for the page, with the same words and in
+/// the same place on every page. PatientReadinessPolicy decides the notice from the patient draft.
+/// Shows nothing when the page has the patient data it needs.
 module PatientNotice =
 
     open Informedica.GenPRES.Client.Core.Policies
@@ -14,7 +14,7 @@ module PatientNotice =
     open Informedica.GenPRES.Shared
 
 
-    /// The page's environment, and what the page needs the patient for.
+    /// The app environment, and the patient data the page needs.
     type Props =
         {|
             appEnv: obj
@@ -32,7 +32,7 @@ module PatientNotice =
 
         let context: Global.Context = React.useContext Global.context
 
-        // the sheet's translation in the User's language, else the policy's English
+        // the translation from the sheet in the language of the user, else the English text of the policy
         let tr term =
             Global.getLocalizedTerm localizationTerms context.Localization (PatientReadinessPolicy.english term) term
 

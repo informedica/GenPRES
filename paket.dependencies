@@ -17,6 +17,14 @@ nuget Saturn ~> 0
 // Update — 2026-04-18 section of docs/security/2026-04-10-security-review.md.
 nuget Giraffe
 nuget Fable.Remoting.Giraffe
+// Fable.Remoting.Giraffe only asks for WebUtilities and Http.Headers >= 2.3, and a filtered
+// paket update does not move them, so the floor is set here: versions 10.0.0 to 10.0.14 have
+// the denial of service in GHSA-x33c-w48q-qrgc. Both stay on 10.0, because paket would
+// otherwise take Http.Headers 11, which is built for .NET 11. strategy: min takes the lowest
+// Microsoft.Extensions.Primitives that Http.Headers accepts, 10.0.15, instead of 11.
+// The pins can go when Fable.Remoting.Giraffe asks for 10.0.15 or higher, or with the move to .NET 11.
+nuget Microsoft.AspNetCore.WebUtilities ~> 10.0.15
+nuget Microsoft.Net.Http.Headers ~> 10.0.15 strategy: min
 
 nuget FSharp.Data
 nuget HtmlAgilityPack 1.12.4

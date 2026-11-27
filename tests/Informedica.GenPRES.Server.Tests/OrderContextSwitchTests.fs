@@ -11,8 +11,10 @@ open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
+type CoreError = Informedica.GenCore.Lib.Patients.PatientDataError
 
-let patient = StubPatientData.patient
+
+let patient = StubEhrPatient.contractPatient
 
 let ctx: OrderContext =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with
@@ -20,11 +22,15 @@ let ctx: OrderContext =
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
-        Patient = patient
-        Intake = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
+        PatientData = patient
+        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = Some(Valid [| Normal "10 ml" |]) }
     }
 
-let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok(Evaluated pc) } }
+let echo: OrderContextPort =
+    {
+        evaluate = fun _ pc -> async { return Ok(Evaluated pc) }
+        linkedOrders = fun _ -> async { return Ok [||] }
+    }
 
 let envOver demo (port: OrderContextPort) =
     { makeEnv (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty) port with demo = demo }
@@ -50,7 +56,7 @@ let tests =
                          ctx)
 
                 match answer with
-                | Ok(OrderContextResponse.Evaluated a) ->
+                | Ok(OrderContextResponse.Evaluated(a, _)) ->
                     a
                     |> Expect.equal "the context as sent, but for the demo flag" { ctx with DemoVersion = false }
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
@@ -69,13 +75,14 @@ let tests =
                          ctx)
 
                 match demo with
-                | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
+                | Ok(OrderContextResponse.Evaluated(a, _)) ->
+                    a.DemoVersion |> Expect.isTrue "demo as the environment says"
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
             }
 
             testAsync "the port's refusal is the response, the context as sent with why in the contract's words" {
                 let port: OrderContextPort =
-                    { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
+                    { echo with evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
 
                 let! answer =
                     OrderContextCommand.processViewCmd
@@ -102,7 +109,10 @@ let tests =
                     Refusal.NoDoseRules
                     Refusal.NoDoseRulesForPatient
                     Refusal.NoProducts
+                    Refusal.MeasurementMissing
+                    Refusal.NoDiluent
                     Refusal.NotSolved
+                    Refusal.NoAdjustedDose
                 ]
                 |> List.map OrderContextService.refusalToModel
                 |> Expect.equal
@@ -111,7 +121,10 @@ let tests =
                         OrderContextRefusal.NoDoseRules
                         OrderContextRefusal.NoDoseRulesForPatient
                         OrderContextRefusal.NoProducts
+                        OrderContextRefusal.MeasurementMissing
+                        OrderContextRefusal.NoDiluent
                         OrderContextRefusal.NotSolved
+                        OrderContextRefusal.NoAdjustedDose
                     ]
             }
 
@@ -119,7 +132,7 @@ let tests =
                 let seen = ref None
 
                 let port: OrderContextPort =
-                    {
+                    { echo with
                         evaluate =
                             fun cmd pc ->
                                 seen.Value <- Some(cmd pc.Context, pc.Id, pc.Category)
@@ -148,7 +161,7 @@ let tests =
                 let asked = ref false
 
                 let port: OrderContextPort =
-                    {
+                    { echo with
                         evaluate =
                             fun _ pc ->
                                 asked.Value <- true
@@ -166,14 +179,15 @@ let tests =
                             None,
                             None
                          ),
-                         { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty })
+                         { ctx with PatientData = Informedica.GenPRES.Shared.Models.PatientData.empty })
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 asked.Value |> Expect.isFalse "the port never asked"
             }
 
             testAsync "the port's failure is the answer" {
-                let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
+                let port: OrderContextPort =
+                    { echo with evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
                     OrderContextCommand.processViewCmd
@@ -192,9 +206,13 @@ let tests =
             }
 
             test "the words for a Dto that is no context" {
-                DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                DtoError.PatientDataNotEnough CoreError.NoAgeOrMeasuredWeightAndHeight
                 |> OrderContextMapper.words
                 |> Expect.equal "the patient's" Patient.noPatient
+
+                DtoError.PatientData "Weight in kg is too high"
+                |> OrderContextMapper.words
+                |> Expect.equal "the text of GenCORE" "Weight in kg is too high"
 
                 DtoError.OrderNotCreated "x"
                 |> OrderContextMapper.words

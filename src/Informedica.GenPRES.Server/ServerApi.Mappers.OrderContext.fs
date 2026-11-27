@@ -3,22 +3,16 @@ namespace ServerApi
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
-// after the domain, so that the contract model's cases win unqualified
+// Opened last, so an unqualified case name refers to the contract case.
 open Informedica.GenPRES.Shared.Types
 
 
-/// The order context mapper: the contract model to the domain's Dto and back. The Dto is the
-/// plan context's, since the contract model carries the id, the category and the intake the
-/// plan gave the context.
+/// Maps an order context of the contract to the plan context Dto of GenORDER and back.
 module OrderContextMapper =
 
-    /// The marked-up text the domain holds, from the items the client shows: bold between #,
-    /// italic between |, the rest as it is. The markup has no escape, on this side or in
-    /// Mappers.parseTextItem: a # or | inside an item's text is not representable. That
-    /// never arises, since the client authors no item; every item is what the parser cut from
-    /// the domain's text, so none holds a delimiter, and on those render is the parser's
-    /// inverse. A domain text that needs a literal delimiter is the markup grammar's to solve,
-    /// in the printer that writes it.
+    /// Writes text items as marked-up text: bold between # and italic between |. The markup has
+    /// no escape, so an item cannot contain # or |. The items come from Mappers.parseTextItem,
+    /// so they never do.
     module TextItem =
 
         let render (items: TextItem[]) =
@@ -36,7 +30,7 @@ module OrderContextMapper =
 
         let toDomain =
             function
-            | OrderCategory.Drug -> Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+            | OrderCategory.Medication -> Informedica.GenOrder.Lib.Types.OrderCategory.Medication
             | OrderCategory.Nutrition c ->
                 match c with
                 | NutritionCategory.EnteralFeeding -> Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
@@ -51,7 +45,7 @@ module OrderContextMapper =
 
         let ofDomain =
             function
-            | Informedica.GenOrder.Lib.Types.OrderCategory.Drug -> OrderCategory.Drug
+            | Informedica.GenOrder.Lib.Types.OrderCategory.Medication -> OrderCategory.Medication
             | Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition c ->
                 match c with
                 | Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding -> NutritionCategory.EnteralFeeding
@@ -76,13 +70,25 @@ module OrderContextMapper =
         dt |> Mappers.mapFromSharedDoseTypeToOrderDoseType |> DoseTypeDto.toString
 
 
-    /// The Dto's dose type string as the contract model's case; the Dto writes what it reads,
-    /// so a string it does not read is a dose type that is none.
+    /// Maps a dose type string to a dose type. An unknown string gives NoDoseType.
     let doseTypeBack (s: string) =
         s
         |> DoseTypeDto.fromString
         |> Result.defaultValue Informedica.GenForm.Lib.Types.NoDoseType
         |> Mappers.mapFromOrderDoseTypeToSharedDoseType
+
+
+    /// Maps a component selection to the Dto. All components gives None.
+    let componentSelection =
+        function
+        | ComponentSelection.AllComponents -> None
+        | ComponentSelection.Selected cs -> cs |> List.toArray |> Some
+
+
+    let componentSelectionBack =
+        function
+        | None -> ComponentSelection.AllComponents
+        | Some cs -> cs |> Array.toList |> ComponentSelection.Selected
 
 
     let textBlock (tb: TextBlock) : TextBlockDto.Dto =
@@ -109,16 +115,17 @@ module OrderContextMapper =
             }
 
 
-    /// The Dto's block as the contract model's: the kind as the Dto writes it, the text parsed
-    /// into items; a kind the Dto does not write shows as valid.
+    /// Maps a text block Dto to a text block. Throws InvalidOperationException for an unknown
+    /// kind, because showing the block as valid would hide a warning.
     let textBlockBack (dto: TextBlockDto.Dto) : TextBlock =
         let items = dto.Text |> Mappers.parseTextItem
 
         match dto.Kind with
+        | "valid" -> Valid items
         | "caution" -> Caution items
         | "warning" -> Warning items
         | "alert" -> Alert items
-        | _ -> Valid items
+        | kind -> invalidOp $"The text block kind '%s{kind}' is unknown"
 
 
     let blocks (bs: TextBlock[][]) = bs |> Array.map (Array.map textBlock)
@@ -135,13 +142,15 @@ module OrderContextMapper =
             DoseTypes = f.DoseTypes |> Array.map doseType
             Diluents = f.Diluents
             Components = f.Components
+            DoseRuleComponents = f.DoseRuleComponents
             Indication = f.Indication
             Generic = f.Generic
             Route = f.Route
             Form = f.Form
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
-            SelectedComponents = f.SelectedComponents
+            SelectedComponents = f.SelectedComponents |> componentSelection
+            PickedProducts = f.PickedProducts
         }
 
 
@@ -154,18 +163,20 @@ module OrderContextMapper =
             DoseTypes = dto.DoseTypes |> Array.map doseTypeBack
             Diluents = dto.Diluents
             Components = dto.Components
+            DoseRuleComponents = dto.DoseRuleComponents
             Indication = dto.Indication
             Generic = dto.Generic
             Route = dto.Route
             Form = dto.Form
             DoseType = dto.DoseType |> Option.map doseTypeBack
             Diluent = dto.Diluent
-            SelectedComponents = dto.SelectedComponents
+            SelectedComponents = dto.SelectedComponents |> componentSelectionBack
+            PickedProducts = dto.PickedProducts
         }
 
 
-    /// A scenario with its order as the domain's Dto, numbered by its place, the text blocks
-    /// as marked-up text. Total: an order that cannot be created is fromDto's to report.
+    /// Maps a scenario to the scenario Dto with number no. The order is not checked here;
+    /// OrderScenario.Dto.fromDto returns OrderNotCreated for an invalid order.
     let scenario no (sc: OrderScenario) : ScenarioDto.Dto =
         {
             No = no
@@ -187,6 +198,9 @@ module OrderContextMapper =
             UseAdjust = sc.UseAdjust
             UseRenalRule = sc.UseRenalRule
             RenalRule = sc.RenalRule
+            FitsOnlyWithoutDivisible = sc.FitsOnlyWithoutDivisible
+            RulesNoLongerApply = sc.RulesNoLongerApply
+            NotRecalculated = sc.NotRecalculated
             ProductsIds = sc.ProductIds
             Access =
                 sc.Access
@@ -216,68 +230,76 @@ module OrderContextMapper =
             dto.UseAdjust
             dto.UseRenalRule
             dto.RenalRule
+            dto.FitsOnlyWithoutDivisible
+            dto.RulesNoLongerApply
+            dto.NotRecalculated
             dto.ProductsIds
             (dto.Access
              |> Option.ofObj
              |> Option.bind AccessDevice.tryFromString
              |> Option.bind Patient.accessBack)
+        // the scenario Dto stores neither the reconstitution nor the predilution, so both come from the order
+        |> fun sc ->
+            let ord = dto.Order |> Order.Dto.fromDto |> Result.toOption
+
+            { sc with
+                Reconstitution = ord |> Option.bind Order.reconstitutionText
+                Predilution = ord |> Option.bind Order.predilutionText
+            }
 
 
-    /// The totals as the domain's Dto: each line as marked-up text, an empty one as none.
+    /// Maps the totals to the Dto, each total as its text block.
     let totals (t: Totals) : TotalsDto.Dto =
-        let line (items: TextItem[]) =
-            if items |> Array.isEmpty then
-                None
-            else
-                Some(TextItem.render items)
+        let block = Option.map textBlock
 
         {
-            Volume = t.Volume |> line
-            Energy = t.Energy |> line
-            Protein = t.Protein |> line
-            Carbohydrate = t.Carbohydrate |> line
-            Fat = t.Fat |> line
-            Sodium = t.Sodium |> line
-            Potassium = t.Potassium |> line
-            Chloride = t.Chloride |> line
-            Calcium = t.Calcium |> line
-            Phosphate = t.Phosphate |> line
-            Magnesium = t.Magnesium |> line
-            Iron = t.Iron |> line
-            VitaminD = t.VitaminD |> line
-            Ethanol = t.Ethanol |> line
-            Propyleenglycol = t.Propyleenglycol |> line
-            BenzylAlcohol = t.BenzylAlcohol |> line
-            BoricAcid = t.BoricAcid |> line
+            Volume = t.Volume |> block
+            Energy = t.Energy |> block
+            Protein = t.Protein |> block
+            Carbohydrate = t.Carbohydrate |> block
+            Fat = t.Fat |> block
+            Sodium = t.Sodium |> block
+            Potassium = t.Potassium |> block
+            Chloride = t.Chloride |> block
+            Calcium = t.Calcium |> block
+            Phosphate = t.Phosphate |> block
+            Magnesium = t.Magnesium |> block
+            Iron = t.Iron |> block
+            VitaminD = t.VitaminD |> block
+            Ethanol = t.Ethanol |> block
+            Propyleenglycol = t.Propyleenglycol |> block
+            BenzylAlcohol = t.BenzylAlcohol |> block
+            BoricAcid = t.BoricAcid |> block
         }
 
 
+    /// Maps the totals Dto to the totals, each total as its text block. Throws InvalidOperationException for a
+    /// block of an unknown kind, as textBlockBack does.
     let totalsBack (dto: TotalsDto.Dto) : Totals =
-        let line = Option.map Mappers.parseTextItem >> Option.defaultValue [||]
+        let block = Option.map textBlockBack
 
         {
-            Volume = dto.Volume |> line
-            Energy = dto.Energy |> line
-            Protein = dto.Protein |> line
-            Carbohydrate = dto.Carbohydrate |> line
-            Fat = dto.Fat |> line
-            Sodium = dto.Sodium |> line
-            Potassium = dto.Potassium |> line
-            Chloride = dto.Chloride |> line
-            Calcium = dto.Calcium |> line
-            Phosphate = dto.Phosphate |> line
-            Magnesium = dto.Magnesium |> line
-            Iron = dto.Iron |> line
-            VitaminD = dto.VitaminD |> line
-            Ethanol = dto.Ethanol |> line
-            Propyleenglycol = dto.Propyleenglycol |> line
-            BenzylAlcohol = dto.BenzylAlcohol |> line
-            BoricAcid = dto.BoricAcid |> line
+            Volume = dto.Volume |> block
+            Energy = dto.Energy |> block
+            Protein = dto.Protein |> block
+            Carbohydrate = dto.Carbohydrate |> block
+            Fat = dto.Fat |> block
+            Sodium = dto.Sodium |> block
+            Potassium = dto.Potassium |> block
+            Chloride = dto.Chloride |> block
+            Calcium = dto.Calcium |> block
+            Phosphate = dto.Phosphate |> block
+            Magnesium = dto.Magnesium |> block
+            Iron = dto.Iron |> block
+            VitaminD = dto.VitaminD |> block
+            Ethanol = dto.Ethanol |> block
+            Propyleenglycol = dto.Propyleenglycol |> block
+            BenzylAlcohol = dto.BenzylAlcohol |> block
+            BoricAcid = dto.BoricAcid |> block
         }
 
 
-    /// Total: the contract model's order context as the plan context's Dto, nothing dropped,
-    /// the argumentation as written.
+    /// Maps an order context to the plan context Dto.
     let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
@@ -285,44 +307,43 @@ module OrderContextMapper =
             Context =
                 {
                     Filter = ctx.Filter |> filter
-                    Patient = ctx.Patient |> Patient.ofModel
+                    PatientData = ctx.PatientData |> Patient.ofModel
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
-            Intake = ctx.Intake |> totals
+            Totals = ctx.Totals |> totals
+            LinkedTo = ctx.LinkedTo
         }
 
 
-    /// The plan context's Dto as the contract model's order context, built from the Dto alone;
-    /// the demo flag is the server's. A category string the Dto does not write shows as a drug;
-    /// the argumentation is the Dto's, none when it has none.
+    /// Maps a plan context Dto to an order context with the demo flag of the server. An unknown
+    /// category gives Medication.
     let toModel (demo: bool) (dto: PlanContextDto.Dto) : OrderContext =
         {
             Id = dto.Id
             Category =
                 dto.Category
                 |> OrderCategoryDto.fromString
-                |> Result.defaultValue Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+                |> Result.defaultValue Informedica.GenOrder.Lib.Types.OrderCategory.Medication
                 |> Category.ofDomain
             DemoVersion = demo
             Filter = dto.Context.Filter |> filterBack
-            Patient = dto.Context.Patient |> Patient.toModel
+            PatientData = dto.Context.PatientData |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
-            Intake = dto.Intake |> totalsBack
+            Totals = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation
+            LinkedTo = dto.LinkedTo
         }
 
 
-    /// The command verb from the wire as the domain's command over a context: the table the
-    /// order context service keeps today, moved here so that the port receives the domain
-    /// command.
+    /// Maps an order view command of the contract to an order context command of GenORDER.
     module Command =
 
         module Domain = Informedica.GenOrder.Lib.OrderContext
         module Ctx = Informedica.GenPRES.Shared.Models.OrderContext
 
 
-        /// The domain's filter field for the wire's.
+        /// Maps a filter field to GenORDER.
         let field (f: Ctx.FilterField) =
             match f with
             | Ctx.Indication -> FilterField.Indication
@@ -332,10 +353,8 @@ module OrderContextMapper =
             | Ctx.DoseType -> FilterField.DoseType
 
 
-        /// The property commands for a wire target: the one that sets its nth value and the one
-        /// that recalculates it; None for a field that is never recalculated: the frequency, the
-        /// orderable dose quantity and rate, a component quantity and an item's concentration in its
-        /// component.
+        /// Returns the command that sets the nth value of a target and the command that
+        /// recalculates it. The second is None for a value that is never recalculated.
         let propertyCommands (t: Ctx.Target) =
             match t with
             | Ctx.Target.Schedule ScheduleProperty.Frequency -> SetNthScheduleFrequency, None
@@ -367,17 +386,18 @@ module OrderContextMapper =
                     (fun n -> SetNthItemOrderableQuantity(c, i, n)), Some(ReCalcItemOrderableQuantity(c, i))
 
 
-        /// The domain's source of a seed for the wire's.
+        /// Maps a seed source to GenORDER.
         let seedSource (source: SeedSource) =
             match source with
             | SeedSource.Url -> Informedica.GenOrder.Lib.Types.SeedSource.Url
-            | SeedSource.MedicationList -> Informedica.GenOrder.Lib.Types.SeedSource.MedicationList
             | SeedSource.Formulary -> Informedica.GenOrder.Lib.Types.SeedSource.Formulary
             | SeedSource.Parenteralia -> Informedica.GenOrder.Lib.Types.SeedSource.Parenteralia
             | SeedSource.Reload -> Informedica.GenOrder.Lib.Types.SeedSource.Reload
 
 
-        /// The command verb over a context of this category as the domain's command.
+        /// Maps an order view command to the GenORDER command for an order context of the
+        /// category. Throws ArgumentException for SetArgumentationProperty, which the server
+        /// handles itself.
         let toDomain
             category
             (cmd: Informedica.GenPRES.Shared.Api.OrderViewCommand)
@@ -480,11 +500,20 @@ module OrderContextMapper =
                 invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
-    /// The server's words for a reason the contract model is no plan context. Only the
-    /// patient's can come from the client's panel; the rest name a Dto from elsewhere.
+    /// Returns the message for a link error.
+    let linkWords =
+        function
+        | LinkError.NoSuchMainOrder main -> $"The main order %s{main} is not in the plan"
+        | LinkError.MainOrderLinked main -> $"The main order %s{main} is itself linked to another order"
+        | LinkError.NotAllowed generic -> $"No link rule links this order to the main order %s{generic}"
+        | LinkError.MainOrderRequired -> "This order is only prescribed with its main order"
+
+
+    /// Returns the message for a Dto error.
     let words =
         function
-        | DtoError.Patient e -> Patient.words e
+        | DtoError.PatientData s -> s
+        | DtoError.PatientDataNotEnough e -> e |> Patient.notEnoughMessage
         | DtoError.OrderNotCreated m -> $"De order kon niet worden gemaakt: %s{m}"
         | DtoError.UnknownDoseType s -> $"Onbekend doseertype: %s{s}"
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
@@ -496,3 +525,4 @@ module OrderContextMapper =
         | DtoError.WrongUnit(p, r) -> $"Verkeerde eenheid in %s{p}: %s{r}"
         | DtoError.UnknownOrderType(p, s) -> $"Onbekend ordertype in %s{p}: %s{s}"
         | DtoError.NotMadeOf(p, id) -> $"Product %s{id} in %s{p} past niet bij de stoffen"
+        | DtoError.BrokenLink(id, e) -> $"Context %s{id}: %s{linkWords e}"

@@ -7,7 +7,7 @@ open Informedica.GenPRES.Shared.Types
 open SigningMachine
 
 
-let patient = Informedica.GenPRES.Shared.Models.Patient.empty
+let patient = Informedica.GenPRES.Shared.Models.PatientData.empty
 let otherData = { patient with Department = Some "ICU" }
 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
 
@@ -30,8 +30,8 @@ let signed: SignedOrderPlan =
         PatientId = "stub-patient"
         Base = None
         OrderContexts = [||]
-        Patient = patient
-        Identity = None
+        PatientData = patient
+        PatientIdentity = None
         Verified = true
     }
 
@@ -43,7 +43,7 @@ let unsent = SigningState.unsent "c-1" plan "k-1"
 let transition = SigningState.transition
 
 let issued request =
-    SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.ChallengeIssued "c-1"))
+    SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.ChallengeIssued("c-1", false)))
 
 let submitted key =
     SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Submitted(signed, OpenedToken "t2", patient)))
