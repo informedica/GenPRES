@@ -48,6 +48,8 @@ module Types =
             Reconstitute: bool
             /// Whether the pharmaceutical form is a solution
             IsSolution: bool
+            /// Whether an order of the pharmaceutical form on the route counts in the intake totals
+            Totals: bool
         }
 
 

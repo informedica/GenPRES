@@ -278,7 +278,7 @@ module Pipeline =
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
-                    let result = Totals.getTotals syntheticTotals None None None [| ord |]
+                    let result = Totals.getTotals [||] [||] syntheticTotals None None None [| ord |]
 
                     result.Volume |> Expect.isNone "no weight -> no volume total"
                 }
@@ -5361,12 +5361,12 @@ module OrderPlanDtoTests =
 
         let totals: Totals =
             {
-                Volume = Some "100 ml"
-                Energy = Some "50 kcal"
+                Volume = Some(Valid "100 ml")
+                Energy = Some(Warning "50 kcal")
                 Protein = None
                 Carbohydrate = None
                 Fat = None
-                Sodium = Some "3 mmol"
+                Sodium = Some(Valid "3 mmol")
                 Potassium = None
                 Chloride = None
                 Calcium = None

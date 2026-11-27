@@ -277,6 +277,7 @@ module Mapping =
                 Timed = getStr "Timed" |> String.equalsCapInsens "true"
                 Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                 IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                Totals = getStr "Totals" |> String.equalsCapInsens "true"
             }
 
 

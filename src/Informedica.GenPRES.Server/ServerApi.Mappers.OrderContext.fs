@@ -248,13 +248,13 @@ module OrderContextMapper =
             }
 
 
-    /// Maps the totals to the Dto. An empty line gives None.
+    /// Maps the totals to the Dto, each line as a valid text block. An empty line gives None.
     let totals (t: Totals) : TotalsDto.Dto =
         let line (items: TextItem[]) =
             if items |> Array.isEmpty then
                 None
             else
-                Some(TextItem.render items)
+                Some(Valid items |> textBlock)
 
         {
             Volume = t.Volume |> line
@@ -277,8 +277,12 @@ module OrderContextMapper =
         }
 
 
+    /// Maps the totals Dto to the totals, each line as the text items of its block. The kind of the block is
+    /// dropped until the client shows it (#2050).
     let totalsBack (dto: TotalsDto.Dto) : Totals =
-        let line = Option.map Mappers.parseTextItem >> Option.defaultValue [||]
+        let line =
+            Option.map (fun (b: TextBlockDto.Dto) -> b.Text |> Mappers.parseTextItem)
+            >> Option.defaultValue [||]
 
         {
             Volume = dto.Volume |> line

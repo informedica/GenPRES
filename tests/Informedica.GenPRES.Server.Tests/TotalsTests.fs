@@ -15,7 +15,8 @@ type TotalsSpy() =
     member this.CallCount = callCount
 
     interface Resources.IResourceProvider with
-        // the rule set rows answer one TPN row, a nutrition slot reads them; every other resource raises
+        // the rule set rows answer one TPN row, a nutrition slot reads them; there are no route mappings and
+        // no FormRoute rows, so no order counts in the totals; every other resource raises
         member _.Get(key: Resources.ResourceKey<'T>) : 'T =
             if key.Name = Resources.Keys.ruleSetData.Name then
                 unbox<'T>(
@@ -36,7 +37,7 @@ type TotalsSpy() =
         member _.GetData() = raise (NotImplementedException())
         member _.GetDoseRules() = raise (NotImplementedException())
         member _.GetEnteralFeeding() = raise (NotImplementedException())
-        member _.GetFormRoutes() = raise (NotImplementedException())
+        member _.GetFormRoutes() = [||]
         member _.GetFormularyProducts() = raise (NotImplementedException())
         member _.GetGStandProvider() = raise (NotImplementedException())
         member _.GetDepartments() = raise (NotImplementedException())
@@ -46,7 +47,7 @@ type TotalsSpy() =
         member _.GetReconstitution() = raise (NotImplementedException())
         member _.GetRenalRules() = raise (NotImplementedException())
         member _.GetResourceInfo() = raise (NotImplementedException())
-        member _.GetRouteMappings() = raise (NotImplementedException())
+        member _.GetRouteMappings() = [||]
         member _.GetSolutionRules() = raise (NotImplementedException())
 
         member _.GetTotals() =
