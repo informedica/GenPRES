@@ -158,7 +158,7 @@ let tests =
                 "getTotals"
                 [
                     test "under 28 days without a gestational age: no totals" {
-                        Totals.getTotals [| term; everyPatient |] (days 4) (kg 3N) None [||]
+                        Totals.getTotals [||] [||] [| term; everyPatient |] (days 4) (kg 3N) None [||]
                         |> Expect.equal "empty" Totals.empty
                     }
                 ]

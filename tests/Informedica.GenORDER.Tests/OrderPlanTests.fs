@@ -211,6 +211,7 @@ let tests =
                     }
 
                 let child = PatientData.unknown |> SamplePatients.withWeightInKg 32m
+                let formRoutes = Scenarios.totalsFormRoutes [| infusion.Order |]
 
                 let p =
                     { OrderPlan.create child [| drug "c-supp" "o-supp" |] with
@@ -221,7 +222,7 @@ let tests =
                             |]
                     }
 
-                let all = p |> OrderPlan.recalculate [| volume |]
+                let all = p |> OrderPlan.recalculate [||] formRoutes [| volume |]
                 all.Totals.Volume |> Expect.isSome "the infusion has a volume"
                 all.Totals.Energy |> Expect.isNone "no data for energy"
                 // the context holds a patient without a weight, so a volume comes from the patient of the plan
@@ -235,12 +236,12 @@ let tests =
                 |> Expect.equal "nothing else changes" p
 
                 { p with Filtered = [| "c-supp" |] }
-                |> OrderPlan.recalculate [| volume |]
+                |> OrderPlan.recalculate [||] formRoutes [| volume |]
                 |> _.Totals
                 |> Expect.equal "the suppository alone has no volume" Totals.empty
 
                 { p with PatientData = PatientData.unknown }
-                |> OrderPlan.recalculate [| volume |]
+                |> OrderPlan.recalculate [||] formRoutes [| volume |]
                 |> _.Totals
                 |> Expect.equal "no weight, no totals" Totals.empty
             }
@@ -270,7 +271,7 @@ let tests =
 
                 let evaluated =
                     { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-lipid" |]) with
-                        Totals = { Totals.empty with Energy = Some "10 kcal" }
+                        Totals = { Totals.empty with Energy = Some(Valid "10 kcal") }
                     }
 
                 match p |> OrderPlan.updateContext ruleSets "c-1" evaluated with
@@ -281,7 +282,8 @@ let tests =
                     c.Category
                     |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.Lipid)
 
-                    c.Totals.Energy |> Expect.equal "the intake as evaluated" (Some "10 kcal")
+                    c.Totals.Energy
+                    |> Expect.equal "the intake as evaluated" (Some(Valid "10 kcal"))
                     ids p |> Expect.equal "its order follows" [| "o-drug"; "o-lipid" |]
                 | Error e -> failtest $"{e}"
 
@@ -394,7 +396,7 @@ let tests =
 
                 let workbench =
                     { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-p" |]) with
-                        Totals = { Totals.empty with Volume = Some "5 ml" }
+                        Totals = { Totals.empty with Volume = Some(Valid "5 ml") }
                     }
 
                 let p =
@@ -409,7 +411,7 @@ let tests =
                 added.Context.Filter.Generic
                 |> Expect.equal "the workbench as it was" (Some "paracetamol")
 
-                added.Totals.Volume |> Expect.equal "with its intake" (Some "5 ml")
+                added.Totals.Volume |> Expect.equal "with its intake" (Some(Valid "5 ml"))
                 ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
 
                 p
@@ -805,11 +807,11 @@ let evaluateTests =
 
             test "no totals data, or no scenario: no totals" {
                 pcmContext
-                |> OrderContext.contextTotals [||]
+                |> OrderContext.contextTotals [||] [||] [||]
                 |> Expect.equal "no data" Totals.empty
 
                 { pcmContext with Scenarios = [||] }
-                |> OrderContext.contextTotals [||]
+                |> OrderContext.contextTotals [||] [||] [||]
                 |> Expect.equal "no scenario" Totals.empty
             }
         ]
@@ -2846,13 +2848,13 @@ let linkTests =
 
                     test "the round trip keeps the totals of a context" {
                         let withTotals =
-                            { medication "c-m" "o-m" with Totals = { Totals.empty with Volume = Some "5 ml" } }
+                            { medication "c-m" "o-m" with Totals = { Totals.empty with Volume = Some(Warning "5 ml") } }
 
                         plan [| withTotals |]
                         |> OrderPlan.Dto.toDto
                         |> OrderPlan.Dto.fromDto SamplePatients.readAt
                         |> Result.map (fun p -> p.Contexts[0].Totals.Volume)
-                        |> Expect.equal "the volume" (Ok(Some "5 ml"))
+                        |> Expect.equal "the volume with its severity" (Ok(Some(Warning "5 ml")))
                     }
 
                     test "the canonical JSON carries the link, null when there is none, and the totals" {
@@ -3556,6 +3558,8 @@ module TotalsOverFixtures =
 
     let child = PatientData.unknown |> SamplePatients.withWeightInKg 32m
 
+    let formRoutes = Scenarios.totalsFormRoutes [| infusion.Order |]
+
     let suppository = PlanContext.create "c-supp" OrderCategory.Medication (context [| scenario "o-supp" |])
 
     let infusionContext = PlanContext.create "c-inf" OrderCategory.Medication (context [| infusion |])
@@ -3573,20 +3577,20 @@ let totalsOverTests =
         [
             test "the totals over the contexts count every order narrowed to one" {
                 [| suppository; infusionContext |]
-                |> OrderPlan.totalsOver [| volume |] child
+                |> OrderPlan.totalsOver [||] formRoutes [| volume |] child
                 |> _.Volume
                 |> Expect.isSome "the infusion has a volume"
             }
 
             test "a context that is not narrowed adds nothing" {
                 [| suppository; wide |]
-                |> OrderPlan.totalsOver [| volume |] child
+                |> OrderPlan.totalsOver [||] formRoutes [| volume |] child
                 |> Expect.equal "the suppository has no volume" Totals.empty
             }
 
             test "no contexts, no totals" {
                 [||]
-                |> OrderPlan.totalsOver [| volume |] child
+                |> OrderPlan.totalsOver [||] formRoutes [| volume |] child
                 |> Expect.equal "empty" Totals.empty
             }
 
@@ -3594,12 +3598,12 @@ let totalsOverTests =
                 let p = OrderPlan.create child [| suppository; infusionContext |]
 
                 p
-                |> OrderPlan.recalculate [| volume |]
+                |> OrderPlan.recalculate [||] formRoutes [| volume |]
                 |> _.Totals
-                |> Expect.equal "the same" (OrderPlan.totalsOver [| volume |] child p.Contexts)
+                |> Expect.equal "the same" (OrderPlan.totalsOver [||] formRoutes [| volume |] child p.Contexts)
 
                 { p with Filtered = [| "c-supp" |] }
-                |> OrderPlan.recalculate [| volume |]
+                |> OrderPlan.recalculate [||] formRoutes [| volume |]
                 |> _.Totals
                 |> Expect.equal "the suppository alone" Totals.empty
             }

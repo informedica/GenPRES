@@ -16,6 +16,7 @@
     <Compile Include="GoldenOrders.fs" />
     <Compile Include="TotalsGolden.fs" />
     <Compile Include="TotalsGestAgeTests.fs" />
+    <Compile Include="TotalsSeverityTests.fs" />
     <Compile Include="OrderPlanTests.fs" />
     <Compile Include="OrderContextRuleTests.fs" />
     <Compile Include="StandardOrderTests.fs" />

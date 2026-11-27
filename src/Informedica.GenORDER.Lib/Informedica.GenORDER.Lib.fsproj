@@ -16,8 +16,8 @@
     <Compile Include="Order.fs" />
     <Compile Include="Determination.fs" />
     <Compile Include="OrderProcessor.fs" />
-    <Compile Include="Totals.fs" />
     <Compile Include="Dtos.fs" />
+    <Compile Include="Totals.fs" />
     <Compile Include="Medication.fs" />
     <Compile Include="MedicationText.fs" />
     <Compile Include="Patient.fs" />

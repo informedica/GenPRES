@@ -271,6 +271,7 @@ let tests =
                         Timed = false
                         Reconstitute = false
                         IsSolution = false
+                        Totals = false
                     }
 
                 let pr = [| droplet "1" 24N; droplet "2" 36N |] |> rule

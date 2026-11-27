@@ -2257,3 +2257,27 @@ let absolute (med: Medication) =
                 }
             )
     }
+
+
+/// The FormRoute rows that mark the route and the form of every component of the orders for the totals, so
+/// that each of the orders counts in the totals.
+let totalsFormRoutes (ords: Order[]) : FormRoute[] =
+    [|
+        for o in ords do
+            for c in o.Orderable.Components do
+                {
+                    Route = o.Route
+                    Form = c.Form
+                    Unit = c |> Totals.formUnit
+                    DoseUnit = NoUnit
+                    MinDoseQty = None
+                    MaxDoseQty = None
+                    MinDoseQtyPerKg = None
+                    MaxDoseQtyPerKg = None
+                    Divisibility = None
+                    Timed = false
+                    Reconstitute = false
+                    IsSolution = false
+                    Totals = true
+                }
+    |]

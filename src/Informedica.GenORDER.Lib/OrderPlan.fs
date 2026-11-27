@@ -70,7 +70,7 @@ module PlanContext =
     let evaluateSent
         (start: System.DateTime)
         logger
-        provider
+        (provider: Resources.IResourceProvider)
         (totalsData: unit -> Types.Data.TotalsData[])
         restore
         (cmd: OrderContext -> OrderContext.Command)
@@ -84,7 +84,12 @@ module PlanContext =
 
             { pc with
                 Context = ctx
-                Totals = ctx |> OrderContext.contextTotals (totalsData ())
+                Totals =
+                    ctx
+                    |> OrderContext.contextTotals
+                        (provider.GetRouteMappings())
+                        (provider.GetFormRoutes())
+                        (totalsData ())
             }
 
         // A refusal for a missing diluent keeps the pick lists of the lookup.
@@ -280,24 +285,27 @@ module OrderPlan =
 
     /// Calculates the totals of the orders of the contexts with exactly one scenario, for the patient data.
     /// A context without exactly one scenario adds nothing.
-    let totalsOver totalsData patientData contexts =
+    let totalsOver routeMapping formRoutes totalsData patientData contexts =
         contexts
         |> Array.choose PlanContext.contribution
         |> Array.map _.Order
-        |> OrderContext.totalsFor totalsData patientData
+        |> OrderContext.totalsFor routeMapping formRoutes totalsData patientData
 
 
     /// Calculates the totals of every context and of the plan again for the patient data of the plan. The
     /// plan totals cover the filtered contexts. The patient data of a context can be older than that of the
     /// plan, so it is not used.
-    let recalculate (totalsData: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) : OrderPlan =
+    let recalculate routeMapping formRoutes totalsData (plan: OrderPlan) =
+        let contextTotals = OrderContext.contextTotalsFor routeMapping formRoutes totalsData plan.PatientData
+
         { plan with
             Contexts =
                 plan.Contexts
-                |> Array.map (fun pc ->
-                    { pc with Totals = pc.Context |> OrderContext.contextTotalsFor totalsData plan.PatientData }
-                )
-            Totals = plan |> filtered |> totalsOver totalsData plan.PatientData
+                |> Array.map (fun pc -> { pc with Totals = pc.Context |> contextTotals })
+            Totals =
+                plan
+                |> filtered
+                |> totalsOver routeMapping formRoutes totalsData plan.PatientData
         }
 
 

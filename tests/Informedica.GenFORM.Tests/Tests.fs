@@ -1110,6 +1110,7 @@ module DoseRuleToDataTests =
                     "Timed"
                     "Reconstitute"
                     "IsSolution"
+                    "Totals"
                 ],
                 [],
                 [ "Unit", "mg"; "DoseUnit", "mg" ],
@@ -1542,6 +1543,63 @@ module FormularyProductTests =
                             | Ok _ -> failtest "expected an error"
                         }
                     ]
+            ]
+
+
+module FormRouteTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+
+
+    // the FormRoute row with the Totals cell, the dose unit set so that the parser reads every column
+    let totalsOf cell =
+        [
+            "Route"
+            "Form"
+            "Unit"
+            "DoseUnit"
+            "MinDoseQty"
+            "MaxDoseQty"
+            "MinDoseQtyKg"
+            "MaxDoseQtyKg"
+            "Divisible"
+            "Timed"
+            "Reconstitute"
+            "IsSolution"
+            "Totals"
+        ]
+        |> CC.mkSheet
+            [
+                "Route", "intraveneus"
+                "Form", "infuus"
+                "Unit", "mg"
+                "DoseUnit", "mg"
+                "Totals", cell
+            ]
+        |> Mapping.parseSheet (Mapping.formRouteRow CC.unitMappingFixture)
+        |> Result.map (Array.map _.Totals)
+
+
+    let tests =
+        testList
+            "the Totals column of the FormRoute sheet"
+            [
+                test "TRUE marks the form and route for the totals" {
+                    totalsOf "TRUE" |> Expect.equal "true" (Ok [| true |])
+                }
+
+                test "FALSE does not mark the form and route" {
+                    totalsOf "FALSE" |> Expect.equal "false" (Ok [| false |])
+                }
+
+                test "an empty cell does not mark the form and route" {
+                    totalsOf "" |> Expect.equal "false" (Ok [| false |])
+                }
             ]
 
 
@@ -16059,6 +16117,7 @@ module Tests =
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
+                FormRouteTests.tests
                 ReconstitutionTests.tests
                 PredilutionTests.tests
                 ProductNameTests.tests

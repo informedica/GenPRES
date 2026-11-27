@@ -2065,10 +2065,13 @@ Scenarios: {scenarios}
         }
 
 
-    /// The totals over the orders, for the age, weight and gestational age of the patient.
-    let totalsFor (totalsData: TotalsData[]) (patientData: PatientData) orders =
+    /// The totals over the orders whose route and form are marked Totals, for the age, weight and gestational
+    /// age of the patient.
+    let totalsFor routeMapping formRoutes totalsData patientData orders =
         orders
         |> Totals.getTotals
+            routeMapping
+            formRoutes
             totalsData
             (patientData |> CorePatientData.ageInDays)
             (patientData |> CorePatientData.weightInKg)
@@ -2077,13 +2080,16 @@ Scenarios: {scenarios}
 
     /// The totals over the orders of the context's scenarios, for the age, weight and gestational age
     /// of the patient.
-    let contextTotalsFor (totalsData: TotalsData[]) (patientData: PatientData) (ctx: OrderContext) : Totals =
-        ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData patientData
+    let contextTotalsFor routeMapping formRoutes totalsData patientData (ctx: OrderContext) =
+        ctx.Scenarios
+        |> Array.map _.Order
+        |> totalsFor routeMapping formRoutes totalsData patientData
 
 
     /// The totals over the orders of the context's scenarios, for its patient's age, weight and
     /// gestational age.
-    let contextTotals totalsData (ctx: OrderContext) = ctx |> contextTotalsFor totalsData ctx.PatientData
+    let contextTotals routeMapping formRoutes totalsData (ctx: OrderContext) =
+        ctx |> contextTotalsFor routeMapping formRoutes totalsData ctx.PatientData
 
 
     let logOrderContext (logger: Logger) msg cmd =

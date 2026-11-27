@@ -771,43 +771,56 @@ module Types =
         }
 
 
-    /// Represents totals for various nutrients and substances
+    /// A text with the severity it is shown with, from Valid to Alert.
+    type TextBlock =
+        /// A text for values within their limits.
+        | Valid of string
+        /// A text that asks for attention.
+        | Caution of string
+        /// A text for a value outside a norm, such as a total outside its target range.
+        | Warning of string
+        /// A text for a value outside a limit that must not be passed.
+        | Alert of string
+
+
+    /// The totals of the nutrients and substances, each as a text block with the total and its target range.
+    /// The block is a Warning when part of the total lies outside the target range.
     type Totals =
         {
             /// Total volume
-            Volume: string option
+            Volume: TextBlock option
             /// Total energy content
-            Energy: string option
+            Energy: TextBlock option
             /// Total protein content
-            Protein: string option
+            Protein: TextBlock option
             /// Total carbohydrate content
-            Carbohydrate: string option
+            Carbohydrate: TextBlock option
             /// Total fat content
-            Fat: string option
+            Fat: TextBlock option
             /// Total sodium content
-            Sodium: string option
+            Sodium: TextBlock option
             /// Total potassium content
-            Potassium: string option
+            Potassium: TextBlock option
             /// Total chloride content
-            Chloride: string option
+            Chloride: TextBlock option
             /// Total calcium content
-            Calcium: string option
+            Calcium: TextBlock option
             /// Total phosphate content
-            Phosphate: string option
+            Phosphate: TextBlock option
             /// Total magnesium content
-            Magnesium: string option
+            Magnesium: TextBlock option
             /// Total iron content
-            Iron: string option
+            Iron: TextBlock option
             /// Total vitamin D content
-            VitaminD: string option
+            VitaminD: TextBlock option
             /// Total ethanol content
-            Ethanol: string option
+            Ethanol: TextBlock option
             /// Total propylene glycol content
-            Propyleenglycol: string option
+            Propyleenglycol: TextBlock option
             /// Total benzyl alcohol content
-            BenzylAlcohol: string option
+            BenzylAlcohol: TextBlock option
             /// Total boric acid content
-            BoricAcid: string option
+            BoricAcid: TextBlock option
         }
 
 
@@ -821,13 +834,6 @@ module Types =
 
     /// Type alias for ProductComponent from Informedica.GenForm.Lib.Types
     type Product = Informedica.GenForm.Lib.Types.ProductComponent
-
-
-    type TextBlock =
-        | Valid of string
-        | Caution of string
-        | Warning of string
-        | Alert of string
 
 
     /// <summary>

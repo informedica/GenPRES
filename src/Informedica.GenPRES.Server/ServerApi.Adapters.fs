@@ -155,7 +155,9 @@ module Adapters =
         (now: unit -> DateTime)
         : OrderPlanPort
         =
-        let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
+        let recalc plan =
+            plan
+            |> OrderPlan.recalculate (provider.GetRouteMappings()) (provider.GetFormRoutes()) (provider.GetTotals())
 
         {
             recalculate = fun plan -> async { return plan |> recalc |> Ok }
@@ -201,7 +203,17 @@ module Adapters =
                 fun plan ids -> async { return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok }
             openWith = fun pat contexts -> async { return OrderPlan.create pat contexts |> recalc |> Ok }
             totals =
-                fun pat contexts -> async { return contexts |> OrderPlan.totalsOver (provider.GetTotals()) pat |> Ok }
+                fun pat contexts ->
+                    async {
+                        return
+                            contexts
+                            |> OrderPlan.totalsOver
+                                (provider.GetRouteMappings())
+                                (provider.GetFormRoutes())
+                                (provider.GetTotals())
+                                pat
+                            |> Ok
+                    }
         }
 
 

@@ -183,10 +183,12 @@ let order (med: Medication) =
         | Error(_, errs) -> failtest $"the scenario does not process: %A{errs}"
 
 
-/// The totals of the given orders, by the name of the field that holds each. A field without
-/// a value is left out, so that a total that appears where there was none fails too.
+/// The totals of the given orders as text, by the name of the field that holds each. A field without
+/// a value is left out, so that a total that appears where there was none fails too. Every order counts.
 let totalsOf (ords: Order[]) =
-    let t = ords |> Totals.getTotals Reference.all None (Some Reference.weight) None
+    let t =
+        ords
+        |> Totals.getTotals [||] (Scenarios.totalsFormRoutes ords) Reference.all None (Some Reference.weight) None
 
     [
         "Volume", t.Volume
@@ -207,7 +209,7 @@ let totalsOf (ords: Order[]) =
         "BenzylAlcohol", t.BenzylAlcohol
         "BoricAcid", t.BoricAcid
     ]
-    |> List.choose (fun (n, v) -> v |> Option.map (fun v -> n, v))
+    |> List.choose (fun (n, v) -> v |> Option.map (fun v -> n, v |> Order.Print.unwrap))
 
 
 [<Tests>]

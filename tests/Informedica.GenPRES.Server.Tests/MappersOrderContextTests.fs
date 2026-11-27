@@ -320,7 +320,8 @@ let tests =
                         "marked-up text"
                         [| [| Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag" |] |]
 
-                    pc.Totals.Energy |> Expect.equal "the totals" (Some "#50 kcal#/dag")
+                    pc.Totals.Energy
+                    |> Expect.equal "the totals" (Some(Informedica.GenOrder.Lib.Types.Valid "#50 kcal#/dag"))
                 | Error e -> failtest $"no plan context: %A{e}"
             }
 
