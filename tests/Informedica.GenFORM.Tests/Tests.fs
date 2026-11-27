@@ -9036,6 +9036,53 @@ module Tests =
         let private noLogger = Informedica.Logging.Lib.Logging.noOp
 
 
+        /// The dose rule with the GPK on all its products.
+        let withGpk gpk (dr: DoseRule) =
+            { dr with
+                ComponentLimits =
+                    dr.ComponentLimits
+                    |> Array.map (fun cl ->
+                        { cl with Products = cl.Products |> Array.map (fun p -> { p with GPK = gpk }) }
+                    )
+            }
+
+
+        /// The number of solution rules of each prescription rule of the demo paracetamol dose rule with the
+        /// products of GPK A and with the products of GPK B, for a solution rule with the GPKs, by GPK.
+        let solutionRuleCounts gpks =
+            let dr = paracetamol.Value
+
+            let prs =
+                { filterFor noWeight with
+                    Generic = Some "paracetamol"
+                    Route = Some dr.Route
+                }
+                |> PrescriptionRule.filter
+                    (fun _ -> false)
+                    [| dr |> withGpk "A"; dr |> withGpk "B" |]
+                    [|
+                        { solutionRule MinMax.empty with
+                            Route = dr.Route
+                            GPKs = gpks
+                        }
+                    |]
+                    [||]
+                    [||]
+                    Fixtures.rm.Value
+                |> Result.defaultValue [||]
+
+            let countsOf gpk =
+                prs
+                |> Array.filter (
+                    _.DoseRule.ComponentLimits
+                    >> Array.collect _.Products
+                    >> Array.forall (_.GPK >> (=) gpk)
+                )
+                |> Array.map (_.SolutionRules >> Array.length)
+
+            countsOf "A", countsOf "B"
+
+
         let tests =
             testList
                 "whether a rule can be prescribed"
@@ -9510,6 +9557,23 @@ module Tests =
                             |> Result.map (Array.forall (PrescriptionRule.isPrescribable pat))
                             |> Expect.equal "every selected rule can be prescribed" (Ok true)
                     }
+
+                    testList
+                        "the solution rules of a dose rule with products of one GPK"
+                        [
+                            test "a solution rule without GPKs stays with the dose rules of every GPK" {
+                                solutionRuleCounts [||]
+                                |> Expect.equal "both keep the solution rule" ([| 1 |], [| 1 |])
+                            }
+
+                            test
+                                "a solution rule with a GPK stays only with the dose rule that has a product with the GPK" {
+                                solutionRuleCounts [| "A" |]
+                                |> Expect.equal
+                                    "the dose rule of GPK B stays, without solution rules"
+                                    ([| 1 |], [| 0 |])
+                            }
+                        ]
                 ]
 
 
@@ -16087,6 +16151,93 @@ module Tests =
                 ]
 
 
+    module SolutionRuleProductTests =
+
+        /// A morfine injection of GPK 148881 with the trade product 1001.
+        let injection =
+            { ProductFilterTests.baseProd with
+                GPK = "148881"
+                Generic = "morfine"
+                Form = "injectievloeistof"
+                TradeProducts = [ ProductFilterTests.trade "1001" "" [] ]
+            }
+
+
+        /// A morfine infusion of GPK 134538 with the trade product 2001.
+        let infusion =
+            { injection with
+                GPK = "134538"
+                Form = "infusievloeistof"
+                TradeProducts = [ ProductFilterTests.trade "2001" "" [] ]
+            }
+
+
+        /// A solution rule with the GPKs and the HPKs.
+        let rule gpks hpks =
+            { SolutionRuleFilterTests.rule "any" PatientCategory.empty with
+                GPKs = gpks
+                HPKs = hpks
+            }
+
+
+        let tests =
+            testList
+                "SolutionRule.appliesToProducts"
+                [
+                    test "a rule without GPKs and HPKs applies to every product" {
+                        rule [||] [||]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule without GPKs and HPKs applies to a dose rule without products" {
+                        rule [||] [||] |> SolutionRule.appliesToProducts [||] |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs applies to a product with one of the GPKs" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs does not apply to a product with another GPK" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with GPKs applies when one of several products has one of the GPKs" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [| infusion; injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with GPKs does not apply to a dose rule without products" {
+                        rule [| "148881" |] [||]
+                        |> SolutionRule.appliesToProducts [||]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with HPKs applies to a product with a trade product with one of the HPKs" {
+                        rule [||] [| "1001" |]
+                        |> SolutionRule.appliesToProducts [| injection |]
+                        |> Expect.isTrue "applies"
+                    }
+
+                    test "a rule with HPKs does not apply to a product without a trade product with one of the HPKs" {
+                        rule [||] [| "1001" |]
+                        |> SolutionRule.appliesToProducts [| infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+
+                    test "a rule with GPKs and HPKs needs a product with one of the GPKs and one of the HPKs" {
+                        rule [| "148881" |] [| "2001" |]
+                        |> SolutionRule.appliesToProducts [| injection; infusion |]
+                        |> Expect.isFalse "does not apply"
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -16149,4 +16300,5 @@ module Tests =
                 SolutionRuleAdjustUnitCheckTests.tests
                 SolutionRulePrintTests.tests
                 SolutionRulePredilutionFilterTests.tests
+                SolutionRuleProductTests.tests
             ]

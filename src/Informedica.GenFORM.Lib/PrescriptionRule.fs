@@ -335,6 +335,7 @@ module PrescriptionRule =
 
             // The solution rules are matched on the generic name, without a brand or a form.
             let generic = dr.Generic |> Generic.genericName
+            let products = dr.ComponentLimits |> Array.collect _.Products
 
             {
                 PatientData = pat
@@ -358,6 +359,9 @@ module PrescriptionRule =
                     // check runs before the diluents are narrowed to the chosen one, so that choosing another
                     // diluent of the rule does not let the rule through.
                     |> Array.filter (SolutionRule.componentDiluents dr >> Array.isEmpty)
+                    // A dose rule is made for each product form, so a solution rule for the products of one
+                    // form does not apply to the dose rule of another form.
+                    |> Array.filter (SolutionRule.appliesToProducts products)
                     |> SolutionRule.filter routeMapping solutionFilter
                     |> Array.map (fun solRule ->
                         { solRule with
@@ -367,11 +371,7 @@ module PrescriptionRule =
                                     { dilutionLimit with
                                         Products =
                                             dilutionLimit.Products
-                                            |> Array.filter (fun p ->
-                                                dr.ComponentLimits
-                                                |> Array.collect _.Products
-                                                |> Array.exists (_.GPK >> (=) p.GPK)
-                                            )
+                                            |> Array.filter (fun p -> products |> Array.exists (_.GPK >> (=) p.GPK))
 
                                     }
                                 )
