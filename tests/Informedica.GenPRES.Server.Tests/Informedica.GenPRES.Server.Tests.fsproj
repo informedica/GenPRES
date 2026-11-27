@@ -41,6 +41,7 @@
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="LoggingTests.fs" />
+    <Compile Include="OrderPlanPdfTests.fs" />
     <Compile Include="Program.fs" />
     <Content Include="fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Scripts/load.fsx" />

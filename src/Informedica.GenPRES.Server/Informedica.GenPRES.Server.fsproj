@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="Logging.fs" />
     <Compile Include="LogAnalyzer.fs" />
+    <Compile Include="PdfGeneration.fs" />
     <Compile Include="ServerApi.Mappers.Order.fs" />
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.NutritionRuleSets.fs" />

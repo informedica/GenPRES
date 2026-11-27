@@ -8,6 +8,7 @@ storage: none
 
 nuget FSharp.Core 10.1.203
 nuget FSharpPlus 1.9.1
+nuget QuestPDF
 
 nuget Saturn ~> 0
 // Fable.Remoting.Giraffe 6.1.0 recompiled against the task-based

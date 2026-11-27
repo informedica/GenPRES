@@ -251,6 +251,7 @@ NUGET
       Newtonsoft.Json (>= 13.0.3)
       NJsonSchema.Annotations (>= 11.6.1)
     NJsonSchema.Annotations (11.6.1)
+    QuestPDF (2026.9.1)
     Saturn (0.17)
       FSharp.Control.Websockets (>= 0.2.2)
       Giraffe (>= 6.4)
