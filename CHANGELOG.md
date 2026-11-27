@@ -1,5 +1,5 @@
 ---
-last_commit_released: 17fb10a481758cb0e3346ccf101e5e71ee622b20
+last_commit_released: de9b912262b8b3b3b44bd00e6b8455b6f4576de8
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,20 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.62 - 2026-11-27
+
+### 🚀 Features
+
+* *(genorder)* Flag totals outside target range ([80ecc21e](https://github.com/informedica/GenPRES/commit/80ecc21ec88f6b0e4f0b86fe1faf2aaf77f2005e))
+* *(ui)* Color a total outside its target range ([2bfe8fac](https://github.com/informedica/GenPRES/commit/2bfe8fac1a851aee8dac456b9488e52711daeed3))
+
+### 🐞 Bug Fixes
+
+* *(genform)* Match solution rule GPKs to dose rule ([180a7684](https://github.com/informedica/GenPRES/commit/180a76844678b14d9698378be3a7c6832509847e))
+* *(genorder)* Match a reconstituted order to its FormRoute row ([31d8082e](https://github.com/informedica/GenPRES/commit/31d8082e356d607c6c0e829ef013fd79f5c5be92))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/17fb10a481758cb0e3346ccf101e5e71ee622b20..de9b912262b8b3b3b44bd00e6b8455b6f4576de8)</small></strong>
 
 ## 0.1.2-alpha.61 - 2026-11-26
 
