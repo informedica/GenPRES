@@ -9036,6 +9036,53 @@ module Tests =
         let private noLogger = Informedica.Logging.Lib.Logging.noOp
 
 
+        /// The dose rule with the GPK on all its products.
+        let withGpk gpk (dr: DoseRule) =
+            { dr with
+                ComponentLimits =
+                    dr.ComponentLimits
+                    |> Array.map (fun cl ->
+                        { cl with Products = cl.Products |> Array.map (fun p -> { p with GPK = gpk }) }
+                    )
+            }
+
+
+        /// The number of solution rules of each prescription rule of the demo paracetamol dose rule with the
+        /// products of GPK A and with the products of GPK B, for a solution rule with the GPKs, by GPK.
+        let solutionRuleCounts gpks =
+            let dr = paracetamol.Value
+
+            let prs =
+                { filterFor noWeight with
+                    Generic = Some "paracetamol"
+                    Route = Some dr.Route
+                }
+                |> PrescriptionRule.filter
+                    (fun _ -> false)
+                    [| dr |> withGpk "A"; dr |> withGpk "B" |]
+                    [|
+                        { solutionRule MinMax.empty with
+                            Route = dr.Route
+                            GPKs = gpks
+                        }
+                    |]
+                    [||]
+                    [||]
+                    Fixtures.rm.Value
+                |> Result.defaultValue [||]
+
+            let countsOf gpk =
+                prs
+                |> Array.filter (
+                    _.DoseRule.ComponentLimits
+                    >> Array.collect _.Products
+                    >> Array.forall (_.GPK >> (=) gpk)
+                )
+                |> Array.map (_.SolutionRules >> Array.length)
+
+            countsOf "A", countsOf "B"
+
+
         let tests =
             testList
                 "whether a rule can be prescribed"
@@ -9510,6 +9557,23 @@ module Tests =
                             |> Result.map (Array.forall (PrescriptionRule.isPrescribable pat))
                             |> Expect.equal "every selected rule can be prescribed" (Ok true)
                     }
+
+                    testList
+                        "the solution rules of a dose rule with products of one GPK"
+                        [
+                            test "a solution rule without GPKs stays with the dose rules of every GPK" {
+                                solutionRuleCounts [||]
+                                |> Expect.equal "both keep the solution rule" ([| 1 |], [| 1 |])
+                            }
+
+                            test
+                                "a solution rule with a GPK stays only with the dose rule that has a product with the GPK" {
+                                solutionRuleCounts [| "A" |]
+                                |> Expect.equal
+                                    "the dose rule of GPK B stays, without solution rules"
+                                    ([| 1 |], [| 0 |])
+                            }
+                        ]
                 ]
 
 
