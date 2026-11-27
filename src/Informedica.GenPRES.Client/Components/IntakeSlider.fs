@@ -1,7 +1,7 @@
 namespace Components
 
 /// A slider in steps of ten percent that sets the dose quantity of an order as a share of the full
-/// intake. A dose that is not a slider step shows its exact share in the caption and no handle.
+/// intake. The handle shows the exact share of the dose, and the caption shows it as a number.
 module IntakeSlider =
 
 
@@ -9,7 +9,6 @@ module IntakeSlider =
     open Fable.Core.JsInterop
     open Feliz
     open Informedica.GenPRES.Shared
-    open Informedica.GenPRES.Client.Core.Policies
 
 
     /// The caption and the sentence that tells the percentage of the total.
@@ -52,7 +51,7 @@ module IntakeSlider =
     let private sliderBoxSx = {| paddingRight = $"%i{QuantityField.markWidth}px" |}
 
 
-    // hides the handle for a dose that is not a slider step
+    // hides the handle when the order has no share, because the dose or the total is not one value
     let private noHandleSx = {| ``& .MuiSlider-thumb`` = {| display = "none" |} |}
 
 
@@ -74,22 +73,26 @@ module IntakeSlider =
             [| box props.disabled |]
         )
 
-        let position = dragged |> Option.orElse (props.share |> Option.bind IntakePolicy.sliderStep)
-        let value = position |> Option.defaultValue 100
+        // The slider rounds only what the user drags to a step of ten. A value it is given is drawn
+        // where it lies, so the handle follows a dose that is not a slider step.
+        let position = dragged |> Option.map float |> Option.orElse (props.share |> Option.map float)
+
+        let value = position |> Option.defaultValue 100.
         let sliderSx = if position.IsSome then null else box noHandleSx
         let track: obj = if position.IsSome then box "normal" else box false
 
-        // a dose that is not a slider step shows its exact share in the caption
+        let percentText (pct: float) =
+            pct |> decimal |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+
+        // the caption shows the exact share, as the handle cannot show a change of less than a percent
         let shareText =
-            match position, props.share with
-            | None, Some share ->
-                let pct = share |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
-                $": %s{props.texts.shareOfTotal pct}"
-            | _ -> ""
+            match props.share with
+            | Some share -> $": %s{share |> float |> percentText |> props.texts.shareOfTotal}"
+            | None -> ""
 
         let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setDragged (Some v))
         let onIntakeCommitted = System.Func<obj, int, unit>(fun _ v -> props.onCommit v)
-        let intakeLabel = fun (v: int) -> props.texts.shareOfTotal (string v)
+        let intakeLabel = fun (v: float) -> v |> percentText |> props.texts.shareOfTotal
 
         JSX.jsx
             $"""

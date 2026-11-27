@@ -45,17 +45,6 @@ module IntakePolicy =
         | _ -> None
 
 
-    /// Returns the intake slider step for a share rounded to a whole percent, when it is a multiple of ten
-    /// from 10 to 100.
-    let sliderStep (share: decimal) =
-        let pct = System.Math.Round share |> int
-
-        if pct >= 10 && pct <= 100 && pct % 10 = 0 then
-            Some pct
-        else
-            None
-
-
     /// Whether the intake slider can set the dose: the order is composed and its dose count has a single
     /// value.
     let canSetDoseQuantityPerc (ord: Order) =
