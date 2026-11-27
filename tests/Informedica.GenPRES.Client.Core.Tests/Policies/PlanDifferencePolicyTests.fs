@@ -90,7 +90,7 @@ module PlanDifferencePolicyTests =
                             Filtered = [| "c1" |]
                             Totals =
                                 { Informedica.GenPRES.Shared.Models.Totals.empty with
-                                    Volume = [| TextItem.Normal "10 mL" |]
+                                    Volume = Some(Valid [| TextItem.Normal "10 mL" |])
                                 }
                         }
 

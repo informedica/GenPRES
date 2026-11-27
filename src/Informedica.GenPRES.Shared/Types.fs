@@ -463,25 +463,27 @@ module Types =
         }
 
 
+    /// The intake totals, each as a text block with the total and its target range; None for a total that is
+    /// not calculated. The kind of the block is the severity of the total: Warning outside its target range.
     type Totals =
         {
-            Volume: TextItem[]
-            Energy: TextItem[]
-            Protein: TextItem[]
-            Carbohydrate: TextItem[]
-            Fat: TextItem[]
-            Sodium: TextItem[]
-            Potassium: TextItem[]
-            Chloride: TextItem[]
-            Calcium: TextItem[]
-            Phosphate: TextItem[]
-            Magnesium: TextItem[]
-            Iron: TextItem[]
-            VitaminD: TextItem[]
-            Ethanol: TextItem[]
-            Propyleenglycol: TextItem[]
-            BoricAcid: TextItem[]
-            BenzylAlcohol: TextItem[]
+            Volume: TextBlock option
+            Energy: TextBlock option
+            Protein: TextBlock option
+            Carbohydrate: TextBlock option
+            Fat: TextBlock option
+            Sodium: TextBlock option
+            Potassium: TextBlock option
+            Chloride: TextBlock option
+            Calcium: TextBlock option
+            Phosphate: TextBlock option
+            Magnesium: TextBlock option
+            Iron: TextBlock option
+            VitaminD: TextBlock option
+            Ethanol: TextBlock option
+            Propyleenglycol: TextBlock option
+            BoricAcid: TextBlock option
+            BenzylAlcohol: TextBlock option
         }
 
 

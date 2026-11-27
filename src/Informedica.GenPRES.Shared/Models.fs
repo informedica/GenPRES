@@ -469,23 +469,23 @@ module Models =
 
         let empty: Totals =
             {
-                Volume = [||]
-                Energy = [||]
-                Protein = [||]
-                Carbohydrate = [||]
-                Fat = [||]
-                Sodium = [||]
-                Potassium = [||]
-                Chloride = [||]
-                Calcium = [||]
-                Phosphate = [||]
-                Magnesium = [||]
-                Iron = [||]
-                VitaminD = [||]
-                Ethanol = [||]
-                Propyleenglycol = [||]
-                BoricAcid = [||]
-                BenzylAlcohol = [||]
+                Volume = None
+                Energy = None
+                Protein = None
+                Carbohydrate = None
+                Fat = None
+                Sodium = None
+                Potassium = None
+                Chloride = None
+                Calcium = None
+                Phosphate = None
+                Magnesium = None
+                Iron = None
+                VitaminD = None
+                Ethanol = None
+                Propyleenglycol = None
+                BoricAcid = None
+                BenzylAlcohol = None
             }
 
 
