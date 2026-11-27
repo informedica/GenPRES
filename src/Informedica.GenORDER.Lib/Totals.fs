@@ -190,10 +190,21 @@ module Totals =
         |> Option.defaultValue NoUnit
 
 
+    /// Whether the product unit of a component fits a FormRoute row: the unit is in the group of the
+    /// DoseUnit of the row, or of the Unit of the row when it has no DoseUnit. A reconstituted product is in
+    /// mL while its row has the unit before the reconstitution and DoseUnit mL. A component without a product
+    /// with quantities fits any row.
+    let fitsUnit cmp (row: Informedica.GenForm.Lib.Types.FormRoute) =
+        match cmp |> formUnit with
+        | NoUnit -> true
+        | u ->
+            let rowUnit = if row.DoseUnit = NoUnit then row.Unit else row.DoseUnit
+            u |> ValueUnit.Group.eqsGroup rowUnit
+
+
     /// Whether an order counts in the totals: the form of one of its components, on the route of the order,
-    /// matches a FormRoute row marked Totals. A component without a product with quantities matches a row in
-    /// any unit. An order with an empty route, a component with an empty form, or a form that has no FormRoute
-    /// row does not count.
+    /// matches a FormRoute row marked Totals whose unit fits the component. An order with an empty route, a
+    /// component with an empty form, or a form that has no FormRoute row does not count.
     let isTotalsOrder routeMapping formRoutes (ord: Order) =
         // the order can carry the short route, such as "or", and the sheet the long one, such as "oraal"
         let route = ord.Route |> Mapping.mapRoute routeMapping |> Option.defaultValue ord.Route
@@ -202,8 +213,8 @@ module Totals =
         && ord.Orderable.Components
            |> List.exists (fun cmp ->
                cmp.Form |> String.isNullOrWhiteSpace |> not
-               && Mapping.filterFormRoutes routeMapping formRoutes route cmp.Form (formUnit cmp)
-                  |> Array.exists _.Totals
+               && Mapping.filterFormRoutes routeMapping formRoutes route cmp.Form NoUnit
+                  |> Array.exists (fun row -> row.Totals && row |> fitsUnit cmp)
            )
 
 

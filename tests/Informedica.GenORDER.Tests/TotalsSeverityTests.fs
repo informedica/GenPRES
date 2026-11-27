@@ -74,6 +74,34 @@ module Fixtures =
     let withRoute route = { infusion.Value with Route = route }
 
 
+    // the infusion with the form for every component, each with a product in the unit u
+    let withProductIn u form =
+        let product: ComponentProduct =
+            {
+                Id = "p-1"
+                FormQuantities = ValueUnit.singleWithUnit u 1N |> Some
+                Strengths = []
+                Reconstitution = None
+                Predilution = None
+            }
+
+        let ord = infusion.Value
+
+        { ord with
+            Orderable =
+                { ord.Orderable with
+                    Components =
+                        ord.Orderable.Components
+                        |> List.map (fun c ->
+                            { c with
+                                Form = form
+                                Products = [ product ]
+                            }
+                        )
+                }
+        }
+
+
     let volume: Informedica.GenForm.Lib.Types.Data.TotalsData =
         {
             Name = "volume"
@@ -490,36 +518,58 @@ let isTotalsOrderTests =
                 |> Expect.isFalse "another route"
             }
 
-            test "a component with a product counts only for a row in the unit of the product" {
-                let product: ComponentProduct =
-                    {
-                        Id = "p-1"
-                        FormQuantities = ValueUnit.singleWithUnit Units.Volume.milliLiter 1N |> Some
-                        Strengths = []
-                        Reconstitution = None
-                        Predilution = None
-                    }
+            test "a reconstituted product in mL fits a row in stuk with DoseUnit mL" {
+                withProductIn Units.Volume.milliLiter "poeder voor oplossing voor infusie"
+                |> isTotals
+                    [|
+                        { formRoute
+                              "intraveneus"
+                              "poeder voor oplossing voor infusie"
+                              (Units.General.general "stuk")
+                              true with
+                            DoseUnit = Units.Volume.milliLiter
+                        }
+                    |]
+                |> Expect.isTrue "counts"
+            }
 
-                // the components of the fixture have no products, so each gets a product in mL
-                let ord = infusion.Value
+            test "drops in mL fit a row with DoseUnit druppel" {
+                withProductIn Units.Volume.milliLiter "druppels voor oraal gebruik"
+                |> isTotals
+                    [|
+                        { formRoute "intraveneus" "druppels voor oraal gebruik" Units.Volume.milliLiter true with
+                            DoseUnit = Units.Volume.droplet
+                        }
+                    |]
+                |> Expect.isTrue "counts"
+            }
 
-                let ord =
-                    { ord with
-                        Orderable =
-                            { ord.Orderable with
-                                Components =
-                                    ord.Orderable.Components
-                                    |> List.map (fun c -> { c with Products = [ product ] })
-                            }
-                    }
+            test "a product in mL fits a row in mL without a DoseUnit" {
+                withProductIn Units.Volume.milliLiter "injectievloeistof"
+                |> isTotals formRoutes
+                |> Expect.isTrue "counts"
+            }
 
-                ord
-                |> isTotals [| formRoute "intraveneus" "injectievloeistof" Units.Volume.milliLiter true |]
-                |> Expect.isTrue "the same unit"
+            test "a product in mL does not fit a row whose Unit and DoseUnit are a mass" {
+                withProductIn Units.Volume.milliLiter "injectievloeistof"
+                |> isTotals
+                    [|
+                        { formRoute "intraveneus" "injectievloeistof" Units.Mass.milliGram true with
+                            DoseUnit = Units.Mass.milliGram
+                        }
+                    |]
+                |> Expect.isFalse "another group"
+            }
 
-                ord
-                |> isTotals [| formRoute "intraveneus" "injectievloeistof" Units.Mass.milliGram true |]
-                |> Expect.isFalse "another unit"
+            test "a product in IU does not fit a row with DoseUnit mL" {
+                withProductIn Units.InterNational.iu "injectie/infuus"
+                |> isTotals
+                    [|
+                        { formRoute "intraveneus" "injectie/infuus" Units.Mass.milliGram true with
+                            DoseUnit = Units.Volume.milliLiter
+                        }
+                    |]
+                |> Expect.isFalse "another group"
             }
 
             test "a component without a product counts for a row in any unit" {
