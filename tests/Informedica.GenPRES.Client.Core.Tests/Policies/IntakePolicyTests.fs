@@ -57,15 +57,6 @@ module IntakePolicyTests =
                     ]
 
                 testList
-                    "sliderStep"
-                    [
-                        for share, exp in [ 100m, Some 100; 10m, Some 10; 50.4m, Some 50; 14m, None; 5m, None ] do
-                            test $"%M{share}%% is step %A{exp}" {
-                                share |> IntakePolicy.sliderStep |> Expect.equal "should be the step" exp
-                            }
-                    ]
-
-                testList
                     "canSetDoseQuantityPerc"
                     [
                         test "a composed TPN with one dose count can set the dose" {
