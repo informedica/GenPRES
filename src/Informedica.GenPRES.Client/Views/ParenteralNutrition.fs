@@ -258,7 +258,7 @@ module ParenteralNutrition =
             import Box from '@mui/material/Box';
 
             <Box sx={flexOverflowSx}>
-                <Typography>{slot.Label}</Typography>
+                <Typography sx={summaryLabelSx}>{slot.Label}</Typography>
                 {adminSummary}
                 <Box sx={autoMarginSx}>
                     {removeButton}

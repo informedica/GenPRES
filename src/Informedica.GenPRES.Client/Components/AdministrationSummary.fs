@@ -30,11 +30,36 @@ module AdministrationSummary =
         |}
 
 
+    // the chips and the words between them sit in cells of a least width, so the chips of the
+    // summaries above each other line up as in a grid
     let private textSx =
         {|
-            display = "inline"
+            color = "text.secondary"
+            minWidth = "1.5rem"
+            textAlign = "center"
+            flexShrink = 0
+        |}
+
+
+    let private chipCellSx =
+        {|
+            display = "inline-flex"
+            minWidth = "6.5rem"
+            flexShrink = 0
+        |}
+
+
+    // the order name takes the same width in every summary, so the chips after it line up across
+    // the summaries above each other; a longer name is cut off and shown in full on hover
+    let private nameSx =
+        {|
             color = "text.secondary"
             marginRight = 1
+            width = "14rem"
+            flexShrink = 0
+            overflow = "hidden"
+            textOverflow = "ellipsis"
+            whiteSpace = "nowrap"
         |}
 
 
@@ -64,15 +89,24 @@ module AdministrationSummary =
             row
             |> Array.filter (fun p -> p.text <> "")
             |> Array.mapi (fun i p ->
+                let key = $"%i{r}-%i{i}"
+
                 if p.text |> isValue then
-                    ValueChip.View
-                        {|
-                            value = p.text
-                            severity = p.severity
-                            label = None
-                        |}
+                    let chip =
+                        ValueChip.View
+                            {|
+                                value = p.text
+                                severity = p.severity
+                                label = None
+                            |}
+
+                    JSX.jsx
+                        $"""
+                    import Box from '@mui/material/Box';
+                    <Box key={key} sx={chipCellSx}>{chip}</Box>
+                    """
                 else
-                    text $"%i{r}-%i{i}" p.text
+                    text key p.text
             )
 
         let parts =
@@ -94,7 +128,7 @@ module AdministrationSummary =
         import Typography from '@mui/material/Typography';
 
         <Box sx={rowSx}>
-            <Typography variant="body2" sx={textSx}>
+            <Typography variant="body2" sx={nameSx} title={props.name}>
                 {props.name}:
             </Typography>
             {parts}
