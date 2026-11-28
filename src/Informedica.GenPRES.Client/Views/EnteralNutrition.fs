@@ -511,15 +511,27 @@ module EnteralNutrition =
             </Stack>
             """
 
-        Components.Disclosure.View
-            {|
-                isOpen = expanded
-                onToggle = fun () -> setExpanded (not expanded)
-                summary = summary
-                children = children
-                summaryPlacement = Components.Disclosure.SummaryPlacement.Stacks
-                isMobile = isMobile
-                detailsPaddingTop = if isMobile then None else Some 4
-                ariaControls = None
-                summaryId = None
-            |}
+        let disclosure =
+            Components.Disclosure.View
+                {|
+                    isOpen = expanded
+                    onToggle = fun () -> setExpanded (not expanded)
+                    summary = summary
+                    children = children
+                    summaryPlacement = Components.Disclosure.SummaryPlacement.Stacks
+                    isMobile = isMobile
+                    detailsPaddingTop = if isMobile then None else Some 4
+                    ariaControls = None
+                    summaryId = None
+                |}
+
+        JSX.jsx
+            $"""
+        import React from 'react';
+        import Typography from '@mui/material/Typography';
+
+        <React.Fragment>
+            <Typography variant="h6">{Terms.``Nutrition Enteral Section`` |> getTerm "Enteral"}</Typography>
+            {disclosure}
+        </React.Fragment>
+        """
