@@ -7,13 +7,15 @@ module TextBlockParser =
     open Informedica.GenPRES.Shared.Types
     open System.Text.RegularExpressions
 
-    /// Converts a text to a Valid text block with the numbers in bold. An empty text gives an empty item.
+    /// Converts a text to a Valid text block with the numbers in bold. A number keeps the narrow no-break spaces
+    /// between its thousands. An empty text gives an empty item.
     let fromString (text: string) : TextBlock =
         if text |> String.isNullOrWhiteSpace then
             Valid [| Normal "" |]
         else
-            // Split text into parts where numbers (including decimals, commas, and hyphens) are separated
-            let pattern = @"(\d+[\d,.\-]*\d*|\d+)"
+            // a number with decimals, commas and hyphens, and a narrow no-break space before each group of
+            // three digits, such as 1 100
+            let pattern = @"(\d+(?:\u202F\d{3})*[\d,.\-]*\d*|\d+)"
             let matches = Regex.Matches(text, pattern)
 
             let rec buildItems (pos: int) (matchIdx: int) (acc: TextItem list) =

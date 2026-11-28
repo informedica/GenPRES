@@ -636,9 +636,9 @@ let normTextTests =
                 |> Expect.equal "should be (80 - 100)" (Some "(80 - 100)")
             }
 
-            test "a norm of a thousand or more has a space between the thousands" {
+            test "a norm of a thousand or more has a narrow no-break space between the thousands" {
                 Totals.normText (Some 1000N) (Some 1500N)
-                |> Expect.equal "should be (1 000 - 1 500)" (Some "(1 000 - 1 500)")
+                |> Expect.equal "should be (1 000 - 1 500)" (Some "(1\u202F000 - 1\u202F500)")
             }
 
             test "a norm with only a maximum shows max" {

@@ -166,21 +166,23 @@ module Double =
     // String functions
     //----------------------------------------------------------------------------
 
-    /// Return a string representation of a float in Dutch format
+    /// Returns a string representation of a float in Dutch format, with a decimal comma and a narrow no-break
+    /// space between the thousands.
     let toStringNumberNL p (n: float) =
         let invariantStr = n.ToString("F" + p, CultureInfo.InvariantCulture)
         let parts = invariantStr.Split('.')
         let integerPart = parts[0]
         let decimalPart = if parts.Length > 1 then parts[1] else ""
 
-        // Add thousands separators
+        // the groups of thousands are joined with a narrow no-break space, the separator of SI and ISO 80000,
+        // so a line never breaks within the number
         let formattedInteger =
             integerPart
             |> Seq.rev
             |> Seq.chunkBySize 3
             |> Seq.map (Seq.rev >> Seq.map string >> String.concat "")
             |> Seq.rev
-            |> String.concat " "
+            |> String.concat "\u202F"
 
         if decimalPart |> String.isNullOrEmpty then
             formattedInteger

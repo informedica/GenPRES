@@ -754,7 +754,7 @@ module Tests =
                                     0.5m, 1, "0,5"
                                     12.3456m, 3, "12,3"
                                     105m, 3, "105"
-                                    1234.5678m, 3, "1 235"
+                                    1234.5678m, 3, "1\u202F235"
                                     0.0666m, 0, "0"
                                     0m, 3, "0"
                                     -0.00123m, 3, "-0,00123"
@@ -782,7 +782,7 @@ module Tests =
                                     1m / 3m, "0,333"
                                     12.55m, "12,6"
                                     125.55m, "126"
-                                    1234.6m, "1 235"
+                                    1234.6m, "1\u202F235"
                                     105m, "105"
                                     0m, "0"
                                 ] do
@@ -794,13 +794,13 @@ module Tests =
                             test "the decimal 3000000000 without a precision prints in full" {
                                 3000000000m
                                 |> Decimal.toStringNumberNLWithoutTrailingZeros
-                                |> equals "3 000 000 000" "the Dutch text"
+                                |> equals "3\u202F000\u202F000\u202F000" "the Dutch text"
                             }
 
                             test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
                                 3000000000.6m
                                 |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
-                                |> equals "3 000 000 001" "the Dutch text"
+                                |> equals "3\u202F000\u202F000\u202F001" "the Dutch text"
                             }
 
                             test "a decimal with 29 significant digits and a negative n prints every digit" {
@@ -812,7 +812,7 @@ module Tests =
                             test "the float 3000000000 without a precision prints in full" {
                                 3e9
                                 |> Double.toStringNumberNLWithoutTrailingZeros
-                                |> equals "3 000 000 000" "the Dutch text"
+                                |> equals "3\u202F000\u202F000\u202F000" "the Dutch text"
                             }
 
                             test "the float 12.55 with a negative n prints as 12,55" {
@@ -850,7 +850,7 @@ module Tests =
                             let value (whole: int) (decimals: byte) = decimal whole / pown 10m (int decimals % 9)
                             let digits (n: byte) = int n % 7
                             // Reads a Dutch number text back as a decimal.
-                            let parse (s: string) = s.Replace(" ", "").Replace(",", ".") |> decimal
+                            let parse (s: string) = s.Replace("\u202F", "").Replace(",", ".") |> decimal
 
                             testPropertyWithConfig
                                 config
@@ -886,6 +886,47 @@ module Tests =
                                     |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision n
 
                                 f |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision n = expected
+                        ]
+
+                    testList
+                        "toStringNumberNL"
+                        [
+                            // the value, the number of decimals and the expected text; the groups of thousands
+                            // are joined with a narrow no-break space
+                            for d, p, exp in
+                                [
+                                    2000m, "0", "2\u202F000"
+                                    12000.5m, "1", "12\u202F000,5"
+                                    2500.5m, "1", "2\u202F500,5"
+                                    999m, "0", "999"
+                                ] do
+                                test $"the decimal %M{d} with %s{p} decimals is %s{exp}" {
+                                    d |> Decimal.toStringNumberNL p |> equals exp "the Dutch text"
+                                }
+
+                                test $"the float %M{d} with %s{p} decimals is %s{exp}" {
+                                    d |> float |> Double.toStringNumberNL p |> equals exp "the Dutch text"
+                                }
+
+                            test "a decimal of a thousand or more has no plain space" {
+                                1234567.89m
+                                |> Decimal.toStringNumberNL "2"
+                                |> String.contains " "
+                                |> equals false "no plain space"
+                            }
+
+                            test "a float of a thousand or more has no plain space" {
+                                1234567.89
+                                |> Double.toStringNumberNL "2"
+                                |> String.contains " "
+                                |> equals false "no plain space"
+                            }
+
+                            test "the float 12000 with 3 significant digits is 12 000" {
+                                12000.
+                                |> Double.toStringNumberNLWithoutTrailingZeros
+                                |> equals "12\u202F000" "the Dutch text"
+                            }
                         ]
 
                     testPropertyWithConfig config "for any valid float, this float can be converted to a fraction"
