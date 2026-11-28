@@ -53,6 +53,15 @@ module PrintTable =
         |}
 
 
+    // the columns have a fixed width, so a word longer than its column breaks within the column instead
+    // of running into the next one; a narrow padding leaves the text of a column more room
+    let private bodyCellSx =
+        {|
+            overflowWrap = "anywhere"
+            paddingX = 1
+        |}
+
+
     /// Returns the text of a row in a column with the asterisks of the emphasis removed, or an
     /// empty string when the row has no cell for the column.
     let valueOf (row: Row) field =
@@ -72,6 +81,7 @@ module PrintTable =
                     {|
                         fontWeight = "bold"
                         width = column.width
+                        paddingX = 1
                     |}
 
                 JSX.jsx
@@ -96,7 +106,7 @@ module PrintTable =
                             $"""
                         import TableCell from '@mui/material/TableCell';
 
-                        <TableCell key={column.field}>{value}</TableCell>
+                        <TableCell key={column.field} sx={bodyCellSx}>{value}</TableCell>
                         """
                     )
                     |> unbox<seq<ReactElement>>
