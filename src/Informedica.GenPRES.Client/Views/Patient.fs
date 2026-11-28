@@ -729,6 +729,7 @@ module Patient =
                 onToggle = toggle
                 summary = summary
                 children = children
+                summaryPlacement = Components.Disclosure.SummaryPlacement.Scrolls
                 isMobile = isMobile
                 detailsPaddingTop = None
                 ariaControls = Some "patient"

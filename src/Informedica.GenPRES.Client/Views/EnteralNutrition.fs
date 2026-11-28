@@ -517,6 +517,7 @@ module EnteralNutrition =
                 onToggle = fun () -> setExpanded (not expanded)
                 summary = summary
                 children = children
+                summaryPlacement = Components.Disclosure.SummaryPlacement.Stacks
                 isMobile = isMobile
                 detailsPaddingTop = if isMobile then None else Some 4
                 ariaControls = None
