@@ -249,27 +249,49 @@ module OrderContextMapper =
             }
 
 
-    /// Maps the totals to the Dto, each total as its text block and a state from the kind of the block: within the
-    /// norm for a Valid block, outside it for any other block.
+    /// Maps a total state of the contract to the total state of GenORDER.
+    let totalState =
+        function
+        | TotalState.NoNorm -> GenOrderTypes.TotalState.NoNorm
+        | TotalState.WithinNorm -> GenOrderTypes.TotalState.WithinNorm
+        | TotalState.BelowNorm -> GenOrderTypes.TotalState.BelowNorm
+        | TotalState.AboveNorm -> GenOrderTypes.TotalState.AboveNorm
+        | TotalState.OutsideNorm -> GenOrderTypes.TotalState.OutsideNorm
+
+
+    /// Maps a total state of GenORDER to the total state of the contract.
+    let totalStateBack =
+        function
+        | GenOrderTypes.TotalState.NoNorm -> TotalState.NoNorm
+        | GenOrderTypes.TotalState.WithinNorm -> TotalState.WithinNorm
+        | GenOrderTypes.TotalState.BelowNorm -> TotalState.BelowNorm
+        | GenOrderTypes.TotalState.AboveNorm -> TotalState.AboveNorm
+        | GenOrderTypes.TotalState.OutsideNorm -> TotalState.OutsideNorm
+
+
+    /// Maps a total to its Dto, the text block and the state.
+    let total (t: IntakeTotal) : TotalsDto.TotalDto =
+        {
+            Text = t.Text |> textBlock
+            State = t.State |> totalState |> TotalsDto.stateToString
+        }
+
+
+    /// Maps the Dto of a total to the total. Throws InvalidOperationException for a block of an unknown kind, as
+    /// textBlockBack does, and for an unknown state.
+    let totalBack (dto: TotalsDto.TotalDto) : IntakeTotal =
+        {
+            Text = dto.Text |> textBlockBack
+            State =
+                match dto.State |> TotalsDto.stateFromString with
+                | Ok state -> state |> totalStateBack
+                | Error _ -> invalidOp $"The total state '%s{dto.State}' is unknown"
+        }
+
+
+    /// Maps the totals to the Dto, each total as its text block and its state.
     let totals (t: Totals) : TotalsDto.Dto =
-        // stop-gap until the contract carries the state of a total, issue #2092
-        let state b =
-            let state =
-                match b with
-                | Valid _ -> GenOrderTypes.TotalState.WithinNorm
-                | Caution _
-                | Warning _
-                | Alert _ -> GenOrderTypes.TotalState.OutsideNorm
-
-            state |> TotalsDto.stateToString
-
-        let block =
-            Option.map (fun b ->
-                {
-                    TotalsDto.Text = b |> textBlock
-                    TotalsDto.State = b |> state
-                }
-            )
+        let block = Option.map total
 
         {
             Volume = t.Volume |> block
@@ -292,10 +314,10 @@ module OrderContextMapper =
         }
 
 
-    /// Maps the totals Dto to the totals, each total as its text block; the state of a total is left out until the
-    /// contract carries it. Throws InvalidOperationException for a block of an unknown kind, as textBlockBack does.
+    /// Maps the totals Dto to the totals, each total as its text block and its state. Throws
+    /// InvalidOperationException for a block of an unknown kind, as textBlockBack does, and for an unknown state.
     let totalsBack (dto: TotalsDto.Dto) : Totals =
-        let block = Option.map (fun (t: TotalsDto.TotalDto) -> t.Text |> textBlockBack)
+        let block = Option.map totalBack
 
         {
             Volume = dto.Volume |> block

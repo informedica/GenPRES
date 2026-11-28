@@ -23,7 +23,15 @@ let ctx: OrderContext =
         DemoVersion = true
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
         PatientData = patient
-        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = Some(Valid [| Normal "10 ml" |]) }
+        Totals =
+            { Informedica.GenPRES.Shared.Models.Totals.empty with
+                Volume =
+                    Some
+                        {
+                            Text = Valid [| Normal "10 ml" |]
+                            State = TotalState.WithinNorm
+                        }
+            }
     }
 
 let echo: OrderContextPort =

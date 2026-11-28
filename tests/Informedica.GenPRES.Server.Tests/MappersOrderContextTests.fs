@@ -73,8 +73,18 @@ let context: OrderContext =
         Scenarios = [| scenario |]
         Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
-                Volume = Some(Valid [| Normal "100 ml" |])
-                Energy = Some(Valid [| Bold "50 kcal"; Normal "/dag" |])
+                Volume =
+                    Some
+                        {
+                            Text = Valid [| Normal "100 ml" |]
+                            State = TotalState.WithinNorm
+                        }
+                Energy =
+                    Some
+                        {
+                            Text = Valid [| Bold "50 kcal"; Normal "/dag" |]
+                            State = TotalState.WithinNorm
+                        }
             }
     }
 
@@ -816,14 +826,30 @@ let totalsTests =
                 |> Totals.Dto.toDto
                 |> OrderContextMapper.totalsBack
                 |> _.Volume
-                |> Expect.equal "a warning" (Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]))
+                |> Expect.equal
+                    "a warning"
+                    (Some
+                        {
+                            Text = Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]
+                            State = TotalState.OutsideNorm
+                        })
             }
 
             test "the totals round trip through the Dto with their kind" {
                 let t =
                     { empty with
-                        Volume = Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |])
-                        Energy = Some(Valid [| Bold "80"; Normal " kCal/kg/dag" |])
+                        Volume =
+                            Some
+                                {
+                                    Text = Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]
+                                    State = TotalState.AboveNorm
+                                }
+                        Energy =
+                            Some
+                                {
+                                    Text = Valid [| Bold "80"; Normal " kCal/kg/dag" |]
+                                    State = TotalState.WithinNorm
+                                }
                     }
 
                 t
@@ -832,14 +858,53 @@ let totalsTests =
                 |> Expect.equal "the same" t
             }
 
-            test "a total of the contract reaches GenORDER within the norm for a Valid block, outside it otherwise" {
-                { empty with
-                    Volume = Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |])
-                    Energy = Some(Valid [| Bold "80"; Normal " kCal/kg/dag" |])
+            for state in
+                [
+                    TotalState.NoNorm
+                    TotalState.WithinNorm
+                    TotalState.BelowNorm
+                    TotalState.AboveNorm
+                    TotalState.OutsideNorm
+                ] do
+                test $"the state %A{state} reads back from GenORDER" {
+                    state
+                    |> OrderContextMapper.totalState
+                    |> OrderContextMapper.totalStateBack
+                    |> Expect.equal "the same state" state
                 }
-                |> OrderContextMapper.totals
-                |> fun dto -> dto.Volume |> Option.map _.State, dto.Energy |> Option.map _.State
-                |> Expect.equal "the states" (Some "outsideNorm", Some "withinNorm")
+
+            test "a total reads back from its Dto with its state" {
+                let t =
+                    {
+                        Text = Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]
+                        State = TotalState.BelowNorm
+                    }
+
+                t
+                |> OrderContextMapper.total
+                |> OrderContextMapper.totalBack
+                |> Expect.equal "the same" t
+            }
+
+            test "the state of a Warning block is the state of the total, not one from the kind of the block" {
+                {
+                    Text = Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |]
+                    State = TotalState.AboveNorm
+                }
+                |> OrderContextMapper.total
+                |> _.State
+                |> Expect.equal "above" "aboveNorm"
+            }
+
+            test "an unknown state in a Dto throws" {
+                let dto: Totals.Dto.TotalDto =
+                    {
+                        Text = Valid [| Normal "1" |] |> OrderContextMapper.textBlock
+                        State = "loud"
+                    }
+
+                (fun () -> dto |> OrderContextMapper.totalBack |> ignore)
+                |> Expect.throwsT<System.InvalidOperationException> "unknown state"
             }
 
             test "a total that is not there stays None both ways" {

@@ -214,7 +214,12 @@ module PlanContextPolicyTests =
                         test "an intake difference alone does not change it" {
                             let intake =
                                 { Informedica.GenPRES.Shared.Models.Totals.empty with
-                                    Volume = Some(Valid [| TextItem.Normal "10 mL" |])
+                                    Volume =
+                                        Some
+                                            {
+                                                Text = Valid [| TextItem.Normal "10 mL" |]
+                                                State = TotalState.WithinNorm
+                                            }
                                 }
 
                             PlanContextPolicy.changed para { para with Totals = intake }

@@ -13,7 +13,12 @@ module TotalsChangePolicyTests =
     open Informedica.GenPRES.Shared.Models
 
 
-    let value s unit = Some(Valid [| Bold s; Normal unit |])
+    let value s unit =
+        Some
+            {
+                Text = Valid [| Bold s; Normal unit |]
+                State = TotalState.WithinNorm
+            }
 
 
     let totals =
@@ -55,13 +60,27 @@ module TotalsChangePolicyTests =
                         }
 
                         test "an item that is not shown is not listed" {
-                            { totals with Volume = Some(Valid [| Normal "ml/kg/dag" |]) }
+                            { totals with
+                                Volume =
+                                    Some
+                                        {
+                                            Text = Valid [| Normal "ml/kg/dag" |]
+                                            State = TotalState.WithinNorm
+                                        }
+                            }
                             |> TotalsChangePolicy.changedItems totals
                             |> Expect.isEmpty "should be empty"
                         }
 
                         test "a change of the severity alone is not listed" {
-                            { totals with Sodium = Some(Warning [| Bold "3"; Normal "mmol/kg/dag" |]) }
+                            { totals with
+                                Sodium =
+                                    Some
+                                        {
+                                            Text = Warning [| Bold "3"; Normal "mmol/kg/dag" |]
+                                            State = TotalState.AboveNorm
+                                        }
+                            }
                             |> TotalsChangePolicy.changedItems totals
                             |> Expect.isEmpty "should be empty"
                         }
