@@ -142,18 +142,47 @@ module EmergencyList =
 
         let prescribeButton = Components.ActionBar.ActionButton prescribeAction
 
+        // a medication row has an order context narrowed to the scenario of the row; a calculated intervention
+        // has none, so its route and its details are empty
+        let scenarioOf (m: Intervention) =
+            m.OrderContext |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryHead)
+
+        let routeOf m = m |> scenarioOf |> Option.map _.Route |> Option.defaultValue ""
+
+        // the number of rows with the same category, intervention and route
+        let sameRows =
+            interventions
+            |> Array.countBy (fun m -> m.Category, m.Name, routeOf m)
+            |> Map.ofArray
+
         let rows =
             interventions
             |> Array.mapi (fun i m ->
                 let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
-                // a medication row has an order context narrowed to the scenario of the row; a calculated
-                // intervention has none, so its route is empty
-                let route =
-                    m.OrderContext
-                    |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryHead)
-                    |> Option.map _.Route
-                    |> Option.defaultValue ""
+                let route = routeOf m
+
+                // the dose type and the access after the name set apart the rows with the same category,
+                // intervention and route, such as the first and the second dose of amiodaron; a row without
+                // such a row shows the name alone
+                let details =
+                    match m |> scenarioOf with
+                    | Some sc when sameRows[m.Category, m.Name, route] > 1 ->
+                        let tube = Terms.``Patient Enteral Tube`` |> getTerm "Enteral tube"
+
+                        let texts =
+                            [
+                                sc.DoseType |> DoseTypeText.text
+                                sc.Access |> Option.map (PatientText.accessText tube)
+                            ]
+                            |> List.choose id
+
+                        match texts with
+                        | [] -> ""
+                        | _ ->
+                            let joined = texts |> String.concat ", "
+                            $" (%s{joined})"
+                    | _ -> ""
 
                 {|
                     cells =
@@ -168,7 +197,7 @@ module EmergencyList =
                             |}
                             {|
                                 field = "intervention"
-                                value = $"**{m.Name}**"
+                                value = $"**%s{m.Name}**%s{details}"
                             |}
                             {|
                                 field = "route"
@@ -226,7 +255,7 @@ module EmergencyList =
                 {|
                     field = "category"
                     label = "Categorie"
-                    width = "12%"
+                    width = "17%"
                 |}
                 {|
                     field = "intervention"
@@ -236,22 +265,22 @@ module EmergencyList =
                 {|
                     field = "route"
                     label = "Route"
-                    width = "10%"
+                    width = "17%"
                 |}
                 {|
                     field = "calculated"
                     label = "Berekend"
-                    width = "22%"
+                    width = "16%"
                 |}
                 {|
                     field = "preparation"
                     label = "Bereiding"
-                    width = "23%"
+                    width = "16%"
                 |}
                 {|
                     field = "advice"
                     label = "Advies"
-                    width = "15%"
+                    width = "16%"
                 |}
             |]
 
