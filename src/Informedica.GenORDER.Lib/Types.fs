@@ -783,6 +783,21 @@ module Types =
         | Alert of string
 
 
+    /// The state of a total against the norm of its Totals row.
+    [<RequireQualifiedAccess>]
+    type TotalState =
+        /// The row has no minimum and no maximum, per kg or per time
+        | NoNorm
+        /// The total lies within every bound of the row
+        | WithinNorm
+        /// Part of the total lies below a minimum, and no part above a maximum
+        | BelowNorm
+        /// Part of the total lies above a maximum, and no part below a minimum
+        | AboveNorm
+        /// Part of the total lies below a minimum and part above a maximum
+        | OutsideNorm
+
+
     /// The totals of the nutrients and substances, each as a text block with the total and its target range.
     /// The block is a Warning when part of the total lies outside the target range.
     type Totals =

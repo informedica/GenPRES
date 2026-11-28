@@ -1,6 +1,6 @@
-/// The severity of a total against the bounds of its Totals row, the units a total shows in, the Dto of the
-/// totals, the orders that count in the totals by the Totals column of the FormRoute rows, and the text of
-/// the norm after a total.
+/// The state and the severity of a total against the bounds of its Totals row, the units a total shows in, the
+/// Dto of the totals, the orders that count in the totals by the Totals column of the FormRoute rows, and the
+/// text of the norm after a total.
 module TotalsSeverityTests
 
 open MathNet.Numerics
@@ -218,100 +218,127 @@ module Fixtures =
 open Fixtures
 
 
-let isWithinTests =
+let normStateTests =
     testList
-        "isWithin"
+        "normState"
         [
             test "a range within both bounds" {
                 total (Some 120N) (Some 150N)
-                |> Totals.isWithin mlKgDay (Some 100N) (Some 160N)
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay (Some 100N) (Some 160N)
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a range on its bounds is within" {
                 total (Some 120N) (Some 150N)
-                |> Totals.isWithin mlKgDay (Some 120N) (Some 150N)
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay (Some 120N) (Some 150N)
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a range below the minimum" {
                 total (Some 50N) (Some 80N)
-                |> Totals.isWithin mlKgDay (Some 100N) None
-                |> Expect.isFalse "below"
+                |> Totals.normState mlKgDay (Some 100N) None
+                |> Expect.equal "below" TotalState.BelowNorm
             }
 
             test "a range above the maximum" {
                 total (Some 170N) (Some 180N)
-                |> Totals.isWithin mlKgDay None (Some 160N)
-                |> Expect.isFalse "above"
+                |> Totals.normState mlKgDay None (Some 160N)
+                |> Expect.equal "above" TotalState.AboveNorm
             }
 
             test "a range partly above the maximum" {
                 total (Some 120N) (Some 160N)
-                |> Totals.isWithin mlKgDay (Some 120N) (Some 150N)
-                |> Expect.isFalse "partly"
+                |> Totals.normState mlKgDay (Some 120N) (Some 150N)
+                |> Expect.equal "partly" TotalState.AboveNorm
             }
 
             test "a range partly below the minimum" {
                 total (Some 110N) (Some 130N)
-                |> Totals.isWithin mlKgDay (Some 120N) (Some 150N)
-                |> Expect.isFalse "partly"
+                |> Totals.normState mlKgDay (Some 120N) (Some 150N)
+                |> Expect.equal "partly" TotalState.BelowNorm
             }
 
-            test "no bounds hold for any total" {
+            test "a range below the minimum and above the maximum is outside" {
+                total (Some 110N) (Some 160N)
+                |> Totals.normState mlKgDay (Some 120N) (Some 150N)
+                |> Expect.equal "outside" TotalState.OutsideNorm
+            }
+
+            test "no bounds give no norm" {
                 total None None
-                |> Totals.isWithin mlKgDay None None
-                |> Expect.isTrue "no bounds"
+                |> Totals.normState mlKgDay None None
+                |> Expect.equal "no bounds" TotalState.NoNorm
             }
 
             test "a total without a maximum lies partly above a maximum" {
                 total (Some 120N) None
-                |> Totals.isWithin mlKgDay None (Some 150N)
-                |> Expect.isFalse "open upper side"
+                |> Totals.normState mlKgDay None (Some 150N)
+                |> Expect.equal "open upper side" TotalState.AboveNorm
             }
 
             test "a total without a minimum lies partly below a minimum" {
                 total None (Some 130N)
-                |> Totals.isWithin mlKgDay (Some 120N) None
-                |> Expect.isFalse "open lower side"
+                |> Totals.normState mlKgDay (Some 120N) None
+                |> Expect.equal "open lower side" TotalState.BelowNorm
             }
 
             test "a minimum only, a total above it" {
                 total (Some 120N) None
-                |> Totals.isWithin mlKgDay (Some 100N) None
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay (Some 100N) None
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a maximum only, a total below it" {
                 total None (Some 130N)
-                |> Totals.isWithin mlKgDay None (Some 150N)
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay None (Some 150N)
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a value set within the bounds" {
                 valueSet [ 120N; 140N ]
-                |> Totals.isWithin mlKgDay (Some 100N) (Some 150N)
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay (Some 100N) (Some 150N)
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a value set with one value above the maximum" {
                 valueSet [ 120N; 160N ]
-                |> Totals.isWithin mlKgDay (Some 100N) (Some 150N)
-                |> Expect.isFalse "partly"
+                |> Totals.normState mlKgDay (Some 100N) (Some 150N)
+                |> Expect.equal "partly" TotalState.AboveNorm
             }
 
             // 1/10 mL/kg/min is 144 mL/kg/day
             test "a total per minute within bounds per day" {
                 totalIn (mlKgPer Units.Time.minute) (Some(1N / 10N)) (Some(1N / 10N))
-                |> Totals.isWithin mlKgDay (Some 120N) (Some 150N)
-                |> Expect.isTrue "within"
+                |> Totals.normState mlKgDay (Some 120N) (Some 150N)
+                |> Expect.equal "within" TotalState.WithinNorm
             }
 
             test "a total per minute above bounds per day" {
                 totalIn (mlKgPer Units.Time.minute) (Some(1N / 10N)) (Some(1N / 10N))
-                |> Totals.isWithin mlKgDay (Some 100N) (Some 140N)
-                |> Expect.isFalse "above"
+                |> Totals.normState mlKgDay (Some 100N) (Some 140N)
+                |> Expect.equal "above" TotalState.AboveNorm
             }
+        ]
+
+
+let combineStatesTests =
+    testList
+        "combineStates"
+        [
+            for s1, s2, exp in
+                [
+                    TotalState.NoNorm, TotalState.NoNorm, TotalState.NoNorm
+                    TotalState.NoNorm, TotalState.BelowNorm, TotalState.BelowNorm
+                    TotalState.WithinNorm, TotalState.NoNorm, TotalState.WithinNorm
+                    TotalState.WithinNorm, TotalState.AboveNorm, TotalState.AboveNorm
+                    TotalState.BelowNorm, TotalState.BelowNorm, TotalState.BelowNorm
+                    TotalState.BelowNorm, TotalState.AboveNorm, TotalState.OutsideNorm
+                    TotalState.AboveNorm, TotalState.BelowNorm, TotalState.OutsideNorm
+                    TotalState.OutsideNorm, TotalState.WithinNorm, TotalState.OutsideNorm
+                ] do
+                test $"%A{s1} and %A{s2} is %A{exp}" {
+                    Totals.combineStates s1 s2 |> Expect.equal "the combined state" exp
+                }
         ]
 
 
@@ -658,4 +685,11 @@ let normTextTests =
 let tests =
     testList
         "Totals severity and the orders that count"
-        [ isWithinTests; getTotalsTests; dtoTests; isTotalsOrderTests; normTextTests ]
+        [
+            normStateTests
+            combineStatesTests
+            getTotalsTests
+            dtoTests
+            isTotalsOrderTests
+            normTextTests
+        ]
