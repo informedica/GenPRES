@@ -390,6 +390,8 @@ module Trail =
             | SessionMsg.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
             | SessionMsg.ContinueAnonymous -> "ContinueAnonymous"
             | SessionMsg.UrlMovedOn -> "UrlMovedOn"
+            | SessionMsg.AskClose -> "AskClose"
+            | SessionMsg.CloseKept -> "CloseKept"
             | SessionMsg.CloseSession -> "CloseSession"
             | SessionMsg.SessionClosed -> "SessionClosed"
             | SessionMsg.CloseFailed _ -> "CloseFailed"

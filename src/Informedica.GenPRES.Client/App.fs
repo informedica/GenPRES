@@ -664,7 +664,7 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.ISession with
         member _.Session = Client.session state
-        member _.Close() = Messages.session SessionMsg.CloseSession |> dispatch
+        member _.Close() = Messages.session (Client.closeSession state) |> dispatch
         member _.RetryLaunch() = Messages.session SessionMsg.RetryLaunch |> dispatch
 
         member _.OpenAnonymously() = Messages.session SessionMsg.ContinueAnonymous |> dispatch
@@ -840,6 +840,21 @@ let View () =
                 onCancel = fun () -> Msg.Shell ShellMachine.ShellMsg.UrlKept |> dispatch
             |}
 
+    let closeSessionDialog =
+        Components.ConfirmDialog.View
+            {|
+                isOpen = Client.closeAsked state
+                title = Terms.``Session Close Title`` |> getTerm "Close the session?"
+                text =
+                    Terms.``Session Close Text``
+                    |> getTerm
+                        "The new and changed orders and the medication being prescribed are lost. Do you want to continue?"
+                confirmLabel = Terms.``Session Close`` |> getTerm "Close session"
+                cancelLabel = Terms.Cancel |> getTerm "Cancel"
+                onConfirm = fun () -> Messages.session SessionMsg.CloseSession |> dispatch
+                onCancel = fun () -> Messages.session SessionMsg.CloseKept |> dispatch
+            |}
+
     let alertSnackbar =
         Views.AlertSnackbar.View
             {|
@@ -886,6 +901,7 @@ let View () =
                 {planBehindBanner}
                 {Components.Router.View {| onUrlChanged = onUrlChanged |}}
                 {leaveDialog}
+                {closeSessionDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact
                  |> Components.Context.Counting counting

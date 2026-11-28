@@ -226,6 +226,9 @@ type Terms =
     | ``Session Try Again``
     | ``Session Continue Without Launch``
     | ``Session Close``
+    // The confirmation asked before Close session discards unsigned work.
+    | ``Session Close Title``
+    | ``Session Close Text``
     | ``Session Role Prescriber``
     | ``Session Role Reader``
     // the gate after the server ended the Session

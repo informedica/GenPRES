@@ -111,6 +111,9 @@ module SessionMachine =
                 /// The newest order plan version, when the open session is on an older one; only
                 /// while the session is open with no request under way.
                 NewerPlan: OrderPlanHead option
+                /// Whether the user is asked to confirm the close of the open session, because closing it
+                /// discards unsigned work.
+                CloseAsked: bool
             }
 
 
@@ -161,6 +164,10 @@ module SessionMachine =
         /// The url brought a patient, a medication or a launch, so the session is left. A launch from
         /// the url follows as a separate PresentLaunch.
         | UrlMovedOn
+        /// Ask the user to confirm the close of the open session, because closing it discards unsigned work.
+        | AskClose
+        /// The user keeps the session open after the question.
+        | CloseKept
         /// Close the session.
         | CloseSession
         /// The session is closed.
@@ -280,6 +287,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -291,6 +299,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = Some(launch, key)
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -302,6 +311,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -313,6 +323,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = newerPlan
+                CloseAsked = false
             }
 
 
@@ -324,6 +335,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -335,6 +347,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -346,6 +359,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = Some(launch, key)
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -357,6 +371,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = Some(launch, key)
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -368,6 +383,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -379,6 +395,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -390,6 +407,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -401,6 +419,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -413,6 +432,7 @@ module SessionMachine =
                 Reopening = None
                 Presentation = None
                 NewerPlan = None
+                CloseAsked = false
             }
 
 
@@ -429,6 +449,10 @@ module SessionMachine =
 
         /// The newer version to offer, if any.
         let newerPlan (state: SessionState) = state.NewerPlan
+
+
+        /// Whether the user is asked to confirm the close of the open session.
+        let closeAsked (state: SessionState) = state.CloseAsked
 
 
         /// Whether a launch, a resume, a PIN or a close is under way.
@@ -630,6 +654,11 @@ module SessionMachine =
             | SessionMsg.PinAnswered(Error _), SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin ->
                 enrolling pending None, [ SessionEffect.Alert Alert.Alert.PinNotSent ]
             | SessionMsg.PinAnswered _, _, _ -> state, []
+
+            // the question is asked only over an open session with nothing under way
+            | SessionMsg.AskClose, SessionPhase.Open _, None -> { state with CloseAsked = true }, []
+            | SessionMsg.AskClose, _, _ -> state, []
+            | SessionMsg.CloseKept, _, _ -> { state with CloseAsked = false }, []
 
             | SessionMsg.CloseSession, SessionPhase.Open session, None ->
                 closing session, [ SessionEffect.CallCloseSession session.OpenedToken ]

@@ -133,6 +133,8 @@ Session Refusal Wrong Patient	The patient active in MainEHR is not the patient o
 Session Try Again	Try again	Probeer opnieuw	Réessayer	Erneut versuchen	Intentar de nuevo	Riprova
 Session Continue Without Launch	Continue without launch	Doorgaan zonder patient.	Continuer sans lancement	Ohne Start fortfahren	Continuar sin inicio	Continua senza avvio
 Session Close	Close session	Sessie sluiten	Fermer la session	Sitzung schließen	Cerrar sesión	Chiudi sessione
+Session Close Title	Close the session?	Sessie sluiten?	Fermer la session ?	Sitzung schließen?	¿Cerrar la sesión?	Chiudere la sessione?
+Session Close Text	The new and changed orders and the medication being prescribed are lost. Do you want to continue?	De nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?	Les prescriptions nouvelles et modifiées et le médicament en cours de prescription seront perdus. Voulez-vous continuer ?	Die neuen und geänderten Verordnungen und das Medikament, das gerade verordnet wird, gehen verloren. Möchten Sie fortfahren?	Se perderán las órdenes nuevas y modificadas y la medicación que se está prescribiendo. ¿Desea continuar?	Le prescrizioni nuove e modificate e il farmaco in prescrizione andranno persi. Vuoi continuare?
 Session Role Prescriber	Prescriber	Voorschrijver	Prescripteur	Verschreibende Person	Prescriptor	Prescrittore
 Session Role Reader	Reader	Lezer	Lecteur	Leser	Lector	Lettore
 Session Gate Ended	Your session was ended	Uw sessie is beëindigd	Votre session a été terminée	Ihre Sitzung wurde beendet	Su sesión ha finalizado	La sessione è stata terminata
