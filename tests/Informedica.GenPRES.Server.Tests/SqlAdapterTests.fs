@@ -497,7 +497,7 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist readAt cs [ Session.WriteVersion(v1, None) ] |> ignore
+                        runWrites cs [ Session.WriteVersion(v1, None) ] |> ignore
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.currentFixtureText ()
 

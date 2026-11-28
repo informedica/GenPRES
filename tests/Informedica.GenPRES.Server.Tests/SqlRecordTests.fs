@@ -30,7 +30,11 @@ open Informedica.GenPRES.Server.Tests.TestDates
 let v1 = lazy (versionOf 1 prescriber t0 domainPlan.Value)
 
 
-/// Inserts a row as SQL, bypassing `persist`, for rows no release of this code would write.
+/// Writes to the database as the server does, in one transaction with the audit entries.
+let runWrites cs writes = SqlSessions.runWrites cs TimeZoneInfo.Utc (fun () -> t0) writes
+
+
+/// Inserts a row as SQL, without the writes of the server, for rows no release of this code would write.
 let insertRowAt (cs: string) (signedAt: int64) (versionId: string) (no: int) (jsonVersion: int) (plan: string) =
     use conn = new SqliteConnection(cs)
     conn.Open()
@@ -140,7 +144,7 @@ let tests =
                 withRecord (fun cs ->
                     let whom = StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient" |> _.Identity
 
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, whom) ]
+                    runWrites cs [ Session.WriteVersion(v1.Value, whom) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     let identityOf () =
@@ -216,7 +220,7 @@ let tests =
 
             test "a persisted order plan version loads back as written" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ]
+                    runWrites cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     // compared in the stored form: a DateTime reads back as the same instant in UTC
@@ -237,7 +241,7 @@ let tests =
                             EhrPatient = Some(StubEhrPatient.patient StubEhrPatient.measuredOn "stub-patient")
                         }
 
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v, None) ]
+                    runWrites cs [ Session.WriteVersion(v, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     SqlDatabase.loadRecords readAt cs "stub-patient"
@@ -247,7 +251,7 @@ let tests =
 
             test "the column plan holds the order plan Dto alone, under structure version 20" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ]
+                    runWrites cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     scalar cs "select plan from order_plan"
@@ -284,10 +288,7 @@ let tests =
 
             test "the time of signing reads back to the millisecond" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist
-                        readAt
-                        cs
-                        [ Session.WriteVersion({ v1.Value with SignedAt = t0.AddTicks 12345L }, None) ]
+                    runWrites cs [ Session.WriteVersion({ v1.Value with SignedAt = t0.AddTicks 12345L }, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     match SqlDatabase.loadRecords readAt cs "stub-patient" with
@@ -299,7 +300,7 @@ let tests =
 
             test "a second version with the same number is a conflict with the head" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
+                    runWrites cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
                     let rival =
                         { v1.Value with
@@ -311,7 +312,7 @@ let tests =
                                 }
                         }
 
-                    match SqlDatabase.persist readAt cs [ Session.WriteVersion(rival, None) ] with
+                    match runWrites cs [ Session.WriteVersion(rival, None) ] with
                     | Session.StoreOutcome.Conflict winner ->
                         winner
                         |> storedForm
@@ -322,9 +323,9 @@ let tests =
 
             test "a second version with the same id and a new number fails, it is no conflict" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist readAt cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
+                    runWrites cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
-                    match SqlDatabase.persist readAt cs [ Session.WriteVersion({ v1.Value with No = 2 }, None) ] with
+                    match runWrites cs [ Session.WriteVersion({ v1.Value with No = 2 }, None) ] with
                     | Session.StoreOutcome.Failed reason ->
                         reason
                         |> Expect.stringContains "the reason names the column" "order_plan.version_id"
@@ -336,7 +337,7 @@ let tests =
                 withRecord (fun cs ->
                     let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
-                    match SqlDatabase.persist readAt readOnly [ Session.WriteVersion(v1.Value, None) ] with
+                    match runWrites readOnly [ Session.WriteVersion(v1.Value, None) ] with
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "a reason"
                     | other -> failtest $"expected Failed, got %A{other}"
 

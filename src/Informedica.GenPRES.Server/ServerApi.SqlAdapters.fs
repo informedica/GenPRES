@@ -425,61 +425,10 @@ module SqlDatabase =
         cmd.ExecuteNonQuery() |> ignore
 
 
-    let private insert (connectionString: string) (v: OrderPlanVersion, whom) =
-        use conn = new SqliteConnection(connectionString)
-        conn.Open()
-        insertVersion conn null v whom
-
-
     /// True when a failure is another server's sign of the same order plan version number.
     let isSameNumber (e: SqliteException) =
         e.SqliteExtendedErrorCode = 2067
         && e.Message.Contains "order_plan.patient_id, order_plan.no"
-
-
-    /// <summary>
-    /// Inserts an order plan version. A violated <c>unique (patient_id, no)</c> means another server wrote
-    /// the same number and returns <c>Conflict</c> with the current head. Any other failure returns
-    /// <c>Failed</c> with the reason, so the caller keeps its state and the next Submission retries.
-    /// </summary>
-    let persistVersion
-        (today: DateTime)
-        (connectionString: string)
-        (v: OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
-        : Session.StoreOutcome
-        =
-        try
-            insert connectionString (v, whom)
-            Session.StoreOutcome.Written
-        with
-        | :? SqliteException as e when isSameNumber e ->
-            try
-                match loadRecords today connectionString v.PatientId with
-                | head :: _ -> Session.StoreOutcome.Conflict head
-                | [] -> Session.StoreOutcome.Failed e.Message
-            with reread ->
-                Session.StoreOutcome.Failed reread.Message
-        | e -> Session.StoreOutcome.Failed e.Message
-
-
-    /// <summary>
-    /// Writes only the order plan versions of the list, each on its own, and ignores the other writes.
-    /// Stops at the first write that is not <c>Written</c> and returns its outcome.
-    /// </summary>
-    let persist (today: DateTime) (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
-        writes
-        |> List.choose (
-            function
-            | Session.WriteVersion(v, whom) -> Some(v, whom)
-            | _ -> None
-        )
-        |> List.fold
-            (fun outcome v ->
-                match outcome with
-                | Session.StoreOutcome.Written -> persistVersion today connectionString v
-                | refused -> refused
-            )
-            Session.StoreOutcome.Written
 
 
     /// <summary>
