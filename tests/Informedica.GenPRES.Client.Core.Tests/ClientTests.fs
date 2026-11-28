@@ -535,6 +535,32 @@ let tests =
                 ]
 
             testList
+                "close session"
+                [
+                    test "without unsigned work, Close session closes at once" {
+                        initial Url.none
+                        |> Client.closeSession
+                        |> Expect.equal "close" SessionMsg.CloseSession
+                    }
+
+                    test "with unsigned work, Close session asks" {
+                        let changed =
+                            { initial Url.none with
+                                Lanes =
+                                    { Lanes.initial (Some draft) with
+                                        Session = SessionState.opened SessionMachineTests.full None
+                                        OrderPlan =
+                                            OrderPlanState.settled patient one None
+                                            |> OrderPlanState.withWork PlanWorkPolicy.PlanWork.Changed
+                                    }
+                            }
+
+                        changed |> Client.unsignedWork |> Expect.isTrue "the fixture has unsigned work"
+                        changed |> Client.closeSession |> Expect.equal "ask" SessionMsg.AskClose
+                    }
+                ]
+
+            testList
                 "the patient and the signature"
                 [
                     test "a panel edit with an unsigned order reaches the patient" {

@@ -243,6 +243,18 @@ module Client =
             (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
+    /// Returns the message for "Close session": ask first when there is unsigned work, otherwise close.
+    let closeSession state =
+        if unsignedWork state then
+            SessionMsg.AskClose
+        else
+            SessionMsg.CloseSession
+
+
+    /// Whether the question before closing the session is open.
+    let closeAsked (state: ClientState) = state.Lanes.Session |> SessionState.closeAsked
+
+
     /// Whether the patient was no longer active in the EHR at the signing challenge.
     let ehrMovedOn (state: ClientState) = state.Lanes.Signing |> SigningState.ehrMovedOn
 

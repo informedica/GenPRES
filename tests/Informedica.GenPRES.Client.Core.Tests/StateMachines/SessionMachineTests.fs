@@ -601,6 +601,65 @@ module SessionMachineTests =
                             transition SessionMsg.CloseSession state |> Expect.equal "unchanged" (state, [])
                     }
 
+                    test "AskClose over an open session asks, without an effect" {
+                        transition SessionMsg.AskClose (SessionState.opened full None)
+                        |> fun (state, effects) -> (state |> SessionState.closeAsked, effects)
+                        |> Expect.equal "asked, no effect" (true, [])
+                    }
+
+                    test "AskClose elsewhere is a no-op, a close under way included" {
+                        for state in
+                            [
+                                SessionState.anonymous
+                                SessionState.resuming
+                                SessionState.refused LaunchRefusal.NoRole
+                                SessionState.closing full
+                            ] do
+                            transition SessionMsg.AskClose state |> Expect.equal "unchanged" (state, [])
+                    }
+
+                    test "CloseKept after the question keeps the session open as it was" {
+                        let opened = SessionState.opened full None
+
+                        opened
+                        |> transition SessionMsg.AskClose
+                        |> fst
+                        |> transition SessionMsg.CloseKept
+                        |> Expect.equal "the open session" (opened, [])
+                    }
+
+                    test "CloseSession after the question closes the session and the question goes" {
+                        SessionState.opened full None
+                        |> transition SessionMsg.AskClose
+                        |> fst
+                        |> transition SessionMsg.CloseSession
+                        |> Expect.equal
+                            "closing, not asked"
+                            (SessionState.closing full, [ SessionEffect.CallCloseSession full.OpenedToken ])
+                    }
+
+                    test "a session the server ends during the question is no longer asked" {
+                        SessionState.opened full None
+                        |> transition SessionMsg.AskClose
+                        |> fst
+                        |> transition (
+                            SessionMsg.NoticeReceived(full.OpenedToken, RecordNotice.Ended SessionEnding.Idle)
+                        )
+                        |> fst
+                        |> SessionState.closeAsked
+                        |> Expect.isFalse "not asked"
+                    }
+
+                    test "the url moving on during the question leaves the session, no longer asked" {
+                        SessionState.opened full None
+                        |> transition SessionMsg.AskClose
+                        |> fst
+                        |> transition SessionMsg.UrlMovedOn
+                        |> fst
+                        |> SessionState.closeAsked
+                        |> Expect.isFalse "not asked"
+                    }
+
                     test "SessionClosed from Closing is Anonymous and clears the patient" {
                         transition SessionMsg.SessionClosed (SessionState.closing full)
                         |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatientData None ])
