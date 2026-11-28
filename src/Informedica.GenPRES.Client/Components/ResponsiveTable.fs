@@ -364,6 +364,9 @@ module ResponsiveTable =
         // the text typed into the search, matched against every cell of a row
         let query, setQuery = React.useState ""
 
+        // the tools of the toolbar (columns, density, export and print) start hidden behind an arrow
+        let toolsOpen, setToolsOpen = React.useState false
+
         let search =
             if props.searchLabel |> String.length = 0 || props.rows |> Array.isEmpty then
                 None
@@ -581,6 +584,21 @@ module ResponsiveTable =
 
             let toolbar () =
                 if props.showToolbar then
+                    let toggleTools = fun _ -> setToolsOpen (not toolsOpen)
+
+                    // the arrow points right while the tools are hidden, and left to hide them again
+                    let toggleIcon =
+                        if toolsOpen then
+                            Mui.Icons.ChevronLeft
+                        else
+                            Mui.Icons.ChevronRight
+
+                    let toggleLabel =
+                        if toolsOpen then
+                            "Hide the table tools"
+                        else
+                            "Show the table tools"
+
                     let printButton =
                         match props.onPrint with
                         | Some handlePrint ->
@@ -606,15 +624,33 @@ module ResponsiveTable =
                     // no filter button and no filter in the column menus: the filter above the
                     // grid is the one filter on the list, so that a row is never hidden by a
                     // filter the user cannot see
+                    let tools =
+                        if toolsOpen then
+                            JSX.jsx
+                                $"""
+                            import React from 'react';
+                            import {{ GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
+
+                            <React.Fragment>
+                                <GridToolbarColumnsButton />
+                                <GridToolbarDensitySelector />
+                                <GridToolbarExport printOptions={printOptionsSx} />
+                                {printButton}
+                            </React.Fragment>
+                            """
+                        else
+                            null
+
                     JSX.jsx
                         $"""
-                    import {{ GridToolbarContainer, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
+                    import {{ GridToolbarContainer }} from '@mui/x-data-grid';
+                    import IconButton from '@mui/material/IconButton';
 
                     <GridToolbarContainer sx={toolbarSx}>
-                        <GridToolbarColumnsButton />
-                        <GridToolbarDensitySelector />
-                        <GridToolbarExport printOptions={printOptionsSx} />
-                        {printButton}
+                        <IconButton size="small" onClick={toggleTools} aria-label={toggleLabel} aria-expanded={toolsOpen} title={toggleLabel}>
+                            {toggleIcon}
+                        </IconButton>
+                        {tools}
                     </GridToolbarContainer>
                     """
                     |> toReact
