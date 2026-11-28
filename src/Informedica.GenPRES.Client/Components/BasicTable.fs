@@ -46,6 +46,9 @@ module BasicTable =
                 """
             )
 
+        // the line between the rows is a little thicker than the default, so the rows stand apart
+        let tableSx = {| ``& .MuiTableCell-root`` = {| borderBottomWidth = 2 |} |}
+
         JSX.jsx
             $"""
         import Paper from '@mui/material/Paper';
@@ -55,7 +58,7 @@ module BasicTable =
 
         <Paper>
             <TableContainer >
-                <Table>
+                <Table size="small" sx={tableSx}>
                     <TableBody>
                         {rows}
                     </TableBody>
