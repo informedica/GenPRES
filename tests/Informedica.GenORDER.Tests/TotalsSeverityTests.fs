@@ -142,16 +142,30 @@ module Fixtures =
         }
 
 
-    let isValid =
-        function
+    let isValid (total: IntakeTotal option) =
+        match total |> Option.map _.Text with
         | Some(Valid _) -> true
         | _ -> false
 
 
-    let isWarning =
-        function
+    let isWarning (total: IntakeTotal option) =
+        match total |> Option.map _.Text with
         | Some(Warning _) -> true
         | _ -> false
+
+
+    let stateOf row = row |> volumeOf |> Option.map _.State
+
+
+    /// A total with a text block, within its norm for a Valid block and above it for any other block.
+    let intakeTotal text : IntakeTotal =
+        {
+            Text = text
+            State =
+                match text with
+                | Valid _ -> TotalState.WithinNorm
+                | _ -> TotalState.AboveNorm
+        }
 
 
     let mlKgPer tu =
@@ -350,6 +364,34 @@ let getTotalsTests =
                 volume |> volumeOf |> isValid |> Expect.isTrue "valid"
             }
 
+            test "a total without a target range has no norm" {
+                volume |> stateOf |> Expect.equal "no norm" (Some TotalState.NoNorm)
+            }
+
+            test "a total below its minimum per kg is below the norm" {
+                adj (Some 3N) (Some 5N)
+                |> stateOf
+                |> Expect.equal "below" (Some TotalState.BelowNorm)
+            }
+
+            test "a total above its maximum per kg is above the norm" {
+                adj None (Some(1N / 10N))
+                |> stateOf
+                |> Expect.equal "above" (Some TotalState.AboveNorm)
+            }
+
+            test "a total within its norm per kg is within the norm" {
+                adj (Some(1N / 2N)) (Some 3N)
+                |> stateOf
+                |> Expect.equal "within" (Some TotalState.WithinNorm)
+            }
+
+            test "a total below its minimum per kg and above its maximum per time is outside the norm" {
+                { adj (Some 3N) None with MaxPerTime = Some 50N }
+                |> stateOf
+                |> Expect.equal "outside" (Some TotalState.OutsideNorm)
+            }
+
             test "a total within its target range per kg is a Valid block" {
                 adj (Some(1N / 2N)) (Some 3N) |> volumeOf |> isValid |> Expect.isTrue "valid"
             }
@@ -406,7 +448,7 @@ let getTotalsTests =
                 |> List.iter (fun (row, text) ->
                     row
                     |> volumeOf
-                    |> Option.map Order.Print.unwrap
+                    |> Option.map (_.Text >> Order.Print.unwrap)
                     |> Expect.equal "the text" (Some text)
                 )
             }
@@ -461,7 +503,7 @@ let getTotalsTests =
                 [| infusion.Value |]
                 |> Totals.getTotals routeMapping formRoutes [| liter |] None weight None
                 |> _.Volume
-                |> Option.map Order.Print.unwrap
+                |> Option.map (_.Text >> Order.Print.unwrap)
                 |> Option.map (String.contains "#0,000525# - #0,0021# l||/kg||/dag||")
                 |> Expect.equal "in L/kg/day" (Some true)
             }
@@ -481,15 +523,15 @@ let dtoTests =
             test "the totals round trip through the Dto with their severity" {
                 let t =
                     { Totals.empty with
-                        Volume = Some(Warning "142 ml/kg/dag (120 - 150)")
-                        Energy = Some(Valid "80 kCal/kg/dag")
+                        Volume = Some(intakeTotal (Warning "142 ml/kg/dag (120 - 150)"))
+                        Energy = Some(intakeTotal (Valid "80 kCal/kg/dag"))
                     }
 
                 t |> Totals.Dto.toDto |> Totals.Dto.fromDto |> Expect.equal "the same" (Ok t)
             }
 
             test "the totals round trip through the canonical JSON" {
-                let t = { Totals.empty with Sodium = Some(Warning "5 mmol/kg/dag (max 4)") }
+                let t = { Totals.empty with Sodium = Some(intakeTotal (Warning "5 mmol/kg/dag (max 4)")) }
 
                 t
                 |> Totals.Dto.toDto
@@ -510,12 +552,55 @@ let dtoTests =
                     Fat =
                         Some
                             {
-                                Kind = "loud"
-                                Text = "1"
+                                Text =
+                                    {
+                                        Kind = "loud"
+                                        Text = "1"
+                                    }
+                                State = "withinNorm"
                             }
                 }
                 |> Totals.Dto.fromDto
                 |> Expect.equal "unknown kind" (Error [ DtoError.UnknownTextKind "loud" ])
+            }
+
+            test "a total with an unknown state is an error" {
+                { (Totals.empty |> Totals.Dto.toDto) with
+                    Fat =
+                        Some
+                            {
+                                Text =
+                                    {
+                                        Kind = "valid"
+                                        Text = "1"
+                                    }
+                                State = "loud"
+                            }
+                }
+                |> Totals.Dto.fromDto
+                |> Expect.equal "unknown state" (Error [ DtoError.UnknownTotalState "loud" ])
+            }
+
+            test "every state round trips through the Dto" {
+                for state in
+                    [
+                        TotalState.NoNorm
+                        TotalState.WithinNorm
+                        TotalState.BelowNorm
+                        TotalState.AboveNorm
+                        TotalState.OutsideNorm
+                    ] do
+                    let t =
+                        { Totals.empty with
+                            Fat =
+                                Some
+                                    {
+                                        Text = Valid "1"
+                                        State = state
+                                    }
+                        }
+
+                    t |> Totals.Dto.toDto |> Totals.Dto.fromDto |> Expect.equal $"%A{state}" (Ok t)
             }
         ]
 

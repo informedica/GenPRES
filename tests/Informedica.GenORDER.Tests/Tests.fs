@@ -5361,12 +5361,27 @@ module OrderPlanDtoTests =
 
         let totals: Totals =
             {
-                Volume = Some(Valid "100 ml")
-                Energy = Some(Warning "50 kcal")
+                Volume =
+                    Some
+                        {
+                            Text = Valid "100 ml"
+                            State = TotalState.WithinNorm
+                        }
+                Energy =
+                    Some
+                        {
+                            Text = Warning "50 kcal"
+                            State = TotalState.AboveNorm
+                        }
                 Protein = None
                 Carbohydrate = None
                 Fat = None
-                Sodium = Some(Valid "3 mmol")
+                Sodium =
+                    Some
+                        {
+                            Text = Valid "3 mmol"
+                            State = TotalState.WithinNorm
+                        }
                 Potassium = None
                 Chloride = None
                 Calcium = None

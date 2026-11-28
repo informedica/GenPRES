@@ -271,7 +271,15 @@ let tests =
 
                 let evaluated =
                     { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-lipid" |]) with
-                        Totals = { Totals.empty with Energy = Some(Valid "10 kcal") }
+                        Totals =
+                            { Totals.empty with
+                                Energy =
+                                    Some
+                                        {
+                                            Text = Valid "10 kcal"
+                                            State = TotalState.WithinNorm
+                                        }
+                            }
                     }
 
                 match p |> OrderPlan.updateContext ruleSets "c-1" evaluated with
@@ -283,7 +291,13 @@ let tests =
                     |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.Lipid)
 
                     c.Totals.Energy
-                    |> Expect.equal "the intake as evaluated" (Some(Valid "10 kcal"))
+                    |> Expect.equal
+                        "the intake as evaluated"
+                        (Some
+                            {
+                                Text = Valid "10 kcal"
+                                State = TotalState.WithinNorm
+                            })
                     ids p |> Expect.equal "its order follows" [| "o-drug"; "o-lipid" |]
                 | Error e -> failtest $"{e}"
 
@@ -396,7 +410,15 @@ let tests =
 
                 let workbench =
                     { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-p" |]) with
-                        Totals = { Totals.empty with Volume = Some(Valid "5 ml") }
+                        Totals =
+                            { Totals.empty with
+                                Volume =
+                                    Some
+                                        {
+                                            Text = Valid "5 ml"
+                                            State = TotalState.WithinNorm
+                                        }
+                            }
                     }
 
                 let p =
@@ -411,7 +433,14 @@ let tests =
                 added.Context.Filter.Generic
                 |> Expect.equal "the workbench as it was" (Some "paracetamol")
 
-                added.Totals.Volume |> Expect.equal "with its intake" (Some(Valid "5 ml"))
+                added.Totals.Volume
+                |> Expect.equal
+                    "with its intake"
+                    (Some
+                        {
+                            Text = Valid "5 ml"
+                            State = TotalState.WithinNorm
+                        })
                 ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
 
                 p
@@ -2848,13 +2877,31 @@ let linkTests =
 
                     test "the round trip keeps the totals of a context" {
                         let withTotals =
-                            { medication "c-m" "o-m" with Totals = { Totals.empty with Volume = Some(Warning "5 ml") } }
+                            { medication "c-m" "o-m" with
+                                Totals =
+                                    { Totals.empty with
+                                        Volume =
+                                            Some
+                                                {
+                                                    Text = Warning "5 ml"
+                                                    State = TotalState.AboveNorm
+                                                }
+                                    }
+                            }
 
                         plan [| withTotals |]
                         |> OrderPlan.Dto.toDto
                         |> OrderPlan.Dto.fromDto SamplePatients.readAt
                         |> Result.map (fun p -> p.Contexts[0].Totals.Volume)
-                        |> Expect.equal "the volume with its severity" (Ok(Some(Warning "5 ml")))
+                        |> Expect.equal
+                            "the volume with its severity"
+                            (Ok(
+                                Some
+                                    {
+                                        Text = Warning "5 ml"
+                                        State = TotalState.AboveNorm
+                                    }
+                            ))
                     }
 
                     test "the canonical JSON carries the link, null when there is none, and the totals" {

@@ -798,44 +798,54 @@ module Types =
         | OutsideNorm
 
 
-    /// The totals of the nutrients and substances, each as a text block with the total and its target range.
-    /// The block is a Warning when part of the total lies outside the target range.
+    /// A total as a text block with the total and its norm, and the state of the total against the norm. The
+    /// name Total is taken by the order variable of a dose total.
+    type IntakeTotal =
+        {
+            /// The total and its norm; a Warning when the state is below, above or outside the norm
+            Text: TextBlock
+            /// The state of the total against the norm
+            State: TotalState
+        }
+
+
+    /// The totals of the nutrients and substances, each with its text and its state against its norm.
     type Totals =
         {
             /// Total volume
-            Volume: TextBlock option
+            Volume: IntakeTotal option
             /// Total energy content
-            Energy: TextBlock option
+            Energy: IntakeTotal option
             /// Total protein content
-            Protein: TextBlock option
+            Protein: IntakeTotal option
             /// Total carbohydrate content
-            Carbohydrate: TextBlock option
+            Carbohydrate: IntakeTotal option
             /// Total fat content
-            Fat: TextBlock option
+            Fat: IntakeTotal option
             /// Total sodium content
-            Sodium: TextBlock option
+            Sodium: IntakeTotal option
             /// Total potassium content
-            Potassium: TextBlock option
+            Potassium: IntakeTotal option
             /// Total chloride content
-            Chloride: TextBlock option
+            Chloride: IntakeTotal option
             /// Total calcium content
-            Calcium: TextBlock option
+            Calcium: IntakeTotal option
             /// Total phosphate content
-            Phosphate: TextBlock option
+            Phosphate: IntakeTotal option
             /// Total magnesium content
-            Magnesium: TextBlock option
+            Magnesium: IntakeTotal option
             /// Total iron content
-            Iron: TextBlock option
+            Iron: IntakeTotal option
             /// Total vitamin D content
-            VitaminD: TextBlock option
+            VitaminD: IntakeTotal option
             /// Total ethanol content
-            Ethanol: TextBlock option
+            Ethanol: IntakeTotal option
             /// Total propylene glycol content
-            Propyleenglycol: TextBlock option
+            Propyleenglycol: IntakeTotal option
             /// Total benzyl alcohol content
-            BenzylAlcohol: TextBlock option
+            BenzylAlcohol: IntakeTotal option
             /// Total boric acid content
-            BoricAcid: TextBlock option
+            BoricAcid: IntakeTotal option
         }
 
 
@@ -1182,6 +1192,8 @@ module Types =
         | UnknownDoseType of string
         /// A text block kind string that names no text block kind
         | UnknownTextKind of string
+        /// A total state string that names no total state
+        | UnknownTotalState of string
         /// The order of a scenario could not be created from its Dto
         | OrderNotCreated of string
         /// An order category string that names no order category

@@ -209,7 +209,7 @@ let totalsOf (ords: Order[]) =
         "BenzylAlcohol", t.BenzylAlcohol
         "BoricAcid", t.BoricAcid
     ]
-    |> List.choose (fun (n, v) -> v |> Option.map (fun v -> n, v |> Order.Print.unwrap))
+    |> List.choose (fun (n, v) -> v |> Option.map (fun v -> n, v.Text |> Order.Print.unwrap))
 
 
 [<Tests>]

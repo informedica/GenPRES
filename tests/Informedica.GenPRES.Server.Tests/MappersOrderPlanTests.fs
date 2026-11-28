@@ -127,7 +127,13 @@ let tests =
                     p.Filtered |> Expect.equal "the filter" [| "c-1" |]
                     p.Contexts |> Array.map _.Id |> Expect.equal "the contexts" [| "c-1"; "c-2" |]
                     p.Totals.Energy
-                    |> Expect.equal "the totals" (Some(Informedica.GenOrder.Lib.Types.Valid "#50 kcal#"))
+                    |> Expect.equal
+                        "the totals"
+                        (Some
+                            {
+                                Text = Informedica.GenOrder.Lib.Types.Valid "#50 kcal#"
+                                State = Informedica.GenOrder.Lib.Types.TotalState.WithinNorm
+                            })
                 | Error e -> failtest $"no order plan: %A{e}"
             }
 
