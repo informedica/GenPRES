@@ -2,9 +2,7 @@ group Client
 Fable.Browser.DOM
 Fable.Core
 Fable.Elmish
-Fable.Elmish.React
 Fable.Elmish.Debugger
-Fable.Elmish.HMR
 Fable.Mocha
 Fable.React.UseElmish
 Fable.Remoting.Client
