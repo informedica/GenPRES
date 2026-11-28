@@ -56,7 +56,15 @@ let context id category name : OrderContext =
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
         PatientData = StubEhrPatient.contractPatient
         Scenarios = [| scenario name |]
-        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = Some(Valid [| Normal "10 ml" |]) }
+        Totals =
+            { Informedica.GenPRES.Shared.Models.Totals.empty with
+                Volume =
+                    Some
+                        {
+                            Text = Valid [| Normal "10 ml" |]
+                            State = TotalState.WithinNorm
+                        }
+            }
     }
 
 
@@ -69,7 +77,15 @@ let plan: OrderPlan =
                 context "c-1" OrderCategory.Medication "paracetamol"
                 context "c-2" (OrderCategory.Nutrition NutritionCategory.TPN) "glucose"
             |]
-        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Energy = Some(Valid [| Bold "50 kcal" |]) }
+        Totals =
+            { Informedica.GenPRES.Shared.Models.Totals.empty with
+                Energy =
+                    Some
+                        {
+                            Text = Valid [| Bold "50 kcal" |]
+                            State = TotalState.WithinNorm
+                        }
+            }
     }
 
 

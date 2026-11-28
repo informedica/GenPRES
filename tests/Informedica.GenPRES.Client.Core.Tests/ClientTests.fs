@@ -1373,7 +1373,15 @@ let slotViewTests =
             }
 
             test "the combined totals once the server answered them, still shown while they are asked again" {
-                let combined = { Totals.empty with Energy = Some(Valid [| TextItem.Normal "120 kcal" |]) }
+                let combined =
+                    { Totals.empty with
+                        Energy =
+                            Some
+                                {
+                                    Text = Valid [| TextItem.Normal "120 kcal" |]
+                                    State = TotalState.WithinNorm
+                                }
+                    }
                 let reply: Reply<Totals> =
                     {
                         Response = combined

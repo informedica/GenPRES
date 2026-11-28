@@ -463,27 +463,50 @@ module Types =
         }
 
 
-    /// The intake totals, each as a text block with the total and its target range; None for a total that is
-    /// not calculated. The kind of the block is the severity of the total: Warning outside its target range.
+    /// The state of a total against the norm of its Totals row.
+    [<RequireQualifiedAccess>]
+    type TotalState =
+        /// The row has no minimum and no maximum, per kg or per time
+        | NoNorm
+        /// The total lies within every bound of the row
+        | WithinNorm
+        /// Part of the total lies below a minimum, and no part above a maximum
+        | BelowNorm
+        /// Part of the total lies above a maximum, and no part below a minimum
+        | AboveNorm
+        /// Part of the total lies below a minimum and part above a maximum
+        | OutsideNorm
+
+
+    /// A total as a text block with the total and its norm, and the state of the total against the norm. The
+    /// kind of the block is the severity of the total: Warning when the state is below, above or outside the norm.
+    type IntakeTotal =
+        {
+            Text: TextBlock
+            State: TotalState
+        }
+
+
+    /// The intake totals, each with its text and its state; None for a total that is not calculated.
     type Totals =
         {
-            Volume: TextBlock option
-            Energy: TextBlock option
-            Protein: TextBlock option
-            Carbohydrate: TextBlock option
-            Fat: TextBlock option
-            Sodium: TextBlock option
-            Potassium: TextBlock option
-            Chloride: TextBlock option
-            Calcium: TextBlock option
-            Phosphate: TextBlock option
-            Magnesium: TextBlock option
-            Iron: TextBlock option
-            VitaminD: TextBlock option
-            Ethanol: TextBlock option
-            Propyleenglycol: TextBlock option
-            BoricAcid: TextBlock option
-            BenzylAlcohol: TextBlock option
+            Volume: IntakeTotal option
+            Energy: IntakeTotal option
+            Protein: IntakeTotal option
+            Carbohydrate: IntakeTotal option
+            Fat: IntakeTotal option
+            Sodium: IntakeTotal option
+            Potassium: IntakeTotal option
+            Chloride: IntakeTotal option
+            Calcium: IntakeTotal option
+            Phosphate: IntakeTotal option
+            Magnesium: IntakeTotal option
+            Iron: IntakeTotal option
+            VitaminD: IntakeTotal option
+            Ethanol: IntakeTotal option
+            Propyleenglycol: IntakeTotal option
+            BoricAcid: IntakeTotal option
+            BenzylAlcohol: IntakeTotal option
         }
 
 

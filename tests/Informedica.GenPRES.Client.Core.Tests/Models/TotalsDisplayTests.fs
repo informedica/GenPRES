@@ -13,8 +13,18 @@ let private valid = Valid [| Bold "80"; Normal " kCal/kg/dag" |]
 
 let private intake =
     { Totals.empty with
-        Volume = Some warning
-        Energy = Some valid
+        Volume =
+            Some
+                {
+                    Text = warning
+                    State = TotalState.AboveNorm
+                }
+        Energy =
+            Some
+                {
+                    Text = valid
+                    State = TotalState.WithinNorm
+                }
     }
 
 
@@ -41,6 +51,16 @@ let tests =
                 "volume"
                 |> TotalsDisplay.substanceSeverity intake
                 |> Expect.equal "warning" Severity.Warning
+            }
+
+            test "the state of a total is the state it carries" {
+                "volume"
+                |> TotalsDisplay.substanceState intake
+                |> Expect.equal "above" (Some TotalState.AboveNorm)
+            }
+
+            test "a total that is not there has no state" {
+                "eiwit" |> TotalsDisplay.substanceState intake |> Expect.isNone "no state"
             }
 
             test "a Valid block has the severity Normal" {
