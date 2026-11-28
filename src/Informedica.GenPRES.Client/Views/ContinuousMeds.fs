@@ -122,7 +122,7 @@ module ContinuousMeds =
                 envList.OnContinuousListPrescribe
                 (envList.ContinuousListCheckedContexts |> Array.isEmpty)
 
-        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
+        let prescribeButton = Components.ActionBar.ActionButton prescribeAction
 
         // The rows the server calculated for the patient, also while they are calculated again.
         let rows =
@@ -278,6 +278,7 @@ module ContinuousMeds =
                 onFilterChange = Some onFilterChange
                 filterLabel = "Filter"
                 searchLabel = "Zoek"
+                actions = Some prescribeButton
             |}
 
         let printDialogProps =
@@ -295,7 +296,6 @@ module ContinuousMeds =
 
         <Box sx={boxSx}>
             {patientNotice}
-            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>
