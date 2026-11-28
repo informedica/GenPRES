@@ -36,4 +36,32 @@ let tests =
                 |> TextBlockParser.fromString
                 |> Expect.equal "range" (Valid [| Bold "0,1-0,5"; Normal " mg" |])
             }
+
+            test "a number with a narrow no-break space between its thousands is one bold item" {
+                "1\u202F100 mg (100 mg/kg)"
+                |> TextBlockParser.fromString
+                |> Expect.equal
+                    "one number"
+                    (Valid [| Bold "1\u202F100"; Normal " mg ("; Bold "100"; Normal " mg/kg)" |])
+            }
+
+            test "a range of numbers with thousands is two bold items" {
+                "2\u202F475 - 3\u202F025 mg"
+                |> TextBlockParser.fromString
+                |> Expect.equal
+                    "two numbers"
+                    (Valid [| Bold "2\u202F475"; Normal " - "; Bold "3\u202F025"; Normal " mg" |])
+            }
+
+            test "a number with millions keeps every group" {
+                "3\u202F000\u202F000 IE"
+                |> TextBlockParser.fromString
+                |> Expect.equal "one number" (Valid [| Bold "3\u202F000\u202F000"; Normal " IE" |])
+            }
+
+            test "a number with thousands and decimals is one bold item" {
+                "12\u202F000,5 mL"
+                |> TextBlockParser.fromString
+                |> Expect.equal "one number" (Valid [| Bold "12\u202F000,5"; Normal " mL" |])
+            }
         ]

@@ -173,7 +173,7 @@ module Decimal =
     //----------------------------------------------------------------------------
 
 
-    /// Formats d as a Dutch number: a space between the thousands and a decimal comma.
+    /// Formats d as a Dutch number: a narrow no-break space between the thousands and a decimal comma.
     /// The text p gives the number of decimals; an empty p gives the default of the F format, two in .NET.
     let toStringNumberNL p (d: decimal) =
         let invariantStr = d.ToString("F" + p, CultureInfo.InvariantCulture)
@@ -181,14 +181,15 @@ module Decimal =
         let integerPart = parts[0]
         let decimalPart = if parts.Length > 1 then parts[1] else ""
 
-        // Add thousands separators
+        // the groups of thousands are joined with a narrow no-break space, the separator of SI and ISO 80000,
+        // so a line never breaks within the number
         let formattedInteger =
             integerPart
             |> Seq.rev
             |> Seq.chunkBySize 3
             |> Seq.map (Seq.rev >> Seq.map string >> String.concat "")
             |> Seq.rev
-            |> String.concat " "
+            |> String.concat "\u202F"
 
         if decimalPart |> String.isNullOrEmpty then
             formattedInteger

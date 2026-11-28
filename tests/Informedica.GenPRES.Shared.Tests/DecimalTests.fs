@@ -276,7 +276,7 @@ let tests =
                             0.5m, 1, "0,5"
                             12.3456m, 3, "12,3"
                             105m, 3, "105"
-                            1234.5678m, 3, "1 235"
+                            1234.5678m, 3, "1\u202F235"
                             0.0666m, 0, "0"
                             0m, 3, "0"
                             -0.00123m, 3, "-0,00123"
@@ -297,7 +297,7 @@ let tests =
                             1m / 3m, "0,333"
                             12.55m, "12,6"
                             125.55m, "126"
-                            1234.6m, "1 235"
+                            1234.6m, "1\u202F235"
                             105m, "105"
                             0m, "0"
                         ] do
@@ -311,13 +311,13 @@ let tests =
                     test "the decimal 3000000000 without a precision prints in full" {
                         3000000000m
                         |> Decimal.toStringNumberNLWithoutTrailingZeros
-                        |> Expect.equal "the Dutch text" "3 000 000 000"
+                        |> Expect.equal "the Dutch text" "3\u202F000\u202F000\u202F000"
                     }
 
                     test "the decimal 3000000000.6 with 3 significant digits keeps its whole part" {
                         3000000000.6m
                         |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
-                        |> Expect.equal "the Dutch text" "3 000 000 001"
+                        |> Expect.equal "the Dutch text" "3\u202F000\u202F000\u202F001"
                     }
 
                     test "a decimal with 29 significant digits and a negative n prints every digit" {
@@ -337,7 +337,7 @@ let tests =
                     let value (whole: int) (decimals: byte) = decimal whole / pown 10m (int decimals % 9)
                     let digits (n: byte) = int n % 7
                     // Reads a Dutch number text back as a decimal.
-                    let parse (s: string) = s.Replace(" ", "").Replace(",", ".") |> decimal
+                    let parse (s: string) = s.Replace("\u202F", "").Replace(",", ".") |> decimal
 
                     testPropertyWithConfig
                         config
@@ -361,5 +361,21 @@ let tests =
                         let d = value whole decimals
 
                         d |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision -1 |> parse = d
+                ]
+
+            testList
+                "toStringNumberNL"
+                [
+                    // the value, the number of decimals and the expected text; the groups of thousands are
+                    // joined with a narrow no-break space
+                    for d, p, exp in [ 2000m, "0", "2\u202F000"; 12000.5m, "1", "12\u202F000,5"; 999m, "0", "999" ] do
+                        test $"the decimal %M{d} with %s{p} decimals is %s{exp}" {
+                            d |> Decimal.toStringNumberNL p |> Expect.equal "the Dutch text" exp
+                        }
+
+                    test "a decimal of a thousand or more has no plain space" {
+                        (1234567.89m |> Decimal.toStringNumberNL "2").Contains " "
+                        |> Expect.isFalse "no plain space"
+                    }
                 ]
         ]

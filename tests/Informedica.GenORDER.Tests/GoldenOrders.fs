@@ -4,6 +4,8 @@
 ///
 /// A change here is a change in a dose. Regenerate them only deliberately, and say in the
 /// commit what moved and why.
+///
+/// The space between the thousands of a number, as in 1 000, is the narrow no-break space U+202F.
 module GoldenOrders
 
 open Informedica.GenOrder.Lib.Types
@@ -74,7 +76,7 @@ Orderable
 [paracetamol.paracetamol.paracetamol]_cmp_cnc [180;240;250 mg/stuk]
 [paracetamol.paracetamol.paracetamol]_orb_cnc [180;240;250 mg/stuk]
 [paracetamol.paracetamol.paracetamol]_dos_qty [180;240;250 mg]
-[paracetamol.paracetamol.paracetamol]_dos_ptm [540;720;750;960;1 000 mg/dag]
+[paracetamol.paracetamol.paracetamol]_dos_ptm [540;720;750;960;1 000 mg/dag]
 [paracetamol.paracetamol.paracetamol]_dos_rte <0 ..>
 [paracetamol.paracetamol.paracetamol]_dos_tot <0 ..>
 [paracetamol.paracetamol.paracetamol]_dos_qty_adj [12,9;17,1;17,9 mg/kg]
@@ -125,12 +127,12 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal]_dos_rte_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_qty [72 mg]
-[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
+[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_cnc [72 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_cnc [3,65;3,75;3,82 mg/mL .. 16,6;17,5;18,3 mg/mL]
-[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
-[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_ptm [792;864;936;1 008;1 080;1 152;1 224 mg/dag]
+[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
+[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_ptm [792;864;936;1 008;1 080;1 152;1 224 mg/dag]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_rte <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_tot <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_qty_adj [56,6;61,7;66,9;72;77,1;82,3;87,4 mg/kg]
