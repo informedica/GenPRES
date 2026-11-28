@@ -248,8 +248,7 @@ module ParenteralNutrition =
         let summary =
             let adminSummary =
                 match props.nutritionContext.Scenarios with
-                | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                    adminSummary sc.Order.Orderable.Name sc.Administration
+                | [| sc |] -> adminSummary sc.Order
                 | _ -> null
 
             JSX.jsx

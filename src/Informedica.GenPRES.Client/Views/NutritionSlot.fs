@@ -523,22 +523,33 @@ module NutritionSlot =
         |}
 
 
-    // Shows the administration of a scenario as pills, one per text block from the server, each with
-    // its own severity.
-    let adminSummary (name: string) (rows: TextBlock[][]) =
+    // Shows an order as pills: the frequency, the dose quantity and the adjusted dose quantity, each
+    // with the severity of its value. A value the order does not have shows no pill. A single value is
+    // written with the Dutch decimal comma, as in the administration text of the server.
+    let adminSummary (ord: Order) =
+        let render ovar =
+            match
+                ovar
+                |> ViewHelpers.ovarVals (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
+            with
+            | [| _, s |] -> s
+            | _ -> ovar.Variable |> OrderDisplay.Variable.renderValue 3
+
+        let part (ovar: OrderVariable) =
+            {|
+                text = ovar |> render
+                severity = ovar.Level |> Severity.ofLevel
+            |}
+
         Components.AdministrationSummary.View
             {|
-                name = name
-                rows =
-                    rows
-                    |> Array.map (
-                        Array.map (fun block ->
-                            {|
-                                text = block |> ViewHelpers.textBlockText |> String.trim
-                                severity = block |> Severity.ofTextBlock
-                            |}
-                        )
-                    )
+                name = ord.Orderable.Name
+                parts =
+                    [|
+                        ord.Schedule.Frequency |> part
+                        ord.Orderable.Dose.Quantity |> part
+                        ord.Orderable.Dose.QuantityAdjust |> part
+                    |]
             |}
 
 

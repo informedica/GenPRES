@@ -42,6 +42,9 @@ module ValueChip =
     let private labelSx = {| color = Mui.Styles.mutedTextColor |}
 
 
+    let private chipSx = {| fontWeight = "bold" |}
+
+
     [<JSX.Component>]
     let View (props: Props) =
         let color = colorOf props.severity
@@ -66,6 +69,6 @@ module ValueChip =
 
         <Box sx={rowSx}>
             {label}
-            <Chip label={props.value} color={color} variant="outlined" size="small" icon={icon} />
+            <Chip label={props.value} color={color} variant="outlined" size="small" icon={icon} sx={chipSx} />
         </Box>
         """

@@ -483,8 +483,7 @@ module EnteralNutrition =
                 slotsShown
                 |> List.choose (fun (slot, nc) ->
                     match nc.Scenarios with
-                    | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        (slot.Id, adminSummary sc.Order.Orderable.Name sc.Administration) |> Some
+                    | [| sc |] -> (slot.Id, adminSummary sc.Order) |> Some
                     | _ -> None
                 )
                 |> List.toArray
