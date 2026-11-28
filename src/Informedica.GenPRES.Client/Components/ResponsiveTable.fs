@@ -434,6 +434,8 @@ module ResponsiveTable =
                 filterLabel: string
                 // the label of the text search above the grid; empty for no search
                 searchLabel: string
+                // the actions at the right end of the row with the filter and the search
+                actions: JSX.Element option
             |})
         =
         let localState, setLocalState = React.useState [||]
@@ -610,6 +612,7 @@ module ResponsiveTable =
                 {|
                     search = search
                     filter = filter
+                    actions = props.actions
                 |}
 
         let onSelectionChange =

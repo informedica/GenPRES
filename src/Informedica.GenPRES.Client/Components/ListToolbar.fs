@@ -1,9 +1,9 @@
 namespace Components
 
 
-/// Places a filter and a search field in one row above a list. The caller builds both controls.
-/// Shows nothing when neither is given. A list has only this one filter, so the user can always
-/// see whether the list is filtered.
+/// Places a filter and a search field in one row above a list, with the actions of the list at the
+/// right end of the row. The caller builds the controls and the actions. Shows nothing when none is
+/// given. A list has only this one filter, so the user can always see whether the list is filtered.
 module ListToolbar =
 
 
@@ -12,11 +12,12 @@ module ListToolbar =
     open Feliz
 
 
-    /// The search field and the filter, each absent when the list has none.
+    /// The search field, the filter and the actions, each absent when the list has none.
     type Props =
         {|
             search: JSX.Element option
             filter: JSX.Element option
+            actions: JSX.Element option
         |}
 
 
@@ -35,14 +36,20 @@ module ListToolbar =
             ]
 
 
+    // the actions take the free space before them, so they sit at the right end of the row
+    let private actionsSx = {| marginLeft = "auto" |}
+
+
     [<JSX.Component>]
     let View (props: Props) =
-        match props.search, props.filter with
-        | None, None -> null
+        match props.search, props.filter, props.actions with
+        | None, None, None -> null
         | _ ->
             let search = props.search |> Option.defaultValue null
 
             let filter = props.filter |> Option.defaultValue null
+
+            let actions = props.actions |> Option.defaultValue null
 
             JSX.jsx
                 $"""
@@ -51,5 +58,6 @@ module ListToolbar =
             <Box sx={rowSx}>
                 {filter}
                 {search}
+                <Box sx={actionsSx}>{actions}</Box>
             </Box>
             """

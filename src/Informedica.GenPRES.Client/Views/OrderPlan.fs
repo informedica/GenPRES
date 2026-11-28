@@ -752,6 +752,7 @@ module OrderPlan =
                     // no column filter on the plan, so no label to show
                     filterLabel = ""
                     searchLabel = ""
+                    actions = None
                 |}
 
         let orderView =

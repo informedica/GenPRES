@@ -130,7 +130,7 @@ module EmergencyList =
                 envList.OnEmergencyListPrescribe
                 (envList.EmergencyListCheckedContexts |> Array.isEmpty)
 
-        let actionBar = Components.ActionBar.View {| actions = [| prescribeAction |] |}
+        let prescribeButton = Components.ActionBar.ActionButton prescribeAction
 
         let rows =
             interventions
@@ -280,6 +280,7 @@ module EmergencyList =
                 onFilterChange = Some onFilterChange
                 filterLabel = "Filter"
                 searchLabel = "Zoek"
+                actions = Some prescribeButton
             |}
 
         let printDialogProps =
@@ -297,7 +298,6 @@ module EmergencyList =
 
         <Box sx={boxSx}>
             {patientNotice}
-            {actionBar}
             <Box sx={tableSx}>
                 {Components.ResponsiveTable.View tableProps}
             </Box>
