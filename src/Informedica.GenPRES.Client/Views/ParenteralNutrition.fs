@@ -379,6 +379,7 @@ module ParenteralNutrition =
                         header =
                             Terms.``Nutrition Parenteral Print Header``
                             |> getTerm "INFUSION ORDERS CENTRAL VENOUS CATHETERS"
+                        stateLabels = Components.TotalStateIcon.labels getTerm
                     |}
             else
                 null

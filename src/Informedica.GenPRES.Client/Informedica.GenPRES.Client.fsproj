@@ -25,6 +25,7 @@
     <Compile Include="./Components/PatientNotice.fs" />
     <Compile Include="./Components/SectionHeading.fs" />
     <Compile Include="./Components/ValueChip.fs" />
+    <Compile Include="./Components/TotalStateIcon.fs" />
     <Compile Include="./Components/AdministrationSummary.fs" />
     <Compile Include="./Components/AddButton.fs" />
     <Compile Include="./Components/RemoveIconButton.fs" />

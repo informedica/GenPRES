@@ -29,8 +29,8 @@ module ParenteralPrint =
 
     /// Shows the parenteral orders of the plan as a print sheet: per order the volume and the dose per kg
     /// of each component, the total volume, the rate and the time, then the intake totals. An order
-    /// without a single scenario shows as not configured. The caller gives the title of the dialog and
-    /// the header of the section in the user's language.
+    /// without a single scenario shows as not configured. The caller gives the title of the dialog, the
+    /// header of the section and the labels of the icons of the totals in the user's language.
     [<JSX.Component>]
     let View
         (props:
@@ -39,6 +39,7 @@ module ParenteralPrint =
                 onClose: unit -> unit
                 title: string
                 header: string
+                stateLabels: Components.TotalStateIcon.Labels
             |})
         =
         let printLabels = Global.printLabels ()
@@ -215,6 +216,13 @@ module ParenteralPrint =
                         else
                             ""
 
+                    let icon =
+                        Components.TotalStateIcon.View
+                            {|
+                                state = TotalsDisplay.substanceState intake name
+                                labels = props.stateLabels
+                            |}
+
                     JSX.jsx
                         $"""
                     import TableRow from '@mui/material/TableRow';
@@ -222,7 +230,7 @@ module ParenteralPrint =
 
                     <TableRow key={name}>
                         <TableCell colSpan={2}>{name}</TableCell>
-                        <TableCell align="right">{value}</TableCell>
+                        <TableCell align="right">{value} {icon}</TableCell>
                         <TableCell align="right">{normal}</TableCell>
                     </TableRow>
                     """

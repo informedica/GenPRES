@@ -355,6 +355,11 @@ type Terms =
     | ``Nutrition Composition Locked``
     | ``Nutrition Intake Caption``
     | ``Nutrition Share Of Total``
+    // the label of the icon that shows the state of an intake total against its norm
+    | ``Totals Within Norm``
+    | ``Totals Below Norm``
+    | ``Totals Above Norm``
+    | ``Totals Outside Norm``
     // the section header of the parenteral nutrition print
     | ``Nutrition Parenteral Print Header``
     // the shell: the demo mark of the window title, the login and logout buttons, and the close

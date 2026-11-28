@@ -56,6 +56,14 @@ module Totals =
     let private noFlashSx = {| |}
 
 
+    // the icon of the state takes only its own width, so the value and the norm keep the room of the row
+    let private iconCellSx =
+        {|
+            width = "1.5rem"
+            paddingX = 0
+        |}
+
+
     // the text in the colour of a severity, or in the colours of the table when there is none
     let private typoGraphy color (items: TextItem[]) =
         let variant = "body2"
@@ -119,6 +127,7 @@ module Totals =
             {|
                 source: string
                 totals: Totals
+                stateLabels: Components.TotalStateIcon.Labels
             |})
         =
         let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.totals)
@@ -187,6 +196,12 @@ module Totals =
                             items[0 .. (items.Length - 2)]
                             |> typoGraphy color
                             |> cell (if isChanged then flashSx else box noFlashSx)
+                            Components.TotalStateIcon.View
+                                {|
+                                    state = TotalsDisplay.substanceState totals name
+                                    labels = props.stateLabels
+                                |}
+                            |> cell iconCellSx
                             [| items |> Array.last |] |> typoGraphy None |> cell noFlashSx
                         |]
                 |}
