@@ -80,6 +80,16 @@ module EmergencyList =
                     ]
                 createObj
                     [
+                        "field" ==> "route"
+                        "headerName" ==> (Terms.Route |> getTerm "Route")
+                        "width" ==> 140
+                        "minWidth" ==> 100
+                        "flex" ==> 0.5
+                        "filterable" ==> true
+                        "sortable" ==> true
+                    ]
+                createObj
+                    [
                         "field" ==> "calculated"
                         "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Calculation")
                         "width" ==> 180
@@ -137,6 +147,14 @@ module EmergencyList =
             |> Array.mapi (fun i m ->
                 let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
+                // a medication row has an order context narrowed to the scenario of the row; a calculated
+                // intervention has none, so its route is empty
+                let route =
+                    m.OrderContext
+                    |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryHead)
+                    |> Option.map _.Route
+                    |> Option.defaultValue ""
+
                 {|
                     cells =
                         [|
@@ -151,6 +169,10 @@ module EmergencyList =
                             {|
                                 field = "intervention"
                                 value = $"**{m.Name}**"
+                            |}
+                            {|
+                                field = "route"
+                                value = route
                             |}
                             {|
                                 field = "calculated"
@@ -174,16 +196,17 @@ module EmergencyList =
             )
 
         let rowCreate (cells: string[]) =
-            if cells |> Array.length <> 6 then
+            if cells |> Array.length <> 7 then
                 invalidArg (nameof cells) $"cannot create row with {cells}"
             else
                 {|
                     id = cells[0]
                     category = cells[1].Replace("*", "")
                     intervention = cells[2].Replace("*", "")
-                    calculated = cells[3].Replace("*", "")
-                    preparation = cells[4].Replace("*", "")
-                    advice = cells[5].Replace("*", "")
+                    route = cells[3]
+                    calculated = cells[4].Replace("*", "")
+                    preparation = cells[5].Replace("*", "")
+                    advice = cells[6].Replace("*", "")
                 |}
             |> box
 
@@ -203,22 +226,27 @@ module EmergencyList =
                 {|
                     field = "category"
                     label = "Categorie"
-                    width = "15%"
+                    width = "12%"
                 |}
                 {|
                     field = "intervention"
                     label = "Interventie"
-                    width = "20%"
+                    width = "18%"
+                |}
+                {|
+                    field = "route"
+                    label = "Route"
+                    width = "10%"
                 |}
                 {|
                     field = "calculated"
                     label = "Berekend"
-                    width = "25%"
+                    width = "22%"
                 |}
                 {|
                     field = "preparation"
                     label = "Bereiding"
-                    width = "25%"
+                    width = "23%"
                 |}
                 {|
                     field = "advice"
