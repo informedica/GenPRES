@@ -1,5 +1,5 @@
 ---
-last_commit_released: de9b912262b8b3b3b44bd00e6b8455b6f4576de8
+last_commit_released: 164ff29f06cb5aae2bd6fc380761da5b7b5ca97f
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,32 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.63 - 2026-11-28
+
+### 🚀 Features
+
+* *(client)* Ask before Close session discards unsigned work ([e9c5e87f](https://github.com/informedica/GenPRES/commit/e9c5e87fef3e0eeece05ea965cacbca31087cd94))
+* *(ui)* Stack the summary bars of nutrition sections ([18c19e48](https://github.com/informedica/GenPRES/commit/18c19e484028de21eee619c5a9827228091d23b3))
+* *(ui)* Give the enteral section a heading ([69b0c414](https://github.com/informedica/GenPRES/commit/69b0c414c3a97306464473ec679a95f58acd7b7d))
+* *(ui)* Line up the nutrition summary chips ([e38de541](https://github.com/informedica/GenPRES/commit/e38de541acc7f703729f3c45ef6eaa8679ac6f89))
+* *(ui)* Show the dose per kg in nutrition summaries ([b1d10cc4](https://github.com/informedica/GenPRES/commit/b1d10cc47fbf13ebd56414480a50219a43503371))
+* *(ui)* Make the nutrition totals table compact ([571b3cc7](https://github.com/informedica/GenPRES/commit/571b3cc7bb94ec11d1f24c9265ae0926ca7617ac))
+* *(ui)* Hide the table tools behind an arrow ([f3092075](https://github.com/informedica/GenPRES/commit/f30920757cf6fefd5a4d3650e9a5ca688925b028))
+* *(ui)* Put the prescribe button in the filter row ([0b240dba](https://github.com/informedica/GenPRES/commit/0b240dbaad1e2b47b4a3071a29828b313be9cbaf))
+* *(ui)* Show the route of each emergency list row ([d5e27413](https://github.com/informedica/GenPRES/commit/d5e274134866ff09c72fdfd31f1116a9c1d56c62))
+* *(ui)* Tell apart emergency list rows of one name ([6850827d](https://github.com/informedica/GenPRES/commit/6850827d96426d221412d3269395e4b8c6877d0e))
+* *(ui)* Show the state of each intake total with an icon ([0cd358e1](https://github.com/informedica/GenPRES/commit/0cd358e1dc59f07e456fbab5efee45fd75246193))
+* *(ui)* Show the label of a totals icon in a tooltip ([45273d5c](https://github.com/informedica/GenPRES/commit/45273d5c84a1350d946715afbc05cdffbf81db93))
+
+### 🐞 Bug Fixes
+
+* *(client)* Let the TPN intake slider follow the dose ([808e4007](https://github.com/informedica/GenPRES/commit/808e4007287490dd7989e5b8f19c9daf0ec44c6a))
+* *(genorder)* Write the norm of a total with a comma ([240ee802](https://github.com/informedica/GenPRES/commit/240ee802cddf0b6e24c6ac95afb9c49cf68caab0))
+* *(ui)* Keep the focus on the table tools arrow ([149bdc45](https://github.com/informedica/GenPRES/commit/149bdc45e2aa9d41070e0507595bcfc47ea5a81c))
+* *(utils)* Keep a Dutch number on one line ([617990f2](https://github.com/informedica/GenPRES/commit/617990f2785349eb4b65b4b55ba6a554bcd5eb0b))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/de9b912262b8b3b3b44bd00e6b8455b6f4576de8..164ff29f06cb5aae2bd6fc380761da5b7b5ca97f)</small></strong>
 
 ## 0.1.2-alpha.62 - 2026-11-27
 
