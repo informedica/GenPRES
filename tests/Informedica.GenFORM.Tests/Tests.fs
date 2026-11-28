@@ -11913,6 +11913,22 @@ module Tests =
             }
 
 
+        let hydrocortison: LinkRuleData =
+            {
+                LinkRuleData.Generic = "hydrocortison"
+                LinkRuleData.Route = "ORAAL"
+                LinkRuleData.Indication = "Afbouwschema week 1"
+                LinkRuleData.DoseType = "discontinuous"
+                LinkRuleData.DoseText = ""
+                LinkRuleData.MainGeneric = "hydrocortison"
+                LinkRuleData.MainRoute = "ORAAL"
+                LinkRuleData.MainIndication = "Afbouwschema week 1"
+                LinkRuleData.MainDoseType = "discontinuous"
+                LinkRuleData.MainDoseText = "week 1 7:00 uur"
+                LinkRuleData.Required = "yes"
+            }
+
+
         let blank: LinkRuleData =
             { row with
                 Generic = ""
@@ -11964,6 +11980,9 @@ module Tests =
                 keys "Enterale toevoeging" "Fantomalt pdr" "Fantomalt pdr" "ORAAL" (Discontinuous "")
                 keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "ochtend middag")
                 keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "avond")
+                keys "Afbouwschema week 1" "hydrocortison" "hydrocortison" "ORAAL" (Discontinuous "week 1 7:00 uur")
+                keys "Afbouwschema week 1" "hydrocortison" "hydrocortison" "ORAAL" (Discontinuous "week 1 13:00 uur")
+                keys "Afbouwschema week 1" "hydrocortison" "hydrocortison" "ORAAL" (Discontinuous "week 1 18:00 uur")
             |]
 
 
@@ -12173,6 +12192,99 @@ module Tests =
                         [| { row with DoseType = "" } |]
                         |> LinkRule.check routes doseRules
                         |> Expect.isEmpty "no warning"
+                    }
+
+                    test "a required linked side that matches more than one dose type is reported with its row" {
+                        [| row; hydrocortison |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the linked side"
+                            [
+                                Warning
+                                    "LinkRules: the linked side of row 3 is required and matches more than one dose of hydrocortison ORAAL under Afbouwschema week 1: discontinuous week 1 7:00 uur, discontinuous week 1 13:00 uur, discontinuous week 1 18:00 uur"
+                            ]
+                    }
+
+                    test "dose rules that differ in case or in the route name are one generic, indication and route" {
+                        let doseRules =
+                            [|
+                                keys
+                                    "Afbouwschema week 1"
+                                    "hydrocortison"
+                                    "hydrocortison"
+                                    "ORAAL"
+                                    (Discontinuous "week 1 7:00 uur")
+                                keys
+                                    "afbouwschema week 1"
+                                    "Hydrocortison"
+                                    "hydrocortison"
+                                    "or"
+                                    (Discontinuous "week 1 13:00 uur")
+                            |]
+
+                        [| hydrocortison |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the linked side"
+                            [
+                                Warning
+                                    "LinkRules: the linked side of row 2 is required and matches more than one dose of hydrocortison ORAAL under Afbouwschema week 1: discontinuous week 1 7:00 uur, discontinuous week 1 13:00 uur"
+                            ]
+                    }
+
+                    test "an optional linked side that matches more than one dose type is not reported" {
+                        [| { hydrocortison with Required = "no" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
+                    }
+
+                    test "a required linked side with a dose text that matches one dose type is not reported" {
+                        [| { hydrocortison with DoseText = "week 1 13:00 uur" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
+                    }
+
+                    test "a main side that matches more than one dose type is not reported" {
+                        [|
+                            { hydrocortison with
+                                DoseText = "week 1 13:00 uur"
+                                MainDoseText = ""
+                            }
+                        |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
+                    }
+
+                    test "one dose type under each of two indications is not reported" {
+                        let doseRules =
+                            [|
+                                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Continuous "avond")
+                                keys "Becker" "ataluren" "ataluren" "ORAAL" (Continuous "nacht")
+                                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "ochtend middag")
+                            |]
+
+                        [|
+                            { ataluren with
+                                Indication = ""
+                                DoseType = "continuous"
+                                DoseText = ""
+                            }
+                        |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
+                    }
+
+                    test "two dose rules with the same dose type are not reported" {
+                        let doseRules =
+                            [|
+                                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "avond")
+                                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "avond")
+                                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "ochtend middag")
+                            |]
+
+                        [| ataluren |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
                     }
 
                     test "empty fields match any value, names without regard to case" {
