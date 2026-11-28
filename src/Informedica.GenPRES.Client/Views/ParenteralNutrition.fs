@@ -283,6 +283,7 @@ module ParenteralNutrition =
                 onToggle = fun () -> setExpanded (not expanded)
                 summary = summary
                 children = children
+                summaryPlacement = Components.Disclosure.SummaryPlacement.Stacks
                 isMobile = slot.IsMobile
                 detailsPaddingTop = if slot.IsMobile then None else Some 4
                 ariaControls = None
