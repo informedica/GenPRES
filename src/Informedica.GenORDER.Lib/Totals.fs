@@ -17,6 +17,9 @@ module Totals =
     module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
 
     type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
+    type Limit = Informedica.GenCore.Lib.Ranges.Limit
+    type TotalsData = Informedica.GenForm.Lib.Types.Data.TotalsData
+    type FormRoute = Informedica.GenForm.Lib.Types.FormRoute
 
 
     /// Totals with every value None, for a plan or a context before an evaluation calculates the totals.
@@ -150,12 +153,11 @@ module Totals =
 
 
     /// Creates a MinMax in a unit with an inclusive minimum and an exclusive maximum.
-    let fromTupleInclExcl =
-        MinMax.fromTuple Informedica.GenCore.Lib.Ranges.Inclusive Informedica.GenCore.Lib.Ranges.Exclusive
+    let fromTupleInclExcl = MinMax.fromTuple Limit.Inclusive Limit.Exclusive
 
 
     /// Whether a Totals row has no patient bounds: no age, weight or gestational age.
-    let isForEveryPatient (t: Informedica.GenForm.Lib.Types.Data.TotalsData) =
+    let isForEveryPatient (t: TotalsData) =
         [ t.MinAge; t.MaxAge; t.MinWeight; t.MaxWeight; t.MinGestAge; t.MaxGestAge ]
         |> List.forall Option.isNone
 
@@ -163,7 +165,7 @@ module Totals =
     /// Whether a Totals row applies to a patient with this age, weight and gestational age. An unknown age
     /// or weight does not limit the rows. A preterm patient matches a row only when the row has gestational
     /// age bounds or no patient bounds at all, the same as for the dose rules.
-    let appliesTo age wght gestAge (t: Informedica.GenForm.Lib.Types.Data.TotalsData) =
+    let appliesTo age wght gestAge (t: TotalsData) =
         // MinMax.inRange returns false for a missing value, so a missing age or weight passes here.
         let within u bounds vu =
             vu
@@ -194,7 +196,7 @@ module Totals =
     /// DoseUnit of the row, or of the Unit of the row when it has no DoseUnit. A reconstituted product is in
     /// mL while its row has the unit before the reconstitution and DoseUnit mL. A component without a product
     /// with quantities fits any row.
-    let fitsUnit cmp (row: Informedica.GenForm.Lib.Types.FormRoute) =
+    let fitsUnit cmp (row: FormRoute) =
         match cmp |> formUnit with
         | NoUnit -> true
         | u ->
@@ -262,7 +264,7 @@ module Totals =
     /// Returns the total with its state against the bounds of its Totals row: the total per kg per time against
     /// MinPerTimeAdj and MaxPerTimeAdj in perKgUnit, and the total per time against MinPerTime and MaxPerTime in
     /// perTimeUnit. The text is a Warning block when the total is below, above or outside the norm.
-    let toTotal (row: Informedica.GenForm.Lib.Types.Data.TotalsData) perTimeUnit perKgUnit perTime perKg text =
+    let toTotal (row: TotalsData) perTimeUnit perKgUnit perTime perKg text =
         let state =
             combineStates
                 (perKg |> normState perKgUnit row.MinPerTimeAdj row.MaxPerTimeAdj)
