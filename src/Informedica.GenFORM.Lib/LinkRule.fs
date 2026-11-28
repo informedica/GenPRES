@@ -147,7 +147,10 @@ module LinkRule =
 
     /// Returns a warning for each side of a row that matches no dose rule, because no order can match
     /// that side. When a dose rule has the generic of the side as its generic name, the warning gives the
-    /// labels to write instead. A refused row is skipped here; the read reports it.
+    /// labels to write instead. A row with Required yes also gets a warning when its linked side matches
+    /// more than one dose type of the same generic, indication and route, because the offer of that side
+    /// then has no dose type picked and cannot be prescribed. A refused row is skipped here; the read
+    /// reports it.
     let check routeMapping (doseRules: RuleSet.DoseRuleNames[]) (rows: LinkRuleData[]) =
         let matchesRule (side: LinkSide) (d: RuleSet.DoseRuleNames) =
             matches routeMapping side d.Indication d.Label d.Route d.DoseType
@@ -161,6 +164,15 @@ module LinkRule =
             )
             |> Array.map _.Label
             |> Array.distinct
+
+        // the dose types of the dose rules that match the side, per generic, indication and route, where
+        // more than one dose type is found
+        let ambiguous (side: LinkSide) =
+            doseRules
+            |> Array.filter (matchesRule side)
+            |> Array.groupBy (fun d -> d.Label, d.Indication, d.Route)
+            |> Array.map (fun (key, ds) -> key, ds |> Array.map _.DoseType |> Array.distinct)
+            |> Array.filter (fun (_, dts) -> dts.Length > 1)
 
         [
             for no, r in rows |> read do
@@ -176,6 +188,13 @@ module LinkRule =
 
                                 Warning
                                     $"LinkRules: the %s{name} side of row %i{no} names %s{side.Generic}, offered as %s{labels}"
+
+                    if rule.Requirement = LinkRequirement.Required then
+                        for (label, indication, route), dts in ambiguous rule.Linked do
+                            let dts = dts |> Array.map DoseType.toString |> String.concat ", "
+
+                            Warning
+                                $"LinkRules: the linked side of row %i{no} is required and matches more than one dose of %s{label} %s{route} under %s{indication}: %s{dts}"
         ]
 
 
