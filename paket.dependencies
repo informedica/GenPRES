@@ -73,9 +73,7 @@ group Client
   nuget Fable.Remoting.Client
   nuget Fable.Browser.DOM
   nuget Fable.Elmish
-  nuget Fable.Elmish.React 5.6.0
   nuget Fable.Elmish.Debugger
-  nuget Fable.Elmish.HMR 9.0.0
   nuget Fable.React.UseElmish
   nuget Fable.Mocha
   nuget Fable.SimpleHttp
