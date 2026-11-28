@@ -1,5 +1,6 @@
 /// The severity of a total against the bounds of its Totals row, the units a total shows in, the Dto of the
-/// totals, and the orders that count in the totals by the Totals column of the FormRoute rows.
+/// totals, the orders that count in the totals by the Totals column of the FormRoute rows, and the text of
+/// the norm after a total.
 module TotalsSeverityTests
 
 open MathNet.Numerics
@@ -611,6 +612,50 @@ let isTotalsOrderTests =
         ]
 
 
+let normTextTests =
+    testList
+        "normText"
+        [
+            test "a norm with a fraction has a decimal comma" {
+                Totals.normText (Some(1N / 10N)) (Some(3N / 10N))
+                |> Expect.equal "should be (0,1 - 0,3)" (Some "(0,1 - 0,3)")
+            }
+
+            test "a norm with three significant digits is not rounded" {
+                Totals.normText (Some(27N / 40N)) (Some(33N / 40N))
+                |> Expect.equal "should be (0,675 - 0,825)" (Some "(0,675 - 0,825)")
+            }
+
+            test "a norm with more significant digits is rounded to three" {
+                Totals.normText (Some(2N / 3N)) (Some(4N / 3N))
+                |> Expect.equal "should be (0,667 - 1,33)" (Some "(0,667 - 1,33)")
+            }
+
+            test "a norm with whole numbers has no decimals" {
+                Totals.normText (Some 80N) (Some 100N)
+                |> Expect.equal "should be (80 - 100)" (Some "(80 - 100)")
+            }
+
+            test "a norm of a thousand or more has a space between the thousands" {
+                Totals.normText (Some 1000N) (Some 1500N)
+                |> Expect.equal "should be (1 000 - 1 500)" (Some "(1 000 - 1 500)")
+            }
+
+            test "a norm with only a maximum shows max" {
+                Totals.normText None (Some(3N / 2N))
+                |> Expect.equal "should be (max 1,5)" (Some "(max 1,5)")
+            }
+
+            test "a norm with only a minimum shows no norm" {
+                Totals.normText (Some 2N) None |> Expect.isNone "should be None"
+            }
+
+            test "no norm shows no norm" { Totals.normText None None |> Expect.isNone "should be None" }
+        ]
+
+
 [<Tests>]
 let tests =
-    testList "Totals severity and the orders that count" [ isWithinTests; getTotalsTests; dtoTests; isTotalsOrderTests ]
+    testList
+        "Totals severity and the orders that count"
+        [ isWithinTests; getTotalsTests; dtoTests; isTotalsOrderTests; normTextTests ]

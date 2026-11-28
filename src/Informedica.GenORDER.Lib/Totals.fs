@@ -255,6 +255,22 @@ module Totals =
             Warning text
 
 
+    /// Writes a bound of a norm as a Dutch number with a decimal comma, in at least 3 significant digits.
+    let boundText bound =
+        bound
+        |> BigRational.toDouble
+        |> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+
+
+    /// Returns the norm of a total in brackets, "(0,1 - 0,3)" for a minimum and a maximum, "(max 4)" for a
+    /// maximum only, or None without a maximum.
+    let normText minAdj maxAdj =
+        match minAdj, maxAdj with
+        | Some minAdj, Some maxAdj -> Some $"(%s{boundText minAdj} - %s{boundText maxAdj})"
+        | None, Some maxAdj -> Some $"(max %s{boundText maxAdj})"
+        | _ -> None
+
+
     /// Calculates the totals of the orders per kg and per time unit, with the norm of the Totals row that
     /// applies to the age, weight and gestational age of the patient. Only the orders whose route and form
     /// are marked Totals in the FormRoute rows count. A total that lies partly outside the bounds of its
@@ -297,14 +313,9 @@ module Totals =
                     let s = perKg |> Variable.getValueRange |> ValueRange.toMarkdown 3
 
                     let text =
-                        match row.MinPerTimeAdj, row.MaxPerTimeAdj with
-                        | Some minAdj, Some maxAdj ->
-                            let norm = $"{minAdj |> BigRational.toDouble} - {maxAdj |> BigRational.toDouble}"
-                            s + $" ({norm})"
-                        | None, Some maxAdj ->
-                            let norm = $"{maxAdj |> BigRational.toDouble}"
-                            s + $" (max {norm})"
-                        | _ -> s
+                        match normText row.MinPerTimeAdj row.MaxPerTimeAdj with
+                        | Some norm -> $"%s{s} %s{norm}"
+                        | None -> s
 
                     text |> toBlock row perTimeUnit perKgUnit perTime perKg
                 )
