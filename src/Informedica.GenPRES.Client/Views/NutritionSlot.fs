@@ -511,6 +511,18 @@ module NutritionSlot =
         |}
 
 
+    // the label of a section summary takes the same width in every section, so the administration
+    // summaries after it start at the same place; a longer label is cut off
+    let summaryLabelSx =
+        {|
+            width = "12rem"
+            flexShrink = 0
+            overflow = "hidden"
+            textOverflow = "ellipsis"
+            whiteSpace = "nowrap"
+        |}
+
+
     // Shows the administration of a scenario as pills, one per text block from the server, each with
     // its own severity.
     let adminSummary (name: string) (rows: TextBlock[][]) =

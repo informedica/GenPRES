@@ -496,7 +496,7 @@ module EnteralNutrition =
             import Box from '@mui/material/Box';
 
             <Box sx={flexOverflowSx}>
-                <Typography>{Terms.``Nutrition Enteral Feeding`` |> getTerm "Enteral feeding"}</Typography>
+                <Typography sx={summaryLabelSx}>{Terms.``Nutrition Enteral Feeding`` |> getTerm "Enteral feeding"}</Typography>
                 {adminSummaries |> unbox<seq<ReactElement>> |> React.Fragment}
             </Box>
             """
