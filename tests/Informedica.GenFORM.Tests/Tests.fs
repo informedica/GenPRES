@@ -12205,6 +12205,33 @@ module Tests =
                             ]
                     }
 
+                    test "dose rules that differ in case or in the route name are one generic, indication and route" {
+                        let doseRules =
+                            [|
+                                keys
+                                    "Afbouwschema week 1"
+                                    "hydrocortison"
+                                    "hydrocortison"
+                                    "ORAAL"
+                                    (Discontinuous "week 1 7:00 uur")
+                                keys
+                                    "afbouwschema week 1"
+                                    "Hydrocortison"
+                                    "hydrocortison"
+                                    "or"
+                                    (Discontinuous "week 1 13:00 uur")
+                            |]
+
+                        [| hydrocortison |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the linked side"
+                            [
+                                Warning
+                                    "LinkRules: the linked side of row 2 is required and matches more than one dose of hydrocortison ORAAL under Afbouwschema week 1: discontinuous week 1 7:00 uur, discontinuous week 1 13:00 uur"
+                            ]
+                    }
+
                     test "an optional linked side that matches more than one dose type is not reported" {
                         [| { hydrocortison with Required = "no" } |]
                         |> LinkRule.check routes doseRules

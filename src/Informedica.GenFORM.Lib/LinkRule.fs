@@ -165,13 +165,25 @@ module LinkRule =
             |> Array.map _.Label
             |> Array.distinct
 
-        // the dose types of the dose rules that match the side, per generic, indication and route, where
-        // more than one dose type is found
+        // the generic, indication and route of a dose rule, with the names in lower case and the route mapped
+        // to its long name, as matchesRule compares them
+        let key (d: RuleSet.DoseRuleNames) =
+            let name = String.trim >> String.toLower
+            let route = d.Route |> Mapping.mapRoute routeMapping |> Option.defaultValue (name d.Route)
+
+            name d.Label, name d.Indication, route
+
+        // the first dose rule and the dose types of the dose rules that match the side, per generic,
+        // indication and route, where more than one dose type is found
         let ambiguous (side: LinkSide) =
             doseRules
             |> Array.filter (matchesRule side)
-            |> Array.groupBy (fun d -> d.Label, d.Indication, d.Route)
-            |> Array.map (fun (key, ds) -> key, ds |> Array.map _.DoseType |> Array.distinct)
+            |> Array.groupBy key
+            |> Array.choose (fun (_, ds) ->
+                ds
+                |> Array.tryHead
+                |> Option.map (fun d -> d, ds |> Array.map _.DoseType |> Array.distinct)
+            )
             |> Array.filter (fun (_, dts) -> dts.Length > 1)
 
         [
@@ -190,11 +202,11 @@ module LinkRule =
                                     $"LinkRules: the %s{name} side of row %i{no} names %s{side.Generic}, offered as %s{labels}"
 
                     if rule.Requirement = LinkRequirement.Required then
-                        for (label, indication, route), dts in ambiguous rule.Linked do
+                        for d, dts in ambiguous rule.Linked do
                             let dts = dts |> Array.map DoseType.toString |> String.concat ", "
 
                             Warning
-                                $"LinkRules: the linked side of row %i{no} is required and matches more than one dose of %s{label} %s{route} under %s{indication}: %s{dts}"
+                                $"LinkRules: the linked side of row %i{no} is required and matches more than one dose of %s{d.Label} %s{d.Route} under %s{d.Indication}: %s{dts}"
         ]
 
 
