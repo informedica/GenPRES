@@ -192,6 +192,7 @@ type Terms =
     // Nutrition-specific terms
     | ``Nutrition Parenteral``
     | ``Nutrition Parenteral Section``
+    | ``Nutrition Enteral Section``
     | ``Nutrition TPN``
     | ``Nutrition Enteral Feeding``
     | ``Nutrition Enteral Supplement``
