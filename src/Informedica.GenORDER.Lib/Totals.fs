@@ -218,41 +218,62 @@ module Totals =
            )
 
 
-    /// Whether every value of a calculated total lies within the bounds min and max in the unit u. The total
-    /// and the bounds are compared as ValueUnits, so the total may be in another unit of the same group, such
-    /// as mL/kg/min against bounds in mL/kg/day. A missing bound does not limit that side. A total without a
-    /// lowest value lies partly below a minimum, and a total without a highest value lies partly above a
-    /// maximum.
-    let isWithin u min max total =
+    /// Returns the state of a calculated total against the bounds min and max in the unit u. The total and the
+    /// bounds are compared as ValueUnits, so the total may be in another unit of the same group, such as mL/kg/min
+    /// against bounds in mL/kg/day. Without a bound the state is NoNorm. A total without a lowest value lies partly
+    /// below a minimum, and a total without a highest value lies partly above a maximum.
+    let normState u min max total =
         let vr = total |> Variable.getValueRange
         let bound = ValueUnit.singleWithUnit u
 
-        let lowerHolds =
+        let below =
             match min, vr |> ValueRange.getMin with
-            | None, _ -> true
-            | Some _, None -> false
-            | Some m, Some lo -> ValueUnit.gte (lo |> ValueRange.Minimum.toValueUnit) (bound m)
+            | None, _ -> false
+            | Some _, None -> true
+            | Some m, Some lo -> ValueUnit.st (lo |> ValueRange.Minimum.toValueUnit) (bound m)
 
-        let upperHolds =
+        let above =
             match max, vr |> ValueRange.getMax with
-            | None, _ -> true
-            | Some _, None -> false
-            | Some m, Some hi -> ValueUnit.ste (hi |> ValueRange.Maximum.toValueUnit) (bound m)
+            | None, _ -> false
+            | Some _, None -> true
+            | Some m, Some hi -> ValueUnit.gt (hi |> ValueRange.Maximum.toValueUnit) (bound m)
 
-        lowerHolds && upperHolds
+        match min, max, below, above with
+        | None, None, _, _ -> TotalState.NoNorm
+        | _, _, true, true -> TotalState.OutsideNorm
+        | _, _, true, false -> TotalState.BelowNorm
+        | _, _, false, true -> TotalState.AboveNorm
+        | _ -> TotalState.WithinNorm
 
 
-    /// Wraps the text of a total in a Valid block when the total lies within the bounds of its Totals row,
-    /// else in a Warning block. The total per kg per time is checked against MinPerTimeAdj and
+    /// Combines the states of a total against two norms: a norm without bounds adds nothing, and below one norm
+    /// and above the other is outside.
+    let combineStates s1 s2 =
+        match s1, s2 with
+        | TotalState.NoNorm, s
+        | s, TotalState.NoNorm -> s
+        | TotalState.WithinNorm, s
+        | s, TotalState.WithinNorm -> s
+        | TotalState.BelowNorm, TotalState.BelowNorm -> TotalState.BelowNorm
+        | TotalState.AboveNorm, TotalState.AboveNorm -> TotalState.AboveNorm
+        | _ -> TotalState.OutsideNorm
+
+
+    /// Wraps the text of a total in a Valid block when the total has no norm or lies within the bounds of its
+    /// Totals row, else in a Warning block. The total per kg per time is checked against MinPerTimeAdj and
     /// MaxPerTimeAdj in perKgUnit, and the total per time against MinPerTime and MaxPerTime in perTimeUnit.
     let toBlock (row: Informedica.GenForm.Lib.Types.Data.TotalsData) perTimeUnit perKgUnit perTime perKg text =
-        if
-            perKg |> isWithin perKgUnit row.MinPerTimeAdj row.MaxPerTimeAdj
-            && perTime |> isWithin perTimeUnit row.MinPerTime row.MaxPerTime
-        then
-            Valid text
-        else
-            Warning text
+        let state =
+            combineStates
+                (perKg |> normState perKgUnit row.MinPerTimeAdj row.MaxPerTimeAdj)
+                (perTime |> normState perTimeUnit row.MinPerTime row.MaxPerTime)
+
+        match state with
+        | TotalState.NoNorm
+        | TotalState.WithinNorm -> Valid text
+        | TotalState.BelowNorm
+        | TotalState.AboveNorm
+        | TotalState.OutsideNorm -> Warning text
 
 
     /// Writes a bound of a norm as a Dutch number with a decimal comma, in at least 3 significant digits.
