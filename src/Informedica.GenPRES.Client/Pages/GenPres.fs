@@ -285,6 +285,8 @@ module GenPres =
                         """
                 |}
 
+        let stateLabels = Components.TotalStateIcon.labels (Global.getLocalizedTerm localizationTerms lang)
+
         let totalsContent =
             match props.page with
             | Global.Pages.Prescribe ->
@@ -296,6 +298,7 @@ module GenPres =
                         {|
                             source = "context"
                             totals = pr.Totals
+                            stateLabels = stateLabels
                         |}
                     |> Some
                 | OrderContextView.NoPatientData -> None
@@ -308,6 +311,7 @@ module GenPres =
                         {|
                             source = "nutrition"
                             totals = totals
+                            stateLabels = stateLabels
                         |}
                 )
             | Global.Pages.OrderPlan ->
@@ -318,6 +322,7 @@ module GenPres =
                         {|
                             source = "plan"
                             totals = tp.Totals
+                            stateLabels = stateLabels
                         |}
                     |> Some
                 | OrderPlanView.NoPatientData -> None
