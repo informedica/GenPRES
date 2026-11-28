@@ -321,7 +321,13 @@ let tests =
                         [| [| Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag" |] |]
 
                     pc.Totals.Energy
-                    |> Expect.equal "the totals" (Some(Informedica.GenOrder.Lib.Types.Valid "#50 kcal#/dag"))
+                    |> Expect.equal
+                        "the totals"
+                        (Some
+                            {
+                                Text = Informedica.GenOrder.Lib.Types.Valid "#50 kcal#/dag"
+                                State = Informedica.GenOrder.Lib.Types.TotalState.WithinNorm
+                            })
                 | Error e -> failtest $"no plan context: %A{e}"
             }
 
@@ -799,7 +805,14 @@ let totalsTests =
         "the totals mapper"
         [
             test "a Warning block of GenORDER reaches the contract as a Warning block" {
-                { Totals.empty with Volume = Some(Types.Warning "#142# ml/kg/dag (120 - 150)") }
+                { Totals.empty with
+                    Volume =
+                        Some
+                            {
+                                Text = Types.Warning "#142# ml/kg/dag (120 - 150)"
+                                State = Types.TotalState.OutsideNorm
+                            }
+                }
                 |> Totals.Dto.toDto
                 |> OrderContextMapper.totalsBack
                 |> _.Volume
@@ -817,6 +830,16 @@ let totalsTests =
                 |> OrderContextMapper.totals
                 |> OrderContextMapper.totalsBack
                 |> Expect.equal "the same" t
+            }
+
+            test "a total of the contract reaches GenORDER within the norm for a Valid block, outside it otherwise" {
+                { empty with
+                    Volume = Some(Warning [| Bold "142"; Normal " ml/kg/dag (120 - 150)" |])
+                    Energy = Some(Valid [| Bold "80"; Normal " kCal/kg/dag" |])
+                }
+                |> OrderContextMapper.totals
+                |> fun dto -> dto.Volume |> Option.map _.State, dto.Energy |> Option.map _.State
+                |> Expect.equal "the states" (Some "outsideNorm", Some "withinNorm")
             }
 
             test "a total that is not there stays None both ways" {

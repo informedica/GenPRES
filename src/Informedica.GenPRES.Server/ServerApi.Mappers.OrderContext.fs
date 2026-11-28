@@ -64,6 +64,7 @@ module OrderContextMapper =
     module ContextDto = Informedica.GenOrder.Lib.OrderContext.Dto
     module PlanContextDto = Informedica.GenOrder.Lib.PlanContext.Dto
     module TotalsDto = Informedica.GenOrder.Lib.Totals.Dto
+    module GenOrderTypes = Informedica.GenOrder.Lib.Types
 
 
     let doseType (dt: DoseType) =
@@ -248,9 +249,27 @@ module OrderContextMapper =
             }
 
 
-    /// Maps the totals to the Dto, each total as its text block.
+    /// Maps the totals to the Dto, each total as its text block and a state from the kind of the block: within the
+    /// norm for a Valid block, outside it for any other block.
     let totals (t: Totals) : TotalsDto.Dto =
-        let block = Option.map textBlock
+        // stop-gap until the contract carries the state of a total, issue #2092
+        let state b =
+            let state =
+                match b with
+                | Valid _ -> GenOrderTypes.TotalState.WithinNorm
+                | Caution _
+                | Warning _
+                | Alert _ -> GenOrderTypes.TotalState.OutsideNorm
+
+            state |> TotalsDto.stateToString
+
+        let block =
+            Option.map (fun b ->
+                {
+                    TotalsDto.Text = b |> textBlock
+                    TotalsDto.State = b |> state
+                }
+            )
 
         {
             Volume = t.Volume |> block
@@ -273,10 +292,10 @@ module OrderContextMapper =
         }
 
 
-    /// Maps the totals Dto to the totals, each total as its text block. Throws InvalidOperationException for a
-    /// block of an unknown kind, as textBlockBack does.
+    /// Maps the totals Dto to the totals, each total as its text block; the state of a total is left out until the
+    /// contract carries it. Throws InvalidOperationException for a block of an unknown kind, as textBlockBack does.
     let totalsBack (dto: TotalsDto.Dto) : Totals =
-        let block = Option.map textBlockBack
+        let block = Option.map (fun (t: TotalsDto.TotalDto) -> t.Text |> textBlockBack)
 
         {
             Volume = dto.Volume |> block
@@ -517,6 +536,7 @@ module OrderContextMapper =
         | DtoError.OrderNotCreated m -> $"De order kon niet worden gemaakt: %s{m}"
         | DtoError.UnknownDoseType s -> $"Onbekend doseertype: %s{s}"
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
+        | DtoError.UnknownTotalState s -> $"Onbekende totaalstatus: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
         | DtoError.Unreadable m -> $"Onleesbare tekst: %s{m}"

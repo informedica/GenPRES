@@ -259,21 +259,25 @@ module Totals =
         | _ -> TotalState.OutsideNorm
 
 
-    /// Wraps the text of a total in a Valid block when the total has no norm or lies within the bounds of its
-    /// Totals row, else in a Warning block. The total per kg per time is checked against MinPerTimeAdj and
-    /// MaxPerTimeAdj in perKgUnit, and the total per time against MinPerTime and MaxPerTime in perTimeUnit.
-    let toBlock (row: Informedica.GenForm.Lib.Types.Data.TotalsData) perTimeUnit perKgUnit perTime perKg text =
+    /// Returns the total with its state against the bounds of its Totals row: the total per kg per time against
+    /// MinPerTimeAdj and MaxPerTimeAdj in perKgUnit, and the total per time against MinPerTime and MaxPerTime in
+    /// perTimeUnit. The text is a Warning block when the total is below, above or outside the norm.
+    let toTotal (row: Informedica.GenForm.Lib.Types.Data.TotalsData) perTimeUnit perKgUnit perTime perKg text =
         let state =
             combineStates
                 (perKg |> normState perKgUnit row.MinPerTimeAdj row.MaxPerTimeAdj)
                 (perTime |> normState perTimeUnit row.MinPerTime row.MaxPerTime)
 
-        match state with
-        | TotalState.NoNorm
-        | TotalState.WithinNorm -> Valid text
-        | TotalState.BelowNorm
-        | TotalState.AboveNorm
-        | TotalState.OutsideNorm -> Warning text
+        {
+            Text =
+                match state with
+                | TotalState.NoNorm
+                | TotalState.WithinNorm -> Valid text
+                | TotalState.BelowNorm
+                | TotalState.AboveNorm
+                | TotalState.OutsideNorm -> Warning text
+            State = state
+        }
 
 
     /// Writes a bound of a norm as a Dutch number with a decimal comma, in at least 3 significant digits.
@@ -338,7 +342,7 @@ module Totals =
                         | Some norm -> $"%s{s} %s{norm}"
                         | None -> s
 
-                    text |> toBlock row perTimeUnit perKgUnit perTime perKg
+                    text |> toTotal row perTimeUnit perKgUnit perTime perKg
                 )
 
             {
@@ -362,36 +366,90 @@ module Totals =
             }
 
 
-    /// The serializable shape of the totals, each total as a text block Dto.
+    /// The serializable shape of the totals, each total as its text block Dto and its state.
     module Dto =
 
         open FsToolkit.ErrorHandling
 
 
+        /// A total as its text block Dto and its state as text.
+        type TotalDto =
+            {
+                Text: TextBlock.Dto.Dto
+                State: string
+            }
+
+
+        /// Returns the text of a total state, as the Dto stores it.
+        let stateToString =
+            function
+            | TotalState.NoNorm -> "noNorm"
+            | TotalState.WithinNorm -> "withinNorm"
+            | TotalState.BelowNorm -> "belowNorm"
+            | TotalState.AboveNorm -> "aboveNorm"
+            | TotalState.OutsideNorm -> "outsideNorm"
+
+
+        /// Returns the total state of its text, or DtoError.UnknownTotalState for an unknown text.
+        let stateFromString =
+            function
+            | "noNorm" -> Ok TotalState.NoNorm
+            | "withinNorm" -> Ok TotalState.WithinNorm
+            | "belowNorm" -> Ok TotalState.BelowNorm
+            | "aboveNorm" -> Ok TotalState.AboveNorm
+            | "outsideNorm" -> Ok TotalState.OutsideNorm
+            | s -> Error(DtoError.UnknownTotalState s)
+
+
+        /// Maps a total to its Dto.
+        let totalToDto (t: IntakeTotal) =
+            {
+                Text = t.Text |> TextBlock.Dto.toDto
+                State = t.State |> stateToString
+            }
+
+
+        /// Reads a total from its Dto: UnknownTextKind for a block of an unknown kind, UnknownTotalState for an
+        /// unknown state.
+        let totalFromDto (dto: TotalDto) =
+            result {
+                let! text = dto.Text |> TextBlock.Dto.fromDto
+                let! state = dto.State |> stateFromString
+
+                let total: IntakeTotal =
+                    {
+                        Text = text
+                        State = state
+                    }
+
+                return total
+            }
+
+
         type Dto =
             {
-                Volume: TextBlock.Dto.Dto option
-                Energy: TextBlock.Dto.Dto option
-                Protein: TextBlock.Dto.Dto option
-                Carbohydrate: TextBlock.Dto.Dto option
-                Fat: TextBlock.Dto.Dto option
-                Sodium: TextBlock.Dto.Dto option
-                Potassium: TextBlock.Dto.Dto option
-                Chloride: TextBlock.Dto.Dto option
-                Calcium: TextBlock.Dto.Dto option
-                Phosphate: TextBlock.Dto.Dto option
-                Magnesium: TextBlock.Dto.Dto option
-                Iron: TextBlock.Dto.Dto option
-                VitaminD: TextBlock.Dto.Dto option
-                Ethanol: TextBlock.Dto.Dto option
-                Propyleenglycol: TextBlock.Dto.Dto option
-                BenzylAlcohol: TextBlock.Dto.Dto option
-                BoricAcid: TextBlock.Dto.Dto option
+                Volume: TotalDto option
+                Energy: TotalDto option
+                Protein: TotalDto option
+                Carbohydrate: TotalDto option
+                Fat: TotalDto option
+                Sodium: TotalDto option
+                Potassium: TotalDto option
+                Chloride: TotalDto option
+                Calcium: TotalDto option
+                Phosphate: TotalDto option
+                Magnesium: TotalDto option
+                Iron: TotalDto option
+                VitaminD: TotalDto option
+                Ethanol: TotalDto option
+                Propyleenglycol: TotalDto option
+                BenzylAlcohol: TotalDto option
+                BoricAcid: TotalDto option
             }
 
 
         let toDto (t: Totals) : Dto =
-            let block = Option.map TextBlock.Dto.toDto
+            let block = Option.map totalToDto
 
             {
                 Volume = t.Volume |> block
@@ -414,13 +472,14 @@ module Totals =
             }
 
 
-        /// Reads the text block of every total. A Dto that is null after JSON deserialization gives
-        /// DtoError.Missing "Totals", and a block with an unknown kind gives DtoError.UnknownTextKind.
+        /// Reads the text block and the state of every total. A Dto that is null after JSON deserialization gives
+        /// DtoError.Missing "Totals", a block with an unknown kind gives DtoError.UnknownTextKind, and an unknown
+        /// state gives DtoError.UnknownTotalState.
         let fromDto (dto: Dto) : Result<Totals, DtoError list> =
             let block =
                 function
                 | None -> Ok None
-                | Some b -> b |> TextBlock.Dto.fromDto |> Result.map Some |> Result.mapError List.singleton
+                | Some t -> t |> totalFromDto |> Result.map Some |> Result.mapError List.singleton
 
             Nested.required
                 "Totals"
