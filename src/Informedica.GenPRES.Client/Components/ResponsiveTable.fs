@@ -307,6 +307,90 @@ module ResponsiveTable =
     open Cards
 
 
+    /// The toolbar of the grid: an arrow that shows and hides the columns, density, export and print
+    /// buttons. The buttons start hidden. The print button shows only when a print handler is given.
+    /// The toolbar is a component of its own, so that the grid keeps it, and the focus on the arrow,
+    /// when the buttons are shown or hidden.
+    [<JSX.Component>]
+    let Toolbar (props: {| onPrint: (unit -> unit) option |}) =
+        let toolsOpen, setToolsOpen = React.useState false
+
+        let toggleTools = fun _ -> setToolsOpen (not toolsOpen)
+
+        // the arrow points right while the tools are hidden, and left to hide them again
+        let toggleIcon =
+            if toolsOpen then
+                Mui.Icons.ChevronLeft
+            else
+                Mui.Icons.ChevronRight
+
+        let toggleLabel =
+            if toolsOpen then
+                "Hide the table tools"
+            else
+                "Show the table tools"
+
+        let printButton =
+            match props.onPrint with
+            | Some handlePrint ->
+                JSX.jsx
+                    $"""
+                import Button from '@mui/material/Button';
+                import PrintIcon from '@mui/icons-material/Print';
+
+                <Button color="primary" size="small" startIcon={{<PrintIcon />}} onClick={fun _ -> handlePrint ()}>
+                    Print
+                </Button>
+                """
+            | None -> null
+
+        let toolbarSx = {| justifyContent = "flex-start" |}
+
+        let printOptionsSx =
+            {|
+                hideFooter = true
+                hideToolbar = true
+            |}
+
+        // no filter button and no filter in the column menus: the filter above the
+        // grid is the one filter on the list, so that a row is never hidden by a
+        // filter the user cannot see
+        let tools =
+            if toolsOpen then
+                JSX.jsx
+                    $"""
+                import React from 'react';
+                import {{ GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
+
+                <React.Fragment>
+                    <GridToolbarColumnsButton />
+                    <GridToolbarDensitySelector />
+                    <GridToolbarExport printOptions={printOptionsSx} />
+                    {printButton}
+                </React.Fragment>
+                """
+            else
+                null
+
+        JSX.jsx
+            $"""
+        import {{ GridToolbarContainer }} from '@mui/x-data-grid';
+        import IconButton from '@mui/material/IconButton';
+
+        <GridToolbarContainer sx={toolbarSx}>
+            <IconButton size="small" onClick={toggleTools} aria-label={toggleLabel} aria-expanded={toolsOpen} title={toggleLabel}>
+                {toggleIcon}
+            </IconButton>
+            {tools}
+        </GridToolbarContainer>
+        """
+
+
+    /// The slots of the grid with the toolbar. The object is made once, so that the grid gets the same
+    /// toolbar component on every render and does not mount it anew.
+    let toolbarSlots = createObj [ "toolbar" ==> Toolbar ]
+
+
     [<JSX.Component>]
     let View
         (props:
@@ -579,48 +663,6 @@ module ResponsiveTable =
                 |> Array.map (Array.map _.value)
                 |> Array.map props.rowCreate
 
-            let toolbar () =
-                if props.showToolbar then
-                    let printButton =
-                        match props.onPrint with
-                        | Some handlePrint ->
-                            JSX.jsx
-                                $"""
-                            import Button from '@mui/material/Button';
-                            import PrintIcon from '@mui/icons-material/Print';
-
-                            <Button color="primary" size="small" startIcon={{<PrintIcon />}} onClick={fun _ -> handlePrint filteredRows}>
-                                Print
-                            </Button>
-                            """
-                        | None -> null
-
-                    let toolbarSx = {| justifyContent = "flex-start" |}
-
-                    let printOptionsSx =
-                        {|
-                            hideFooter = true
-                            hideToolbar = true
-                        |}
-
-                    // no filter button and no filter in the column menus: the filter above the
-                    // grid is the one filter on the list, so that a row is never hidden by a
-                    // filter the user cannot see
-                    JSX.jsx
-                        $"""
-                    import {{ GridToolbarContainer, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
-
-                    <GridToolbarContainer sx={toolbarSx}>
-                        <GridToolbarColumnsButton />
-                        <GridToolbarDensitySelector />
-                        <GridToolbarExport printOptions={printOptionsSx} />
-                        {printButton}
-                    </GridToolbarContainer>
-                    """
-                    |> toReact
-                else
-                    null
-
             let selectedRows =
                 let jsIds: obj = emitJsExpr props.selectedRows "new Set($0)"
 
@@ -629,11 +671,14 @@ module ResponsiveTable =
                     ids = jsIds
                 |}
 
-            let slots =
-                if props.showToolbar then
-                    createObj [ "toolbar" ==> toolbar ]
-                else
-                    createObj []
+            let slots = if props.showToolbar then toolbarSlots else createObj []
+
+            let slotProps =
+                let onPrint =
+                    props.onPrint
+                    |> Option.map (fun handlePrint -> fun () -> handlePrint filteredRows)
+
+                createObj [ "toolbar" ==> {| onPrint = onPrint |} ]
 
             let containerSx =
                 {|
@@ -668,6 +713,7 @@ module ResponsiveTable =
                         
                         rows={rows}
                         slots={slots}
+                        slotProps={slotProps}
                         onRowClick={onRowClick}
                         hideFooter={not props.showFooter}
                         initialState =

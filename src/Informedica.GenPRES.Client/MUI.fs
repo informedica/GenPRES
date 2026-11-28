@@ -272,6 +272,20 @@ module Icons =
     <ExpandLessIcon/>
     """
 
+    let ChevronLeft =
+        JSX.jsx
+            $"""
+    import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+    <ChevronLeftIcon/>
+    """
+
+    let ChevronRight =
+        JSX.jsx
+            $"""
+    import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+    <ChevronRightIcon/>
+    """
+
     [<JSX.Component>]
     let WarningAmber =
         JSX.jsx
